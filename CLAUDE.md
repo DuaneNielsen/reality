@@ -152,9 +152,9 @@ The task graph defines precise system dependencies:
 The Manager constructor performs crucial initialization:
 ```cpp
 Manager::Manager(const Config &cfg) {
-    // 1. Initialize implementation (CPU/CUDA)
-    // 2. Force reset all worlds
-    // 3. Execute one step to populate observations
+    // 1. Initialize implementation via Impl::init()
+    // 2. Force reset all worlds via triggerReset()
+    // 3. Execute one step via step()
 }
 ```
 
@@ -162,37 +162,48 @@ Manager::Manager(const Config &cfg) {
 
 #### CPU Mode:
 1. Creates `PhysicsLoader` for CPU execution
-2. Loads collision meshes for all objects
+2. Calls `loadPhysicsObjects()` to load collision meshes
 3. Initializes `ThreadPoolExecutor` with:
    - Auto-detected worker threads (0 = num CPU cores)
-   - Exported component memory allocation
+   - Exported component memory allocation via `getExported()`
    - Per-world initialization data
 4. Maps exported buffer pointers
 
 #### CUDA Mode:
-1. Initializes CUDA context for specified GPU
+1. Calls `MWCudaExecutor::initCUDA()` for GPU context
 2. Creates GPU-based `PhysicsLoader`
-3. Initializes `MWCudaExecutor` with:
+3. Calls `loadPhysicsObjects()` to load collision meshes
+4. Initializes `MWCudaExecutor` with:
    - JIT compilation of GPU kernels
    - Device memory allocation
-   - CUDA graph optimization
-4. Maps device pointers to exported buffers
+   - CUDA graph optimization via `buildLaunchGraphAllTaskGraphs()`
+5. Maps device pointers via `getExported()`
 
 ### Asset Loading
 
-#### Physics Assets:
-- **Collision Meshes**: Cube, Wall, Door, Agent, Button
-- **Mass Properties**:
-  - Cube: 0.075 inverse mass (movable)
-  - Walls/Doors: 0 inverse mass (static)
-  - Agent: 1.0 inverse mass, Z-axis rotation only
-- **Friction**: μs=0.5, μd=0.5-0.75 for most objects
+#### Physics Assets (`loadPhysicsObjects()`):
+- **Collision Mesh Loading**: Calls `AssetImporter::importFromDisk()` for OBJ files
+- **Rigid Body Processing Pipeline**:
+  1. Import raw meshes as convex hulls
+  2. Process with `RigidBodyAssets::processRigidBodyAssets()`:
+     - Optimizes convex hulls for collision detection
+     - Computes bounding volumes and centroids
+     - Calculates mass properties (center of mass, inertia tensor)
+     - Builds collision primitives (hulls, planes)
+     - Allocates contiguous memory block for cache efficiency
+  3. Configure physics properties via `setupHull()`:
+     - Movable objects: Small inverse mass values
+     - Static objects: Zero inverse mass
+     - Controlled entities: Unit mass with rotation constraints
+     - Friction coefficients: μs=0.5, μd=0.5-0.75
+  4. Load processed data via `PhysicsLoader::loadRigidBodies()`
 
-#### Render Assets:
-- **Meshes**: Visual representations with material assignments
-- **Materials**: Orange cubes, gray walls, red doors, white agents, yellow buttons
-- **Textures**: Grid pattern, smile emoji
-- **Lighting**: Single directional light
+#### Render Assets (`loadRenderObjects()`):
+- **Meshes**: Calls `AssetImporter::importFromDisk()` for visual assets
+- **Materials**: Configured with RGB values and texture indices
+- **Textures**: Loaded via `ImageImporter::importImages()`
+- **Lighting**: Set via `RenderManager::configureLighting()`
+- **Final Load**: `RenderManager::loadObjects()` uploads to GPU
 
 ### Memory Layout
 1. **World Data**: Array of `Sim` instances
@@ -204,22 +215,23 @@ Manager::Manager(const Config &cfg) {
 4. **Render Buffers**: GPU memory for meshes, textures, outputs
 
 ### Initialization Sequence
-1. **Manager Construction**:
-   - Select CPU/CUDA implementation
-   - Load all assets
+1. **Manager Construction** (`Manager::Manager()`):
+   - Call `Impl::init()` to select implementation
+   - Call `initRenderGPUState()` and `initRenderManager()`
+   - Load assets via `loadPhysicsObjects()` and `loadRenderObjects()`
    - Create execution backend
    
-2. **Per-World Sim Initialization**:
-   - Register ECS components/archetypes
-   - Create persistent entities (floor, walls, agents)
-   - Generate initial level
-   - Setup task graph
+2. **Per-World Sim Initialization** (`Sim::Sim()`):
+   - Call `registerTypes()` for ECS components
+   - Call `createPersistentEntities()` for static entities
+   - Call `initWorld()` → `generateWorld()` → `generateLevel()`
+   - Call `setupTasks()` to configure task graph
    
 3. **First Step Execution**:
-   - Trigger reset for all worlds
-   - Run one simulation step
+   - Call `triggerReset()` for all worlds
+   - Call `step()` → `impl->run()` → `gpuExec.run()`
+   - Call `RenderManager::readECS()` if rendering enabled
    - Populate initial observations
-   - Ensure valid starting state
 
 ### Key Configuration Parameters
 - `execMode`: CPU or CUDA execution
