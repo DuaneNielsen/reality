@@ -245,51 +245,15 @@ inline void setDoorPositionSystem(Engine &,
 }
 
 
-// Checks if there is an entity standing on the button and updates
-// ButtonState if so.
-inline void buttonSystem(Engine &ctx,
-                         Position pos,
-                         ButtonState &state)
-{
-    AABB button_aabb {
-        .pMin = pos + Vector3 { 
-            -consts::buttonWidth / 2.f, 
-            -consts::buttonWidth / 2.f,
-            0.f,
-        },
-        .pMax = pos + Vector3 { 
-            consts::buttonWidth / 2.f, 
-            consts::buttonWidth / 2.f,
-            0.25f
-        },
-    };
+// Button system removed - no buttons in the game
 
-    bool button_pressed = false;
-    PhysicsSystem::findEntitiesWithinAABB(
-            ctx, button_aabb, [&](Entity) {
-        button_pressed = true;
-    });
-
-    state.isPressed = button_pressed;
-}
-
-// Check if all the buttons linked to the door are pressed and open if so.
-// Optionally, close the door if the buttons aren't pressed.
+// Doors are always open - no button checks needed
 inline void doorOpenSystem(Engine &ctx,
                            OpenState &open_state,
                            const DoorProperties &props)
 {
-    bool all_pressed = true;
-    for (int32_t i = 0; i < props.numButtons; i++) {
-        Entity button = props.buttons[i];
-        all_pressed = all_pressed && ctx.get<ButtonState>(button).isPressed;
-    }
-
-    if (all_pressed) {
-        open_state.isOpen = true;
-    } else if (!props.isPersistent) {
-        open_state.isOpen = false;
-    }
+    // Doors always remain open
+    open_state.isOpen = true;
 }
 
 // Make the agents easier to control by zeroing out their velocity
@@ -619,19 +583,12 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto phys_done = phys::PhysicsSystem::setupCleanupTasks(
         builder, {agent_zero_vel});
 
-    // Check buttons
-    auto button_sys = builder.addToGraph<ParallelForNode<Engine,
-        buttonSystem,
-            Position,
-            ButtonState
-        >>({phys_done});
-
-    // Set door to start opening if button conditions are met
+    // Set doors to always be open (no button conditions)
     auto door_open_sys = builder.addToGraph<ParallelForNode<Engine,
         doorOpenSystem,
             OpenState,
             DoorProperties
-        >>({button_sys});
+        >>({phys_done});
 
     // Compute initial reward now that physics has updated the world state
     auto reward_sys = builder.addToGraph<ParallelForNode<Engine,
@@ -719,10 +676,8 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
         builder, {lidar, collect_obs});
     auto sort_phys_objects = queueSortByWorld<PhysicsEntity>(
         builder, {sort_agents});
-    auto sort_buttons = queueSortByWorld<ButtonEntity>(
-        builder, {sort_phys_objects});
     auto sort_walls = queueSortByWorld<DoorEntity>(
-        builder, {sort_buttons});
+        builder, {sort_phys_objects});
     (void)sort_walls;
 #else
     (void)lidar;
