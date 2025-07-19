@@ -145,3 +145,92 @@ The task graph defines precise system dependencies:
 - Adjust `--num-worlds` based on available GPU memory
 - Fixed timestep: 0.04s with 4 physics substeps
 - Component access patterns critical for cache performance
+
+## Initialization Process
+
+### Manager Creation Flow
+The Manager constructor performs crucial initialization:
+```cpp
+Manager::Manager(const Config &cfg) {
+    // 1. Initialize implementation (CPU/CUDA)
+    // 2. Force reset all worlds
+    // 3. Execute one step to populate observations
+}
+```
+
+### Execution Mode Initialization
+
+#### CPU Mode:
+1. Creates `PhysicsLoader` for CPU execution
+2. Loads collision meshes for all objects
+3. Initializes `ThreadPoolExecutor` with:
+   - Auto-detected worker threads (0 = num CPU cores)
+   - Exported component memory allocation
+   - Per-world initialization data
+4. Maps exported buffer pointers
+
+#### CUDA Mode:
+1. Initializes CUDA context for specified GPU
+2. Creates GPU-based `PhysicsLoader`
+3. Initializes `MWCudaExecutor` with:
+   - JIT compilation of GPU kernels
+   - Device memory allocation
+   - CUDA graph optimization
+4. Maps device pointers to exported buffers
+
+### Asset Loading
+
+#### Physics Assets:
+- **Collision Meshes**: Cube, Wall, Door, Agent, Button
+- **Mass Properties**:
+  - Cube: 0.075 inverse mass (movable)
+  - Walls/Doors: 0 inverse mass (static)
+  - Agent: 1.0 inverse mass, Z-axis rotation only
+- **Friction**: μs=0.5, μd=0.5-0.75 for most objects
+
+#### Render Assets:
+- **Meshes**: Visual representations with material assignments
+- **Materials**: Orange cubes, gray walls, red doors, white agents, yellow buttons
+- **Textures**: Grid pattern, smile emoji
+- **Lighting**: Single directional light
+
+### Memory Layout
+1. **World Data**: Array of `Sim` instances
+2. **Exported Tensors**:
+   - Actions: `[numWorlds × numAgents × 4]`
+   - Rewards: `[numWorlds × numAgents × 1]`
+   - Multiple observation tensors
+3. **Physics Data**: Collision geometry, rigid body metadata
+4. **Render Buffers**: GPU memory for meshes, textures, outputs
+
+### Initialization Sequence
+1. **Manager Construction**:
+   - Select CPU/CUDA implementation
+   - Load all assets
+   - Create execution backend
+   
+2. **Per-World Sim Initialization**:
+   - Register ECS components/archetypes
+   - Create persistent entities (floor, walls, agents)
+   - Generate initial level
+   - Setup task graph
+   
+3. **First Step Execution**:
+   - Trigger reset for all worlds
+   - Run one simulation step
+   - Populate initial observations
+   - Ensure valid starting state
+
+### Key Configuration Parameters
+- `execMode`: CPU or CUDA execution
+- `gpuID`: Target GPU device
+- `numWorlds`: Parallel simulation count
+- `randSeed`: RNG initialization
+- `autoReset`: Automatic episode restart
+- `enableBatchRenderer`: GPU rendering toggle
+
+### Thread/GPU Parallelism
+- **CPU**: Thread pool with automatic core detection
+- **CUDA**: One thread block per world, warp-level optimizations
+- Task graph ensures correct system execution order
+- Zero-copy memory mapping for Python integration
