@@ -218,17 +218,54 @@ Manager::Manager(const Config &cfg) {
 4. **Render Buffers**: GPU memory for meshes, textures, outputs
 
 ### Initialization Sequence
-1. **Manager Construction** (`Manager::Manager()`):
-   - Call `Impl::init()` to select implementation
-   - Call `initRenderGPUState()` and `initRenderManager()`
-   - Load assets via `loadPhysicsObjects()` and `loadRenderObjects()`
-   - Create execution backend (TaskGraphExecutor/MWCudaExecutor)
+1. **Manager Construction** (`Manager::Manager()` → `Impl::init()`):
+   - Create `Sim::Config` with autoReset and random seed
+   - Branch based on execution mode (CPU/CUDA):
    
-2. **Executor Initialization** (inside TaskGraphExecutor/MWCudaExecutor):
-   - Call `Sim::registerTypes()` static method (happens ONCE)
-   - Set up ECS registry with all components, archetypes, and exports
-   - Call `Sim::setupTasks()` to configure task graph
-   - Allocate memory for all worlds
+   **For CUDA Mode:**
+   - Call `MWCudaExecutor::initCUDA()` to initialize CUDA context
+   - Create `PhysicsLoader` for GPU and call `loadPhysicsObjects()`
+   - Initialize optional GPU rendering:
+     - `initRenderGPUState()` - sets up GPU render state
+     - `initRenderManager()` - creates render manager
+     - `loadRenderObjects()` - loads meshes, materials, textures
+   - Create `HeapArray<Sim::WorldInit>` for per-world initialization
+   - Construct `MWCudaExecutor` with configuration including:
+     - World initialization data pointers
+     - Sim config (physics, rendering bridges)
+     - Memory layout info (sizeof(Sim), alignment)
+     - Number of worlds, task graphs, exported buffers
+     - GPU compilation flags
+   - Call `getExported()` to retrieve device pointers for:
+     - Reset buffer (`WorldReset*`)
+     - Action buffer (`Action*`)
+     - All other exported components (via tensor mapping)
+   
+   **For CPU Mode:**
+   - Same physics and render initialization as CUDA
+   - Construct `ThreadPoolExecutor` with:
+     - Number of worlds and exported buffers
+     - Sim config and world initialization data
+   - Call `getExported()` to retrieve host pointers
+   
+   **After Impl::init() returns:**
+   - Force reset all worlds via `triggerReset()`
+   - Execute one step via `step()` to populate initial observations
+   
+2. **Executor Initialization** (inside TaskGraphExecutor/MWCudaExecutor constructor):
+   - Base class `ThreadPoolExecutor` constructor runs first
+   - Call `getECSRegistry()` to obtain the ECS registry
+   - Call `WorldT::registerTypes()` (i.e., `Sim::registerTypes()`) which:
+     - Registers all components with `registry.registerComponent<T>()`
+     - Registers all archetypes with `registry.registerArchetype<T>()`
+     - Exports components for Python access with `registry.exportColumn<T>()`
+     - **Memory allocation**: Virtual address space (1B × component size) reserved per exported component
+   - Create per-world contexts and task graph managers
+   - Construct world data instances (`WorldT` objects)
+   - Call `WorldT::setupTasks()` (i.e., `Sim::setupTasks()`) to build task graphs
+   - Call `initExport()` which triggers initial `copyOutExportedColumns()`
+     - **Memory allocation**: Physical pages committed as needed during copy
+   - **Now `getExported()` can be called** to retrieve pointers to exported data
    
 3. **Per-World Sim Construction** (`Sim::Sim()` constructor):
    - Calculate `max_total_entities` for BVH allocation:
@@ -353,3 +390,93 @@ To add a new system to process components:
    - **Performance**: Keep systems focused, avoid random memory access
    - **GPU Compatibility**: Use `#ifdef MADRONA_GPU_MODE` for GPU-specific code
    - **Parallelism**: Systems run in parallel across worlds and entities
+
+### Task Graph Setup (setupTasks)
+
+The `setupTasks` function builds a static execution graph defining the order and dependencies of all systems that run each simulation step. Understanding this is crucial for modifying the simulation.
+
+#### Data Flow Phases
+
+1. **Input Processing Phase**
+   - Transforms external actions into physics forces/torques
+   - Must run first to prepare physics inputs
+
+2. **Pre-Physics State Updates**
+   - Updates positions of kinematically-controlled entities (doors)
+   - Must complete before spatial structure build
+
+3. **Spatial Structure Build (Phase 1)**
+   - Builds BVH (Bounding Volume Hierarchy) for efficient spatial queries
+   - Depends on all entity positions being finalized
+   - Required by any system doing raycasting or proximity queries
+
+4. **Spatial Query Systems**
+   - Systems like grab that need raycasting
+   - Must run after BVH build, before physics
+
+5. **Physics Simulation Pipeline**
+   - Broadphase collision detection (uses BVH)
+   - Narrowphase collision detection  
+   - Constraint solving (multiple substeps)
+   - Position/velocity integration
+   - **Monolithic step** - no other systems can run during physics
+
+6. **Post-Physics Corrections**
+   - Modifications to physics output (e.g., zeroing velocities)
+   - Must run after physics, before cleanup
+
+7. **Physics Cleanup**
+   - Finalizes physics state
+   - Clears temporary collision data
+   - Must run after all physics modifications
+
+8. **Game Logic Phase**
+   - Reward calculation, door logic, episode management
+   - Reads physics state but doesn't modify it
+   - Safe to run in any order within this phase
+
+9. **Episode Management**
+   - Reset detection and world regeneration
+   - May invalidate entire world state
+
+10. **Spatial Structure Rebuild (Phase 2)**
+    - Required after reset (world geometry may have changed)
+    - Runs every frame due to GPU constraints (no conditional execution)
+
+11. **Observation Collection**
+    - Gathers all entity states for external consumers
+    - Must run last, after all state updates
+
+#### Key Principles
+
+**Physics Data Access Rules:**
+- **Pre-physics systems**: Can write positions/forces, no physics data exists yet
+- **During physics**: No other systems can execute
+- **Post-physics systems**: Can read physics results, limited modification allowed
+- **Logic systems**: Read-only access to physics state
+
+**Spatial Query Dependencies:**
+- Any system using raycasting must run after BVH build
+- Systems modifying positions invalidate the BVH
+- Two BVH builds needed: pre-physics and post-reset
+
+**GPU Constraints:**
+- No dynamic graph modification - all nodes run every frame
+- Conditional logic implemented via no-op execution
+- Entity recycling handled separately on GPU backend
+
+**Common Patterns:**
+```cpp
+// System with dependencies
+auto my_sys = builder.addToGraph<ParallelForNode<Engine,
+    mySystem,
+    Component1,
+    Component2
+>>({dependency1, dependency2});
+
+// Physics-dependent system  
+auto post_phys_sys = builder.addToGraph<...>({phys_cleanup});
+
+// Observation system (runs last)
+auto obs_sys = builder.addToGraph<...>({post_reset_broadphase});
+```

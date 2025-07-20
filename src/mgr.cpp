@@ -27,13 +27,18 @@ using namespace madrona::py;
 
 namespace madEscape {
 
+// ============================================================================
+// BOILERPLATE: Rendering Infrastructure (Required by Madrona)
+// ============================================================================
+
+// [BOILERPLATE] GPU rendering state container required by Madrona
 struct RenderGPUState {
     render::APILibHandle apiLib;
     render::APIManager apiMgr;
     render::GPUHandle gpu;
 };
 
-
+// [BOILERPLATE] Initialize GPU state for rendering - standard Madrona pattern
 static inline Optional<RenderGPUState> initRenderGPUState(
     const Manager::Config &mgr_cfg)
 {
@@ -52,6 +57,8 @@ static inline Optional<RenderGPUState> initRenderGPUState(
     };
 }
 
+// [BOILERPLATE] Initialize render manager - standard Madrona pattern
+// [HYBRID] The configuration values (numAgents, view dimensions) are game-specific
 static inline Optional<render::RenderManager> initRenderManager(
     const Manager::Config &mgr_cfg,
     const Optional<RenderGPUState> &render_gpu_state)
@@ -77,18 +84,24 @@ static inline Optional<render::RenderManager> initRenderManager(
         .agentViewWidth = mgr_cfg.batchRenderViewWidth,
         .agentViewHeight = mgr_cfg.batchRenderViewHeight,
         .numWorlds = mgr_cfg.numWorlds,
-        .maxViewsPerWorld = consts::numAgents,
-        .maxInstancesPerWorld = 1000,
+        .maxViewsPerWorld = consts::numAgents,  // [GAME-SPECIFIC] One view per agent
+        .maxInstancesPerWorld = 1000,           // [GAME-SPECIFIC] Max entities to render
         .execMode = mgr_cfg.execMode,
         .voxelCfg = {},
     });
 }
 
+// ============================================================================
+// BOILERPLATE: Manager Implementation Base Class
+// ============================================================================
+
+// [BOILERPLATE] Base implementation class for CPU/GPU polymorphism
+// [HYBRID] Contains both boilerplate structure and game-specific buffers
 struct Manager::Impl {
     Config cfg;
     PhysicsLoader physicsLoader;
-    WorldReset *worldResetBuffer;
-    Action *agentActionsBuffer;
+    WorldReset *worldResetBuffer;    // [GAME-SPECIFIC] Reset control buffer
+    Action *agentActionsBuffer;      // [GAME-SPECIFIC] Agent action buffer
     Optional<RenderGPUState> renderGPUState;
     Optional<render::RenderManager> renderMgr;
 
@@ -108,15 +121,18 @@ struct Manager::Impl {
 
     inline virtual ~Impl() {}
 
-    virtual void run() = 0;
+    virtual void run() = 0;  // [BOILERPLATE] Execute one simulation step
 
+    // [BOILERPLATE] Export tensor data for Python integration
     virtual Tensor exportTensor(ExportID slot,
         TensorElementType type,
         madrona::Span<const int64_t> dimensions) const = 0;
 
+    // [BOILERPLATE] Factory method for creating CPU/GPU implementations
     static inline Impl * init(const Config &cfg);
 };
 
+// [BOILERPLATE] CPU-specific implementation
 struct Manager::CPUImpl final : Manager::Impl {
     using TaskGraphT =
         TaskGraphExecutor<Engine, Sim, Sim::Config, Sim::WorldInit>;
@@ -153,6 +169,7 @@ struct Manager::CPUImpl final : Manager::Impl {
 };
 
 #ifdef MADRONA_CUDA_SUPPORT
+// [BOILERPLATE] CUDA-specific implementation
 struct Manager::CUDAImpl final : Manager::Impl {
     MWCudaExecutor gpuExec;
     MWCudaLaunchGraph stepGraph;
@@ -188,21 +205,27 @@ struct Manager::CUDAImpl final : Manager::Impl {
 };
 #endif
 
+// ============================================================================
+// GAME-SPECIFIC: Asset Loading Functions
+// ============================================================================
+
+// [GAME-SPECIFIC] Load all visual assets for the escape room
 static void loadRenderObjects(render::RenderManager &render_mgr)
 {
     StackAlloc tmp_alloc;
 
+    // [GAME-SPECIFIC] Map each game object type to its visual mesh
     std::array<std::string, (size_t)SimObject::NumObjects> render_asset_paths;
     render_asset_paths[(size_t)SimObject::Cube] =
         (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();
     render_asset_paths[(size_t)SimObject::Wall] =
         (std::filesystem::path(DATA_DIR) / "wall_render.obj").string();
     render_asset_paths[(size_t)SimObject::Door] =
-        (std::filesystem::path(DATA_DIR) / "wall_render.obj").string();
+        (std::filesystem::path(DATA_DIR) / "wall_render.obj").string();  // Reuses wall mesh
     render_asset_paths[(size_t)SimObject::Agent] =
         (std::filesystem::path(DATA_DIR) / "agent_render.obj").string();
     render_asset_paths[(size_t)SimObject::Button] =
-        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();
+        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();  // Reuses cube mesh
     render_asset_paths[(size_t)SimObject::Plane] =
         (std::filesystem::path(DATA_DIR) / "plane.obj").string();
 
@@ -221,43 +244,47 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         FATAL("Failed to load render assets: %s", import_err);
     }
 
+    // [GAME-SPECIFIC] Define materials for each object type
     auto materials = std::to_array<imp::SourceMaterial>({
-        { render::rgb8ToFloat(191, 108, 10), -1, 0.8f, 0.2f },
-        { math::Vector4{0.4f, 0.4f, 0.4f, 0.0f}, -1, 0.8f, 0.2f,},
-        { math::Vector4{1.f, 1.f, 1.f, 0.0f}, 1, 0.5f, 1.0f,},
-        { render::rgb8ToFloat(230, 230, 230),   -1, 0.8f, 1.0f },
-        { math::Vector4{0.5f, 0.3f, 0.3f, 0.0f},  0, 0.8f, 0.2f,},
-        { render::rgb8ToFloat(230, 20, 20),   -1, 0.8f, 1.0f },
-        { render::rgb8ToFloat(230, 230, 20),   -1, 0.8f, 1.0f },
+        { render::rgb8ToFloat(191, 108, 10), -1, 0.8f, 0.2f },      // Brown (cube)
+        { math::Vector4{0.4f, 0.4f, 0.4f, 0.0f}, -1, 0.8f, 0.2f,},  // Gray (wall)
+        { math::Vector4{1.f, 1.f, 1.f, 0.0f}, 1, 0.5f, 1.0f,},      // White (agent body)
+        { render::rgb8ToFloat(230, 230, 230),   -1, 0.8f, 1.0f },   // Light gray (agent parts)
+        { math::Vector4{0.5f, 0.3f, 0.3f, 0.0f},  0, 0.8f, 0.2f,},  // Brown (floor)
+        { render::rgb8ToFloat(230, 20, 20),   -1, 0.8f, 1.0f },     // Red (door)
+        { render::rgb8ToFloat(230, 230, 20),   -1, 0.8f, 1.0f },    // Yellow (button)
     });
 
-    // Override materials
+    // [GAME-SPECIFIC] Assign materials to each object's meshes
     render_assets->objects[(CountT)SimObject::Cube].meshes[0].materialIDX = 0;
     render_assets->objects[(CountT)SimObject::Wall].meshes[0].materialIDX = 1;
-    render_assets->objects[(CountT)SimObject::Door].meshes[0].materialIDX = 5;
-    render_assets->objects[(CountT)SimObject::Agent].meshes[0].materialIDX = 2;
-    render_assets->objects[(CountT)SimObject::Agent].meshes[1].materialIDX = 3;
-    render_assets->objects[(CountT)SimObject::Agent].meshes[2].materialIDX = 3;
-    render_assets->objects[(CountT)SimObject::Button].meshes[0].materialIDX = 6;
+    render_assets->objects[(CountT)SimObject::Door].meshes[0].materialIDX = 5;   // Red
+    render_assets->objects[(CountT)SimObject::Agent].meshes[0].materialIDX = 2;  // Body
+    render_assets->objects[(CountT)SimObject::Agent].meshes[1].materialIDX = 3;  // Eyes
+    render_assets->objects[(CountT)SimObject::Agent].meshes[2].materialIDX = 3;  // Other parts
+    render_assets->objects[(CountT)SimObject::Button].meshes[0].materialIDX = 6; // Yellow
     render_assets->objects[(CountT)SimObject::Plane].meshes[0].materialIDX = 4;
 
+    // [GAME-SPECIFIC] Load textures for materials
     imp::ImageImporter img_importer;
     Span<imp::SourceTexture> imported_textures = img_importer.importImages(
         tmp_alloc, {
             (std::filesystem::path(DATA_DIR) /
-               "green_grid.png").string().c_str(),
+               "green_grid.png").string().c_str(),   // Floor texture
             (std::filesystem::path(DATA_DIR) /
-               "smile.png").string().c_str(),
+               "smile.png").string().c_str(),        // Agent texture
         });
 
     render_mgr.loadObjects(
         render_assets->objects, materials, imported_textures);
 
+    // [GAME-SPECIFIC] Configure scene lighting
     render_mgr.configureLighting({
         { true, math::Vector3{1.0f, 1.0f, -2.0f}, math::Vector3{1.0f, 1.0f, 1.0f} }
     });
 }
 
+// [GAME-SPECIFIC] Load collision meshes and configure physics properties
 static void loadPhysicsObjects(PhysicsLoader &loader)
 {
     std::array<std::string, (size_t)SimObject::NumObjects - 1> asset_paths;
@@ -319,27 +346,28 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         };
     };
 
-    setupHull(SimObject::Cube, 0.075f, {
+    // [GAME-SPECIFIC] Configure physics for each object type
+    setupHull(SimObject::Cube, 0.075f, {    // Pushable with ~13kg mass
         .muS = 0.5f,
         .muD = 0.75f,
     });
 
-    setupHull(SimObject::Wall, 0.f, {
+    setupHull(SimObject::Wall, 0.f, {       // Static (infinite mass)
         .muS = 0.5f,
         .muD = 0.5f,
     });
 
-    setupHull(SimObject::Door, 0.f, {
+    setupHull(SimObject::Door, 0.f, {       // Static (infinite mass)
         .muS = 0.5f,
         .muD = 0.5f,
     });
 
-    setupHull(SimObject::Agent, 1.f, {
+    setupHull(SimObject::Agent, 1.f, {      // Unit mass for direct control
         .muS = 0.5f,
         .muD = 0.5f,
     });
 
-    setupHull(SimObject::Button, 1.f, {
+    setupHull(SimObject::Button, 1.f, {     // Unit mass (not used in current version)
         .muS = 0.5f,
         .muD = 0.5f,
     });
@@ -373,9 +401,9 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         FATAL("Invalid collision hull input");
     }
 
-    // This is a bit hacky, but in order to make sure the agents
-    // remain controllable by the policy, they are only allowed to
-    // rotate around the Z axis (infinite inertia in x & y axes)
+    // [GAME-SPECIFIC] Constrain agent rotation to Z-axis only
+    // This prevents agents from tipping over and ensures controllability
+    // Setting inverse inertia to 0 makes rotation impossible around that axis
     rigid_body_assets.metadatas[
         (CountT)SimObject::Agent].mass.invInertiaTensor.x = 0.f;
     rigid_body_assets.metadatas[
@@ -385,9 +413,16 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     free(rigid_body_data);
 }
 
+// ============================================================================
+// BOILERPLATE: Manager Initialization
+// ============================================================================
+
+// [BOILERPLATE] Factory method implementing CPU/GPU branching pattern
+// [HYBRID] Calls game-specific asset loaders within boilerplate structure
 Manager::Impl * Manager::Impl::init(
     const Manager::Config &mgr_cfg)
 {
+    // [HYBRID] Create sim config - structure is boilerplate, values are game-specific
     Sim::Config sim_cfg;
     sim_cfg.autoReset = mgr_cfg.autoReset;
     sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);
@@ -397,9 +432,12 @@ Manager::Impl * Manager::Impl::init(
 #ifdef MADRONA_CUDA_SUPPORT
         CUcontext cu_ctx = MWCudaExecutor::initCUDA(mgr_cfg.gpuID);
 
+        // [BOILERPLATE] Create physics loader for GPU
         PhysicsLoader phys_loader(ExecMode::CUDA, 10);
+        // [GAME-SPECIFIC] Load escape room collision meshes
         loadPhysicsObjects(phys_loader);
 
+        // [BOILERPLATE] Get physics object manager and pass to sim config
         ObjectManager *phys_obj_mgr = &phys_loader.getObjectManager();
         sim_cfg.rigidBodyObjMgr = phys_obj_mgr;
 
@@ -410,14 +448,19 @@ Manager::Impl * Manager::Impl::init(
             initRenderManager(mgr_cfg, render_gpu_state);
 
         if (render_mgr.has_value()) {
+            // [GAME-SPECIFIC] Load visual assets
             loadRenderObjects(*render_mgr);
+            // [BOILERPLATE] Connect render bridge to sim
             sim_cfg.renderBridge = render_mgr->bridge();
         } else {
             sim_cfg.renderBridge = nullptr;
         }
 
+        // [BOILERPLATE] Allocate per-world initialization data
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
 
+        // [BOILERPLATE] Create GPU executor with configuration
+        // [HYBRID] numExportedBuffers is game-specific (ExportID::NumExports)
         MWCudaExecutor gpu_exec({
             .worldInitPtr = world_inits.data(),
             .numWorldInitBytes = sizeof(Sim::WorldInit),
@@ -427,13 +470,14 @@ Manager::Impl * Manager::Impl::init(
             .worldDataAlignment = alignof(Sim),
             .numWorlds = mgr_cfg.numWorlds,
             .numTaskGraphs = 1,
-            .numExportedBuffers = (uint32_t)ExportID::NumExports, 
+            .numExportedBuffers = (uint32_t)ExportID::NumExports,  // [GAME-SPECIFIC] 
         }, {
-            { GPU_HIDESEEK_SRC_LIST },
-            { GPU_HIDESEEK_COMPILE_FLAGS },
+            { GPU_HIDESEEK_SRC_LIST },          // [GAME-SPECIFIC] Source files list
+            { GPU_HIDESEEK_COMPILE_FLAGS },     // [GAME-SPECIFIC] Compilation flags
             CompileConfig::OptMode::LTO,
         }, cu_ctx);
 
+        // [GAME-SPECIFIC] Get pointers to exported buffers for game control
         WorldReset *world_reset_buffer = 
             (WorldReset *)gpu_exec.getExported((uint32_t)ExportID::Reset);
 
@@ -454,9 +498,12 @@ Manager::Impl * Manager::Impl::init(
 #endif
     } break;
     case ExecMode::CPU: {
+        // [BOILERPLATE] Create physics loader for CPU
         PhysicsLoader phys_loader(ExecMode::CPU, 10);
+        // [GAME-SPECIFIC] Load escape room collision meshes
         loadPhysicsObjects(phys_loader);
 
+        // [BOILERPLATE] Get physics object manager and pass to sim config
         ObjectManager *phys_obj_mgr = &phys_loader.getObjectManager();
         sim_cfg.rigidBodyObjMgr = phys_obj_mgr;
 
@@ -467,24 +514,30 @@ Manager::Impl * Manager::Impl::init(
             initRenderManager(mgr_cfg, render_gpu_state);
 
         if (render_mgr.has_value()) {
+            // [GAME-SPECIFIC] Load visual assets
             loadRenderObjects(*render_mgr);
+            // [BOILERPLATE] Connect render bridge to sim
             sim_cfg.renderBridge = render_mgr->bridge();
         } else {
             sim_cfg.renderBridge = nullptr;
         }
 
+        // [BOILERPLATE] Allocate per-world initialization data
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
 
+        // [BOILERPLATE] Create CPU executor with configuration
+        // [HYBRID] numExportedBuffers is game-specific (ExportID::NumExports)
         CPUImpl::TaskGraphT cpu_exec {
             ThreadPoolExecutor::Config {
                 .numWorlds = mgr_cfg.numWorlds,
-                .numExportedBuffers = (uint32_t)ExportID::NumExports,
+                .numExportedBuffers = (uint32_t)ExportID::NumExports,  // [GAME-SPECIFIC]
             },
             sim_cfg,
             world_inits.data(),
-            (uint32_t)TaskGraphID::NumTaskGraphs,
+            (uint32_t)TaskGraphID::NumTaskGraphs,   // [GAME-SPECIFIC] Number of task graphs
         };
 
+        // [GAME-SPECIFIC] Get pointers to exported buffers for game control
         WorldReset *world_reset_buffer = 
             (WorldReset *)cpu_exec.getExported((uint32_t)ExportID::Reset);
 
@@ -507,9 +560,15 @@ Manager::Impl * Manager::Impl::init(
     }
 }
 
+// ============================================================================
+// BOILERPLATE: Manager Public Interface
+// ============================================================================
+
+// [BOILERPLATE] Manager constructor following Madrona initialization pattern
 Manager::Manager(const Config &cfg)
     : impl_(Impl::init(cfg))
 {
+    // [BOILERPLATE] Required initialization sequence for Madrona
     // Currently, there is no way to populate the initial set of observations
     // without stepping the simulations in order to execute the taskgraph.
     // Therefore, after setup, we step all the simulations with a forced reset
@@ -528,6 +587,7 @@ Manager::Manager(const Config &cfg)
 
 Manager::~Manager() {}
 
+// [BOILERPLATE] Execute one simulation step - standard Madrona pattern
 void Manager::step()
 {
     impl_->run();
@@ -541,6 +601,13 @@ void Manager::step()
     }
 }
 
+// ============================================================================
+// GAME-SPECIFIC: Tensor Accessors for Python Integration
+// ============================================================================
+
+// [GAME-SPECIFIC] All tensor methods below define the observation/action space
+// for the escape room environment
+
 Tensor Manager::resetTensor() const
 {
     return impl_->exportTensor(ExportID::Reset,
@@ -553,6 +620,7 @@ Tensor Manager::resetTensor() const
 
 Tensor Manager::actionTensor() const
 {
+    // [GAME-SPECIFIC] 4 discrete actions per agent: move amount/angle, rotate, grab
     return impl_->exportTensor(ExportID::Action, TensorElementType::Int32,
         {
             impl_->cfg.numWorlds,
@@ -651,8 +719,10 @@ Tensor Manager::stepsRemainingTensor() const
 
 Tensor Manager::rgbTensor() const
 {
+    // [BOILERPLATE] Get raw RGB buffer from renderer
     const uint8_t *rgb_ptr = impl_->renderMgr->batchRendererRGBOut();
 
+    // [GAME-SPECIFIC] Return tensor with escape room view dimensions
     return Tensor((void*)rgb_ptr, TensorElementType::UInt8, {
         impl_->cfg.numWorlds,
         consts::numAgents,
@@ -664,8 +734,10 @@ Tensor Manager::rgbTensor() const
 
 Tensor Manager::depthTensor() const
 {
+    // [BOILERPLATE] Get raw depth buffer from renderer
     const float *depth_ptr = impl_->renderMgr->batchRendererDepthOut();
 
+    // [GAME-SPECIFIC] Return tensor with escape room view dimensions
     return Tensor((void *)depth_ptr, TensorElementType::Float32, {
         impl_->cfg.numWorlds,
         consts::numAgents,
@@ -675,8 +747,10 @@ Tensor Manager::depthTensor() const
     }, impl_->cfg.gpuID);
 }
 
+// [GAME-SPECIFIC] Trigger episode reset for a specific world
 void Manager::triggerReset(int32_t world_idx)
 {
+    // [GAME-SPECIFIC] Set reset flag to trigger world regeneration
     WorldReset reset {
         1,
     };
@@ -693,6 +767,7 @@ void Manager::triggerReset(int32_t world_idx)
     }
 }
 
+// [GAME-SPECIFIC] Set agent actions for the escape room
 void Manager::setAction(int32_t world_idx,
                         int32_t agent_idx,
                         int32_t move_amount,
@@ -700,6 +775,7 @@ void Manager::setAction(int32_t world_idx,
                         int32_t rotate,
                         int32_t grab)
 {
+    // [GAME-SPECIFIC] Pack discrete actions into struct
     Action action { 
         .moveAmount = move_amount,
         .moveAngle = move_angle,
@@ -707,6 +783,7 @@ void Manager::setAction(int32_t world_idx,
         .grab = grab,
     };
 
+    // [GAME-SPECIFIC] Calculate buffer offset for specific agent
     auto *action_ptr = impl_->agentActionsBuffer +
         world_idx * consts::numAgents + agent_idx;
 
@@ -720,6 +797,7 @@ void Manager::setAction(int32_t world_idx,
     }
 }
 
+// [BOILERPLATE] Expose render manager for visualization tools
 render::RenderManager & Manager::getRenderManager()
 {
     return *impl_->renderMgr;
