@@ -5,6 +5,19 @@
 
 #include <algorithm>
 
+/*
+ * This file uses a three-tier classification system for code:
+ * 
+ * [BOILERPLATE] - Pure Madrona framework code that never changes
+ * [REQUIRED_INTERFACE] - Methods/structures every environment must implement
+ * [GAME_SPECIFIC] - Implementation details unique to this escape room game
+ * 
+ * When creating a new environment, focus on:
+ * - Implementing all [REQUIRED_INTERFACE] methods with your game's content
+ * - Replacing all [GAME_SPECIFIC] code with your game's logic
+ * - Leave all [BOILERPLATE] code unchanged
+ */
+
 using namespace madrona;
 using namespace madrona::math;
 using namespace madrona::phys;
@@ -13,19 +26,24 @@ namespace RenderingSystem = madrona::render::RenderingSystem;
 
 namespace madEscape {
 
-// Register all the ECS components and archetypes that will be
-// used in the simulation
+// [REQUIRED_INTERFACE] Register all the ECS components and archetypes that will be
+// used in the simulation - every environment must implement this method
 void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
 {
+    // [BOILERPLATE] Always register base and physics types
     base::registerTypes(registry);
     phys::PhysicsSystem::registerTypes(registry);
 
+    // [BOILERPLATE] Register rendering types if enabled
     RenderingSystem::registerTypes(registry, cfg.renderBridge);
 
+    // [REQUIRED_INTERFACE] Core components every environment needs
     registry.registerComponent<Action>();
-    registry.registerComponent<SelfObservation>();
     registry.registerComponent<Reward>();
     registry.registerComponent<Done>();
+    
+    // [GAME_SPECIFIC] Escape room specific components
+    registry.registerComponent<SelfObservation>();
     registry.registerComponent<GrabState>();
     registry.registerComponent<Progress>();
     registry.registerComponent<OtherAgents>();
@@ -39,18 +57,31 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerComponent<StepsRemaining>();
     registry.registerComponent<EntityType>();
 
+    // [REQUIRED_INTERFACE] Reset singleton - every episodic env needs this
     registry.registerSingleton<WorldReset>();
+    
+    // [GAME_SPECIFIC] Level management singleton
     registry.registerSingleton<LevelState>();
 
+    // [GAME_SPECIFIC] Escape room archetypes
     registry.registerArchetype<Agent>();
     registry.registerArchetype<PhysicsEntity>();
     registry.registerArchetype<DoorEntity>();
     registry.registerArchetype<ButtonEntity>();
 
+    // [REQUIRED_INTERFACE] Export reset control
     registry.exportSingleton<WorldReset>(
         (uint32_t)ExportID::Reset);
+    
+    // [REQUIRED_INTERFACE] Export core RL components
     registry.exportColumn<Agent, Action>(
         (uint32_t)ExportID::Action);
+    registry.exportColumn<Agent, Reward>(
+        (uint32_t)ExportID::Reward);
+    registry.exportColumn<Agent, Done>(
+        (uint32_t)ExportID::Done);
+    
+    // [GAME_SPECIFIC] Export escape room observations
     registry.exportColumn<Agent, SelfObservation>(
         (uint32_t)ExportID::SelfObservation);
     registry.exportColumn<Agent, PartnerObservations>(
@@ -63,12 +94,9 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         (uint32_t)ExportID::Lidar);
     registry.exportColumn<Agent, StepsRemaining>(
         (uint32_t)ExportID::StepsRemaining);
-    registry.exportColumn<Agent, Reward>(
-        (uint32_t)ExportID::Reward);
-    registry.exportColumn<Agent, Done>(
-        (uint32_t)ExportID::Done);
 }
 
+// [GAME_SPECIFIC] Helper to clean up escape room entities
 static inline void cleanupWorld(Engine &ctx)
 {
     // Destroy current level entities
@@ -87,18 +115,21 @@ static inline void cleanupWorld(Engine &ctx)
     }
 }
 
+// [GAME_SPECIFIC] Helper to initialize a new escape room world
 static inline void initWorld(Engine &ctx)
 {
+    // [BOILERPLATE] Always reset physics first
     phys::PhysicsSystem::reset(ctx);
 
-    // Assign a new episode ID
+    // [BOILERPLATE] Assign a new episode ID and RNG
     ctx.data().rng = RNG(rand::split_i(ctx.data().initRandKey,
         ctx.data().curWorldEpisode++, (uint32_t)ctx.worldID().idx));
 
-    // Defined in src/level_gen.hpp / src/level_gen.cpp
+    // [GAME_SPECIFIC] Defined in src/level_gen.hpp / src/level_gen.cpp
     generateWorld(ctx);
 }
 
+// [REQUIRED_INTERFACE] Reset system - every episodic environment needs this
 // This system runs each frame and checks if the current episode is complete
 // or if code external to the application has forced a reset by writing to the
 // WorldReset singleton.
@@ -125,7 +156,7 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
     }
 }
 
-// Translates discrete actions from the Action component to forces
+// [GAME_SPECIFIC] Translates discrete actions from the Action component to forces
 // used by the physics simulation.
 inline void movementSystem(Engine &,
                            Action &action, 
@@ -158,7 +189,7 @@ inline void movementSystem(Engine &,
     external_torque = Vector3 { 0, 0, t_z };
 }
 
-// Implements the grab action by casting a short ray in front of the agent
+// [GAME_SPECIFIC] Implements the grab action by casting a short ray in front of the agent
 // and creating a joint constraint if a grabbable entity is hit.
 inline void grabSystem(Engine &ctx,
                        Entity e,
@@ -223,7 +254,7 @@ inline void grabSystem(Engine &ctx,
         e, grab_entity, attach1, attach2, r1, r2, separation);
 }
 
-// Animates the doors opening and closing based on OpenState
+// [GAME_SPECIFIC] Animates the doors opening and closing based on OpenState
 inline void setDoorPositionSystem(Engine &,
                                   Position &pos,
                                   OpenState &open_state)
@@ -245,9 +276,9 @@ inline void setDoorPositionSystem(Engine &,
 }
 
 
-// Button system removed - no buttons in the game
+// [GAME_SPECIFIC] Button system removed - no buttons in the game
 
-// Doors are always open - no button checks needed
+// [GAME_SPECIFIC] Doors are always open - no button checks needed
 inline void doorOpenSystem(Engine &ctx,
                            OpenState &open_state,
                            const DoorProperties &props)
@@ -256,7 +287,7 @@ inline void doorOpenSystem(Engine &ctx,
     open_state.isOpen = true;
 }
 
-// Make the agents easier to control by zeroing out their velocity
+// [GAME_SPECIFIC] Make the agents easier to control by zeroing out their velocity
 // after each step.
 inline void agentZeroVelSystem(Engine &,
                                Velocity &vel,
@@ -269,6 +300,7 @@ inline void agentZeroVelSystem(Engine &,
     vel.angular = Vector3::zero();
 }
 
+// [GAME_SPECIFIC] Helper functions for observation normalization
 static inline float distObs(float v)
 {
     return v / consts::worldLength;
@@ -284,7 +316,7 @@ static inline float angleObs(float v)
     return v / math::pi;
 }
 
-// Translate xy delta to polar observations for learning.
+// [GAME_SPECIFIC] Translate xy delta to polar observations for learning.
 static inline PolarObservation xyToPolar(Vector3 v)
 {
     Vector2 xy { v.x, v.y };
@@ -312,7 +344,7 @@ static inline float computeZAngle(Quat q)
     return atan2f(siny_cosp, cosy_cosp);
 }
 
-// This system packages all the egocentric observations together 
+// [GAME_SPECIFIC] This system packages all the egocentric observations together 
 // for the policy inputs.
 inline void collectObservationsSystem(Engine &ctx,
                                       Position pos,
@@ -387,7 +419,7 @@ inline void collectObservationsSystem(Engine &ctx,
     door_obs.isOpen = door_open_state.isOpen ? 1.f : 0.f;
 }
 
-// Launches consts::numLidarSamples per agent.
+// [GAME_SPECIFIC] Launches consts::numLidarSamples per agent.
 // This system is specially optimized in the GPU version:
 // a warp of threads is dispatched for each invocation of the system
 // and each thread in the warp traces one lidar ray for the agent.
@@ -448,7 +480,8 @@ inline void lidarSystem(Engine &ctx,
 #endif
 }
 
-// Computes reward for each agent and keeps track of the max distance achieved
+// [REQUIRED_INTERFACE] Computes reward for each agent - every environment needs a reward system
+// [GAME_SPECIFIC] Keeps track of the max distance achieved
 // so far through the challenge. Continuous reward is provided for any new
 // distance achieved.
 inline void rewardSystem(Engine &,
@@ -474,7 +507,7 @@ inline void rewardSystem(Engine &,
     out_reward.v = reward;
 }
 
-// Each agent gets a small bonus to it's reward if the other agent has
+// [GAME_SPECIFIC] Each agent gets a small bonus to it's reward if the other agent has
 // progressed a similar distance, to encourage them to cooperate.
 // This system reads the values of the Progress component written by
 // rewardSystem for other agents, so it must run after.
@@ -498,7 +531,7 @@ inline void bonusRewardSystem(Engine &ctx,
     }
 }
 
-// Keep track of the number of steps remaining in the episode and
+// [REQUIRED_INTERFACE] Keep track of the number of steps remaining in the episode and
 // notify training that an episode has completed by
 // setting done = 1 on the final step of the episode
 inline void stepTrackerSystem(Engine &,
@@ -514,7 +547,7 @@ inline void stepTrackerSystem(Engine &,
 
 }
 
-// Helper function for sorting nodes in the taskgraph.
+// [BOILERPLATE] Helper function for sorting nodes in the taskgraph.
 // Sorting is only supported / required on the GPU backend,
 // since the CPU backend currently keeps separate tables for each world.
 // This will likely change in the future with sorting required for both
@@ -534,12 +567,13 @@ TaskGraph::NodeID queueSortByWorld(TaskGraph::Builder &builder,
 }
 #endif
 
-// Build the task graph
+// [REQUIRED_INTERFACE] Build the task graph - every environment must implement this
 void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
 {
+    // [BOILERPLATE] Initialize task graph builder
     TaskGraphBuilder &builder = taskgraph_mgr.init(TaskGraphID::Step);
 
-    // Turn policy actions into movement
+    // [GAME_SPECIFIC] Turn policy actions into movement
     auto move_sys = builder.addToGraph<ParallelForNode<Engine,
         movementSystem,
             Action,
@@ -548,18 +582,18 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             ExternalTorque
         >>({});
 
-    // Scripted door behavior
+    // [GAME_SPECIFIC] Scripted door behavior
     auto set_door_pos_sys = builder.addToGraph<ParallelForNode<Engine,
         setDoorPositionSystem,
             Position,
             OpenState
         >>({move_sys});
 
-    // Build BVH for broadphase / raycasting
+    // [BOILERPLATE] Build BVH for broadphase / raycasting
     auto broadphase_setup_sys = phys::PhysicsSystem::setupBroadphaseTasks(
         builder, {set_door_pos_sys});
 
-    // Grab action, post BVH build to allow raycasting
+    // [GAME_SPECIFIC] Grab action, post BVH build to allow raycasting
     auto grab_sys = builder.addToGraph<ParallelForNode<Engine,
         grabSystem,
             Entity,
@@ -569,28 +603,28 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             GrabState
         >>({broadphase_setup_sys});
 
-    // Physics collision detection and solver
+    // [BOILERPLATE] Physics collision detection and solver
     auto substep_sys = phys::PhysicsSystem::setupPhysicsStepTasks(builder,
         {grab_sys}, consts::numPhysicsSubsteps);
 
-    // Improve controllability of agents by setting their velocity to 0
+    // [GAME_SPECIFIC] Improve controllability of agents by setting their velocity to 0
     // after physics is done.
     auto agent_zero_vel = builder.addToGraph<ParallelForNode<Engine,
         agentZeroVelSystem, Velocity, Action>>(
             {substep_sys});
 
-    // Finalize physics subsystem work
+    // [BOILERPLATE] Finalize physics subsystem work
     auto phys_done = phys::PhysicsSystem::setupCleanupTasks(
         builder, {agent_zero_vel});
 
-    // Set doors to always be open (no button conditions)
+    // [GAME_SPECIFIC] Set doors to always be open (no button conditions)
     auto door_open_sys = builder.addToGraph<ParallelForNode<Engine,
         doorOpenSystem,
             OpenState,
             DoorProperties
         >>({phys_done});
 
-    // Compute initial reward now that physics has updated the world state
+    // [REQUIRED_INTERFACE] Compute initial reward now that physics has updated the world state
     auto reward_sys = builder.addToGraph<ParallelForNode<Engine,
          rewardSystem,
             Position,
@@ -598,7 +632,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Reward
         >>({door_open_sys});
 
-    // Assign partner's reward
+    // [GAME_SPECIFIC] Assign partner's reward
     auto bonus_reward_sys = builder.addToGraph<ParallelForNode<Engine,
          bonusRewardSystem,
             OtherAgents,
@@ -606,36 +640,37 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Reward
         >>({reward_sys});
 
-    // Check if the episode is over
+    // [REQUIRED_INTERFACE] Check if the episode is over
     auto done_sys = builder.addToGraph<ParallelForNode<Engine,
         stepTrackerSystem,
             StepsRemaining,
             Done
         >>({bonus_reward_sys});
 
-    // Conditionally reset the world if the episode is over
+    // [REQUIRED_INTERFACE] Conditionally reset the world if the episode is over
     auto reset_sys = builder.addToGraph<ParallelForNode<Engine,
         resetSystem,
             WorldReset
         >>({done_sys});
 
+    // [BOILERPLATE] Clear temporary allocations
     auto clear_tmp = builder.addToGraph<ResetTmpAllocNode>({reset_sys});
     (void)clear_tmp;
 
 #ifdef MADRONA_GPU_MODE
-    // RecycleEntitiesNode is required on the GPU backend in order to reclaim
+    // [BOILERPLATE] RecycleEntitiesNode is required on the GPU backend in order to reclaim
     // deleted entity IDs.
     auto recycle_sys = builder.addToGraph<RecycleEntitiesNode>({reset_sys});
     (void)recycle_sys;
 #endif
 
-    // This second BVH build is a limitation of the current taskgraph API.
+    // [BOILERPLATE] This second BVH build is a limitation of the current taskgraph API.
     // It's only necessary if the world was reset, but we don't have a way
     // to conditionally queue taskgraph nodes yet.
     auto post_reset_broadphase = phys::PhysicsSystem::setupBroadphaseTasks(
         builder, {reset_sys});
 
-    // Finally, collect observations for the next step.
+    // [GAME_SPECIFIC] Finally, collect observations for the next step.
     auto collect_obs = builder.addToGraph<ParallelForNode<Engine,
         collectObservationsSystem,
             Position,
@@ -649,9 +684,9 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             DoorObservation
         >>({post_reset_broadphase});
 
-    // The lidar system
+    // [GAME_SPECIFIC] The lidar system
 #ifdef MADRONA_GPU_MODE
-    // Note the use of CustomParallelForNode to create a taskgraph node
+    // [BOILERPLATE] Note the use of CustomParallelForNode to create a taskgraph node
     // that launches a warp of threads (32) for each invocation (1).
     // The 32, 1 parameters could be changed to 32, 32 to create a system
     // that cooperatively processes 32 entities within a warp.
@@ -665,13 +700,15 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Lidar
         >>({post_reset_broadphase});
 
+    // [BOILERPLATE] Set up rendering tasks if enabled
     if (cfg.renderBridge) {
         RenderingSystem::setupTasks(builder, {reset_sys});
     }
 
 #ifdef MADRONA_GPU_MODE
-    // Sort entities, this could be conditional on reset like the second
+    // [BOILERPLATE] Sort entities, this could be conditional on reset like the second
     // BVH build above.
+    // [GAME_SPECIFIC] The specific entity types to sort are game-specific
     auto sort_agents = queueSortByWorld<Agent>(
         builder, {lidar, collect_obs});
     auto sort_phys_objects = queueSortByWorld<PhysicsEntity>(
@@ -685,41 +722,48 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
 #endif
 }
 
+// [REQUIRED_INTERFACE] Constructor - every environment must implement this
 Sim::Sim(Engine &ctx,
          const Config &cfg,
          const WorldInit &)
     : WorldBase(ctx)
 {
-    // Currently the physics system needs an upper bound on the number of
+    // [BOILERPLATE] Currently the physics system needs an upper bound on the number of
     // entities that will be stored in the BVH. We plan to fix this in
     // a future release.
+    // [GAME_SPECIFIC] The calculation of max entities is game-specific
     constexpr CountT max_total_entities = consts::numAgents +
         consts::numRooms * (consts::maxEntitiesPerRoom + 3) +
         4; // side walls + floor
 
+    // [BOILERPLATE] Initialize physics system
+    // [GAME_SPECIFIC] Physics parameters (deltaT, substeps, gravity) are game-specific
     phys::PhysicsSystem::init(ctx, cfg.rigidBodyObjMgr,
         consts::deltaT, consts::numPhysicsSubsteps, -9.8f * math::up,
         max_total_entities);
 
+    // [GAME_SPECIFIC] Store configuration
     initRandKey = cfg.initRandKey;
     autoReset = cfg.autoReset;
 
+    // [BOILERPLATE] Initialize rendering if enabled
     enableRender = cfg.renderBridge != nullptr;
 
     if (enableRender) {
         RenderingSystem::init(ctx, cfg.renderBridge);
     }
 
+    // [GAME_SPECIFIC] Initialize episode counter
     curWorldEpisode = 0;
 
-    // Creates agents, walls, etc.
+    // [GAME_SPECIFIC] Creates agents, walls, etc.
     createPersistentEntities(ctx);
 
-    // Generate initial world state
+    // [GAME_SPECIFIC] Generate initial world state
     initWorld(ctx);
 }
 
-// This declaration is needed for the GPU backend in order to generate the
+// [BOILERPLATE] This declaration is needed for the GPU backend in order to generate the
 // CUDA kernel for world initialization, which needs to be specialized to the
 // application's world data type (Sim) and config and initialization types.
 // On the CPU it is a no-op.

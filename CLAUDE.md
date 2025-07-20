@@ -12,6 +12,39 @@ This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement 
 - CMake build system
 - CUDA (optional GPU acceleration)
 
+## Code Classification System
+
+The codebase uses a three-tier classification system to help developers understand what needs to be modified:
+
+### [BOILERPLATE]
+Pure Madrona framework code that should never be changed. This includes:
+- CPU/GPU execution infrastructure
+- Memory management systems
+- Rendering pipeline setup
+- Base class structures
+
+### [REQUIRED_INTERFACE]
+Methods and structures that every Madrona environment must implement:
+- `loadPhysicsObjects()` - Load collision meshes and configure physics
+- `loadRenderObjects()` - Load visual assets and materials
+- `triggerReset()` - Reset episode state (for episodic environments)
+- `setAction()` - Accept actions from the policy
+- Tensor export methods - Define observation/action spaces
+- Reset and action buffers - Required for episodic RL
+
+### [GAME_SPECIFIC]
+Implementation details unique to this escape room game:
+- Action structure fields (moveAmount, moveAngle, rotate, grab)
+- Observation tensor types and shapes
+- Object types and their physics properties
+- Material colors and textures
+- Game constants (numAgents, maxEntitiesPerRoom)
+
+When creating a new environment:
+1. Keep all `[BOILERPLATE]` code unchanged
+2. Implement all `[REQUIRED_INTERFACE]` methods with your game's logic
+3. Replace all `[GAME_SPECIFIC]` code with your game's details
+
 ## Essential Commands
 
 ### Building the Project
@@ -222,10 +255,10 @@ Manager::Manager(const Config &cfg) {
 ### 1. **Manager Creation Phase** (`Manager::Manager()` → `Impl::init()`)
 The Manager acts as the interface between Python and the simulation. During construction:
 
-**Manager Creation - Step 1: Boilerplate Setup**
-- Creates execution context (CPU threads or CUDA)
-- Allocates memory for parallel worlds
-- Sets up data export infrastructure
+**Manager Creation - Step 1: Simulation Configuration**
+- Creates `Sim::Config` with game-specific settings
+- Sets `autoReset` flag for automatic episode restarts
+- Initializes random seed for procedural generation
 
 **Manager Creation - Step 2: Load Physics Assets** (`loadPhysicsObjects()`)
 ```cpp
@@ -250,6 +283,9 @@ setupHull(SimObject::Agent, 1.f, {.muS = 0.5f, .muD = 0.5f});     // Controlled
 // 4. Special handling: Constrain agent rotation to Z-axis only
 rigid_body_assets.metadatas[Agent].mass.invInertiaTensor.x = 0.f;  // No X rotation
 rigid_body_assets.metadatas[Agent].mass.invInertiaTensor.y = 0.f;  // No Y rotation
+
+// 5. Pass physics object manager to sim config
+sim_cfg.rigidBodyObjMgr = phys_loader.getObjectManager();
 ```
 
 **Manager Creation - Step 3: Load Render Assets** (`loadRenderObjects()` - if rendering enabled)
@@ -277,10 +313,24 @@ ImageImporter::importImages({"green_grid.png", "smile.png"});
 render_mgr.configureLighting({direction, color, intensity});
 ```
 
-**Manager Creation - Step 4: Final Setup**
-- Creates executor (CPU/GPU) with loaded assets
-- Retrieves pointers to exported buffers (actions, observations)
-- Triggers initial reset and steps once to populate observations
+**Manager Creation - Step 4: Create Executor**
+- Creates executor (CPU/GPU) with configuration:
+  - World data size: `sizeof(Sim)` and alignment
+  - Number of exported buffers: `ExportID::NumExports` (game-specific)
+  - Number of task graphs: `TaskGraphID::NumTaskGraphs` (game-specific)
+  - GPU only: Source files list and compilation flags (game-specific)
+
+**Manager Creation - Step 5: Get Export Pointers**
+- Retrieves pointers to game-specific exported buffers:
+  - `WorldReset*` buffer for episode reset control
+  - `Action*` buffer for agent actions
+  - Note: Other observation tensors retrieved later via tensor methods
+
+**Manager Creation - Step 6: Initial World Setup**
+- After `Impl::init()` returns to constructor:
+- Triggers reset for all worlds via `triggerReset()`
+- Executes one simulation step via `step()`
+- This populates initial observations for Python
    
 ### 2. **Executor Initialization Phase** (inside TaskGraphExecutor/MWCudaExecutor constructor)
 

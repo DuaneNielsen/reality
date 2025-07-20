@@ -1,6 +1,19 @@
 #include "mgr.hpp"
 #include "sim.hpp"
 
+/*
+ * This file uses a three-tier classification system for code:
+ * 
+ * [BOILERPLATE] - Pure Madrona framework code that never changes
+ * [REQUIRED_INTERFACE] - Methods/structures every environment must implement
+ * [GAME_SPECIFIC] - Implementation details unique to this escape room game
+ * 
+ * When creating a new environment, focus on:
+ * - Implementing all [REQUIRED_INTERFACE] methods with your game's content
+ * - Replacing all [GAME_SPECIFIC] code with your game's logic
+ * - Leave all [BOILERPLATE] code unchanged
+ */
+
 #include <madrona/utils.hpp>
 #include <madrona/importer.hpp>
 #include <madrona/physics_loader.hpp>
@@ -206,15 +219,17 @@ struct Manager::CUDAImpl final : Manager::Impl {
 #endif
 
 // ============================================================================
-// GAME-SPECIFIC: Asset Loading Functions
+// REQUIRED_INTERFACE: Asset Loading Functions
+// Every Madrona environment must implement these methods
 // ============================================================================
 
-// [GAME-SPECIFIC] Load all visual assets for the escape room
+// [REQUIRED_INTERFACE] Load visual assets - must be implemented by every environment
+// [GAME_SPECIFIC] The actual meshes, materials, and textures loaded
 static void loadRenderObjects(render::RenderManager &render_mgr)
 {
     StackAlloc tmp_alloc;
 
-    // [GAME-SPECIFIC] Map each game object type to its visual mesh
+    // [GAME_SPECIFIC] Map each game object type to its visual mesh
     std::array<std::string, (size_t)SimObject::NumObjects> render_asset_paths;
     render_asset_paths[(size_t)SimObject::Cube] =
         (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();
@@ -244,7 +259,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         FATAL("Failed to load render assets: %s", import_err);
     }
 
-    // [GAME-SPECIFIC] Define materials for each object type
+    // [GAME_SPECIFIC] Define materials for each object type
     auto materials = std::to_array<imp::SourceMaterial>({
         { render::rgb8ToFloat(191, 108, 10), -1, 0.8f, 0.2f },      // Brown (cube)
         { math::Vector4{0.4f, 0.4f, 0.4f, 0.0f}, -1, 0.8f, 0.2f,},  // Gray (wall)
@@ -255,7 +270,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         { render::rgb8ToFloat(230, 230, 20),   -1, 0.8f, 1.0f },    // Yellow (button)
     });
 
-    // [GAME-SPECIFIC] Assign materials to each object's meshes
+    // [GAME_SPECIFIC] Assign materials to each object's meshes
     render_assets->objects[(CountT)SimObject::Cube].meshes[0].materialIDX = 0;
     render_assets->objects[(CountT)SimObject::Wall].meshes[0].materialIDX = 1;
     render_assets->objects[(CountT)SimObject::Door].meshes[0].materialIDX = 5;   // Red
@@ -265,7 +280,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     render_assets->objects[(CountT)SimObject::Button].meshes[0].materialIDX = 6; // Yellow
     render_assets->objects[(CountT)SimObject::Plane].meshes[0].materialIDX = 4;
 
-    // [GAME-SPECIFIC] Load textures for materials
+    // [GAME_SPECIFIC] Load textures for materials
     imp::ImageImporter img_importer;
     Span<imp::SourceTexture> imported_textures = img_importer.importImages(
         tmp_alloc, {
@@ -278,13 +293,14 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     render_mgr.loadObjects(
         render_assets->objects, materials, imported_textures);
 
-    // [GAME-SPECIFIC] Configure scene lighting
+    // [GAME_SPECIFIC] Configure scene lighting
     render_mgr.configureLighting({
         { true, math::Vector3{1.0f, 1.0f, -2.0f}, math::Vector3{1.0f, 1.0f, 1.0f} }
     });
 }
 
-// [GAME-SPECIFIC] Load collision meshes and configure physics properties
+// [REQUIRED_INTERFACE] Load physics assets - must be implemented by every environment
+// [GAME_SPECIFIC] The actual collision meshes and physics parameters
 static void loadPhysicsObjects(PhysicsLoader &loader)
 {
     std::array<std::string, (size_t)SimObject::NumObjects - 1> asset_paths;
@@ -346,7 +362,7 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         };
     };
 
-    // [GAME-SPECIFIC] Configure physics for each object type
+    // [GAME_SPECIFIC] Configure physics for each object type
     setupHull(SimObject::Cube, 0.075f, {    // Pushable with ~13kg mass
         .muS = 0.5f,
         .muD = 0.75f,
@@ -401,7 +417,7 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         FATAL("Invalid collision hull input");
     }
 
-    // [GAME-SPECIFIC] Constrain agent rotation to Z-axis only
+    // [GAME_SPECIFIC] Constrain agent rotation to Z-axis only
     // This prevents agents from tipping over and ensures controllability
     // Setting inverse inertia to 0 makes rotation impossible around that axis
     rigid_body_assets.metadatas[
@@ -432,12 +448,9 @@ Manager::Impl * Manager::Impl::init(
 #ifdef MADRONA_CUDA_SUPPORT
         CUcontext cu_ctx = MWCudaExecutor::initCUDA(mgr_cfg.gpuID);
 
-        // [BOILERPLATE] Create physics loader for GPU
         PhysicsLoader phys_loader(ExecMode::CUDA, 10);
-        // [GAME-SPECIFIC] Load escape room collision meshes
         loadPhysicsObjects(phys_loader);
 
-        // [BOILERPLATE] Get physics object manager and pass to sim config
         ObjectManager *phys_obj_mgr = &phys_loader.getObjectManager();
         sim_cfg.rigidBodyObjMgr = phys_obj_mgr;
 
@@ -448,15 +461,12 @@ Manager::Impl * Manager::Impl::init(
             initRenderManager(mgr_cfg, render_gpu_state);
 
         if (render_mgr.has_value()) {
-            // [GAME-SPECIFIC] Load visual assets
             loadRenderObjects(*render_mgr);
-            // [BOILERPLATE] Connect render bridge to sim
             sim_cfg.renderBridge = render_mgr->bridge();
         } else {
             sim_cfg.renderBridge = nullptr;
         }
 
-        // [BOILERPLATE] Allocate per-world initialization data
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
 
         // [BOILERPLATE] Create GPU executor with configuration
@@ -477,7 +487,6 @@ Manager::Impl * Manager::Impl::init(
             CompileConfig::OptMode::LTO,
         }, cu_ctx);
 
-        // [GAME-SPECIFIC] Get pointers to exported buffers for game control
         WorldReset *world_reset_buffer = 
             (WorldReset *)gpu_exec.getExported((uint32_t)ExportID::Reset);
 
@@ -498,12 +507,11 @@ Manager::Impl * Manager::Impl::init(
 #endif
     } break;
     case ExecMode::CPU: {
-        // [BOILERPLATE] Create physics loader for CPU
+        // [BOILERPLATE] Create physics loader
         PhysicsLoader phys_loader(ExecMode::CPU, 10);
-        // [GAME-SPECIFIC] Load escape room collision meshes
+        // [REQUIRED_INTERFACE] Call game's physics asset loader
         loadPhysicsObjects(phys_loader);
 
-        // [BOILERPLATE] Get physics object manager and pass to sim config
         ObjectManager *phys_obj_mgr = &phys_loader.getObjectManager();
         sim_cfg.rigidBodyObjMgr = phys_obj_mgr;
 
@@ -514,7 +522,6 @@ Manager::Impl * Manager::Impl::init(
             initRenderManager(mgr_cfg, render_gpu_state);
 
         if (render_mgr.has_value()) {
-            // [GAME-SPECIFIC] Load visual assets
             loadRenderObjects(*render_mgr);
             // [BOILERPLATE] Connect render bridge to sim
             sim_cfg.renderBridge = render_mgr->bridge();
@@ -602,11 +609,12 @@ void Manager::step()
 }
 
 // ============================================================================
-// GAME-SPECIFIC: Tensor Accessors for Python Integration
+// REQUIRED_INTERFACE: Tensor Accessors for Python Integration
+// Every environment must export tensors for observations, actions, rewards, etc.
 // ============================================================================
 
-// [GAME-SPECIFIC] All tensor methods below define the observation/action space
-// for the escape room environment
+// [REQUIRED_INTERFACE] All tensor methods below define the observation/action space
+// [GAME_SPECIFIC] The specific tensors exported and their shapes
 
 Tensor Manager::resetTensor() const
 {
@@ -620,7 +628,7 @@ Tensor Manager::resetTensor() const
 
 Tensor Manager::actionTensor() const
 {
-    // [GAME-SPECIFIC] 4 discrete actions per agent: move amount/angle, rotate, grab
+    // [GAME_SPECIFIC] 4 discrete actions per agent: move amount/angle, rotate, grab
     return impl_->exportTensor(ExportID::Action, TensorElementType::Int32,
         {
             impl_->cfg.numWorlds,
@@ -722,7 +730,7 @@ Tensor Manager::rgbTensor() const
     // [BOILERPLATE] Get raw RGB buffer from renderer
     const uint8_t *rgb_ptr = impl_->renderMgr->batchRendererRGBOut();
 
-    // [GAME-SPECIFIC] Return tensor with escape room view dimensions
+    // [GAME_SPECIFIC] Return tensor with escape room view dimensions
     return Tensor((void*)rgb_ptr, TensorElementType::UInt8, {
         impl_->cfg.numWorlds,
         consts::numAgents,
@@ -737,7 +745,7 @@ Tensor Manager::depthTensor() const
     // [BOILERPLATE] Get raw depth buffer from renderer
     const float *depth_ptr = impl_->renderMgr->batchRendererDepthOut();
 
-    // [GAME-SPECIFIC] Return tensor with escape room view dimensions
+    // [GAME_SPECIFIC] Return tensor with escape room view dimensions
     return Tensor((void *)depth_ptr, TensorElementType::Float32, {
         impl_->cfg.numWorlds,
         consts::numAgents,
