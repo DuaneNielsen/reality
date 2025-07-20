@@ -496,6 +496,77 @@ To add a new system to process components:
    - **GPU Compatibility**: Use `#ifdef MADRONA_GPU_MODE` for GPU-specific code
    - **Parallelism**: Systems run in parallel across worlds and entities
 
+### GPU Execution of Systems
+
+Madrona automatically compiles and executes systems on GPU without requiring manual CUDA code:
+
+#### How GPU Compilation Works
+
+1. **Automatic Translation**: System functions written in standard C++ are automatically compiled for GPU via NVRTC (NVIDIA Runtime Compilation)
+2. **JIT Compilation**: At runtime, Madrona:
+   - Compiles all system functions into PTX code
+   - Generates a "megakernel" containing all systems
+   - Creates dispatch logic to route execution
+3. **Execution Model**:
+   - **CPU**: One thread iterates through entities sequentially
+   - **GPU**: Multiple threads process entities in parallel per world
+
+#### Supported C++ Features in Systems
+
+**✅ Can Use:**
+- Control flow (`if/else`, loops, `switch`)
+- Math functions (`fminf`, `sqrt`, `sin`, etc.)
+- Local variables and fixed-size arrays
+- Function calls to other inline functions
+- Component read/write access
+- Ternary operators and all arithmetic operations
+
+**❌ Cannot Use:**
+- Dynamic memory allocation (`new`, `malloc`)
+- STL containers (`std::vector`, `std::map`)
+- Virtual functions or RTTI
+- Exceptions or `try/catch`
+- File I/O or system calls
+- Global/static variables
+- Recursive functions
+
+#### GPU-Specific Optimizations
+
+1. **Warp-Level Systems** using `CustomParallelForNode`:
+   ```cpp
+   #ifdef MADRONA_GPU_MODE
+   auto lidar = builder.addToGraph<CustomParallelForNode<Engine,
+       lidarSystem, 32, 1,  // 32 threads per entity
+       Entity, Lidar
+   >>({dependencies});
+   #endif
+   ```
+
+2. **Entity Sorting** for memory coalescing:
+   ```cpp
+   #ifdef MADRONA_GPU_MODE
+   auto sort_agents = queueSortByWorld<Agent>(builder, {deps});
+   #endif
+   ```
+
+3. **Thread Indexing** in warp-level systems:
+   ```cpp
+   inline void lidarSystem(Engine &ctx, Entity e, Lidar &lidar) {
+   #ifdef MADRONA_GPU_MODE
+       int thread_id = threadIdx.x % 32;  // Thread's position in warp
+       // Each thread traces a different ray
+   #endif
+   }
+   ```
+
+#### Key GPU Architecture Details
+
+- **Megakernel Design**: All systems run in a single CUDA kernel to minimize launch overhead
+- **One Thread Block Per World**: Each simulation world gets dedicated threads
+- **Work Stealing**: Dynamic load balancing across thread blocks
+- **Zero-Copy Memory**: Direct mapping between GPU memory and Python tensors
+- **Compilation Cache**: Compiled kernels cached to avoid recompilation
+
 ### Task Graph Setup (setupTasks)
 
 The `setupTasks` function builds a static execution graph defining the order and dependencies of all systems that run each simulation step. Understanding this is crucial for modifying the simulation.
