@@ -70,8 +70,7 @@ static inline Optional<RenderGPUState> initRenderGPUState(
     };
 }
 
-// [BOILERPLATE] Initialize render manager - standard Madrona pattern
-// [HYBRID] The configuration values (numAgents, view dimensions) are game-specific
+// [BOILERPLATE] Initialize render manager - uses game constants: numAgents, numRows, numCols
 static inline Optional<render::RenderManager> initRenderManager(
     const Manager::Config &mgr_cfg,
     const Optional<RenderGPUState> &render_gpu_state)
@@ -97,8 +96,8 @@ static inline Optional<render::RenderManager> initRenderManager(
         .agentViewWidth = mgr_cfg.batchRenderViewWidth,
         .agentViewHeight = mgr_cfg.batchRenderViewHeight,
         .numWorlds = mgr_cfg.numWorlds,
-        .maxViewsPerWorld = consts::numAgents,  // [GAME-SPECIFIC] One view per agent
-        .maxInstancesPerWorld = 1000,           // [GAME-SPECIFIC] Max entities to render
+        .maxViewsPerWorld = consts::numAgents,  // [GAME_SPECIFIC] One view per agent
+        .maxInstancesPerWorld = 1000,           // [GAME_SPECIFIC] Max entities to render
         .execMode = mgr_cfg.execMode,
         .voxelCfg = {},
     });
@@ -108,13 +107,12 @@ static inline Optional<render::RenderManager> initRenderManager(
 // BOILERPLATE: Manager Implementation Base Class
 // ============================================================================
 
-// [BOILERPLATE] Base implementation class for CPU/GPU polymorphism
-// [HYBRID] Contains both boilerplate structure and game-specific buffers
+// [BOILERPLATE] Base implementation class
 struct Manager::Impl {
     Config cfg;
     PhysicsLoader physicsLoader;
-    WorldReset *worldResetBuffer;    // [GAME-SPECIFIC] Reset control buffer
-    Action *agentActionsBuffer;      // [GAME-SPECIFIC] Agent action buffer
+    WorldReset *worldResetBuffer;    // [REQUIRED_INTERFACE] Reset control buffer
+    Action *agentActionsBuffer;      // [REQUIRED_INTERFACE] Agent action buffer
     Optional<RenderGPUState> renderGPUState;
     Optional<render::RenderManager> renderMgr;
 
@@ -433,12 +431,11 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
 // BOILERPLATE: Manager Initialization
 // ============================================================================
 
-// [BOILERPLATE] Factory method implementing CPU/GPU branching pattern
-// [HYBRID] Calls game-specific asset loaders within boilerplate structure
+// [BOILERPLATE] Factory method for CPU/GPU setup
 Manager::Impl * Manager::Impl::init(
     const Manager::Config &mgr_cfg)
 {
-    // [HYBRID] Create sim config - structure is boilerplate, values are game-specific
+    // [BOILERPLATE] Create sim config
     Sim::Config sim_cfg;
     sim_cfg.autoReset = mgr_cfg.autoReset;
     sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);
@@ -470,7 +467,6 @@ Manager::Impl * Manager::Impl::init(
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
 
         // [BOILERPLATE] Create GPU executor with configuration
-        // [HYBRID] numExportedBuffers is game-specific (ExportID::NumExports)
         MWCudaExecutor gpu_exec({
             .worldInitPtr = world_inits.data(),
             .numWorldInitBytes = sizeof(Sim::WorldInit),
@@ -480,10 +476,10 @@ Manager::Impl * Manager::Impl::init(
             .worldDataAlignment = alignof(Sim),
             .numWorlds = mgr_cfg.numWorlds,
             .numTaskGraphs = 1,
-            .numExportedBuffers = (uint32_t)ExportID::NumExports,  // [GAME-SPECIFIC] 
+            .numExportedBuffers = (uint32_t)ExportID::NumExports,
         }, {
-            { GPU_HIDESEEK_SRC_LIST },          // [GAME-SPECIFIC] Source files list
-            { GPU_HIDESEEK_COMPILE_FLAGS },     // [GAME-SPECIFIC] Compilation flags
+            { GPU_HIDESEEK_SRC_LIST },
+            { GPU_HIDESEEK_COMPILE_FLAGS },
             CompileConfig::OptMode::LTO,
         }, cu_ctx);
 
@@ -533,18 +529,17 @@ Manager::Impl * Manager::Impl::init(
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
 
         // [BOILERPLATE] Create CPU executor with configuration
-        // [HYBRID] numExportedBuffers is game-specific (ExportID::NumExports)
         CPUImpl::TaskGraphT cpu_exec {
             ThreadPoolExecutor::Config {
                 .numWorlds = mgr_cfg.numWorlds,
-                .numExportedBuffers = (uint32_t)ExportID::NumExports,  // [GAME-SPECIFIC]
+                .numExportedBuffers = (uint32_t)ExportID::NumExports,
             },
             sim_cfg,
             world_inits.data(),
-            (uint32_t)TaskGraphID::NumTaskGraphs,   // [GAME-SPECIFIC] Number of task graphs
+            (uint32_t)TaskGraphID::NumTaskGraphs,
         };
 
-        // [GAME-SPECIFIC] Get pointers to exported buffers for game control
+        // [BOILERPLATE] Get pointers to exported buffers
         WorldReset *world_reset_buffer = 
             (WorldReset *)cpu_exec.getExported((uint32_t)ExportID::Reset);
 
@@ -755,10 +750,10 @@ Tensor Manager::depthTensor() const
     }, impl_->cfg.gpuID);
 }
 
-// [GAME-SPECIFIC] Trigger episode reset for a specific world
+// [REQUIRED_INTERFACE] Trigger episode reset for a specific world
 void Manager::triggerReset(int32_t world_idx)
 {
-    // [GAME-SPECIFIC] Set reset flag to trigger world regeneration
+    // [GAME_SPECIFIC] Set reset flag to trigger world regeneration
     WorldReset reset {
         1,
     };
@@ -775,7 +770,7 @@ void Manager::triggerReset(int32_t world_idx)
     }
 }
 
-// [GAME-SPECIFIC] Set agent actions for the escape room
+// [REQUIRED_INTERFACE] Set agent actions for the escape room
 void Manager::setAction(int32_t world_idx,
                         int32_t agent_idx,
                         int32_t move_amount,
@@ -783,7 +778,7 @@ void Manager::setAction(int32_t world_idx,
                         int32_t rotate,
                         int32_t grab)
 {
-    // [GAME-SPECIFIC] Pack discrete actions into struct
+    // [GAME_SPECIFIC] Pack discrete actions into struct
     Action action { 
         .moveAmount = move_amount,
         .moveAngle = move_angle,
@@ -791,7 +786,7 @@ void Manager::setAction(int32_t world_idx,
         .grab = grab,
     };
 
-    // [GAME-SPECIFIC] Calculate buffer offset for specific agent
+    // [GAME_SPECIFIC] Calculate buffer offset for specific agent
     auto *action_ptr = impl_->agentActionsBuffer +
         world_idx * consts::numAgents + agent_idx;
 

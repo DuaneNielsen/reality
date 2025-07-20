@@ -38,12 +38,48 @@ Implementation details unique to this escape room game:
 - Observation tensor types and shapes
 - Object types and their physics properties
 - Material colors and textures
-- Game constants (numAgents, maxEntitiesPerRoom)
+- Game constants (see Game-Specific Constants section below)
 
 When creating a new environment:
 1. Keep all `[BOILERPLATE]` code unchanged
 2. Implement all `[REQUIRED_INTERFACE]` methods with your game's logic
 3. Replace all `[GAME_SPECIFIC]` code with your game's details
+
+## Game-Specific Constants
+
+The following constants are defined in `src/consts.hpp` and used throughout the codebase:
+
+### Core Game Parameters
+- `numAgents` (2) - Number of agents per world
+- `numRooms` (2) - Number of rooms in the level
+- `maxEntitiesPerRoom` (15) - Maximum entities per room (walls, buttons, blocks)
+- `worldWidth` (18) - Width of the world in units
+- `worldLength` (10) - Length of the world in units
+
+### Physics Parameters
+- `deltaT` (0.04f) - Fixed timestep in seconds
+- `numPhysicsSubsteps` (4) - Physics substeps per frame
+- `agentSpeed` (8.f) - Agent movement speed
+- `agentRotateSpeed` (5.f) - Agent rotation speed in radians/sec
+
+### Rendering Parameters
+- `numRows` (64) - Camera view height in pixels
+- `numCols` (64) - Camera view width in pixels
+- `verticalFOV` (60.f * M_PI / 180.f) - Camera field of view
+
+### RL Parameters
+- `episodeLen` (200) - Maximum steps per episode
+- `rewardPerLevel` (1.f) - Reward for completing a room
+
+### Enum Definitions (in `src/types.hpp`)
+- `ExportID::NumExports` - Total number of exported tensors
+- `TaskGraphID::NumTaskGraphs` - Number of task graphs (currently 1: Step)
+- `SimObject::NumObjects` - Total number of object types
+
+### Build Configuration (in CMakeLists.txt)
+- `MADRONA_ESCAPE_ROOM_SRC_LIST` - List of source files for GPU compilation
+- `GPU_HIDESEEK_SRC_LIST` - GPU-specific source file list
+- `GPU_HIDESEEK_COMPILE_FLAGS` - GPU compilation flags
 
 ## Essential Commands
 
@@ -315,9 +351,31 @@ Manager::Manager(const Config &cfg) {
 The Manager acts as the interface between Python and the simulation. During construction:
 
 **Manager Creation - Step 1: Simulation Configuration**
-- Creates `Sim::Config` with game-specific settings
-- Sets `autoReset` flag for automatic episode restarts
-- Initializes random seed for procedural generation
+```cpp
+// In Manager::Impl::init() - src/mgr.cpp:443
+Sim::Config sim_cfg;
+sim_cfg.autoReset = mgr_cfg.autoReset;  // [REQUIRED_INTERFACE] Enable automatic episode restart
+sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);  // [BOILERPLATE] Initialize RNG
+
+switch (mgr_cfg.execMode) {
+case ExecMode::CUDA: {
+    // GPU-specific configuration...
+    break;
+}
+case ExecMode::CPU: {
+    // CPU-specific configuration...
+    // Creates PhysicsLoader for CPU execution
+    PhysicsLoader phys_loader(ExecMode::CPU, 10);  // 10 = max collision objects
+    
+    // Load physics assets
+    loadPhysicsObjects(phys_loader);
+    
+    // Pass physics object manager to sim config
+    sim_cfg.rigidBodyObjMgr = phys_loader.getObjectManager();
+    break;
+}
+}
+```
 
 **Manager Creation - Step 2: Load Physics Assets** (`loadPhysicsObjects()`)
 ```cpp
@@ -373,23 +431,92 @@ render_mgr.configureLighting({direction, color, intensity});
 ```
 
 **Manager Creation - Step 4: Create Executor**
-- Creates executor (CPU/GPU) with configuration:
-  - World data size: `sizeof(Sim)` and alignment
-  - Number of exported buffers: `ExportID::NumExports` (game-specific)
-  - Number of task graphs: `TaskGraphID::NumTaskGraphs` (game-specific)
-  - GPU only: Source files list and compilation flags (game-specific)
+```cpp
+// For CPU mode - src/mgr.cpp:525-540
+TaskGraphExecutor<Engine, Sim, Sim::Config, Sim::WorldInit> cpu_exec {
+    ThreadPoolExecutor::Config {
+        .numWorlds = (uint32_t)mgr_cfg.numWorlds,
+        .numExportedBuffers = (uint32_t)ExportID::NumExports,  // [GAME_SPECIFIC]
+    },
+    sim_cfg,
+    {},  // Per-world init data
+    (uint32_t)TaskGraphID::NumTaskGraphs  // [GAME_SPECIFIC]
+};
+
+// For CUDA mode - src/mgr.cpp:461-480
+MWCudaExecutor gpu_exec({
+    .worldDataSize = sizeof(Sim),
+    .worldDataAlignment = alignof(Sim),
+    .numWorldDataSlots = (uint32_t)mgr_cfg.numWorlds,
+    .numTaskGraphs = (uint32_t)TaskGraphID::NumTaskGraphs,  // [GAME_SPECIFIC]
+    .numExportedBuffers = (uint32_t)ExportID::NumExports,    // [GAME_SPECIFIC]
+}, {
+    { MADRONA_ESCAPE_ROOM_SRC_LIST },  // [GAME_SPECIFIC] Source files
+}, sim_cfg, {});
+```
 
 **Manager Creation - Step 5: Get Export Pointers**
-- Retrieves pointers to game-specific exported buffers:
-  - `WorldReset*` buffer for episode reset control
-  - `Action*` buffer for agent actions
-  - Note: Other observation tensors retrieved later via tensor methods
+```cpp
+// In Manager::Impl::init() - src/mgr.cpp:542-544 (CPU) or 483-485 (CUDA)
+WorldReset *reset_buffer = (WorldReset *)cpu_exec.getExported(
+    (uint32_t)ExportID::Reset);
+    
+Action *action_buffer = (Action *)cpu_exec.getExported(
+    (uint32_t)ExportID::Action);
+
+// These are game-specific exports defined in types.hpp:
+enum class ExportID : uint32_t {
+    Reset,
+    Action,
+    Reward,
+    Done,
+    SelfObservation,
+    PartnerObservations,
+    RoomEntityObservations,
+    DoorObservation,
+    Lidar,
+    StepsRemaining,
+    NumExports,  // Must be last
+};
+```
 
 **Manager Creation - Step 6: Initial World Setup**
-- After `Impl::init()` returns to constructor:
-- Triggers reset for all worlds via `triggerReset()`
-- Executes one simulation step via `step()`
-- This populates initial observations for Python
+```cpp
+// In Manager::Manager() constructor - src/mgr.cpp:576-592
+Manager::Manager(const Config &cfg)
+    : impl_(Impl::init(cfg))  // Calls Impl::init() to set up everything
+{
+    // [REQUIRED_INTERFACE] Force initial reset for all worlds
+    // This ensures all worlds start in a valid state
+    for (int32_t i = 0; i < (int32_t)cfg.numWorlds; i++) {
+        triggerReset(i);
+    }
+
+    // [BOILERPLATE] Execute one step to populate initial observations
+    // This is required so Python can see the initial state
+    step();
+}
+
+// triggerReset implementation - src/mgr.cpp:762-778
+void Manager::triggerReset(int32_t world_idx)
+{
+    // [GAME_SPECIFIC] Set reset flag to trigger world regeneration
+    WorldReset reset {
+        1,  // reset flag
+    };
+
+    auto *reset_ptr = impl_->worldResetBuffer + world_idx;
+
+    if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+        cudaMemcpy(reset_ptr, &reset, sizeof(WorldReset),
+                   cudaMemcpyHostToDevice);
+#endif
+    } else {
+        *reset_ptr = reset;
+    }
+}
+```
    
 ### 2. **Executor Initialization Phase** (inside TaskGraphExecutor/MWCudaExecutor constructor)
 
@@ -398,9 +525,28 @@ render_mgr.configureLighting({direction, color, intensity});
 - Call `getECSRegistry()` to obtain the ECS registry
 
 **Executor Init - Step 2: ECS Registration** (`Sim::registerTypes()`)
-- Registers all components with `registry.registerComponent<T>()`
-- Registers all archetypes with `registry.registerArchetype<T>()` 
-- Exports components for Python access with `registry.exportColumn<T>()`
+```cpp
+// In Sim::registerTypes() - src/sim.cpp:40-93
+// [GAME_SPECIFIC] Register all game components
+registry.registerComponent<Action>();
+registry.registerComponent<Reward>();
+registry.registerComponent<Done>();
+// ... register all other game-specific component types
+
+// [GAME_SPECIFIC] Register game archetypes (entity templates)
+registry.registerArchetype<Agent>();        // Player-controlled entities
+registry.registerArchetype<PhysicsEntity>(); // Movable objects
+// ... register other entity types
+
+// [GAME_SPECIFIC] Export components for Python access
+// Pattern: registry.exportColumn<Archetype, Component>(ExportID)
+registry.exportSingleton<WorldReset>((uint32_t)ExportID::Reset);
+registry.exportColumn<Agent, Action>((uint32_t)ExportID::Action);
+registry.exportColumn<Agent, Reward>((uint32_t)ExportID::Reward);
+// ... export all components that Python needs to access
+
+// Note: Export IDs must match the ExportID enum in types.hpp
+```
 - **Memory allocation**: Virtual address space (1B × component size) reserved per exported component
 
 **Executor Init - Step 3: World Construction**
@@ -408,8 +554,122 @@ render_mgr.configureLighting({direction, color, intensity});
 - Construct world data instances (`WorldT` objects)
 
 **Executor Init - Step 4: Task Graph Setup** (`Sim::setupTasks()`)
-- Build task graphs defining system execution order
-- Configure dependencies between systems
+```cpp
+// In Sim::setupTasks() - src/sim.cpp:574-720
+void Sim::setupTasks(TaskGraphManager &taskgraph_mgr,
+                     const Config &cfg)
+{
+    TaskGraphBuilder &builder = taskgraph_mgr.init(TaskGraphID::Step);
+
+    // ===== Phase 1: Input Processing =====
+    // Convert actions from policy into forces/torques for physics
+    // This must run first to prepare inputs for the physics simulation
+    auto move_sys = builder.addToGraph<ParallelForNode<Engine,
+        movementSystem,
+        Action,           // Input from policy
+        Rotation,         // Current orientation
+        ExternalForce,    // Output: forces for physics
+        ExternalTorque    // Output: torques for physics
+    >>({/* no dependencies - runs first */});
+
+    // ===== Phase 2: Pre-Physics Updates =====
+    // Update kinematically-controlled objects (doors, platforms, etc.)
+    // These objects move based on game state, not physics
+    auto set_door_pos = builder.addToGraph<ParallelForNode<Engine,
+        setDoorPositionSystem,
+        Position,         // Output: updated position
+        OpenState         // Input: whether door is open
+    >>({move_sys});       // Must run after input processing
+
+    // ===== Phase 3: Spatial Structure Build =====
+    // Build BVH for efficient collision detection and raycasting
+    // Must run after all position updates, before any spatial queries
+    auto broadphase_setup = PhysicsSystem::setupBroadphaseTasks(
+        builder, {set_door_pos});
+
+    // ===== Phase 4: Spatial Query Systems =====
+    // Systems that need raycasting or proximity queries
+    // Example: grab system uses raycast to find objects to pick up
+    auto grab_sys = builder.addToGraph<ParallelForNode<Engine,
+        grabSystem,
+        Entity,           // Self reference
+        Position,         // Current position
+        Rotation,         // Facing direction for raycast
+        Action,           // Grab button state
+        GrabState         // Output: what we're holding
+    >>({broadphase_setup}); // Needs BVH for raycasting
+
+    // ===== Phase 5: Physics Simulation =====
+    // Run the actual physics simulation
+    // This is a monolithic step - no other systems can run during it
+    auto phys_sys = PhysicsSystem::setupPhysicsSimulationTasks(
+        builder, cfg.rigidBodyObjMgr, {grab_sys});
+    
+    // Post-physics cleanup (clear temporary collision data)
+    auto phys_cleanup = PhysicsSystem::setupCleanupTasks(
+        builder, {phys_sys});
+
+    // ===== Phase 6: Post-Physics Corrections =====
+    // Zero velocities for direct control (common in RL environments)
+    auto agent_zero_vel = builder.addToGraph<ParallelForNode<Engine,
+        agentZeroVelSystem,
+        Velocity,         // Output: zeroed velocity
+        Action            // Only for controlled agents
+    >>({phys_cleanup});   // Must wait for physics to complete
+
+    // ===== Phase 7: Game Logic =====
+    // Check win conditions, calculate rewards, manage game state
+    // These systems read physics results but don't modify positions
+    
+    auto door_open_sys = builder.addToGraph<ParallelForNode<Engine,
+        doorOpenSystem,
+        OpenState,        // Output: is door open?
+        DoorProperties    // Input: which buttons open this door
+    >>({agent_zero_vel}); // Runs after physics is finalized
+
+    auto reward_sys = builder.addToGraph<ParallelForNode<Engine,
+        rewardSystem,
+        Position,         // Input: where is agent?
+        Progress,         // Input/Output: level progress
+        Reward            // Output: reward signal
+    >>({door_open_sys});
+
+    auto done_sys = builder.addToGraph<ParallelForNode<Engine,
+        doneSystem,
+        Progress,         // Input: did we complete level?
+        StepsRemaining,   // Input: time limit check
+        Done              // Output: episode over flag
+    >>({reward_sys});
+
+    // ===== Phase 8: Episode Management =====
+    // Handle resets when episodes end
+    auto reset_sys = builder.addToGraph<ParallelForNode<Engine,
+        resetSystem,
+        WorldReset        // Input/Output: reset request/acknowledgment
+    >>({done_sys});
+
+    // ===== Phase 9: Post-Reset Spatial Rebuild =====
+    // Rebuild BVH after reset (world geometry changed)
+    // On GPU, this runs every frame (can't conditionally execute)
+    auto post_reset_broadphase = PhysicsSystem::setupBroadphaseTasks(
+        builder, {reset_sys});
+
+    // ===== Phase 10: Observation Collection =====
+    // Gather all observations for the policy
+    // MUST run last after all state updates
+    auto collect_obs = builder.addToGraph<ParallelForNode<Engine,
+        collectObservationsSystem,
+        Position,                // Input: agent position
+        Rotation,                // Input: agent orientation
+        Progress,                // Input: game state
+        GrabState,               // Input: what we're holding
+        SelfObservation,         // Output: egocentric obs
+        PartnerObservations,     // Output: teammate info
+        RoomEntityObservations,  // Output: object positions
+        DoorObservation          // Output: door states
+    >>({post_reset_broadphase}); // Must run after everything
+}
+```
 
 **Executor Init - Step 5: Export Initialization**
 - Call `initExport()` which triggers initial `copyOutExportedColumns()`
@@ -420,19 +680,33 @@ render_mgr.configureLighting({direction, color, intensity});
 
 **World Init - Step 1: Calculate Entity Limits**
 ```cpp
-max_total_entities = numAgents + numRooms * (maxEntitiesPerRoom + 3) + 4
-// Accounts for: agents + room entities + doors/walls + floor/boundaries
+// In Sim::Sim() constructor - src/sim.cpp:729-761
+Sim::Sim(Engine &ctx,
+         const Config &cfg,
+         const WorldInit &)
+    : WorldBase(ctx)
+{
+    // [GAME_SPECIFIC] Calculate max entities based on game parameters
+    constexpr CountT max_total_entities = consts::numAgents +
+        consts::numRooms * (consts::maxEntitiesPerRoom + 3) +  // +3 for doors/walls per room
+        4;  // side walls + floor
+
+    // [BOILERPLATE] Initialize physics with entity limit
+    PhysicsSystem::init(ctx, cfg.rigidBodyObjMgr,
+        consts::deltaT, consts::numPhysicsSubsteps, -9.8f * math::up,
+        max_total_entities);
+
+    // [BOILERPLATE] Store configuration
+    initRandKey = cfg.initRandKey;
+    autoReset = cfg.autoReset;
+
+    // ... rendering initialization ...
+
+    // [GAME_SPECIFIC] Create persistent entities and generate initial world
+    createPersistentEntities(ctx);  // Creates agents, walls, floor
+    initWorld(ctx);                 // Generates level layout
+}
 ```
-
-**World Init - Step 2: Initialize Subsystems**
-- Initialize physics via `PhysicsSystem::init()` with entity count
-- Initialize rendering via `RenderingSystem::init()` if enabled
-
-**World Init - Step 3: Create Persistent Entities**
-- Call `createPersistentEntities()` for agents, walls, floor
-
-**World Init - Step 4: Generate Initial World**
-- Call `initWorld()` → `generateWorld()` → `generateLevel()`
 
 ### 4. **First Step Execution Phase**
 
