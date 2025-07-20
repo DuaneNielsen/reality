@@ -247,6 +247,14 @@ Manager::Manager(const Config &cfg) {
    - Call `RenderManager::readECS()` if rendering enabled
    - Populate initial observations
 
+### Reset Sequence
+
+todo: we need to read through the reset sequence and map out documentation for each function that needs to be called and each important step
+
+### Step Sequence
+
+todo: we need to map out the step sequence and document it, naming each function that needs to be called and each important step
+
 ### Key Configuration Parameters
 - `execMode`: CPU or CUDA execution
 - `gpuID`: Target GPU device
@@ -260,3 +268,88 @@ Manager::Manager(const Config &cfg) {
 - **CUDA**: One thread block per world, warp-level optimizations
 - Task graph ensures correct system execution order
 - Zero-copy memory mapping for Python integration
+
+## ECS System
+
+### Adding a Component
+
+To add a new component to the Madrona ECS:
+
+1. **Define the Component** in `src/types.hpp`:
+   ```cpp
+   struct MyNewComponent {
+       float value1;
+       int32_t value2;
+   };
+   ```
+
+2. **Register the Component** in `Sim::registerTypes()`:
+   ```cpp
+   registry.registerComponent<MyNewComponent>();
+   ```
+
+3. **Add to Archetype** if needed:
+   ```cpp
+   struct MyEntity : public madrona::Archetype<
+       Position,
+       Rotation,
+       MyNewComponent  // Add here
+   > {};
+   ```
+
+4. **Export for Python Access** (optional):
+   - In `Sim::registerTypes()`, add export column:
+     ```cpp
+     registry.exportColumn<MyEntity, MyNewComponent>(
+         (uint32_t)ExportID::MyNewComponent);
+     ```
+   - Add to `ExportID` enum in `src/types.hpp`
+   - Map tensor in `src/mgr.cpp`:
+     ```cpp
+     exported.myNewComponent = gpu_exec.getExported((uint32_t)ExportID::MyNewComponent);
+     ```
+
+5. **Initialize Component Values**:
+   - Set initial values when creating entities
+   - Update in reset systems if component should reset
+
+### Adding a System
+
+To add a new system to process components:
+
+1. **Write the System Function** in `src/sim.cpp`:
+   ```cpp
+   inline void myNewSystem(Engine &ctx,
+                          Position &pos,
+                          MyNewComponent &my_comp)
+   {
+       // System logic here
+       my_comp.value1 += pos.x;
+   }
+   ```
+
+2. **Register System** in `Sim::setupTasks()`:
+   ```cpp
+   TaskGraphNodeID my_new_sys = builder.addToGraph<ParallelForNode<Engine,
+       myNewSystem,
+       Position,
+       MyNewComponent
+   >>({optional_dependencies});
+   ```
+
+3. **Define Dependencies**:
+   - Systems execute in dependency order
+   - Add node ID to dependency array of later systems:
+     ```cpp
+     TaskGraphNodeID later_sys = builder.addToGraph<...>({
+         my_new_sys,  // This system depends on myNewSystem
+         other_dep
+     });
+     ```
+
+4. **Considerations**:
+   - **Query Scope**: Systems automatically iterate over all entities with required components
+   - **Context Access**: Use `ctx` to access world state, entity references
+   - **Performance**: Keep systems focused, avoid random memory access
+   - **GPU Compatibility**: Use `#ifdef MADRONA_GPU_MODE` for GPU-specific code
+   - **Parallelism**: Systems run in parallel across worlds and entities
