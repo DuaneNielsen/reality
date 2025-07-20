@@ -656,3 +656,180 @@ auto post_phys_sys = builder.addToGraph<...>({phys_cleanup});
 // Observation system (runs last)
 auto obs_sys = builder.addToGraph<...>({post_reset_broadphase});
 ```
+
+
+# GDB Debugging Guide for Madrona Escape Room
+
+## Quick Start
+
+### Breaking on Manager Constructor
+```bash
+# From project root
+gdb -ex "break madEscape::Manager::Manager" -ex "run CPU 1 1" build/headless
+```
+
+### Interactive Debugging
+```bash
+gdb build/headless
+(gdb) break madEscape::Manager::Manager
+(gdb) run CPU 1 1
+(gdb) step  # Steps into Impl::init()
+```
+
+## Important Breakpoints
+
+### Initialization Sequence
+```gdb
+# Manager construction and initialization
+break madEscape::Manager::Manager
+break madEscape::Manager::Impl::init
+
+# Asset loading
+break loadPhysicsObjects
+break loadRenderObjects
+
+# World initialization
+break madEscape::Sim::Sim
+break madEscape::Sim::createPersistentEntities
+break madEscape::Sim::initWorld
+```
+
+### Task Graph and Systems
+```gdb
+# Task graph setup
+break madEscape::Sim::setupTasks
+break madEscape::Sim::registerTypes
+
+# Key systems
+break movementSystem
+break physicsSystem
+break rewardSystem
+break resetSystem
+break collectObservationSystem
+```
+
+### GPU-Specific (CUDA mode)
+```gdb
+# GPU initialization
+break madrona::MWCudaExecutor::initCUDA
+break buildKernels
+break jitCompileCPPSrc
+```
+
+## Common Commands
+
+### Navigation
+- `step` (s) - Step into function
+- `next` (n) - Step over function
+- `finish` - Run until current function returns
+- `continue` (c) - Continue execution
+
+### Inspection
+- `print variable` - Print variable value
+- `info locals` - Show all local variables
+- `backtrace` (bt) - Show call stack
+- `frame N` - Switch to stack frame N
+
+### Breakpoint Management
+- `info breakpoints` - List all breakpoints
+- `delete N` - Delete breakpoint N
+- `disable N` - Temporarily disable breakpoint N
+- `enable N` - Re-enable breakpoint N
+
+## Running Different Modes
+
+### CPU Mode
+```bash
+gdb build/headless
+(gdb) run CPU 1024 1000  # 1024 worlds, 1000 steps
+```
+
+### CUDA Mode
+```bash
+gdb build/headless
+(gdb) run CUDA 8192 1000 --gpu-id 0
+```
+
+### Viewer Mode
+```bash
+gdb build/viewer
+(gdb) run 1  # 1 world
+```
+
+## Debugging Tips
+
+### 1. Debug Build
+Ensure you've built with debug symbols:
+```bash
+cd build
+make clean
+/opt/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug ..
+make -j$(nproc)
+```
+
+### 2. Namespace Issues
+The namespace is `madEscape`, not `madrona_escape_room`. Use:
+```gdb
+info functions Manager::Manager  # Find exact symbol
+```
+
+### 3. Template Functions
+For templated functions, you may need the mangled name:
+```gdb
+info functions movementSystem
+break _ZN9madEscape14movementSystemERN7madrona6EngineERNS_6ActionERNS_8RotationERNS_13ExternalForceERNS_14ExternalTorqueE
+```
+
+### 4. Conditional Breakpoints
+```gdb
+break rewardSystem if pos.y > 10.0
+break resetSystem if world_idx == 0
+```
+
+### 5. Watchpoints
+```gdb
+watch ctx.worldID  # Break when worldID changes
+```
+
+## Memory Debugging
+
+### Check for leaks
+```bash
+valgrind --leak-check=full ./build/headless CPU 1 10
+```
+
+### Address Sanitizer
+Rebuild with sanitizers:
+```bash
+cd build
+/opt/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address" ..
+make -j$(nproc)
+```
+
+## Python Integration
+
+### Debug Python bindings
+```python
+import gdb
+gdb.execute("file build/headless")
+gdb.execute("break madEscape::Manager::Manager")
+```
+
+### Debug during training
+```bash
+gdb python
+(gdb) run scripts/train.py --num-worlds 1 --num-updates 1
+```
+
+## Common Issues
+
+### "No debugging symbols found"
+- Rebuild with `-DCMAKE_BUILD_TYPE=Debug`
+- Check for strip commands in CMakeLists.txt
+
+### "Function not defined"
+- Use correct namespace: `madEscape` not `madrona_escape_room`
+- For inline functions, they may be optimized out in Release builds
+
+### "Invalid ExecMode"
+- Use uppercase: `CPU` or `CUDA`, not `cpu` or `cuda`
