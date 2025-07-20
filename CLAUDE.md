@@ -217,72 +217,127 @@ Manager::Manager(const Config &cfg) {
 3. **Physics Data**: Collision geometry, rigid body metadata
 4. **Render Buffers**: GPU memory for meshes, textures, outputs
 
-### Initialization Sequence
-1. **Manager Construction** (`Manager::Manager()` → `Impl::init()`):
-   - Create `Sim::Config` with autoReset and random seed
-   - Branch based on execution mode (CPU/CUDA):
+## Initialization Sequence
+
+### 1. **Manager Creation Phase** (`Manager::Manager()` → `Impl::init()`)
+The Manager acts as the interface between Python and the simulation. During construction:
+
+**Manager Creation - Step 1: Boilerplate Setup**
+- Creates execution context (CPU threads or CUDA)
+- Allocates memory for parallel worlds
+- Sets up data export infrastructure
+
+**Manager Creation - Step 2: Load Physics Assets** (`loadPhysicsObjects()`)
+```cpp
+// 1. Load collision meshes from OBJ files
+AssetImporter::importFromDisk({
+    "cube_collision.obj",    // Pushable blocks
+    "wall_collision.obj",    // Static walls and doors
+    "agent_collision_simplified.obj",  // Agent collision shape
+});
+
+// 2. Process meshes into collision hulls
+RigidBodyAssets::processRigidBodyAssets() performs:
+- Convex hull optimization
+- Bounding volume calculation
+- Mass and inertia tensor computation
+
+// 3. Configure physics properties per object type
+setupHull(SimObject::Cube, 0.075f, {.muS = 0.5f, .muD = 0.75f});  // Pushable
+setupHull(SimObject::Wall, 0.f, {.muS = 0.5f, .muD = 0.5f});      // Static
+setupHull(SimObject::Agent, 1.f, {.muS = 0.5f, .muD = 0.5f});     // Controlled
+
+// 4. Special handling: Constrain agent rotation to Z-axis only
+rigid_body_assets.metadatas[Agent].mass.invInertiaTensor.x = 0.f;  // No X rotation
+rigid_body_assets.metadatas[Agent].mass.invInertiaTensor.y = 0.f;  // No Y rotation
+```
+
+**Manager Creation - Step 3: Load Render Assets** (`loadRenderObjects()` - if rendering enabled)
+```cpp
+// 1. Load visual meshes from OBJ files
+AssetImporter::importFromDisk({
+    "cube_render.obj",    // Visual cube mesh
+    "wall_render.obj",    // Wall/door mesh
+    "agent_render.obj",   // Multi-part agent mesh
+});
+
+// 2. Define materials (colors, textures)
+materials[0] = { rgb(191, 108, 10), ...};  // Brown cube
+materials[5] = { rgb(230, 20, 20), ...};   // Red door
+materials[6] = { rgb(230, 230, 20), ...};  // Yellow button
+
+// 3. Assign materials to mesh parts
+render_assets->objects[SimObject::Agent].meshes[0].materialIDX = 2;  // Body
+render_assets->objects[SimObject::Agent].meshes[1].materialIDX = 3;  // Eyes
+
+// 4. Load textures
+ImageImporter::importImages({"green_grid.png", "smile.png"});
+
+// 5. Configure scene lighting
+render_mgr.configureLighting({direction, color, intensity});
+```
+
+**Manager Creation - Step 4: Final Setup**
+- Creates executor (CPU/GPU) with loaded assets
+- Retrieves pointers to exported buffers (actions, observations)
+- Triggers initial reset and steps once to populate observations
    
-   **For CUDA Mode:**
-   - Call `MWCudaExecutor::initCUDA()` to initialize CUDA context
-   - Create `PhysicsLoader` for GPU and call `loadPhysicsObjects()`
-   - Initialize optional GPU rendering:
-     - `initRenderGPUState()` - sets up GPU render state
-     - `initRenderManager()` - creates render manager
-     - `loadRenderObjects()` - loads meshes, materials, textures
-   - Create `HeapArray<Sim::WorldInit>` for per-world initialization
-   - Construct `MWCudaExecutor` with configuration including:
-     - World initialization data pointers
-     - Sim config (physics, rendering bridges)
-     - Memory layout info (sizeof(Sim), alignment)
-     - Number of worlds, task graphs, exported buffers
-     - GPU compilation flags
-   - Call `getExported()` to retrieve device pointers for:
-     - Reset buffer (`WorldReset*`)
-     - Action buffer (`Action*`)
-     - All other exported components (via tensor mapping)
-   
-   **For CPU Mode:**
-   - Same physics and render initialization as CUDA
-   - Construct `ThreadPoolExecutor` with:
-     - Number of worlds and exported buffers
-     - Sim config and world initialization data
-   - Call `getExported()` to retrieve host pointers
-   
-   **After Impl::init() returns:**
-   - Force reset all worlds via `triggerReset()`
-   - Execute one step via `step()` to populate initial observations
-   
-2. **Executor Initialization** (inside TaskGraphExecutor/MWCudaExecutor constructor):
-   - Base class `ThreadPoolExecutor` constructor runs first
-   - Call `getECSRegistry()` to obtain the ECS registry
-   - Call `WorldT::registerTypes()` (i.e., `Sim::registerTypes()`) which:
-     - Registers all components with `registry.registerComponent<T>()`
-     - Registers all archetypes with `registry.registerArchetype<T>()`
-     - Exports components for Python access with `registry.exportColumn<T>()`
-     - **Memory allocation**: Virtual address space (1B × component size) reserved per exported component
-   - Create per-world contexts and task graph managers
-   - Construct world data instances (`WorldT` objects)
-   - Call `WorldT::setupTasks()` (i.e., `Sim::setupTasks()`) to build task graphs
-   - Call `initExport()` which triggers initial `copyOutExportedColumns()`
-     - **Memory allocation**: Physical pages committed as needed during copy
-   - **Now `getExported()` can be called** to retrieve pointers to exported data
-   
-3. **Per-World Sim Construction** (`Sim::Sim()` constructor):
-   - Calculate `max_total_entities` for BVH allocation:
-     ```cpp
-     max_total_entities = numAgents + numRooms * (maxEntitiesPerRoom + 3) + 4
-     // Accounts for: agents + room entities + doors/walls + floor/boundaries
-     ```
-   - Initialize physics via `PhysicsSystem::init()` with entity count
-   - Initialize rendering via `RenderingSystem::init()` if enabled
-   - Call `createPersistentEntities()` for agents, walls, floor
-   - Call `initWorld()` → `generateWorld()` → `generateLevel()`
-   
-4. **First Step Execution**:
-   - Call `triggerReset()` for all worlds
-   - Call `step()` → `impl->run()` → `gpuExec.run()`
-   - Call `RenderManager::readECS()` if rendering enabled
-   - Populate initial observations
+### 2. **Executor Initialization Phase** (inside TaskGraphExecutor/MWCudaExecutor constructor)
+
+**Executor Init - Step 1: Base Setup**
+- Base class `ThreadPoolExecutor` constructor runs first
+- Call `getECSRegistry()` to obtain the ECS registry
+
+**Executor Init - Step 2: ECS Registration** (`Sim::registerTypes()`)
+- Registers all components with `registry.registerComponent<T>()`
+- Registers all archetypes with `registry.registerArchetype<T>()` 
+- Exports components for Python access with `registry.exportColumn<T>()`
+- **Memory allocation**: Virtual address space (1B × component size) reserved per exported component
+
+**Executor Init - Step 3: World Construction**
+- Create per-world contexts and task graph managers
+- Construct world data instances (`WorldT` objects)
+
+**Executor Init - Step 4: Task Graph Setup** (`Sim::setupTasks()`)
+- Build task graphs defining system execution order
+- Configure dependencies between systems
+
+**Executor Init - Step 5: Export Initialization**
+- Call `initExport()` which triggers initial `copyOutExportedColumns()`
+- **Memory allocation**: Physical pages committed as needed during copy
+- **Now `getExported()` can be called** to retrieve pointers to exported data
+
+### 3. **Per-World Sim Construction Phase** (`Sim::Sim()` constructor)
+
+**World Init - Step 1: Calculate Entity Limits**
+```cpp
+max_total_entities = numAgents + numRooms * (maxEntitiesPerRoom + 3) + 4
+// Accounts for: agents + room entities + doors/walls + floor/boundaries
+```
+
+**World Init - Step 2: Initialize Subsystems**
+- Initialize physics via `PhysicsSystem::init()` with entity count
+- Initialize rendering via `RenderingSystem::init()` if enabled
+
+**World Init - Step 3: Create Persistent Entities**
+- Call `createPersistentEntities()` for agents, walls, floor
+
+**World Init - Step 4: Generate Initial World**
+- Call `initWorld()` → `generateWorld()` → `generateLevel()`
+
+### 4. **First Step Execution Phase**
+
+**First Step - Step 1: Trigger Resets**
+- Call `triggerReset()` for all worlds
+
+**First Step - Step 2: Execute Simulation**
+- Call `step()` → `impl->run()` → `gpuExec.run()`
+
+**First Step - Step 3: Render Updates** (if enabled)
+- Call `RenderManager::readECS()`
+
+**First Step - Step 4: Export Observations**
+- Populate initial observations for Python
 
 ### Reset Sequence
 
