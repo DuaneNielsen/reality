@@ -117,6 +117,9 @@ The task graph defines precise system dependencies:
 - **Lidar**: 30 samples in circle around agent
 
 ### Modifying the Simulator
+
+**Important**: When adding entities, update `max_total_entities` calculation in `Sim::Sim()` to ensure the BVH has sufficient space. The physics system currently requires knowing the upper bound at initialization.
+
 1. **Adding new observations**: 
    - Add component to `src/types.hpp`
    - Update `Agent` archetype
@@ -219,15 +222,26 @@ Manager::Manager(const Config &cfg) {
    - Call `Impl::init()` to select implementation
    - Call `initRenderGPUState()` and `initRenderManager()`
    - Load assets via `loadPhysicsObjects()` and `loadRenderObjects()`
-   - Create execution backend
+   - Create execution backend (TaskGraphExecutor/MWCudaExecutor)
    
-2. **Per-World Sim Initialization** (`Sim::Sim()`):
-   - Call `registerTypes()` for ECS components
-   - Call `createPersistentEntities()` for static entities
+2. **Executor Initialization** (inside TaskGraphExecutor/MWCudaExecutor):
+   - Call `Sim::registerTypes()` static method (happens ONCE)
+   - Set up ECS registry with all components, archetypes, and exports
+   - Call `Sim::setupTasks()` to configure task graph
+   - Allocate memory for all worlds
+   
+3. **Per-World Sim Construction** (`Sim::Sim()` constructor):
+   - Calculate `max_total_entities` for BVH allocation:
+     ```cpp
+     max_total_entities = numAgents + numRooms * (maxEntitiesPerRoom + 3) + 4
+     // Accounts for: agents + room entities + doors/walls + floor/boundaries
+     ```
+   - Initialize physics via `PhysicsSystem::init()` with entity count
+   - Initialize rendering via `RenderingSystem::init()` if enabled
+   - Call `createPersistentEntities()` for agents, walls, floor
    - Call `initWorld()` → `generateWorld()` → `generateLevel()`
-   - Call `setupTasks()` to configure task graph
    
-3. **First Step Execution**:
+4. **First Step Execution**:
    - Call `triggerReset()` for all worlds
    - Call `step()` → `impl->run()` → `gpuExec.run()`
    - Call `RenderManager::readECS()` if rendering enabled
