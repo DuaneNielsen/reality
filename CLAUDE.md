@@ -720,7 +720,9 @@ Sim::Sim(Engine &ctx,
 - Call `RenderManager::readECS()`
 
 **First Step - Step 4: Export Observations**
-- Populate initial observations for Python
+- Observations are automatically populated during task graph execution
+- The `collectObservationSystem` [REQUIRED_INTERFACE] writes to exported components
+- No explicit export call needed - data is directly accessible via tensor methods
 
 ### Reset Sequence
 

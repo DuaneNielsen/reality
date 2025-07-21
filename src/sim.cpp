@@ -37,7 +37,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [BOILERPLATE] Register rendering types if enabled
     RenderingSystem::registerTypes(registry, cfg.renderBridge);
 
-    // [REQUIRED_INTERFACE] Core components every environment needs
+    // [BOILERPLATE] Core components every environment needs
     registry.registerComponent<Action>();
     registry.registerComponent<Reward>();
     registry.registerComponent<Done>();
@@ -73,7 +73,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.exportSingleton<WorldReset>(
         (uint32_t)ExportID::Reset);
     
-    // [REQUIRED_INTERFACE] Export core RL components
+    // [BOILERPLATE] Export core RL components
     registry.exportColumn<Agent, Action>(
         (uint32_t)ExportID::Action);
     registry.exportColumn<Agent, Reward>(
@@ -344,8 +344,9 @@ static inline float computeZAngle(Quat q)
     return atan2f(siny_cosp, cosy_cosp);
 }
 
-// [GAME_SPECIFIC] This system packages all the egocentric observations together 
-// for the policy inputs.
+// [REQUIRED_INTERFACE] This system packages all the egocentric observations together 
+// for the policy inputs. Every environment must implement observation collection.
+// [GAME_SPECIFIC] The specific observations collected and their format.
 inline void collectObservationsSystem(Engine &ctx,
                                       Position pos,
                                       Rotation rot,
@@ -670,7 +671,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto post_reset_broadphase = phys::PhysicsSystem::setupBroadphaseTasks(
         builder, {reset_sys});
 
-    // [GAME_SPECIFIC] Finally, collect observations for the next step.
+    // [REQUIRED_INTERFACE] Finally, collect observations for the next step.
     auto collect_obs = builder.addToGraph<ParallelForNode<Engine,
         collectObservationsSystem,
             Position,

@@ -96,7 +96,7 @@ static inline Optional<render::RenderManager> initRenderManager(
         .agentViewWidth = mgr_cfg.batchRenderViewWidth,
         .agentViewHeight = mgr_cfg.batchRenderViewHeight,
         .numWorlds = mgr_cfg.numWorlds,
-        .maxViewsPerWorld = consts::numAgents,  // [GAME_SPECIFIC] One view per agent
+        .maxViewsPerWorld = consts::numAgents,
         .maxInstancesPerWorld = 1000,           // [GAME_SPECIFIC] Max entities to render
         .execMode = mgr_cfg.execMode,
         .voxelCfg = {},
@@ -132,14 +132,12 @@ struct Manager::Impl {
 
     inline virtual ~Impl() {}
 
-    virtual void run() = 0;  // [BOILERPLATE] Execute one simulation step
+    virtual void run() = 0;
 
-    // [BOILERPLATE] Export tensor data for Python integration
     virtual Tensor exportTensor(ExportID slot,
         TensorElementType type,
         madrona::Span<const int64_t> dimensions) const = 0;
 
-    // [BOILERPLATE] Factory method for creating CPU/GPU implementations
     static inline Impl * init(const Config &cfg);
 };
 
@@ -222,7 +220,6 @@ struct Manager::CUDAImpl final : Manager::Impl {
 // ============================================================================
 
 // [REQUIRED_INTERFACE] Load visual assets - must be implemented by every environment
-// [GAME_SPECIFIC] The actual meshes, materials, and textures loaded
 static void loadRenderObjects(render::RenderManager &render_mgr)
 {
     StackAlloc tmp_alloc;
@@ -242,17 +239,21 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     render_asset_paths[(size_t)SimObject::Plane] =
         (std::filesystem::path(DATA_DIR) / "plane.obj").string();
 
+    // [BOILERPLATE]
     std::array<const char *, (size_t)SimObject::NumObjects> render_asset_cstrs;
     for (size_t i = 0; i < render_asset_paths.size(); i++) {
         render_asset_cstrs[i] = render_asset_paths[i].c_str();
     }
 
+    // [BOILERPLATE]
     imp::AssetImporter importer;
 
+    // [BOILERPLATE]
     std::array<char, 1024> import_err;
     auto render_assets = importer.importFromDisk(
         render_asset_cstrs, Span<char>(import_err.data(), import_err.size()));
 
+    // [BOILERPLATE]
     if (!render_assets.has_value()) {
         FATAL("Failed to load render assets: %s", import_err);
     }
@@ -288,6 +289,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
                "smile.png").string().c_str(),        // Agent texture
         });
 
+    // [BOILERPLATE]
     render_mgr.loadObjects(
         render_assets->objects, materials, imported_textures);
 
@@ -301,6 +303,8 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 // [GAME_SPECIFIC] The actual collision meshes and physics parameters
 static void loadPhysicsObjects(PhysicsLoader &loader)
 {
+
+    // [GAME_SPECIFIC]
     std::array<std::string, (size_t)SimObject::NumObjects - 1> asset_paths;
     asset_paths[(size_t)SimObject::Cube] =
         (std::filesystem::path(DATA_DIR) / "cube_collision.obj").string();
@@ -313,28 +317,36 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     asset_paths[(size_t)SimObject::Button] =
         (std::filesystem::path(DATA_DIR) / "cube_collision.obj").string();
 
+
+    // [BOILERPLATE]
     std::array<const char *, (size_t)SimObject::NumObjects - 1> asset_cstrs;
     for (size_t i = 0; i < asset_paths.size(); i++) {
         asset_cstrs[i] = asset_paths[i].c_str();
     }
 
+    // [BOILERPLATE]
     imp::AssetImporter importer;
 
+    // [BOILERPLATE]
     char import_err_buffer[4096];
     auto imported_src_hulls = importer.importFromDisk(
         asset_cstrs, import_err_buffer, true);
 
+    // [BOILERPLATE]
     if (!imported_src_hulls.has_value()) {
         FATAL("%s", import_err_buffer);
     }
 
+    // [BOILERPLATE]
     DynArray<imp::SourceMesh> src_convex_hulls(
         imported_src_hulls->objects.size());
 
+    // [BOILERPLATE]
     DynArray<DynArray<SourceCollisionPrimitive>> prim_arrays(0);
     HeapArray<SourceCollisionObject> src_objs(
         (CountT)SimObject::NumObjects);
 
+    // [BOILERPLATE]
     auto setupHull = [&](SimObject obj_id,
                          float inv_mass,
                          RigidBodyFrictionData friction) {
@@ -400,6 +412,8 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         },
     };
 
+
+    // [BOILERPLATE] process the rigid body assets
     StackAlloc tmp_alloc;
     RigidBodyAssets rigid_body_assets;
     CountT num_rigid_body_data_bytes;
@@ -423,6 +437,7 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     rigid_body_assets.metadatas[
         (CountT)SimObject::Agent].mass.invInertiaTensor.y = 0.f;
 
+    // [BOILERPLATE]
     loader.loadRigidBodies(rigid_body_assets);
     free(rigid_body_data);
 }
@@ -611,6 +626,7 @@ void Manager::step()
 // [REQUIRED_INTERFACE] All tensor methods below define the observation/action space
 // [GAME_SPECIFIC] The specific tensors exported and their shapes
 
+// [BOILERPLATE]
 Tensor Manager::resetTensor() const
 {
     return impl_->exportTensor(ExportID::Reset,
@@ -621,6 +637,7 @@ Tensor Manager::resetTensor() const
                                });
 }
 
+// [BOILERPLATE]
 Tensor Manager::actionTensor() const
 {
     // [GAME_SPECIFIC] 4 discrete actions per agent: move amount/angle, rotate, grab
@@ -632,6 +649,7 @@ Tensor Manager::actionTensor() const
         });
 }
 
+// [BOILERPLATE]
 Tensor Manager::rewardTensor() const
 {
     return impl_->exportTensor(ExportID::Reward, TensorElementType::Float32,
@@ -642,6 +660,7 @@ Tensor Manager::rewardTensor() const
                                });
 }
 
+//[BOILERPLATE]
 Tensor Manager::doneTensor() const
 {
     return impl_->exportTensor(ExportID::Done, TensorElementType::Int32,
@@ -652,6 +671,7 @@ Tensor Manager::doneTensor() const
                                });
 }
 
+//[GAME SPECIFIC]
 Tensor Manager::selfObservationTensor() const
 {
     return impl_->exportTensor(ExportID::SelfObservation,
@@ -663,6 +683,7 @@ Tensor Manager::selfObservationTensor() const
                                });
 }
 
+//[GAME_SPECIFIC]
 Tensor Manager::partnerObservationsTensor() const
 {
     return impl_->exportTensor(ExportID::PartnerObservations,
@@ -675,6 +696,7 @@ Tensor Manager::partnerObservationsTensor() const
                                });
 }
 
+//[GAME_SPECIFIC]
 Tensor Manager::roomEntityObservationsTensor() const
 {
     return impl_->exportTensor(ExportID::RoomEntityObservations,
@@ -687,6 +709,7 @@ Tensor Manager::roomEntityObservationsTensor() const
                                });
 }
 
+//[GAME_SPECIFIC]
 Tensor Manager::doorObservationTensor() const
 {
     return impl_->exportTensor(ExportID::DoorObservation,
@@ -698,6 +721,7 @@ Tensor Manager::doorObservationTensor() const
                                });
 }
 
+//[GAME_SPECIFIC]
 Tensor Manager::lidarTensor() const
 {
     return impl_->exportTensor(ExportID::Lidar, TensorElementType::Float32,
@@ -709,6 +733,8 @@ Tensor Manager::lidarTensor() const
                                });
 }
 
+
+//[BOILERPLATE]
 Tensor Manager::stepsRemainingTensor() const
 {
     return impl_->exportTensor(ExportID::StepsRemaining,
@@ -720,6 +746,7 @@ Tensor Manager::stepsRemainingTensor() const
                                });
 }
 
+//[GAME_SPECIFIC]
 Tensor Manager::rgbTensor() const
 {
     // [BOILERPLATE] Get raw RGB buffer from renderer
@@ -735,12 +762,11 @@ Tensor Manager::rgbTensor() const
     }, impl_->cfg.gpuID);
 }
 
+//[GAME_SPECIFIC]
 Tensor Manager::depthTensor() const
 {
-    // [BOILERPLATE] Get raw depth buffer from renderer
     const float *depth_ptr = impl_->renderMgr->batchRendererDepthOut();
 
-    // [GAME_SPECIFIC] Return tensor with escape room view dimensions
     return Tensor((void *)depth_ptr, TensorElementType::Float32, {
         impl_->cfg.numWorlds,
         consts::numAgents,
@@ -769,6 +795,7 @@ void Manager::triggerReset(int32_t world_idx)
         *reset_ptr = reset;
     }
 }
+
 
 // [REQUIRED_INTERFACE] Set agent actions for the escape room
 void Manager::setAction(int32_t world_idx,
