@@ -230,8 +230,6 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();
     render_asset_paths[(size_t)SimObject::Wall] =
         (std::filesystem::path(DATA_DIR) / "wall_render.obj").string();
-    render_asset_paths[(size_t)SimObject::Door] =
-        (std::filesystem::path(DATA_DIR) / "wall_render.obj").string();  // Reuses wall mesh
     render_asset_paths[(size_t)SimObject::Agent] =
         (std::filesystem::path(DATA_DIR) / "agent_render.obj").string();
     render_asset_paths[(size_t)SimObject::Plane] =
@@ -270,7 +268,6 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     // [GAME_SPECIFIC] Assign materials to each object's meshes
     render_assets->objects[(CountT)SimObject::Cube].meshes[0].materialIDX = 0;
     render_assets->objects[(CountT)SimObject::Wall].meshes[0].materialIDX = 1;
-    render_assets->objects[(CountT)SimObject::Door].meshes[0].materialIDX = 5;   // Red
     render_assets->objects[(CountT)SimObject::Agent].meshes[0].materialIDX = 2;  // Body
     render_assets->objects[(CountT)SimObject::Agent].meshes[1].materialIDX = 3;  // Eyes
     render_assets->objects[(CountT)SimObject::Agent].meshes[2].materialIDX = 3;  // Other parts
@@ -306,8 +303,6 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     asset_paths[(size_t)SimObject::Cube] =
         (std::filesystem::path(DATA_DIR) / "cube_collision.obj").string();
     asset_paths[(size_t)SimObject::Wall] =
-        (std::filesystem::path(DATA_DIR) / "wall_collision.obj").string();
-    asset_paths[(size_t)SimObject::Door] =
         (std::filesystem::path(DATA_DIR) / "wall_collision.obj").string();
     asset_paths[(size_t)SimObject::Agent] =
         (std::filesystem::path(DATA_DIR) / "agent_collision_simplified.obj").string();
@@ -378,10 +373,6 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         .muD = 0.5f,
     });
 
-    setupHull(SimObject::Door, 0.f, {       // Static (infinite mass)
-        .muS = 0.5f,
-        .muD = 0.5f,
-    });
 
     setupHull(SimObject::Agent, 1.f, {      // Unit mass for direct control
         .muS = 0.5f,
@@ -699,17 +690,6 @@ Tensor Manager::roomEntityObservationsTensor() const
                                });
 }
 
-//[GAME_SPECIFIC]
-Tensor Manager::doorObservationTensor() const
-{
-    return impl_->exportTensor(ExportID::DoorObservation,
-                               TensorElementType::Float32,
-                               {
-                                   impl_->cfg.numWorlds,
-                                   consts::numAgents,
-                                   3,
-                               });
-}
 
 //[GAME_SPECIFIC]
 Tensor Manager::lidarTensor() const

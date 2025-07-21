@@ -302,30 +302,8 @@ static void makeEndWall(Engine &ctx,
         });
     registerRigidBodyEntity(ctx, right_wall, SimObject::Wall);
 
-    Entity door = ctx.makeRenderableEntity<DoorEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        door,
-        Vector3 {
-            door_center - consts::worldWidth / 2.f,
-            y_pos,
-            0,
-        },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Door,
-        EntityType::Door,
-        ResponseType::Static,
-        Diag3x3 {
-            consts::doorWidth * 0.8f,
-            consts::wallWidth,
-            1.75f,
-        });
-    registerRigidBodyEntity(ctx, door, SimObject::Door);
-    ctx.get<OpenState>(door).isOpen = false;
-
     room.walls[0] = left_wall;
     room.walls[1] = right_wall;
-    room.door = door;
 }
 
 static Entity makeCube(Engine &ctx,
@@ -356,23 +334,12 @@ static Entity makeCube(Engine &ctx,
     return cube;
 }
 
-static void setupDoor(Engine &ctx,
-                      Entity door)
-{
-    // Doors are always open
-    ctx.get<OpenState>(door).isOpen = true;
-    
-    DoorProperties &props = ctx.get<DoorProperties>(door);
-    props.isPersistent = true;
-}
-
 // An empty room with door always open
 static CountT makeEmptyRoom(Engine &ctx,
                             Room &room,
                             float y_min,
                             float y_max)
 {
-    setupDoor(ctx, room.door);
     return 0;
 }
 
@@ -382,7 +349,6 @@ static CountT makeEmptyRoomVariant(Engine &ctx,
                                    float y_min,
                                    float y_max)
 {
-    setupDoor(ctx, room.door);
     return 0;
 }
 
@@ -392,22 +358,23 @@ static CountT makeCubeObstacleRoom(Engine &ctx,
                                    float y_min,
                                    float y_max)
 {
-    setupDoor(ctx, room.door);
 
-    Vector3 door_pos = ctx.get<Position>(room.door);
+    // Position cubes at fixed location (where door used to be)
+    float door_x = 0.f;  // Center of room
+    float door_y = y_max;
 
-    float cube_a_x = door_pos.x - 3.f;
-    float cube_a_y = door_pos.y - 2.f;
+    float cube_a_x = door_x - 3.f;
+    float cube_a_y = door_y - 2.f;
 
     Entity cube_a = makeCube(ctx, cube_a_x, cube_a_y, 1.5f);
 
-    float cube_b_x = door_pos.x;
-    float cube_b_y = door_pos.y - 2.f;
+    float cube_b_x = door_x;
+    float cube_b_y = door_y - 2.f;
 
     Entity cube_b = makeCube(ctx, cube_b_x, cube_b_y, 1.5f);
 
-    float cube_c_x = door_pos.x + 3.f;
-    float cube_c_y = door_pos.y - 2.f;
+    float cube_c_x = door_x + 3.f;
+    float cube_c_y = door_y - 2.f;
 
     Entity cube_c = makeCube(ctx, cube_c_x, cube_c_y, 1.5f);
 
@@ -424,7 +391,6 @@ static CountT makeCubeRoom(Engine &ctx,
                            float y_min,
                            float y_max)
 {
-    setupDoor(ctx, room.door);
 
     float cube_a_x = randBetween(ctx,
         -consts::worldWidth / 4.f,

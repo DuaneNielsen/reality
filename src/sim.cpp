@@ -49,9 +49,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerComponent<OtherAgents>();
     registry.registerComponent<PartnerObservations>();
     registry.registerComponent<RoomEntityObservations>();
-    registry.registerComponent<DoorObservation>();
-    registry.registerComponent<OpenState>();
-    registry.registerComponent<DoorProperties>();
     registry.registerComponent<Lidar>();
     registry.registerComponent<StepsRemaining>();
     registry.registerComponent<EntityType>();
@@ -65,7 +62,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Escape room archetypes
     registry.registerArchetype<Agent>();
     registry.registerArchetype<PhysicsEntity>();
-    registry.registerArchetype<DoorEntity>();
 
     // [REQUIRED_INTERFACE] Export reset control
     registry.exportSingleton<WorldReset>(
@@ -86,8 +82,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         (uint32_t)ExportID::PartnerObservations);
     registry.exportColumn<Agent, RoomEntityObservations>(
         (uint32_t)ExportID::RoomEntityObservations);
-    registry.exportColumn<Agent, DoorObservation>(
-        (uint32_t)ExportID::DoorObservation);
     registry.exportColumn<Agent, Lidar>(
         (uint32_t)ExportID::Lidar);
     registry.exportColumn<Agent, StepsRemaining>(
@@ -109,7 +103,6 @@ static inline void cleanupWorld(Engine &ctx)
 
         ctx.destroyRenderableEntity(room.walls[0]);
         ctx.destroyRenderableEntity(room.walls[1]);
-        ctx.destroyRenderableEntity(room.door);
     }
 }
 
@@ -252,36 +245,6 @@ inline void grabSystem(Engine &ctx,
         e, grab_entity, attach1, attach2, r1, r2, separation);
 }
 
-// [GAME_SPECIFIC] Animates the doors opening and closing based on OpenState
-inline void setDoorPositionSystem(Engine &,
-                                  Position &pos,
-                                  OpenState &open_state)
-{
-    if (open_state.isOpen) {
-        // Put underground
-        if (pos.z > -4.5f) {
-            pos.z += -consts::doorSpeed * consts::deltaT;
-        }
-    }
-    else if (pos.z < 0.0f) {
-        // Put back on surface
-        pos.z += consts::doorSpeed * consts::deltaT;
-    }
-    
-    if (pos.z >= 0.0f) {
-        pos.z = 0.0f;
-    }
-}
-
-// [GAME_SPECIFIC] Doors are always open
-inline void doorOpenSystem(Engine &ctx,
-                           OpenState &open_state,
-                           const DoorProperties &props)
-{
-    // Doors always remain open
-    open_state.isOpen = true;
-}
-
 // [GAME_SPECIFIC] Make the agents easier to control by zeroing out their velocity
 // after each step.
 inline void agentZeroVelSystem(Engine &,
@@ -350,8 +313,7 @@ inline void collectObservationsSystem(Engine &ctx,
                                       const OtherAgents &other_agents,
                                       SelfObservation &self_obs,
                                       PartnerObservations &partner_obs,
-                                      RoomEntityObservations &room_ent_obs,
-                                      DoorObservation &door_obs)
+                                      RoomEntityObservations &room_ent_obs)
 {
     CountT cur_room_idx = CountT(pos.y / consts::roomLength);
     cur_room_idx = std::max(CountT(0), 
@@ -407,12 +369,6 @@ inline void collectObservationsSystem(Engine &ctx,
         room_ent_obs.obs[i] = ob;
     }
 
-    Entity cur_door = room.door;
-    Vector3 door_pos = ctx.get<Position>(cur_door);
-    OpenState door_open_state = ctx.get<OpenState>(cur_door);
-
-    door_obs.polar = xyToPolar(to_view.rotateVec(door_pos - pos));
-    door_obs.isOpen = door_open_state.isOpen ? 1.f : 0.f;
 }
 
 // [GAME_SPECIFIC] Launches consts::numLidarSamples per agent.
@@ -578,16 +534,9 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             ExternalTorque
         >>({});
 
-    // [GAME_SPECIFIC] Scripted door behavior
-    auto set_door_pos_sys = builder.addToGraph<ParallelForNode<Engine,
-        setDoorPositionSystem,
-            Position,
-            OpenState
-        >>({move_sys});
-
     // [BOILERPLATE] Build BVH for broadphase / raycasting
     auto broadphase_setup_sys = phys::PhysicsSystem::setupBroadphaseTasks(
-        builder, {set_door_pos_sys});
+        builder, {move_sys});
 
     // [GAME_SPECIFIC] Grab action, post BVH build to allow raycasting
     auto grab_sys = builder.addToGraph<ParallelForNode<Engine,
@@ -613,20 +562,13 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto phys_done = phys::PhysicsSystem::setupCleanupTasks(
         builder, {agent_zero_vel});
 
-    // [GAME_SPECIFIC] Set doors to always be open
-    auto door_open_sys = builder.addToGraph<ParallelForNode<Engine,
-        doorOpenSystem,
-            OpenState,
-            DoorProperties
-        >>({phys_done});
-
     // [REQUIRED_INTERFACE] Compute initial reward now that physics has updated the world state
     auto reward_sys = builder.addToGraph<ParallelForNode<Engine,
          rewardSystem,
             Position,
             Progress,
             Reward
-        >>({door_open_sys});
+        >>({phys_done});
 
     // [GAME_SPECIFIC] Assign partner's reward
     auto bonus_reward_sys = builder.addToGraph<ParallelForNode<Engine,
@@ -676,8 +618,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             OtherAgents,
             SelfObservation,
             PartnerObservations,
-            RoomEntityObservations,
-            DoorObservation
+            RoomEntityObservations
         >>({post_reset_broadphase});
 
     // [GAME_SPECIFIC] The lidar system
@@ -709,9 +650,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
         builder, {lidar, collect_obs});
     auto sort_phys_objects = queueSortByWorld<PhysicsEntity>(
         builder, {sort_agents});
-    auto sort_walls = queueSortByWorld<DoorEntity>(
-        builder, {sort_phys_objects});
-    (void)sort_walls;
+    (void)sort_phys_objects;
 #else
     (void)lidar;
     (void)collect_obs;

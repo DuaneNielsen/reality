@@ -117,14 +117,6 @@ namespace madEscape {
     static_assert(sizeof(RoomEntityObservations) == sizeof(float) * consts::maxEntitiesPerRoom * 3);
 
     // [GAME_SPECIFIC]
-    // Observation of the current room's door. It's relative position and
-    // whether or not it is ope
-    struct DoorObservation {
-        PolarObservation polar;
-        float isOpen; // 1.0 when open, 0.0 when closed.
-    };
-
-    // [GAME_SPECIFIC]
     struct LidarSample {
         float depth;
         float encodedType;
@@ -171,7 +163,6 @@ namespace madEscape {
         Cube,
         Wall,
         Agent,
-        Door,
         NumTypes,
     };
 
@@ -180,18 +171,6 @@ namespace madEscape {
     // Generic archetype for entities that need physics but don't have custom
     // logic associated with them.
     struct PhysicsEntity : public madrona::Archetype<RigidBody, EntityType, madrona::render::Renderable> {};
-
-    // [GAME_SPECIFIC]
-    // A per-door component that tracks whether or not the door should be open.
-    struct OpenState {
-        bool isOpen;
-    };
-
-    // [GAME_SPECIFIC]
-    // Door properties
-    struct DoorProperties {
-        bool isPersistent;
-    };
 
 
     // [GAME_SPECIFIC]
@@ -203,9 +182,6 @@ namespace madEscape {
 
         // The walls that separate this room from the next
         Entity walls[2];
-
-        // The door the agents need to figure out how to lower
-        Entity door;
     };
 
     //[GAME_SPECIFIC]
@@ -234,7 +210,7 @@ namespace madEscape {
                   Action,
 
                   // Observations
-                  SelfObservation, PartnerObservations, RoomEntityObservations, DoorObservation, Lidar, StepsRemaining,
+                  SelfObservation, PartnerObservations, RoomEntityObservations, Lidar, StepsRemaining,
 
                   // Reward, episode termination
                   Reward, Done,
@@ -245,13 +221,6 @@ namespace madEscape {
                   // All entities with the Renderable component will be drawn by the
                   // viewer and batch renderer
                   madrona::render::Renderable> {};
-
-
-    // [GAME_SPECIFIC]
-    // Archetype for the doors blocking the end of each challenge room
-    struct DoorEntity
-        : public madrona::Archetype<RigidBody, OpenState, DoorProperties, EntityType, madrona::render::Renderable> {};
-
 
 
 } // namespace madEscape
