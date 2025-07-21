@@ -50,7 +50,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerComponent<PartnerObservations>();
     registry.registerComponent<RoomEntityObservations>();
     registry.registerComponent<DoorObservation>();
-    registry.registerComponent<ButtonState>();
     registry.registerComponent<OpenState>();
     registry.registerComponent<DoorProperties>();
     registry.registerComponent<Lidar>();
@@ -67,7 +66,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerArchetype<Agent>();
     registry.registerArchetype<PhysicsEntity>();
     registry.registerArchetype<DoorEntity>();
-    registry.registerArchetype<ButtonEntity>();
 
     // [REQUIRED_INTERFACE] Export reset control
     registry.exportSingleton<WorldReset>(
@@ -275,10 +273,7 @@ inline void setDoorPositionSystem(Engine &,
     }
 }
 
-
-// [GAME_SPECIFIC] Button system removed - no buttons in the game
-
-// [GAME_SPECIFIC] Doors are always open - no button checks needed
+// [GAME_SPECIFIC] Doors are always open
 inline void doorOpenSystem(Engine &ctx,
                            OpenState &open_state,
                            const DoorProperties &props)
@@ -618,7 +613,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto phys_done = phys::PhysicsSystem::setupCleanupTasks(
         builder, {agent_zero_vel});
 
-    // [GAME_SPECIFIC] Set doors to always be open (no button conditions)
+    // [GAME_SPECIFIC] Set doors to always be open
     auto door_open_sys = builder.addToGraph<ParallelForNode<Engine,
         doorOpenSystem,
             OpenState,

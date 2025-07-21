@@ -328,8 +328,6 @@ static void makeEndWall(Engine &ctx,
     room.door = door;
 }
 
-// Button creation removed - no longer needed
-
 static Entity makeCube(Engine &ctx,
                        float cube_x,
                        float cube_y,
@@ -361,11 +359,10 @@ static Entity makeCube(Engine &ctx,
 static void setupDoor(Engine &ctx,
                       Entity door)
 {
-    // With no buttons, doors are always open
+    // Doors are always open
     ctx.get<OpenState>(door).isOpen = true;
     
     DoorProperties &props = ctx.get<DoorProperties>(door);
-    props.numButtons = 0;
     props.isPersistent = true;
 }
 
@@ -389,7 +386,6 @@ static CountT makeEmptyRoomVariant(Engine &ctx,
     return 0;
 }
 
-// This room has 3 cubes blocking the exit door as well as two buttons.
 // A room with 3 cubes for obstacles, door always open
 static CountT makeCubeObstacleRoom(Engine &ctx,
                                    Room &room,

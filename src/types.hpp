@@ -168,7 +168,6 @@ namespace madEscape {
     // classifying the objects hit by each lidar sample.
     enum class EntityType : uint32_t {
         None,
-        Button,
         Cube,
         Wall,
         Agent,
@@ -189,19 +188,11 @@ namespace madEscape {
     };
 
     // [GAME_SPECIFIC]
-    // Linked buttons that control the door opening and whether or not the door
-    // should remain open after the buttons are pressed once.
+    // Door properties
     struct DoorProperties {
-        Entity buttons[consts::maxEntitiesPerRoom];
-        int32_t numButtons;
         bool isPersistent;
     };
 
-    // [GAME_SPECIFIC]
-    // Similar to OpenState, true during frames where a button is pressed
-    struct ButtonState {
-        bool isPressed;
-    };
 
     // [GAME_SPECIFIC]
     // Room itself is not a component but is used by the singleton
@@ -261,11 +252,6 @@ namespace madEscape {
     struct DoorEntity
         : public madrona::Archetype<RigidBody, OpenState, DoorProperties, EntityType, madrona::render::Renderable> {};
 
-    // [GAME_SPECIFIC]
-    // Archetype for the button objects that open the doors
-    // Buttons don't have collision but are rendered
-    struct ButtonEntity : public madrona::Archetype<Position, Rotation, Scale, ObjectID, ButtonState, EntityType,
-                                                    madrona::render::Renderable> {};
 
 
 } // namespace madEscape

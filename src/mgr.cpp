@@ -234,8 +234,6 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         (std::filesystem::path(DATA_DIR) / "wall_render.obj").string();  // Reuses wall mesh
     render_asset_paths[(size_t)SimObject::Agent] =
         (std::filesystem::path(DATA_DIR) / "agent_render.obj").string();
-    render_asset_paths[(size_t)SimObject::Button] =
-        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();  // Reuses cube mesh
     render_asset_paths[(size_t)SimObject::Plane] =
         (std::filesystem::path(DATA_DIR) / "plane.obj").string();
 
@@ -276,7 +274,6 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     render_assets->objects[(CountT)SimObject::Agent].meshes[0].materialIDX = 2;  // Body
     render_assets->objects[(CountT)SimObject::Agent].meshes[1].materialIDX = 3;  // Eyes
     render_assets->objects[(CountT)SimObject::Agent].meshes[2].materialIDX = 3;  // Other parts
-    render_assets->objects[(CountT)SimObject::Button].meshes[0].materialIDX = 6; // Yellow
     render_assets->objects[(CountT)SimObject::Plane].meshes[0].materialIDX = 4;
 
     // [GAME_SPECIFIC] Load textures for materials
@@ -314,8 +311,6 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         (std::filesystem::path(DATA_DIR) / "wall_collision.obj").string();
     asset_paths[(size_t)SimObject::Agent] =
         (std::filesystem::path(DATA_DIR) / "agent_collision_simplified.obj").string();
-    asset_paths[(size_t)SimObject::Button] =
-        (std::filesystem::path(DATA_DIR) / "cube_collision.obj").string();
 
 
     // [BOILERPLATE]
@@ -389,11 +384,6 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     });
 
     setupHull(SimObject::Agent, 1.f, {      // Unit mass for direct control
-        .muS = 0.5f,
-        .muD = 0.5f,
-    });
-
-    setupHull(SimObject::Button, 1.f, {     // Unit mass (not used in current version)
         .muS = 0.5f,
         .muD = 0.5f,
     });
