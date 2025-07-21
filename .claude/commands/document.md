@@ -225,3 +225,118 @@ This process ensures thorough documentation while distinguishing between framewo
 2. **Assuming code paths**: Virtual functions, function pointers, and conditionals require stepping to verify
 3. **Marking tasks complete without tracing**: Each TODO item should correspond to actual debugging steps performed
 4. **Skipping the "boring" parts**: Framework code often reveals important execution order and dependencies
+
+## Debugging Frameworks with Layers of Indirection
+
+When debugging framework-based code like Madrona, there's often significant indirection between high-level entry points and the actual systems you want to verify. Simply stepping through from the top can lead you through countless framework layers. Follow this procedure instead:
+
+### The Two-Breakpoint Strategy
+
+1. **Identify the Main Program Entry Point**
+   - Find the high-level function that triggers execution
+   - Example: `Manager::step()` in Madrona
+   ```bash
+   # Search for the main entry point
+   Grep(pattern="void.*step\(\)|Manager::step", path="src/")
+   ```
+
+2. **Identify the Target System Entry Point**
+   - Find the specific system or function you want to verify
+   - Example: `movementSystem()` for debugging agent movement
+   ```bash
+   # Search for the system you want to debug
+   Grep(pattern="movementSystem|physicsSystem|rewardSystem", path="src/")
+   ```
+
+3. **Start a Fresh Debug Session**
+   ```bash
+   mcp__gdb__gdb_start(workingDir="/path/to/build")
+   mcp__gdb__gdb_load(sessionId="...", program="./executable", arguments=["..."])
+   ```
+
+4. **Set Breakpoints on Both Entry Points**
+   ```bash
+   # Set breakpoint on main entry point
+   mcp__gdb__gdb_set_breakpoint(sessionId="...", location="Manager::step")
+   
+   # Set breakpoint on target system
+   mcp__gdb__gdb_set_breakpoint(sessionId="...", location="movementSystem")
+   ```
+
+5. **Run and Verify Main Entry Point**
+   ```bash
+   # Start execution
+   mcp__gdb__gdb_command(sessionId="...", command="run")
+   
+   # Verify you hit the main entry point first
+   mcp__gdb__gdb_command(sessionId="...", command="where")
+   ```
+
+6. **Continue to System Entry Point**
+   ```bash
+   # Skip all framework layers
+   mcp__gdb__gdb_continue(sessionId="...")
+   
+   # Verify you hit the system entry point
+   mcp__gdb__gdb_command(sessionId="...", command="where")
+   ```
+
+7. **Analyze the Control Flow**
+   ```bash
+   # Get full backtrace to understand the path taken
+   mcp__gdb__gdb_backtrace(sessionId="...", full=true)
+   
+   # This shows you the actual call chain through the framework
+   ```
+
+8. **Continue Debugging Your System**
+   - Now you can step through your system without framework noise
+   - Set additional breakpoints within the system as needed
+   - Use step/next normally within your code
+
+### Example: Debugging Movement in Madrona
+
+```bash
+# 1. Find entry points
+# Main: Manager::step at mgr.cpp
+# Target: movementSystem at sim.cpp
+
+# 2. Start fresh session
+mcp__gdb__gdb_start(workingDir="build")
+mcp__gdb__gdb_load(sessionId="123", program="./headless", arguments=["CPU", "1", "10"])
+
+# 3. Set both breakpoints
+mcp__gdb__gdb_set_breakpoint(sessionId="123", location="madEscape::Manager::step")
+mcp__gdb__gdb_set_breakpoint(sessionId="123", location="movementSystem")
+
+# 4. Run and verify order
+mcp__gdb__gdb_command(sessionId="123", command="run")
+# Should hit Manager::step first
+
+# 5. Continue to movement system
+mcp__gdb__gdb_continue(sessionId="123")
+# Should hit movementSystem
+
+# 6. Check how we got here
+mcp__gdb__gdb_backtrace(sessionId="123")
+# Shows: movementSystem <- TaskGraph <- ThreadPoolExecutor <- Manager::step
+
+# 7. Now debug the movement logic
+mcp__gdb__gdb_step(sessionId="123")
+```
+
+### Benefits of This Approach
+
+1. **Avoids Framework Complexity**: Skip stepping through task graphs, executors, and dispatch logic
+2. **Verifies Execution Order**: Confirms your system actually runs when expected
+3. **Reveals True Call Path**: Backtrace shows the actual framework path taken
+4. **Focuses on Your Code**: Spend time debugging your logic, not the framework
+5. **Reproducible**: Same breakpoints work across runs
+
+### When to Use This Strategy
+
+- Debugging ECS systems in game engines
+- Verifying task graph execution order
+- Understanding callback sequences
+- Debugging event handlers in UI frameworks
+- Any situation with significant framework indirection
