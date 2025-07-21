@@ -1,3 +1,5 @@
+Carefully and diligently follow the guide below to document $ARGUMENTS
+
 # Step-by-Step Process for Documenting Functions with GDB
 
 This guide provides a systematic approach for documenting Madrona functions using the debugger, distinguishing between BOILERPLATE, GAME_SPECIFIC, and REQUIRED_INTERFACE code.
