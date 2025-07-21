@@ -864,7 +864,218 @@ ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;  // Reset timer
 
 ### Reset Sequence
 
-todo: we need to read through the reset sequence and map out documentation for each function that needs to be called and each important step
+The reset sequence handles transitioning between episodes in the escape room environment. Resets can be triggered manually by external code or automatically when episodes complete.
+
+#### **Reset Entry Point** (`resetSystem()` - src/sim.cpp:138)
+
+The `resetSystem` function is the main entry point for episode resets. It's executed every simulation step as part of the task graph.
+
+```cpp
+// [REQUIRED_INTERFACE] Reset system - every episodic environment needs this
+// This system runs each frame and checks if the current episode is complete
+// or if code external to the application has forced a reset by writing to the
+// WorldReset singleton.
+inline void resetSystem(Engine &ctx, WorldReset &reset)
+{
+    // [GAME_SPECIFIC] Check manual reset flag
+    int32_t should_reset = reset.reset;
+    
+    // [GAME_SPECIFIC] Check auto-reset condition
+    if (ctx.data().autoReset) {
+        for (CountT i = 0; i < consts::numAgents; i++) {
+            Entity agent = ctx.data().agents[i];
+            Done done = ctx.get<Done>(agent);
+            if (done.v) {
+                should_reset = 1;  // Any agent done triggers reset
+            }
+        }
+    }
+
+    if (should_reset != 0) {
+        reset.reset = 0;  // Clear the reset flag
+        
+        cleanupWorld(ctx);  // Destroy dynamic entities
+        initWorld(ctx);     // Create new episode
+    }
+}
+```
+
+**Reset Triggers:**
+1. **Manual Reset**: External code sets `WorldReset.reset = 1` via `Manager::triggerReset()`
+2. **Auto-Reset**: When any agent's `Done` flag is set (if `autoReset` enabled)
+3. **Episode Timeout**: `stepTrackerSystem` sets `Done.v = 1` when steps reach limit
+
+#### **World Cleanup** (`cleanupWorld()` - src/sim.cpp:100)
+
+Destroys all dynamically created entities from the current episode:
+
+```cpp
+// [GAME_SPECIFIC] Helper to cleanup world before reset
+static inline void cleanupWorld(Engine &ctx)
+{
+    // Destroy current level entities
+    LevelState &level = ctx.singleton<LevelState>();
+    for (CountT i = 0; i < consts::numRooms; i++) {
+        Room &room = level.rooms[i];
+        
+        // Destroy room entities (buttons, blocks, etc.)
+        for (CountT j = 0; j < consts::maxEntitiesPerRoom; j++) {
+            if (room.entities[j] != Entity::none()) {
+                ctx.destroyRenderableEntity(room.entities[j]);
+            }
+        }
+        
+        // Destroy walls and doors for this room
+        ctx.destroyRenderableEntity(room.walls[0]);  // Left wall segment
+        ctx.destroyRenderableEntity(room.walls[1]);  // Right wall segment
+        ctx.destroyRenderableEntity(room.door);      // Door entity
+    }
+}
+```
+
+**Important**: Persistent entities (agents, floor, outer walls) are NOT destroyed during cleanup.
+
+#### **World Initialization** (`initWorld()` - src/sim.cpp:119)
+
+Prepares the world for a new episode:
+
+```cpp
+// [GAME_SPECIFIC] Helper to initialize a new escape room world
+static inline void initWorld(Engine &ctx)
+{
+    // [BOILERPLATE] Always reset physics first
+    phys::PhysicsSystem::reset(ctx);  // Clears collision pairs, constraints, BVH
+    
+    // [BOILERPLATE] Assign a new episode ID and RNG
+    ctx.data().rng = RNG(rand::split_i(ctx.data().initRandKey,
+        ctx.data().curWorldEpisode++, (uint32_t)ctx.worldID().idx));
+    
+    // [GAME_SPECIFIC] Generate new world layout
+    generateWorld(ctx);  // Defined in src/level_gen.cpp
+}
+```
+
+**Call Sequence:**
+1. `PhysicsSystem::reset()` - [BOILERPLATE] Clears all physics state
+2. RNG initialization - [BOILERPLATE] New random seed for this episode
+3. `generateWorld()` - [GAME_SPECIFIC] Creates new level layout
+
+#### **World Generation** (`generateWorld()` - src/level_gen.cpp:522)
+
+Orchestrates the world generation process:
+
+```cpp
+void generateWorld(Engine &ctx)
+{
+    resetPersistentEntities(ctx);  // Reset agents and re-register entities
+    generateLevel(ctx);            // Create new room layout
+}
+```
+
+#### **Persistent Entity Reset** (`resetPersistentEntities()` - src/level_gen.cpp:193)
+
+Resets entities that persist across episodes:
+
+```cpp
+static void resetPersistentEntities(Engine &ctx)
+{
+    // [BOILERPLATE] Re-register persistent entities with physics
+    registerRigidBodyEntity(ctx, ctx.data().floorPlane, SimObject::Plane);
+    
+    // Re-register boundary walls
+    for (CountT i = 0; i < 3; i++) {
+        Entity wall_entity = ctx.data().borders[i];
+        registerRigidBodyEntity(ctx, wall_entity, SimObject::Wall);
+    }
+    
+    // [GAME_SPECIFIC] Reset each agent
+    for (CountT i = 0; i < consts::numAgents; i++) {
+        Entity agent_entity = ctx.data().agents[i];
+        
+        // [BOILERPLATE] Re-register with physics
+        registerRigidBodyEntity(ctx, agent_entity, SimObject::Agent);
+        
+        // [GAME_SPECIFIC] Random spawn position near starting wall
+        Vector3 pos {
+            randInRangeCentered(ctx, 
+                consts::worldWidth / 2.f - 2.5f * consts::agentRadius),
+            randBetween(ctx, consts::agentRadius * 1.1f, 2.f),  // Slightly above floor
+            0.f,
+        };
+        
+        // Spread agents left/right alternately
+        if (i % 2 == 0) {
+            pos.x += consts::worldWidth / 4.f;
+        } else {
+            pos.x -= consts::worldWidth / 4.f;
+        }
+        
+        ctx.get<Position>(agent_entity) = pos;
+        
+        // [GAME_SPECIFIC] Random initial rotation (±45 degrees)
+        ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
+            randInRangeCentered(ctx, math::pi / 4.f), math::up);
+        
+        // [GAME_SPECIFIC] Clear grab constraint from previous episode
+        auto &grab_state = ctx.get<GrabState>(agent_entity);
+        if (grab_state.constraintEntity != Entity::none()) {
+            ctx.destroyEntity(grab_state.constraintEntity);
+            grab_state.constraintEntity = Entity::none();
+        }
+        
+        // [GAME_SPECIFIC] Reset progress tracking
+        ctx.get<Progress>(agent_entity).maxY = pos.y;
+        
+        // [BOILERPLATE] Clear physics state
+        ctx.get<Velocity>(agent_entity) = { Vector3::zero(), Vector3::zero() };
+        ctx.get<ExternalForce>(agent_entity) = Vector3::zero();
+        ctx.get<ExternalTorque>(agent_entity) = Vector3::zero();
+        
+        // [GAME_SPECIFIC] Reset action and timer
+        ctx.get<Action>(agent_entity) = Action {
+            .moveAmount = 0,
+            .moveAngle = 0,
+            .rotate = consts::numTurnBuckets / 2,  // Center bucket
+            .grab = 0,
+        };
+        ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;
+    }
+}
+```
+
+#### **Level Generation** (`generateLevel()` - src/level_gen.cpp:486)
+
+Creates the procedural room layout for the new episode:
+
+```cpp
+static void generateLevel(Engine &ctx)
+{
+    LevelState &level = ctx.singleton<LevelState>();
+    
+    // [GAME_SPECIFIC] Generate each room with random type
+    for (CountT room_idx = 0; room_idx < consts::numRooms; room_idx++) {
+        int room_type_idx = (int)randBetween(ctx, 0, (int)RoomType::NumTypes);
+        RoomType room_type = (RoomType)room_type_idx;
+        
+        makeRoom(ctx, level, room_idx, room_type);
+    }
+}
+```
+
+Each room is generated with:
+- Random room type (SingleButton, DoubleButton, Cube)
+- End walls with doors at random positions
+- Buttons, blocks, and other interactive elements
+- All new entities registered with the physics system
+
+#### **Key Points:**
+
+- **Persistent vs Dynamic**: Agents, floor, and outer walls persist; rooms are recreated
+- **Physics Reset**: Critical to clear collision state before world generation
+- **Entity Registration**: All entities must be re-registered with physics after reset
+- **Random Seed**: Each episode gets unique RNG state for procedural generation
+- **Component Reset**: Agent components reset to valid initial states
+- **Task Graph Integration**: Reset system runs every frame, checking conditions
 
 ### Step Sequence
 
