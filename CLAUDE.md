@@ -708,6 +708,144 @@ Sim::Sim(Engine &ctx,
 }
 ```
 
+**World Init - Step 2: Create Persistent Entities** (`createPersistentEntities()`)
+
+The `createPersistentEntities` function creates entities that persist across all episodes. These entities are created once during world initialization and are reused/reset for each episode rather than destroyed and recreated.
+
+```cpp
+// In createPersistentEntities() - src/level_gen.cpp:76-188
+void createPersistentEntities(Engine &ctx)
+{
+    // [GAME_SPECIFIC] Create floor plane - a static physics entity
+    ctx.data().floorPlane = ctx.makeRenderableEntity<PhysicsEntity>();
+    setupRigidBodyEntity(
+        ctx,
+        ctx.data().floorPlane,
+        Vector3 { 0, 0, 0 },        // Position at origin
+        Quat { 1, 0, 0, 0 },        // No rotation
+        SimObject::Plane,           // Physics object type
+        EntityType::None,           // Floor plane type never queried
+        ResponseType::Static);      // Immovable
+
+    // [GAME_SPECIFIC] Create outer boundary walls
+    // Three walls are created (behind, right, left) - front is open
+    
+    // Behind wall (at y=0)
+    ctx.data().borders[0] = ctx.makeRenderableEntity<PhysicsEntity>();
+    setupRigidBodyEntity(
+        ctx,
+        ctx.data().borders[0],
+        Vector3 { 0, -consts::wallWidth / 2.f, 0 },
+        Quat { 1, 0, 0, 0 },
+        SimObject::Wall,
+        EntityType::Wall,
+        ResponseType::Static,
+        Diag3x3 {  // Scale to span entire world width
+            consts::worldWidth + consts::wallWidth * 2,
+            consts::wallWidth,
+            2.f
+        });
+
+    // Right and Left walls similarly positioned at world boundaries...
+
+    // [GAME_SPECIFIC] Create agent entities
+    for (CountT i = 0; i < consts::numAgents; ++i) {
+        Entity agent = ctx.data().agents[i] = 
+            ctx.makeRenderableEntity<Agent>();
+
+        // [GAME_SPECIFIC] Attach camera view to agent (if rendering enabled)
+        if (ctx.data().enableRender) {
+            render::RenderingSystem::attachEntityToView(ctx,
+                agent,
+                100.f,              // Far plane distance
+                0.001f,             // Near plane distance  
+                1.5f * math::up);   // Camera offset from agent
+        }
+
+        // [GAME_SPECIFIC] Initialize agent components
+        ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };
+        ctx.get<ObjectID>(agent) = ObjectID { (int32_t)SimObject::Agent };
+        ctx.get<ResponseType>(agent) = ResponseType::Dynamic;
+        ctx.get<GrabState>(agent).constraintEntity = Entity::none();
+        ctx.get<EntityType>(agent) = EntityType::Agent;
+    }
+
+    // [GAME_SPECIFIC] Populate OtherAgents component
+    // Each agent maintains references to all other agents for observations
+    for (CountT i = 0; i < consts::numAgents; i++) {
+        Entity cur_agent = ctx.data().agents[i];
+        OtherAgents &other_agents = ctx.get<OtherAgents>(cur_agent);
+        
+        CountT out_idx = 0;
+        for (CountT j = 0; j < consts::numAgents; j++) {
+            if (i == j) continue;  // Skip self
+            
+            Entity other_agent = ctx.data().agents[j];
+            other_agents.e[out_idx++] = other_agent;
+        }
+    }
+}
+```
+
+**Key Points about Persistent Entities:**
+- **Floor and Walls**: Static collision geometry that defines world boundaries
+- **Agents**: Player-controlled entities with attached cameras and physics
+- **Lifetime**: Created once at startup, persist across all episodes
+- **Reset Behavior**: Positions/states reset each episode via `resetPersistentEntities()`
+- **Component Initialization**: Only invariant components set here; episode-specific values set during reset
+
+**World Init - Step 3: Initialize World** (`initWorld()`)
+
+The `initWorld` function prepares each new episode through this call sequence:
+1. `PhysicsSystem::reset()` - Clears all collision pairs, constraints, and physics state from the previous episode
+2. Creates a new RNG state using `rand::split_i()` with the episode counter and world ID
+3. `generateWorld()` - Orchestrates the world generation process
+
+The `generateWorld` function then calls:
+1. `resetPersistentEntities()` - Resets agents and re-registers all persistent entities
+2. `generateLevel()` - Creates the procedural level layout
+
+Inside `resetPersistentEntities()`:
+- `registerRigidBodyEntity()` is called for each persistent entity (floor, walls, agents) to re-register them with the physics broadphase
+- For each agent, the following game-specific state is reset:
+
+```cpp
+// [GAME_SPECIFIC] Agent spawn positioning
+Vector3 pos {
+    randInRangeCentered(ctx, consts::worldWidth / 2.f - 2.5f * consts::agentRadius),
+    randBetween(ctx, consts::agentRadius * 1.1f, 2.f),  // Slightly above floor
+    0.f
+};
+
+// Spread agents left/right alternately
+if (i % 2 == 0) {
+    pos.x += consts::worldWidth / 4.f;
+} else {
+    pos.x -= consts::worldWidth / 4.f;
+}
+
+// [GAME_SPECIFIC] Random initial rotation (±45 degrees)
+ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
+    randInRangeCentered(ctx, math::pi / 4.f), math::up);
+
+// [GAME_SPECIFIC] Clear grab state from previous episode
+auto &grab_state = ctx.get<GrabState>(agent_entity);
+if (grab_state.constraintEntity != Entity::none()) {
+    ctx.destroyEntity(grab_state.constraintEntity);
+    grab_state.constraintEntity = Entity::none();
+}
+
+// [GAME_SPECIFIC] Reset gameplay components
+ctx.get<Progress>(agent_entity).maxY = pos.y;  // Track forward progress
+ctx.get<Action>(agent_entity) = Action {
+    .moveAmount = 0,
+    .moveAngle = 0,
+    .rotate = consts::numTurnBuckets / 2,  // Center rotation bucket
+    .grab = 0
+};
+ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;  // Reset timer
+```
+
 ### 4. **First Step Execution Phase**
 
 **First Step - Step 1: Trigger Resets**
