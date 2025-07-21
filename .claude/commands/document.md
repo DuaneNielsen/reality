@@ -4,6 +4,16 @@ Carefully and diligently follow the guide below to document $ARGUMENTS
 
 This guide provides a systematic approach for documenting Madrona functions using the debugger, distinguishing between BOILERPLATE, GAME_SPECIFIC, and REQUIRED_INTERFACE code.
 
+## Core Principle: Dynamic Tracing Over Static Reading
+
+The debugger's PRIMARY value is showing actual runtime execution paths. ALWAYS:
+- Step through functions to see which code actually executes
+- Verify assumptions about control flow
+- Discover runtime polymorphism (e.g., which impl_->run() is called)
+- Identify conditional branches taken
+
+Static code reading alone defeats the purpose of debugging.
+
 ## 1. **Identify the Entry Point Function**
 - Choose a key function to document (e.g., `resetSystem`, `triggerReset`, `step`)
 - Read the function signature and surrounding context to understand its purpose
@@ -49,9 +59,20 @@ mcp__gdb__gdb_backtrace(sessionId="...", limit=5)
   - Interface methods (reset, step, action handling) → REQUIRED_INTERFACE
 
 ### c) Step or Continue
+
+**CRITICAL: Always step INTO key functions to trace execution**
 ```bash
-# Step into interesting functions
+# ❌ WRONG: Just reading source code instead of stepping
+# ✅ RIGHT: Step into to see actual execution
 mcp__gdb__gdb_step(sessionId="...")
+
+# For virtual functions or function pointers:
+# - MUST step in to see which implementation runs
+# - Example: impl_->run() could be CPUImpl::run() or CUDAImpl::run()
+
+# Example: Tracing a virtual function
+mcp__gdb__gdb_step(sessionId="...")  # Step INTO impl_->run()
+mcp__gdb__gdb_command(sessionId="...", command="where")  # Verify which implementation
 
 # Or step over utility functions
 mcp__gdb__gdb_next(sessionId="...")
@@ -59,6 +80,32 @@ mcp__gdb__gdb_next(sessionId="...")
 # Or continue to next breakpoint
 mcp__gdb__gdb_continue(sessionId="...")
 ```
+
+### When to Use Each GDB Command:
+
+**`gdb_step` (step into)**
+- Use when you WANT to trace into a function call
+- Essential for understanding which implementation runs (polymorphism)
+- Use for functions you're documenting or need to understand
+- Example: Stepping into `impl_->run()` to see if it's CPU or CUDA
+
+**`gdb_next` (step over)**
+- Use when you DON'T need to trace into a function
+- Good for utility functions, getters/setters, or well-understood calls
+- Keeps you at the current function level
+- Example: Stepping over `has_value()` or simple accessors
+
+**`gdb_finish` (run until return)**
+- Use when you've stepped INTO a function by mistake or are done examining it
+- Executes until the current function returns to its caller
+- WARNING: Don't use on the function you're trying to document!
+- Example: Accidentally stepped into STL template code, use finish to get back
+
+**`gdb_continue` (run to next breakpoint)**
+- Use to skip large sections of code you don't need to trace
+- Runs until hitting another breakpoint or program ends
+- Good for jumping between key functions
+- Example: After documenting init, continue to the step() function
 
 ### d) Set Additional Breakpoints
 ```bash
@@ -171,3 +218,10 @@ TodoWrite(todos=[...mark items as completed...])
 ```
 
 This process ensures thorough documentation while distinguishing between framework code (summarized) and game-specific code (shown in detail), and maintains a logical flow that mirrors the program's execution order.
+
+## Common Mistakes to Avoid
+
+1. **Reading source instead of stepping**: If you find yourself using Read() instead of step/next, you're not debugging properly
+2. **Assuming code paths**: Virtual functions, function pointers, and conditionals require stepping to verify
+3. **Marking tasks complete without tracing**: Each TODO item should correspond to actual debugging steps performed
+4. **Skipping the "boring" parts**: Framework code often reveals important execution order and dependencies
