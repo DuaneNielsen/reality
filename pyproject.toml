@@ -1,11 +1,22 @@
 [build-system]
 requires = []
-build-backend = "madrona-py-build"
+build-backend = "madrona_py_build"
 backend-path = ["external/madrona/py"]
 
 [project]
 name = "madrona_escape_room"
 version = "0.0.1"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.20.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-xdist>=3.0.0",  # For parallel test execution
+]
 
 [tool.madrona.packages.madrona_escape_room]
 ext-only = true
