@@ -217,7 +217,7 @@ The task graph defines precise system dependencies:
 2. **Physics Pipeline**: 
    - `movementSystem` → `broadphase_setup` → `grabSystem` → `physicsSystem` → `agentZeroVel`
 3. **Game Logic Pipeline**:
-   - `doorOpenSystem` → `rewardSystem` → `bonusRewardSystem` → `doneSystem` → `resetSystem`
+   - `doorOpenSystem` → `rewardSystem` → `doneSystem` → `resetSystem`
 4. **Output**: Observation collection
 
 ### Data Flow
