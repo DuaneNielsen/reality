@@ -98,9 +98,6 @@ def test_tensor_shapes(cpu_manager):
     self_obs = mgr.self_observation_tensor().to_torch()
     assert len(self_obs.shape) == 3  # [worlds, agents, features]
     
-    partner_obs = mgr.partner_observations_tensor().to_torch()
-    assert len(partner_obs.shape) == 4  # [worlds, agents, partners, features]
-    
     room_obs = mgr.room_entity_observations_tensor().to_torch()
     assert len(room_obs.shape) == 4  # [worlds, agents, entities, features]
     

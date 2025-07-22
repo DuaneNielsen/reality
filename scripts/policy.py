@@ -15,7 +15,6 @@ import torch
 
 def setup_obs(sim):
     self_obs_tensor = sim.self_observation_tensor().to_torch()
-    partner_obs_tensor = sim.partner_observations_tensor().to_torch()
     room_ent_obs_tensor = sim.room_entity_observations_tensor().to_torch()
     door_obs_tensor = sim.door_observation_tensor().to_torch()
     lidar_tensor = sim.lidar_tensor().to_torch()
@@ -34,7 +33,6 @@ def setup_obs(sim):
 
     obs_tensors = [
         self_obs_tensor.view(batch_size, *self_obs_tensor.shape[2:]),
-        partner_obs_tensor.view(batch_size, *partner_obs_tensor.shape[2:]),
         room_ent_obs_tensor.view(batch_size, *room_ent_obs_tensor.shape[2:]),
         door_obs_tensor.view(batch_size, *door_obs_tensor.shape[2:]),
         lidar_tensor.view(batch_size, *lidar_tensor.shape[2:]),

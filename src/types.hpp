@@ -80,21 +80,6 @@ namespace madEscape {
         float theta;
     };
 
-    // [GAME_SPECIFIC]
-    struct PartnerObservation {
-        PolarObservation polar;
-    };
-
-    // [GAME_SPECIFIC]
-    // Egocentric observations of other agents
-    struct PartnerObservations {
-        PartnerObservation obs[consts::numAgents - 1];
-    };
-
-    // [GAME_SPECIFIC]
-    // PartnerObservations is exported as a
-    // [N, A, consts::numAgents - 1, 2] // tensor to pytorch
-    static_assert(sizeof(PartnerObservations) == sizeof(float) * (consts::numAgents - 1) * 2);
 
     // [GAME_SPECIFIC]
     // Per-agent egocentric observations for the interactable entities
@@ -127,12 +112,6 @@ namespace madEscape {
         float maxY;
     };
 
-    // [GAME_SPECIFIC]
-    // Per-agent component storing Entity IDs of the other agents. Used to
-    // build the egocentric observations of their state.
-    struct OtherAgents {
-        madrona::Entity e[consts::numAgents - 1];
-    };
 
 
     // [GAME_SPECIFIC]
@@ -184,13 +163,13 @@ namespace madEscape {
                   RigidBody,
 
                   // Internal logic state.
-                  Progress, OtherAgents, EntityType,
+                  Progress, EntityType,
 
                   // Input
                   Action,
 
                   // Observations
-                  SelfObservation, PartnerObservations, RoomEntityObservations, StepsRemaining,
+                  SelfObservation, RoomEntityObservations, StepsRemaining,
 
                   // Reward, episode termination
                   Reward, Done,

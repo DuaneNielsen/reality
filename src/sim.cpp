@@ -45,8 +45,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Escape room specific components
     registry.registerComponent<SelfObservation>();
     registry.registerComponent<Progress>();
-    registry.registerComponent<OtherAgents>();
-    registry.registerComponent<PartnerObservations>();
     registry.registerComponent<RoomEntityObservations>();
     registry.registerComponent<StepsRemaining>();
     registry.registerComponent<EntityType>();
@@ -76,8 +74,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Export escape room observations
     registry.exportColumn<Agent, SelfObservation>(
         (uint32_t)ExportID::SelfObservation);
-    registry.exportColumn<Agent, PartnerObservations>(
-        (uint32_t)ExportID::PartnerObservations);
     registry.exportColumn<Agent, RoomEntityObservations>(
         (uint32_t)ExportID::RoomEntityObservations);
     registry.exportColumn<Agent, StepsRemaining>(
@@ -241,9 +237,7 @@ inline void collectObservationsSystem(Engine &ctx,
                                       Position pos,
                                       Rotation rot,
                                       const Progress &progress,
-                                      const OtherAgents &other_agents,
                                       SelfObservation &self_obs,
-                                      PartnerObservations &partner_obs,
                                       RoomEntityObservations &room_ent_obs)
 {
     CountT cur_room_idx = CountT(pos.y / consts::roomLength);
@@ -260,18 +254,6 @@ inline void collectObservationsSystem(Engine &ctx,
     self_obs.theta = angleObs(computeZAngle(rot));
 
     Quat to_view = rot.inv();
-
-#pragma unroll
-    for (CountT i = 0; i < consts::numAgents - 1; i++) {
-        Entity other = other_agents.e[i];
-
-        Vector3 other_pos = ctx.get<Position>(other);
-        Vector3 to_other = other_pos - pos;
-
-        partner_obs.obs[i] = {
-            .polar = xyToPolar(to_view.rotateVec(to_other)),
-        };
-    }
 
     const LevelState &level = ctx.singleton<LevelState>();
     const Room &room = level.rooms[cur_room_idx];
@@ -438,9 +420,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Position,
             Rotation,
             Progress,
-            OtherAgents,
             SelfObservation,
-            PartnerObservations,
             RoomEntityObservations
         >>({post_reset_broadphase});
 

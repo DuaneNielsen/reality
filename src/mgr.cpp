@@ -664,18 +664,6 @@ Tensor Manager::selfObservationTensor() const
                                });
 }
 
-//[GAME_SPECIFIC]
-Tensor Manager::partnerObservationsTensor() const
-{
-    return impl_->exportTensor(ExportID::PartnerObservations,
-                               TensorElementType::Float32,
-                               {
-                                   impl_->cfg.numWorlds,
-                                   consts::numAgents,
-                                   consts::numAgents - 1,
-                                   3,
-                               });
-}
 
 //[GAME_SPECIFIC]
 Tensor Manager::roomEntityObservationsTensor() const

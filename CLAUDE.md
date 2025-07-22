@@ -81,6 +81,10 @@ The following constants are defined in `src/consts.hpp` and used throughout the 
 - `GPU_HIDESEEK_SRC_LIST` - GPU-specific source file list
 - `GPU_HIDESEEK_COMPILE_FLAGS` - GPU compilation flags
 
+## Python Package Management
+
+**IMPORTANT**: This project uses `uv` for all Python package management. Always use `uv` instead of `pip` or plain `python` commands.
+
 ## Essential Commands
 
 ### Building the Project
@@ -92,8 +96,8 @@ cd build
 make -j$(nproc)
 cd ..
 
-# Install Python package
-pip install -e .
+# Install Python package (ALWAYS use uv)
+uv pip install -e .
 
 # Alternative headless executable (no visualization)
 ./build/headless
@@ -105,22 +109,22 @@ pip install -e .
 ./build/viewer
 
 # Benchmark performance
-python scripts/sim_bench.py --num-worlds 1024 --num-steps 1000 --gpu-id 0
+uv run python scripts/sim_bench.py --num-worlds 1024 --num-steps 1000 --gpu-id 0
 ```
 
 ### Training
 ```bash
 # Basic CPU training
-python scripts/train.py --num-worlds 1024 --num-updates 100 --ckpt-dir build/checkpoints
+uv run python scripts/train.py --num-worlds 1024 --num-updates 100 --ckpt-dir build/checkpoints
 
 # Full GPU training with optimizations
-python scripts/train.py --num-worlds 8192 --num-updates 5000 --profile-report --fp16 --gpu-sim --ckpt-dir build/checkpoints/
+uv run python scripts/train.py --num-worlds 8192 --num-updates 5000 --profile-report --fp16 --gpu-sim --ckpt-dir build/checkpoints/
 ```
 
 ### Inference
 ```bash
 # Run trained policy
-python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-path build/checkpoints/5000.pth --action-dump-path build/dumped_actions
+uv run python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-path build/checkpoints/5000.pth --action-dump-path build/dumped_actions
 
 # Replay in viewer
 ./build/viewer 1 --cpu build/dumped_actions
