@@ -665,18 +665,7 @@ Tensor Manager::selfObservationTensor() const
 }
 
 
-//[GAME_SPECIFIC]
-Tensor Manager::roomEntityObservationsTensor() const
-{
-    return impl_->exportTensor(ExportID::RoomEntityObservations,
-                               TensorElementType::Float32,
-                               {
-                                   impl_->cfg.numWorlds,
-                                   consts::numAgents,
-                                   consts::maxEntitiesPerRoom,
-                                   3,
-                               });
-}
+// Removed roomEntityObservationsTensor - no longer tracking room entities
 
 
 //[BOILERPLATE]

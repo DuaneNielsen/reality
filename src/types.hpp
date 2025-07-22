@@ -82,21 +82,8 @@ namespace madEscape {
 
 
     // [GAME_SPECIFIC]
-    // Per-agent egocentric observations for the interactable entities
-    // in the current room.
-    struct EntityObservation {
-        PolarObservation polar;
-        float encodedType;
-    };
-
-    // [GAME_SPECIFIC]
-    struct RoomEntityObservations {
-        EntityObservation obs[consts::maxEntitiesPerRoom];
-    };
-
-    // RoomEntityObservations is exported as a
-    // [N, A, maxEntitiesPerRoom, 3] tensor to pytorch
-    static_assert(sizeof(RoomEntityObservations) == sizeof(float) * consts::maxEntitiesPerRoom * 3);
+    // Removed RoomEntityObservations - no longer tracking room entities
+    // since interaction mechanics have been removed
 
     // [BOILERPLATE]
     // Number of steps remaining in the episode. Allows non-recurrent policies
@@ -169,7 +156,7 @@ namespace madEscape {
                   Action,
 
                   // Observations
-                  SelfObservation, RoomEntityObservations, StepsRemaining,
+                  SelfObservation, StepsRemaining,
 
                   // Reward, episode termination
                   Reward, Done,

@@ -98,8 +98,7 @@ def test_tensor_shapes(cpu_manager):
     self_obs = mgr.self_observation_tensor().to_torch()
     assert len(self_obs.shape) == 3  # [worlds, agents, features]
     
-    room_obs = mgr.room_entity_observations_tensor().to_torch()
-    assert len(room_obs.shape) == 4  # [worlds, agents, entities, features]
+    # Room entity observations removed - no longer tracking room entities
     
     # Note: door_observation_tensor is not available in the current bindings
     # door_obs = mgr.door_observation_tensor().to_torch()

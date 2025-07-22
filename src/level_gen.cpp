@@ -6,17 +6,12 @@ using namespace madrona;
 using namespace madrona::math;
 using namespace madrona::phys;
 
-namespace consts {
-
-inline constexpr float doorWidth = consts::worldWidth / 3.f;
-
-}
+// Door-related constants removed - no longer needed
 
 enum class RoomType : uint32_t {
-    SingleButton,
-    DoubleButton,
-    CubeBlocking,
-    CubeButtons,
+    Empty,
+    CubeObstacle,
+    CubeMovable,
     NumTypes,
 };
 
@@ -186,15 +181,12 @@ static void resetPersistentEntities(Engine &ctx)
          Entity agent_entity = ctx.data().agents[i];
          registerRigidBodyEntity(ctx, agent_entity, SimObject::Agent);
 
-         // Place the agents near the starting wall
+         // Place the single agent near the starting wall (centered)
          Vector3 pos {
-             randInRangeCentered(ctx, 
-                 consts::worldWidth / 2.f - 2.5f * consts::agentRadius),
+             0.f,  // Center of room
              randBetween(ctx, consts::agentRadius * 1.1f,  2.f),
              0.f,
          };
-
-         // With only 1 agent, no need to spread spawn positions
 
          ctx.get<Position>(agent_entity) = pos;
          ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
@@ -220,7 +212,7 @@ static void resetPersistentEntities(Engine &ctx)
      }
 }
 
-// Builds the two walls & door that block the end of the challenge room
+// Builds walls at the end of the room with a gap for passage
 static void makeEndWall(Engine &ctx,
                         Room &room,
                         CountT room_idx)
@@ -228,55 +220,75 @@ static void makeEndWall(Engine &ctx,
     float y_pos = consts::roomLength * (room_idx + 1) -
         consts::wallWidth / 2.f;
 
-    // Quarter door of buffer on both sides, place door and then build walls
-    // up to the door gap on both sides
-    float door_center = randBetween(ctx, 0.75f * consts::doorWidth, 
-        consts::worldWidth - 0.75f * consts::doorWidth);
-    float left_len = door_center - 0.5f * consts::doorWidth;
-    Entity left_wall = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        left_wall,
-        Vector3 {
-            (-consts::worldWidth + left_len) / 2.f,
-            y_pos,
-            0,
-        },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Wall,
-        EntityType::Wall,
-        ResponseType::Static,
-        Diag3x3 {
-            left_len,
-            consts::wallWidth,
-            1.75f,
-        });
-    registerRigidBodyEntity(ctx, left_wall, SimObject::Wall);
+    // Fixed gap size for agent to pass through
+    constexpr float gapWidth = consts::worldWidth / 3.f;
+    
+    // Determine gap position based on room index to create a maze pattern
+    float gap_center;
+    if (room_idx == 0) {
+        // First room: gap on the left
+        gap_center = gapWidth / 2.f + 2.f;
+    } else if (room_idx == 1) {
+        // Second room: gap on the right
+        gap_center = consts::worldWidth - gapWidth / 2.f - 2.f;
+    } else {
+        // Final exit: gap in the center
+        gap_center = consts::worldWidth / 2.f;
+    }
+    
+    // Left wall segment
+    float left_len = gap_center - gapWidth / 2.f;
+    if (left_len > 0.1f) {  // Only create if there's meaningful wall length
+        Entity left_wall = ctx.makeRenderableEntity<PhysicsEntity>();
+        setupRigidBodyEntity(
+            ctx,
+            left_wall,
+            Vector3 {
+                (-consts::worldWidth + left_len) / 2.f,
+                y_pos,
+                0,
+            },
+            Quat { 1, 0, 0, 0 },
+            SimObject::Wall,
+            EntityType::Wall,
+            ResponseType::Static,
+            Diag3x3 {
+                left_len,
+                consts::wallWidth,
+                1.75f,
+            });
+        registerRigidBodyEntity(ctx, left_wall, SimObject::Wall);
+        room.walls[0] = left_wall;
+    } else {
+        room.walls[0] = Entity::none();
+    }
 
-    float right_len =
-        consts::worldWidth - door_center - 0.5f * consts::doorWidth;
-    Entity right_wall = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        right_wall,
-        Vector3 {
-            (consts::worldWidth - right_len) / 2.f,
-            y_pos,
-            0,
-        },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Wall,
-        EntityType::Wall,
-        ResponseType::Static,
-        Diag3x3 {
-            right_len,
-            consts::wallWidth,
-            1.75f,
-        });
-    registerRigidBodyEntity(ctx, right_wall, SimObject::Wall);
-
-    room.walls[0] = left_wall;
-    room.walls[1] = right_wall;
+    // Right wall segment
+    float right_len = consts::worldWidth - gap_center - gapWidth / 2.f;
+    if (right_len > 0.1f) {  // Only create if there's meaningful wall length
+        Entity right_wall = ctx.makeRenderableEntity<PhysicsEntity>();
+        setupRigidBodyEntity(
+            ctx,
+            right_wall,
+            Vector3 {
+                (consts::worldWidth - right_len) / 2.f,
+                y_pos,
+                0,
+            },
+            Quat { 1, 0, 0, 0 },
+            SimObject::Wall,
+            EntityType::Wall,
+            ResponseType::Static,
+            Diag3x3 {
+                right_len,
+                consts::wallWidth,
+                1.75f,
+            });
+        registerRigidBodyEntity(ctx, right_wall, SimObject::Wall);
+        room.walls[1] = right_wall;
+    } else {
+        room.walls[1] = Entity::none();
+    }
 }
 
 static Entity makeCube(Engine &ctx,
@@ -307,7 +319,7 @@ static Entity makeCube(Engine &ctx,
     return cube;
 }
 
-// An empty room with door always open
+// An empty room with no obstacles
 static CountT makeEmptyRoom(Engine &ctx,
                             Room &room,
                             float y_min,
@@ -316,38 +328,28 @@ static CountT makeEmptyRoom(Engine &ctx,
     return 0;
 }
 
-// Another empty room variant with door always open
-static CountT makeEmptyRoomVariant(Engine &ctx,
-                                   Room &room,
-                                   float y_min,
-                                   float y_max)
-{
-    return 0;
-}
-
-// A room with 3 cubes for obstacles, door always open
+// A room with 3 cubes as fixed obstacles
 static CountT makeCubeObstacleRoom(Engine &ctx,
                                    Room &room,
                                    float y_min,
                                    float y_max)
 {
+    // Position cubes as obstacles in the room
+    float center_x = 0.f;
+    float center_y = (y_min + y_max) / 2.f;
 
-    // Position cubes at fixed location (where door used to be)
-    float door_x = 0.f;  // Center of room
-    float door_y = y_max;
-
-    float cube_a_x = door_x - 3.f;
-    float cube_a_y = door_y - 2.f;
+    float cube_a_x = center_x - 3.f;
+    float cube_a_y = center_y;
 
     Entity cube_a = makeCube(ctx, cube_a_x, cube_a_y, 1.5f);
 
-    float cube_b_x = door_x;
-    float cube_b_y = door_y - 2.f;
+    float cube_b_x = center_x;
+    float cube_b_y = center_y;
 
     Entity cube_b = makeCube(ctx, cube_b_x, cube_b_y, 1.5f);
 
-    float cube_c_x = door_x + 3.f;
-    float cube_c_y = door_y - 2.f;
+    float cube_c_x = center_x + 3.f;
+    float cube_c_y = center_y;
 
     Entity cube_c = makeCube(ctx, cube_c_x, cube_c_y, 1.5f);
 
@@ -358,11 +360,11 @@ static CountT makeCubeObstacleRoom(Engine &ctx,
     return 3;
 }
 
-// A room with 2 movable cubes, door always open
-static CountT makeCubeRoom(Engine &ctx,
-                           Room &room,
-                           float y_min,
-                           float y_max)
+// A room with 2 movable cubes
+static CountT makeCubeMovableRoom(Engine &ctx,
+                                  Room &room,
+                                  float y_min,
+                                  float y_max)
 {
 
     float cube_a_x = randBetween(ctx,
@@ -406,21 +408,17 @@ static void makeRoom(Engine &ctx,
 
     CountT num_room_entities;
     switch (room_type) {
-    case RoomType::SingleButton: {
+    case RoomType::Empty: {
         num_room_entities =
             makeEmptyRoom(ctx, room, room_y_min, room_y_max);
     } break;
-    case RoomType::DoubleButton: {
-        num_room_entities =
-            makeEmptyRoomVariant(ctx, room, room_y_min, room_y_max);
-    } break;
-    case RoomType::CubeBlocking: {
+    case RoomType::CubeObstacle: {
         num_room_entities =
             makeCubeObstacleRoom(ctx, room, room_y_min, room_y_max);
     } break;
-    case RoomType::CubeButtons: {
+    case RoomType::CubeMovable: {
         num_room_entities =
-            makeCubeRoom(ctx, room, room_y_min, room_y_max);
+            makeCubeMovableRoom(ctx, room, room_y_min, room_y_max);
     } break;
     default: MADRONA_UNREACHABLE();
     }
@@ -436,21 +434,13 @@ static void generateLevel(Engine &ctx)
 {
     LevelState &level = ctx.singleton<LevelState>();
 
-    // For training simplicity, define a fixed sequence of levels.
-    makeRoom(ctx, level, 0, RoomType::DoubleButton);
-    makeRoom(ctx, level, 1, RoomType::CubeBlocking);
-    makeRoom(ctx, level, 2, RoomType::CubeButtons);
-
-#if 0
-    // An alternative implementation could randomly select the type for each
-    // room rather than a fixed progression of challenge difficulty
+    // Generate rooms with random types
     for (CountT i = 0; i < consts::numRooms; i++) {
-        RoomType room_type = (RoomType)(
-            ctx.data().rng.sampleI32(0, (uint32_t)RoomType::NumTypes));
-
+        int room_type_idx = (int)randBetween(ctx, 0, (int)RoomType::NumTypes);
+        RoomType room_type = (RoomType)room_type_idx;
+        
         makeRoom(ctx, level, i, room_type);
     }
-#endif
 }
 
 // Randomly generate a new world for a training episode

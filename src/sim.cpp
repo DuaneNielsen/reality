@@ -45,7 +45,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Escape room specific components
     registry.registerComponent<SelfObservation>();
     registry.registerComponent<Progress>();
-    registry.registerComponent<RoomEntityObservations>();
     registry.registerComponent<StepsRemaining>();
     registry.registerComponent<EntityType>();
 
@@ -74,8 +73,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Export escape room observations
     registry.exportColumn<Agent, SelfObservation>(
         (uint32_t)ExportID::SelfObservation);
-    registry.exportColumn<Agent, RoomEntityObservations>(
-        (uint32_t)ExportID::RoomEntityObservations);
     registry.exportColumn<Agent, StepsRemaining>(
         (uint32_t)ExportID::StepsRemaining);
 }
@@ -93,8 +90,13 @@ static inline void cleanupWorld(Engine &ctx)
             }
         }
 
-        ctx.destroyRenderableEntity(room.walls[0]);
-        ctx.destroyRenderableEntity(room.walls[1]);
+        // Destroy wall segments at the end of the room
+        if (room.walls[0] != Entity::none()) {
+            ctx.destroyRenderableEntity(room.walls[0]);
+        }
+        if (room.walls[1] != Entity::none()) {
+            ctx.destroyRenderableEntity(room.walls[1]);
+        }
     }
 }
 
@@ -218,10 +220,7 @@ static inline PolarObservation xyToPolar(Vector3 v)
     };
 }
 
-static inline float encodeType(EntityType type)
-{
-    return (float)type / (float)EntityType::NumTypes;
-}
+// Removed encodeType - no longer needed without entity observations
 
 static inline float computeZAngle(Quat q)
 {
@@ -237,8 +236,7 @@ inline void collectObservationsSystem(Engine &ctx,
                                       Position pos,
                                       Rotation rot,
                                       const Progress &progress,
-                                      SelfObservation &self_obs,
-                                      RoomEntityObservations &room_ent_obs)
+                                      SelfObservation &self_obs)
 {
     CountT cur_room_idx = CountT(pos.y / consts::roomLength);
     cur_room_idx = std::max(CountT(0), 
@@ -252,31 +250,6 @@ inline void collectObservationsSystem(Engine &ctx,
     self_obs.globalZ = globalPosObs(pos.z);
     self_obs.maxY = globalPosObs(progress.maxY);
     self_obs.theta = angleObs(computeZAngle(rot));
-
-    Quat to_view = rot.inv();
-
-    const LevelState &level = ctx.singleton<LevelState>();
-    const Room &room = level.rooms[cur_room_idx];
-
-    for (CountT i = 0; i < consts::maxEntitiesPerRoom; i++) {
-        Entity entity = room.entities[i];
-
-        EntityObservation ob;
-        if (entity == Entity::none()) {
-            ob.polar = { 0.f, 1.f };
-            ob.encodedType = encodeType(EntityType::None);
-        } else {
-            Vector3 entity_pos = ctx.get<Position>(entity);
-            EntityType entity_type = ctx.get<EntityType>(entity);
-
-            Vector3 to_entity = entity_pos - pos;
-            ob.polar = xyToPolar(to_view.rotateVec(to_entity));
-            ob.encodedType = encodeType(entity_type);
-        }
-
-        room_ent_obs.obs[i] = ob;
-    }
-
 }
 
 
@@ -420,8 +393,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Position,
             Rotation,
             Progress,
-            SelfObservation,
-            RoomEntityObservations
+            SelfObservation
         >>({post_reset_broadphase});
 
 
@@ -455,7 +427,7 @@ Sim::Sim(Engine &ctx,
     // a future release.
     // [GAME_SPECIFIC] The calculation of max entities is game-specific
     constexpr CountT max_total_entities = consts::numAgents +
-        consts::numRooms * (consts::maxEntitiesPerRoom + 3) +
+        consts::numRooms * (consts::maxEntitiesPerRoom + 2) +  // +2 for wall segments per room
         4; // side walls + floor
 
     // [BOILERPLATE] Initialize physics system

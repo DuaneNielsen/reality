@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 
     // Printers
     auto self_printer = mgr.selfObservationTensor().makePrinter();
-    auto room_ent_printer = mgr.roomEntityObservationsTensor().makePrinter();
+    // Room entity observations removed
     auto steps_remaining_printer = mgr.stepsRemainingTensor().makePrinter();
     auto reward_printer = mgr.rewardTensor().makePrinter();
 
@@ -142,8 +142,7 @@ int main(int argc, char *argv[])
         printf("Self\n");
         self_printer.print();
 
-        printf("Room Entities\n");
-        room_ent_printer.print();
+        // Room entity observations removed
 
 
         printf("Steps Remaining\n");
