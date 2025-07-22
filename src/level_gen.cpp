@@ -194,11 +194,7 @@ static void resetPersistentEntities(Engine &ctx)
              0.f,
          };
 
-         if (i % 2 == 0) {
-             pos.x += consts::worldWidth / 4.f;
-         } else {
-             pos.x -= consts::worldWidth / 4.f;
-         }
+         // With only 1 agent, no need to spread spawn positions
 
          ctx.get<Position>(agent_entity) = pos;
          ctx.get<Rotation>(agent_entity) = Quat::angleAxis(

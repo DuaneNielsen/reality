@@ -9,8 +9,8 @@ namespace consts {
 // must solve in order to maximize their reward.
 inline constexpr madrona::CountT numRooms = 3;
 
-// Generated levels assume 2 agents
-inline constexpr madrona::CountT numAgents = 2;
+// Generated levels assume 1 agent (reduced from 2)
+inline constexpr madrona::CountT numAgents = 1;
 
 // Maximum number of interactive objects per challenge room. This is needed
 // in order to setup the fixed-size learning tensors appropriately.

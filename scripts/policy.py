@@ -27,9 +27,11 @@ def setup_obs(sim):
     id_tensor = torch.arange(A).float()
     if A > 1:
         id_tensor = id_tensor / (A - 1)
+    else:
+        id_tensor = torch.zeros_like(id_tensor)  # Single agent gets ID 0
 
     id_tensor = id_tensor.to(device=self_obs_tensor.device)
-    id_tensor = id_tensor.view(1, 2).expand(N, 2).reshape(batch_size, 1)
+    id_tensor = id_tensor.view(1, A).expand(N, A).reshape(batch_size, 1)
 
     obs_tensors = [
         self_obs_tensor.view(batch_size, *self_obs_tensor.shape[2:]),

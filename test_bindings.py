@@ -81,17 +81,17 @@ def test_tensor_shapes(cpu_manager):
     
     # Test action tensor
     actions = mgr.action_tensor().to_torch()
-    assert actions.shape == (4, 2, 4), f"Expected shape (4, 2, 4), got {actions.shape}"
+    assert actions.shape == (4, 1, 4), f"Expected shape (4, 1, 4), got {actions.shape}"
     assert actions.dtype == torch.int32
     
     # Test reward tensor
     rewards = mgr.reward_tensor().to_torch()
-    assert rewards.shape == (4, 2, 1), f"Expected shape (4, 2, 1), got {rewards.shape}"
+    assert rewards.shape == (4, 1, 1), f"Expected shape (4, 1, 1), got {rewards.shape}"
     assert rewards.dtype == torch.float32
     
     # Test done tensor
     dones = mgr.done_tensor().to_torch()
-    assert dones.shape == (4, 2, 1), f"Expected shape (4, 2, 1), got {dones.shape}"
+    assert dones.shape == (4, 1, 1), f"Expected shape (4, 1, 1), got {dones.shape}"
     assert dones.dtype == torch.int32
     
     # Test observation tensors
@@ -107,7 +107,7 @@ def test_tensor_shapes(cpu_manager):
     
     
     steps = mgr.steps_remaining_tensor().to_torch()
-    assert steps.shape == (4, 2, 1)
+    assert steps.shape == (4, 1, 1)
 
 
 def test_simulation_step(cpu_manager):
@@ -190,10 +190,10 @@ def test_multiple_steps(cpu_manager):
     
     # Run 100 steps with random actions
     for i in range(100):
-        actions[:, :, 0] = torch.randint(0, 3, (4, 2))  # Movement
-        actions[:, :, 1] = torch.randint(0, 8, (4, 2))  # Angle
-        actions[:, :, 2] = torch.randint(0, 5, (4, 2))  # Rotation
-        actions[:, :, 3] = torch.randint(0, 2, (4, 2))  # Grab
+        actions[:, :, 0] = torch.randint(0, 3, (4, 1))  # Movement
+        actions[:, :, 1] = torch.randint(0, 8, (4, 1))  # Angle
+        actions[:, :, 2] = torch.randint(0, 5, (4, 1))  # Rotation
+        actions[:, :, 3] = torch.randint(0, 2, (4, 1))  # Grab
         mgr.step()
     
     # Check that simulation is still running
@@ -261,7 +261,7 @@ def test_state_persistence(cpu_manager):
     # Verify tensors are still accessible
     rewards = mgr.reward_tensor().to_torch()
     assert rewards is not None
-    assert rewards.shape == (4, 2, 1)
+    assert rewards.shape == (4, 1, 1)
 
 
 def test_random_actions_comprehensive(cpu_manager):
@@ -284,10 +284,10 @@ def test_random_actions_comprehensive(cpu_manager):
     # Run for 500 steps with random actions
     for step in range(500):
         # Generate random actions with correct ranges
-        actions[:, :, 0] = torch.randint(0, 4, (4, 2))  # Movement amount (0-3)
-        actions[:, :, 1] = torch.randint(0, 8, (4, 2))  # Movement angle (0-7)
-        actions[:, :, 2] = torch.randint(0, 5, (4, 2))  # Rotation (0-4)
-        actions[:, :, 3] = torch.randint(0, 2, (4, 2))  # Grab (0-1)
+        actions[:, :, 0] = torch.randint(0, 4, (4, 1))  # Movement amount (0-3)
+        actions[:, :, 1] = torch.randint(0, 8, (4, 1))  # Movement angle (0-7)
+        actions[:, :, 2] = torch.randint(0, 5, (4, 1))  # Rotation (0-4)
+        actions[:, :, 3] = torch.randint(0, 2, (4, 1))  # Grab (0-1)
         
         # Step
         mgr.step()
