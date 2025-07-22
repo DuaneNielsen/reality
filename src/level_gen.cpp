@@ -165,7 +165,6 @@ void createPersistentEntities(Engine &ctx)
         ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };
         ctx.get<ObjectID>(agent) = ObjectID { (int32_t)SimObject::Agent };
         ctx.get<ResponseType>(agent) = ResponseType::Dynamic;
-        ctx.get<GrabState>(agent).constraintEntity = Entity::none();
         ctx.get<EntityType>(agent) = EntityType::Agent;
     }
 
@@ -222,11 +221,6 @@ static void resetPersistentEntities(Engine &ctx)
              randInRangeCentered(ctx, math::pi / 4.f),
              math::up);
 
-         auto &grab_state = ctx.get<GrabState>(agent_entity);
-         if (grab_state.constraintEntity != Entity::none()) {
-             ctx.destroyEntity(grab_state.constraintEntity);
-             grab_state.constraintEntity = Entity::none();
-         }
 
          ctx.get<Progress>(agent_entity).maxY = pos.y;
 
@@ -240,7 +234,6 @@ static void resetPersistentEntities(Engine &ctx)
              .moveAmount = 0,
              .moveAngle = 0,
              .rotate = consts::numTurnBuckets / 2,
-             .grab = 0,
          };
 
          ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;

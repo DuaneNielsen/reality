@@ -44,7 +44,6 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     
     // [GAME_SPECIFIC] Escape room specific components
     registry.registerComponent<SelfObservation>();
-    registry.registerComponent<GrabState>();
     registry.registerComponent<Progress>();
     registry.registerComponent<OtherAgents>();
     registry.registerComponent<PartnerObservations>();
@@ -177,70 +176,6 @@ inline void movementSystem(Engine &,
     external_torque = Vector3 { 0, 0, t_z };
 }
 
-// [GAME_SPECIFIC] Implements the grab action by casting a short ray in front of the agent
-// and creating a joint constraint if a grabbable entity is hit.
-inline void grabSystem(Engine &ctx,
-                       Entity e,
-                       Position pos,
-                       Rotation rot,
-                       Action action,
-                       GrabState &grab)
-{
-    if (action.grab == 0) {
-        return;
-    }
-
-    // if a grab is currently in progress, triggering the grab action
-    // just releases the object
-    if (grab.constraintEntity != Entity::none()) {
-        ctx.destroyEntity(grab.constraintEntity);
-        grab.constraintEntity = Entity::none();
-        
-        return;
-    } 
-
-    // Get the per-world BVH singleton component
-    auto &bvh = ctx.singleton<broadphase::BVH>();
-    float hit_t;
-    Vector3 hit_normal;
-
-    Vector3 ray_o = pos + 0.5f * math::up;
-    Vector3 ray_d = rot.rotateVec(math::fwd);
-
-    Entity grab_entity =
-        bvh.traceRay(ray_o, ray_d, &hit_t, &hit_normal, 2.0f);
-
-    if (grab_entity == Entity::none()) {
-        return;
-    }
-
-    auto response_type = ctx.get<ResponseType>(grab_entity);
-    if (response_type != ResponseType::Dynamic) {
-        return;
-    }
-
-    auto entity_type = ctx.get<EntityType>(grab_entity);
-    if (entity_type == EntityType::Agent) {
-        return;
-    }
-
-    Vector3 other_pos = ctx.get<Position>(grab_entity);
-    Quat other_rot = ctx.get<Rotation>(grab_entity);
-
-    Vector3 r1 = 1.25f * math::fwd + 0.5f * math::up;
-
-    Vector3 hit_pos = ray_o + ray_d * hit_t;
-    Vector3 r2 =
-        other_rot.inv().rotateVec(hit_pos - other_pos);
-
-    Quat attach1 = { 1, 0, 0, 0 };
-    Quat attach2 = (other_rot.inv() * rot).normalize();
-
-    float separation = hit_t - 1.25f;
-
-    grab.constraintEntity = PhysicsSystem::makeFixedJoint(ctx,
-        e, grab_entity, attach1, attach2, r1, r2, separation);
-}
 
 // [GAME_SPECIFIC] Make the agents easier to control by zeroing out their velocity
 // after each step.
@@ -306,7 +241,6 @@ inline void collectObservationsSystem(Engine &ctx,
                                       Position pos,
                                       Rotation rot,
                                       const Progress &progress,
-                                      const GrabState &grab,
                                       const OtherAgents &other_agents,
                                       SelfObservation &self_obs,
                                       PartnerObservations &partner_obs,
@@ -324,8 +258,6 @@ inline void collectObservationsSystem(Engine &ctx,
     self_obs.globalZ = globalPosObs(pos.z);
     self_obs.maxY = globalPosObs(progress.maxY);
     self_obs.theta = angleObs(computeZAngle(rot));
-    self_obs.isGrabbing = grab.constraintEntity != Entity::none() ?
-        1.f : 0.f;
 
     Quat to_view = rot.inv();
 
@@ -334,13 +266,10 @@ inline void collectObservationsSystem(Engine &ctx,
         Entity other = other_agents.e[i];
 
         Vector3 other_pos = ctx.get<Position>(other);
-        GrabState other_grab = ctx.get<GrabState>(other);
         Vector3 to_other = other_pos - pos;
 
         partner_obs.obs[i] = {
             .polar = xyToPolar(to_view.rotateVec(to_other)),
-            .isGrabbing = other_grab.constraintEntity != Entity::none() ?
-                1.f : 0.f,
         };
     }
 
@@ -451,19 +380,9 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto broadphase_setup_sys = phys::PhysicsSystem::setupBroadphaseTasks(
         builder, {move_sys});
 
-    // [GAME_SPECIFIC] Grab action, post BVH build to allow raycasting
-    auto grab_sys = builder.addToGraph<ParallelForNode<Engine,
-        grabSystem,
-            Entity,
-            Position,
-            Rotation,
-            Action,
-            GrabState
-        >>({broadphase_setup_sys});
-
     // [BOILERPLATE] Physics collision detection and solver
     auto substep_sys = phys::PhysicsSystem::setupPhysicsStepTasks(builder,
-        {grab_sys}, consts::numPhysicsSubsteps);
+        {broadphase_setup_sys}, consts::numPhysicsSubsteps);
 
     // [GAME_SPECIFIC] Improve controllability of agents by setting their velocity to 0
     // after physics is done.
@@ -519,7 +438,6 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Position,
             Rotation,
             Progress,
-            GrabState,
             OtherAgents,
             SelfObservation,
             PartnerObservations,

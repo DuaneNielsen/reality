@@ -41,7 +41,6 @@ namespace madEscape {
         int32_t moveAmount; // [0, 3]
         int32_t moveAngle; // [0, 7]
         int32_t rotate; // [-2, 2]
-        int32_t grab; // 0 = do nothing, 1 = grab / release
     };
 
     //[BOILERPLATE]
@@ -71,7 +70,6 @@ namespace madEscape {
         float globalZ;
         float maxY;
         float theta;
-        float isGrabbing;
     };
 
     // [GAME_SPECIFIC]
@@ -85,7 +83,6 @@ namespace madEscape {
     // [GAME_SPECIFIC]
     struct PartnerObservation {
         PolarObservation polar;
-        float isGrabbing;
     };
 
     // [GAME_SPECIFIC]
@@ -96,8 +93,8 @@ namespace madEscape {
 
     // [GAME_SPECIFIC]
     // PartnerObservations is exported as a
-    // [N, A, consts::numAgents - 1, 3] // tensor to pytorch
-    static_assert(sizeof(PartnerObservations) == sizeof(float) * (consts::numAgents - 1) * 3);
+    // [N, A, consts::numAgents - 1, 2] // tensor to pytorch
+    static_assert(sizeof(PartnerObservations) == sizeof(float) * (consts::numAgents - 1) * 2);
 
     // [GAME_SPECIFIC]
     // Per-agent egocentric observations for the interactable entities
@@ -137,11 +134,6 @@ namespace madEscape {
         madrona::Entity e[consts::numAgents - 1];
     };
 
-    // [GAME_SPECIFIC]
-    // Tracks if an agent is currently grabbing another entity
-    struct GrabState {
-        Entity constraintEntity;
-    };
 
     // [GAME_SPECIFIC]
     // This enum is used to track the type of each entity for the purposes of
@@ -192,7 +184,7 @@ namespace madEscape {
                   RigidBody,
 
                   // Internal logic state.
-                  GrabState, Progress, OtherAgents, EntityType,
+                  Progress, OtherAgents, EntityType,
 
                   // Input
                   Action,

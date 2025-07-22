@@ -767,7 +767,6 @@ void Manager::setAction(int32_t world_idx,
         .moveAmount = move_amount,
         .moveAngle = move_angle,
         .rotate = rotate,
-        .grab = grab,
     };
 
     // [GAME_SPECIFIC] Calculate buffer offset for specific agent
