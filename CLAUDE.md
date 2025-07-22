@@ -131,7 +131,8 @@ python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-path build
 # Rebuild after C++ changes
 cd build && make -j$(nproc) && cd ..
 
-# No linting/testing commands provided - verify with training scripts
+# Run tests
+uv run --extra test pytest test_bindings.py -v --tb=short
 ```
 
 ### Debugging with GDB

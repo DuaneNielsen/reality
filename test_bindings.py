@@ -108,8 +108,6 @@ def test_tensor_shapes(cpu_manager):
     # door_obs = mgr.door_observation_tensor().to_torch()
     # assert len(door_obs.shape) == 4  # [worlds, agents, doors, features]
     
-    lidar = mgr.lidar_tensor().to_torch()
-    assert lidar.shape == (4, 2, 30, 2)  # 30 lidar samples, 2 values each
     
     steps = mgr.steps_remaining_tensor().to_torch()
     assert steps.shape == (4, 2, 1)
@@ -181,7 +179,6 @@ def test_tensor_memory_layout(cpu_manager):
         ("reward", mgr.reward_tensor().to_torch()),
         ("done", mgr.done_tensor().to_torch()),
         ("self_obs", mgr.self_observation_tensor().to_torch()),
-        ("lidar", mgr.lidar_tensor().to_torch()),
     ]
     
     for name, tensor in tensors_to_check:
@@ -244,10 +241,6 @@ def test_observation_values(cpu_manager):
     positions = self_obs[:, :, :3]
     assert positions.abs().max() < 100, "Positions should be within reasonable bounds"
     
-    # Lidar should have normalized values
-    lidar = mgr.lidar_tensor().to_torch()
-    assert lidar.min() >= 0, "Lidar values should be non-negative"
-    assert lidar.max() <= 1, "Lidar values should be normalized"
     
     # Steps remaining should be positive
     steps = mgr.steps_remaining_tensor().to_torch()

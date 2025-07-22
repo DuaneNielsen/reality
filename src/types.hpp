@@ -116,18 +116,6 @@ namespace madEscape {
     // [N, A, maxEntitiesPerRoom, 3] tensor to pytorch
     static_assert(sizeof(RoomEntityObservations) == sizeof(float) * consts::maxEntitiesPerRoom * 3);
 
-    // [GAME_SPECIFIC]
-    struct LidarSample {
-        float depth;
-        float encodedType;
-    };
-
-    // [GAME_SPECIFIC]
-    // Linear depth values and entity type in a circle around the agent
-    struct Lidar {
-        LidarSample samples[consts::numLidarSamples];
-    };
-
     // [BOILERPLATE]
     // Number of steps remaining in the episode. Allows non-recurrent policies
     // to track the progression of time.
@@ -210,7 +198,7 @@ namespace madEscape {
                   Action,
 
                   // Observations
-                  SelfObservation, PartnerObservations, RoomEntityObservations, Lidar, StepsRemaining,
+                  SelfObservation, PartnerObservations, RoomEntityObservations, StepsRemaining,
 
                   // Reward, episode termination
                   Reward, Done,
