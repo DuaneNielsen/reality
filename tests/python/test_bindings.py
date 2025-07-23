@@ -81,7 +81,7 @@ def test_tensor_shapes(cpu_manager):
     
     # Test action tensor
     actions = mgr.action_tensor().to_torch()
-    assert actions.shape == (4, 1, 4), f"Expected shape (4, 1, 4), got {actions.shape}"
+    assert actions.shape == (4, 1, 3), f"Expected shape (4, 1, 3), got {actions.shape}"
     assert actions.dtype == torch.int32
     
     # Test reward tensor
@@ -192,7 +192,6 @@ def test_multiple_steps(cpu_manager):
         actions[:, :, 0] = torch.randint(0, 3, (4, 1))  # Movement
         actions[:, :, 1] = torch.randint(0, 8, (4, 1))  # Angle
         actions[:, :, 2] = torch.randint(0, 5, (4, 1))  # Rotation
-        actions[:, :, 3] = torch.randint(0, 2, (4, 1))  # Grab
         mgr.step()
     
     # Check that simulation is still running
@@ -286,7 +285,6 @@ def test_random_actions_comprehensive(cpu_manager):
         actions[:, :, 0] = torch.randint(0, 4, (4, 1))  # Movement amount (0-3)
         actions[:, :, 1] = torch.randint(0, 8, (4, 1))  # Movement angle (0-7)
         actions[:, :, 2] = torch.randint(0, 5, (4, 1))  # Rotation (0-4)
-        actions[:, :, 3] = torch.randint(0, 2, (4, 1))  # Grab (0-1)
         
         # Step
         mgr.step()
@@ -326,22 +324,21 @@ def test_deterministic_actions(cpu_manager):
     
     # Run specific action sequence
     action_sequence = [
-        (1, 0, 2, 0),  # Move forward
-        (1, 2, 2, 0),  # Move right
-        (1, 4, 2, 0),  # Move back
-        (1, 6, 2, 0),  # Move left
-        (0, 0, 0, 1),  # Stop and grab
-        (0, 0, 4, 0),  # Rotate right
-        (2, 0, 2, 0),  # Move forward faster
+        (1, 0, 2),  # Move forward
+        (1, 2, 2),  # Move right
+        (1, 4, 2),  # Move back
+        (1, 6, 2),  # Move left
+        (0, 0, 2),  # Stop (no movement)
+        (0, 0, 4),  # Rotate right
+        (2, 0, 2),  # Move forward faster
     ]
     
     positions_history = []
     
-    for move_amt, move_angle, rotate, grab in action_sequence:
+    for move_amt, move_angle, rotate in action_sequence:
         actions[:, :, 0] = move_amt
         actions[:, :, 1] = move_angle
         actions[:, :, 2] = rotate
-        actions[:, :, 3] = grab
         
         mgr.step()
         

@@ -51,8 +51,7 @@ public:
                    int32_t agent_idx,
                    int32_t move_amount,
                    int32_t move_angle,
-                   int32_t rotate,
-                   int32_t grab);
+                   int32_t rotate);
 
     madrona::render::RenderManager & getRenderManager();
 

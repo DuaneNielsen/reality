@@ -36,6 +36,9 @@ inline constexpr madrona::CountT numMoveAmountBuckets = 4;
 inline constexpr madrona::CountT numMoveAngleBuckets = 8;
 inline constexpr madrona::CountT numTurnBuckets = 5;
 
+// Number of action components per agent
+inline constexpr madrona::CountT numActionComponents = 3;
+
 
 // Time (seconds) per step
 inline constexpr float deltaT = 0.04f;

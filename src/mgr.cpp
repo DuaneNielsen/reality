@@ -294,7 +294,6 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 }
 
 // [REQUIRED_INTERFACE] Load physics assets - must be implemented by every environment
-// [GAME_SPECIFIC] The actual collision meshes and physics parameters
 static void loadPhysicsObjects(PhysicsLoader &loader)
 {
 
@@ -621,12 +620,12 @@ Tensor Manager::resetTensor() const
 // [BOILERPLATE]
 Tensor Manager::actionTensor() const
 {
-    // [GAME_SPECIFIC] 4 discrete actions per agent: move amount/angle, rotate, grab
+    // [GAME_SPECIFIC] Discrete actions per agent: move amount/angle, rotate
     return impl_->exportTensor(ExportID::Action, TensorElementType::Int32,
         {
             impl_->cfg.numWorlds,
             consts::numAgents,
-            4,
+            consts::numActionComponents,
         });
 }
 
@@ -713,7 +712,6 @@ Tensor Manager::depthTensor() const
 // [REQUIRED_INTERFACE] Trigger episode reset for a specific world
 void Manager::triggerReset(int32_t world_idx)
 {
-    // [GAME_SPECIFIC] Set reset flag to trigger world regeneration
     WorldReset reset {
         1,
     };
@@ -736,8 +734,7 @@ void Manager::setAction(int32_t world_idx,
                         int32_t agent_idx,
                         int32_t move_amount,
                         int32_t move_angle,
-                        int32_t rotate,
-                        int32_t grab)
+                        int32_t rotate)
 {
     // [GAME_SPECIFIC] Pack discrete actions into struct
     Action action { 
