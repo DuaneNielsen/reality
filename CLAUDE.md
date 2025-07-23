@@ -136,7 +136,7 @@ uv run python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-pat
 cd build && make -j$(nproc) && cd ..
 
 # Run tests
-uv run --extra test pytest test_bindings.py -v --tb=short
+uv run --extra test pytest tests/python/test_bindings.py -v --tb=short
 ```
 
 #### Testing Configuration
@@ -159,7 +159,7 @@ This configuration:
 
 To run all tests:
 ```bash
-uv run --extra test pytest -v
+uv run --extra test pytest tests/python -v
 ```
 
 ### Debugging with GDB

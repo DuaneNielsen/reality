@@ -20,9 +20,7 @@ inline constexpr madrona::CountT maxEntitiesPerRoom = 6;
 inline constexpr float worldLength = 40.f;
 inline constexpr float worldWidth = 20.f;
 inline constexpr float wallWidth = 1.f;
-inline constexpr float buttonWidth = 1.3f;
 inline constexpr float agentRadius = 1.f;
-inline constexpr float roomLength = worldLength / numRooms;
 
 // Each unit of distance forward (+ y axis) rewards the agents by this amount
 inline constexpr float rewardPerDist = 0.05f;
@@ -41,9 +39,6 @@ inline constexpr madrona::CountT numTurnBuckets = 5;
 
 // Time (seconds) per step
 inline constexpr float deltaT = 0.04f;
-
-// Speed at which doors raise and lower
-inline constexpr float doorSpeed = 30.f;
 
 // Number of physics substeps
 inline constexpr madrona::CountT numPhysicsSubsteps = 4.f;

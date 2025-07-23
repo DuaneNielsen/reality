@@ -82,21 +82,20 @@ static inline void cleanupWorld(Engine &ctx)
 {
     // Destroy current level entities
     LevelState &level = ctx.singleton<LevelState>();
-    for (CountT i = 0; i < consts::numRooms; i++) {
-        Room &room = level.rooms[i];
-        for (CountT j = 0; j < consts::maxEntitiesPerRoom; j++) {
-            if (room.entities[j] != Entity::none()) {
-                ctx.destroyRenderableEntity(room.entities[j]);
-            }
+    Room &room = level.rooms[0];
+    
+    for (CountT j = 0; j < consts::maxEntitiesPerRoom; j++) {
+        if (room.entities[j] != Entity::none()) {
+            ctx.destroyRenderableEntity(room.entities[j]);
         }
+    }
 
-        // Destroy wall segments at the end of the room
-        if (room.walls[0] != Entity::none()) {
-            ctx.destroyRenderableEntity(room.walls[0]);
-        }
-        if (room.walls[1] != Entity::none()) {
-            ctx.destroyRenderableEntity(room.walls[1]);
-        }
+    // Destroy wall segments at the end of the room
+    if (room.walls[0] != Entity::none()) {
+        ctx.destroyRenderableEntity(room.walls[0]);
+    }
+    if (room.walls[1] != Entity::none()) {
+        ctx.destroyRenderableEntity(room.walls[1]);
     }
 }
 
@@ -238,13 +237,6 @@ inline void collectObservationsSystem(Engine &ctx,
                                       const Progress &progress,
                                       SelfObservation &self_obs)
 {
-    CountT cur_room_idx = CountT(pos.y / consts::roomLength);
-    cur_room_idx = std::max(CountT(0), 
-        std::min(consts::numRooms - 1, cur_room_idx));
-
-    self_obs.roomX = pos.x / (consts::worldWidth / 2.f);
-    self_obs.roomY = (pos.y - cur_room_idx * consts::roomLength) /
-        consts::roomLength;
     self_obs.globalX = globalPosObs(pos.x);
     self_obs.globalY = globalPosObs(pos.y);
     self_obs.globalZ = globalPosObs(pos.z);

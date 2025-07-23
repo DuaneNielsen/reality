@@ -8,11 +8,6 @@ using namespace madrona::phys;
 
 // Door-related constants removed - no longer needed
 
-enum class RoomType : uint32_t {
-    CubeObstacle,
-    NumTypes,
-};
-
 static inline float randInRangeCentered(Engine &ctx, float range)
 {
     return ctx.data().rng.sampleUniform() * range - range / 2.f;
@@ -215,7 +210,7 @@ static void makeEndWall(Engine &ctx,
                         Room &room,
                         CountT room_idx)
 {
-    float y_pos = consts::roomLength * (room_idx + 1) -
+    float y_pos = consts::worldLength * (room_idx + 1) -
         consts::wallWidth / 2.f;
 
     // Fixed gap size for agent to pass through
@@ -341,18 +336,16 @@ static CountT makeCubeObstacleRoom(Engine &ctx,
 }
 
 
-// Make the doors and separator walls at the end of the room
-// before delegating to specific code based on room_type.
+// Make the end wall and create cube obstacles for the room
 static void makeRoom(Engine &ctx,
                      LevelState &level,
-                     CountT room_idx,
-                     RoomType room_type)
+                     CountT room_idx)
 {
     Room &room = level.rooms[room_idx];
     makeEndWall(ctx, room, room_idx);
 
-    float room_y_min = room_idx * consts::roomLength;
-    float room_y_max = (room_idx + 1) * consts::roomLength;
+    float room_y_min = room_idx * consts::worldLength;
+    float room_y_max = (room_idx + 1) * consts::worldLength;
 
     // Always create a cube obstacle room
     CountT num_room_entities = makeCubeObstacleRoom(ctx, room, room_y_min, room_y_max);
@@ -369,9 +362,7 @@ static void generateLevel(Engine &ctx)
     LevelState &level = ctx.singleton<LevelState>();
 
     // Generate single room with cube obstacles
-    for (CountT i = 0; i < consts::numRooms; i++) {
-        makeRoom(ctx, level, i, RoomType::CubeObstacle);
-    }
+    makeRoom(ctx, level, 0);
 }
 
 // Randomly generate a new world for a training episode

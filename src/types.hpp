@@ -63,8 +63,6 @@ namespace madEscape {
     // Observation state for the current agent.
     // Positions are rescaled to the bounds of the play area to assist training.
     struct SelfObservation {
-        float roomX;
-        float roomY;
         float globalX;
         float globalY;
         float globalZ;
