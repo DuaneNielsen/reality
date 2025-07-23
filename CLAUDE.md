@@ -139,6 +139,29 @@ cd build && make -j$(nproc) && cd ..
 uv run --extra test pytest test_bindings.py -v --tb=short
 ```
 
+#### Testing Configuration
+
+The project uses pytest for testing with the following configuration in `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+testpaths = ["."]
+norecursedirs = ["external", "build", ".venv", "*.egg", "dist"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+```
+
+This configuration:
+- Excludes the `external` directory (containing Madrona framework code) from test discovery
+- Skips build artifacts and virtual environment directories
+- Follows standard pytest naming conventions for test discovery
+
+To run all tests:
+```bash
+uv run --extra test pytest -v
+```
+
 ### Debugging with GDB
 
 **Important**: Always use the MCP GDB server for debugging. The MCP server provides a clean interface for debugging sessions and handles GDB interactions properly.

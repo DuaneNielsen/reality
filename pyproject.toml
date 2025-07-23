@@ -25,3 +25,10 @@ ext-out-dir = "build"
 # This module includes the PPO implementation for the training demo
 [tool.madrona.packages.madrona_escape_room_learn]
 path = "train_src/madrona_escape_room_learn"
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+norecursedirs = ["external", "build", ".venv", "*.egg", "dist"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

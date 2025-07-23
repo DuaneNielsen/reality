@@ -223,18 +223,8 @@ static void makeEndWall(Engine &ctx,
     // Fixed gap size for agent to pass through
     constexpr float gapWidth = consts::worldWidth / 3.f;
     
-    // Determine gap position based on room index to create a maze pattern
-    float gap_center;
-    if (room_idx == 0) {
-        // First room: gap on the left
-        gap_center = gapWidth / 2.f + 2.f;
-    } else if (room_idx == 1) {
-        // Second room: gap on the right
-        gap_center = consts::worldWidth - gapWidth / 2.f - 2.f;
-    } else {
-        // Final exit: gap in the center
-        gap_center = consts::worldWidth / 2.f;
-    }
+    // For single room, always put gap in the center
+    float gap_center = consts::worldWidth / 2.f;
     
     // Left wall segment
     float left_len = gap_center - gapWidth / 2.f;
