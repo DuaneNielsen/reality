@@ -89,14 +89,6 @@ static inline void cleanupWorld(Engine &ctx)
             ctx.destroyRenderableEntity(room.entities[j]);
         }
     }
-
-    // Destroy wall segments at the end of the room
-    if (room.walls[0] != Entity::none()) {
-        ctx.destroyRenderableEntity(room.walls[0]);
-    }
-    if (room.walls[1] != Entity::none()) {
-        ctx.destroyRenderableEntity(room.walls[1]);
-    }
 }
 
 // [GAME_SPECIFIC] Helper to initialize a new escape room world

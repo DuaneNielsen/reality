@@ -123,9 +123,6 @@ namespace madEscape {
     struct Room {
         // These are entities the agent will interact with
         Entity entities[consts::maxEntitiesPerRoom];
-
-        // The walls that separate this room from the next
-        Entity walls[2];
     };
 
     //[GAME_SPECIFIC]

@@ -135,6 +135,26 @@ void createPersistentEntities(Engine &ctx)
             2.f,
         });
 
+    // Front (fully enclosed - no gap)
+    ctx.data().borders[3] = ctx.makeRenderableEntity<PhysicsEntity>();
+    setupRigidBodyEntity(
+        ctx,
+        ctx.data().borders[3],
+        Vector3 {
+            0,
+            consts::worldLength - consts::wallWidth / 2.f,
+            0,
+        },
+        Quat { 1, 0, 0, 0 },
+        SimObject::Wall,
+        EntityType::Wall,
+        ResponseType::Static,
+        Diag3x3 {
+            consts::worldWidth + consts::wallWidth * 2,
+            consts::wallWidth,
+            2.f,
+        });
+
     // Create agent entities. Note that this leaves a lot of components
     // uninitialized, these will be set during world generation, which is
     // called for every episode.
@@ -165,7 +185,7 @@ static void resetPersistentEntities(Engine &ctx)
 {
     registerRigidBodyEntity(ctx, ctx.data().floorPlane, SimObject::Plane);
 
-     for (CountT i = 0; i < 3; i++) {
+     for (CountT i = 0; i < 4; i++) {
          Entity wall_entity = ctx.data().borders[i];
          registerRigidBodyEntity(ctx, wall_entity, SimObject::Wall);
      }
@@ -205,74 +225,6 @@ static void resetPersistentEntities(Engine &ctx)
      }
 }
 
-// Builds walls at the end of the room with a gap for passage
-static void makeEndWall(Engine &ctx,
-                        Room &room,
-                        CountT room_idx)
-{
-    float y_pos = consts::worldLength * (room_idx + 1) -
-        consts::wallWidth / 2.f;
-
-    // Fixed gap size for agent to pass through
-    constexpr float gapWidth = consts::worldWidth / 3.f;
-    
-    // For single room, always put gap in the center
-    float gap_center = consts::worldWidth / 2.f;
-    
-    // Left wall segment
-    float left_len = gap_center - gapWidth / 2.f;
-    if (left_len > 0.1f) {  // Only create if there's meaningful wall length
-        Entity left_wall = ctx.makeRenderableEntity<PhysicsEntity>();
-        setupRigidBodyEntity(
-            ctx,
-            left_wall,
-            Vector3 {
-                (-consts::worldWidth + left_len) / 2.f,
-                y_pos,
-                0,
-            },
-            Quat { 1, 0, 0, 0 },
-            SimObject::Wall,
-            EntityType::Wall,
-            ResponseType::Static,
-            Diag3x3 {
-                left_len,
-                consts::wallWidth,
-                1.75f,
-            });
-        registerRigidBodyEntity(ctx, left_wall, SimObject::Wall);
-        room.walls[0] = left_wall;
-    } else {
-        room.walls[0] = Entity::none();
-    }
-
-    // Right wall segment
-    float right_len = consts::worldWidth - gap_center - gapWidth / 2.f;
-    if (right_len > 0.1f) {  // Only create if there's meaningful wall length
-        Entity right_wall = ctx.makeRenderableEntity<PhysicsEntity>();
-        setupRigidBodyEntity(
-            ctx,
-            right_wall,
-            Vector3 {
-                (consts::worldWidth - right_len) / 2.f,
-                y_pos,
-                0,
-            },
-            Quat { 1, 0, 0, 0 },
-            SimObject::Wall,
-            EntityType::Wall,
-            ResponseType::Static,
-            Diag3x3 {
-                right_len,
-                consts::wallWidth,
-                1.75f,
-            });
-        registerRigidBodyEntity(ctx, right_wall, SimObject::Wall);
-        room.walls[1] = right_wall;
-    } else {
-        room.walls[1] = Entity::none();
-    }
-}
 
 static Entity makeCube(Engine &ctx,
                        float cube_x,
@@ -336,13 +288,12 @@ static CountT makeCubeObstacleRoom(Engine &ctx,
 }
 
 
-// Make the end wall and create cube obstacles for the room
+// Create cube obstacles for the room
 static void makeRoom(Engine &ctx,
                      LevelState &level,
                      CountT room_idx)
 {
     Room &room = level.rooms[room_idx];
-    makeEndWall(ctx, room, room_idx);
 
     float room_y_min = room_idx * consts::worldLength;
     float room_y_max = (room_idx + 1) * consts::worldLength;
