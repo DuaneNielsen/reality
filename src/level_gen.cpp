@@ -9,9 +9,7 @@ using namespace madrona::phys;
 // Door-related constants removed - no longer needed
 
 enum class RoomType : uint32_t {
-    Empty,
     CubeObstacle,
-    CubeMovable,
     NumTypes,
 };
 
@@ -298,7 +296,7 @@ static Entity makeCube(Engine &ctx,
         Quat { 1, 0, 0, 0 },
         SimObject::Cube,
         EntityType::Cube,
-        ResponseType::Dynamic,
+        ResponseType::Static,
         Diag3x3 {
             scale,
             scale,
@@ -309,14 +307,6 @@ static Entity makeCube(Engine &ctx,
     return cube;
 }
 
-// An empty room with no obstacles
-static CountT makeEmptyRoom(Engine &ctx,
-                            Room &room,
-                            float y_min,
-                            float y_max)
-{
-    return 0;
-}
 
 // A room with 3 cubes as fixed obstacles
 static CountT makeCubeObstacleRoom(Engine &ctx,
@@ -350,38 +340,6 @@ static CountT makeCubeObstacleRoom(Engine &ctx,
     return 3;
 }
 
-// A room with 2 movable cubes
-static CountT makeCubeMovableRoom(Engine &ctx,
-                                  Room &room,
-                                  float y_min,
-                                  float y_max)
-{
-
-    float cube_a_x = randBetween(ctx,
-        -consts::worldWidth / 4.f,
-        -1.5f);
-
-    float cube_a_y = randBetween(ctx,
-        y_min + 2.f,
-        y_max - consts::wallWidth - 2.f);
-
-    Entity cube_a = makeCube(ctx, cube_a_x, cube_a_y, 1.5f);
-
-    float cube_b_x = randBetween(ctx,
-        1.5f,
-        consts::worldWidth / 4.f);
-
-    float cube_b_y = randBetween(ctx,
-        y_min + 2.f,
-        y_max - consts::wallWidth - 2.f);
-
-    Entity cube_b = makeCube(ctx, cube_b_x, cube_b_y, 1.5f);
-
-    room.entities[0] = cube_a;
-    room.entities[1] = cube_b;
-
-    return 2;
-}
 
 // Make the doors and separator walls at the end of the room
 // before delegating to specific code based on room_type.
@@ -396,22 +354,8 @@ static void makeRoom(Engine &ctx,
     float room_y_min = room_idx * consts::roomLength;
     float room_y_max = (room_idx + 1) * consts::roomLength;
 
-    CountT num_room_entities;
-    switch (room_type) {
-    case RoomType::Empty: {
-        num_room_entities =
-            makeEmptyRoom(ctx, room, room_y_min, room_y_max);
-    } break;
-    case RoomType::CubeObstacle: {
-        num_room_entities =
-            makeCubeObstacleRoom(ctx, room, room_y_min, room_y_max);
-    } break;
-    case RoomType::CubeMovable: {
-        num_room_entities =
-            makeCubeMovableRoom(ctx, room, room_y_min, room_y_max);
-    } break;
-    default: MADRONA_UNREACHABLE();
-    }
+    // Always create a cube obstacle room
+    CountT num_room_entities = makeCubeObstacleRoom(ctx, room, room_y_min, room_y_max);
 
     // Need to set any extra entities to type none so random uninitialized data
     // from prior episodes isn't exported to pytorch as agent observations.
@@ -424,12 +368,9 @@ static void generateLevel(Engine &ctx)
 {
     LevelState &level = ctx.singleton<LevelState>();
 
-    // Generate rooms with random types
+    // Generate single room with cube obstacles
     for (CountT i = 0; i < consts::numRooms; i++) {
-        int room_type_idx = (int)randBetween(ctx, 0, (int)RoomType::NumTypes);
-        RoomType room_type = (RoomType)room_type_idx;
-        
-        makeRoom(ctx, level, i, room_type);
+        makeRoom(ctx, level, i, RoomType::CubeObstacle);
     }
 }
 
