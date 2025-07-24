@@ -8,5 +8,10 @@
 uv.lock
 /test_recordings
 **/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
 imgui.ini
 .idea/
