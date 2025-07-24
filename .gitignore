@@ -5,3 +5,6 @@
 /CMakeSettings.json
 /scripts/__pycache__
 /train_src/madrona_escape_room_learn/__pycache__
+
+# IDE configuration
+.idea/
