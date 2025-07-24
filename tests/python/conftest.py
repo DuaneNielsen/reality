@@ -123,9 +123,9 @@ def cpu_manager(request):
         yield mgr
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def gpu_manager(request):
-    """Create a GPU SimManager with optional recording"""
+    """Create a GPU SimManager for the entire test session"""
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
     
@@ -141,25 +141,12 @@ def gpu_manager(request):
         auto_reset=True
     )
     
-    # Check if recording is enabled
-    if request.config.getoption("--record-actions"):
-        test_name = request.node.name
-        wrapper = RecordingWrapper(mgr, test_name)
-        yield wrapper
-        
-        # Save recording after test
-        action_path = wrapper.save_recording()
-        
-        # Launch viewer if requested
-        if request.config.getoption("--visualize") and action_path:
-            viewer_path = Path("build/viewer")
-            if viewer_path.exists():
-                print(f"Launching viewer...")
-                subprocess.run([str(viewer_path), str(wrapper.num_worlds), "CUDA", action_path])
-            else:
-                print(f"Viewer not found at {viewer_path}")
-    else:
-        yield mgr
+    # With session scope, we can't do per-test recording here
+    # Just yield the manager
+    yield mgr
+    
+    # Cleanup - ensure manager is properly destroyed at end of session
+    del mgr
 
 
 @pytest.fixture(scope="module")

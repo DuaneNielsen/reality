@@ -35,12 +35,15 @@ namespace madEscape {
     };
 
     // [GAME_SPECIFIC]
-    // Discrete action component. Ranges are defined by consts::numMoveBuckets (5),
-    // repeated here for clarity
+    // Discrete action component for agent movement.
+    // Movement is EGOCENTRIC - all directions are relative to agent's current facing.
+    // This implements standard WASD+QE game controls.
     struct Action {
-        int32_t moveAmount; // [0, 3]
-        int32_t moveAngle; // [0, 7]
-        int32_t rotate; // [-2, 2]
+        int32_t moveAmount; // [0, 3] - 0=stop, 1=slow, 2=medium, 3=fast
+        int32_t moveAngle;  // [0, 7] - 8 directions: 0=forward, 2=right, 4=back, 6=left
+                           //          Intermediate values are diagonals (1=forward-right, etc.)
+        int32_t rotate;     // [0, 4] - 0=fast left, 1=slow left, 2=none, 3=slow right, 4=fast right
+                           //          Note: 2 is the center/default (no rotation)
     };
 
     //[BOILERPLATE]
