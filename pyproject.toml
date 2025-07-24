@@ -27,7 +27,7 @@ ext-out-dir = "build"
 path = "train_src/madrona_escape_room_learn"
 
 [tool.pytest.ini_options]
-testpaths = ["."]
+testpaths = ["tests/python"]
 norecursedirs = ["external", "build", ".venv", "*.egg", "dist"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
