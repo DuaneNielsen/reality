@@ -159,7 +159,7 @@ This configuration:
 
 To run all tests:
 ```bash
-uv run --extra test pytest tests/python -v
+uv run --extra test pytest -v
 ```
 
 ### Debugging with GDB

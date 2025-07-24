@@ -78,6 +78,22 @@ Now, setup the python components of the repository with `pip`:
 pip install -e . # Add -Cpackages.madrona_escape_room.ext-out-dir=PATH_TO_YOUR_BUILD_DIR on Windows
 ```
 
+#### IDE Support (Optional)
+
+For better IDE support with compiled nanobind extensions, you can generate Python stub files:
+```bash
+# Install the stub generator
+pip install nanobind-stubgen
+
+# Generate stub files (after building the C++ extension)
+nanobind-stubgen madrona_escape_room
+
+# Copy stubs to site-packages for IDE recognition
+cp -r madrona_escape_room <path-to-venv>/lib/python*/site-packages/
+```
+
+This helps IDEs like PyCharm and VS Code provide proper code completion and type hints for the compiled module.
+
 You can then view the environment by running:
 ```bash
 ./build/viewer
