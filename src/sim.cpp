@@ -238,30 +238,33 @@ inline void collectObservationsSystem(Engine &ctx,
 
 
 // [REQUIRED_INTERFACE] Computes reward for each agent - every environment needs a reward system
-// [GAME_SPECIFIC] Keeps track of the max distance achieved
-// so far through the challenge. Continuous reward is provided for any new
-// distance achieved.
+// [GAME_SPECIFIC] Tracks max Y position reached, but only gives reward at episode end
 inline void rewardSystem(Engine &,
                          Position pos,
                          Progress &progress,
-                         Reward &out_reward)
+                         Reward &out_reward,
+                         Done &done,
+                         StepsRemaining &steps_remaining)
 {
-    // Just in case agents do something crazy, clamp total reward
-    float reward_pos = fminf(pos.y, consts::worldLength * 2);
-
-    float old_max_y = progress.maxY;
-
-    float new_progress = reward_pos - old_max_y;
-
-    float reward;
-    if (new_progress > 0) {
-        reward = new_progress * consts::rewardPerDist;
-        progress.maxY = reward_pos;
-    } else {
-        reward = consts::slackReward;
+    // Update max Y reached during episode
+    if (pos.y > progress.maxY) {
+        progress.maxY = pos.y;
     }
 
-    out_reward.v = reward;
+    // Only give reward at the end of the episode
+    if (done.v == 1 || steps_remaining.t == 0) {
+        // Maximum possible Y is the world length (40.f)
+        // Agent can theoretically reach from near 0 to worldLength
+        float max_possible_y = consts::worldLength;
+        
+        // Calculate normalized progress (0 to 1)
+        float normalized_progress = progress.maxY / max_possible_y;
+        
+        out_reward.v = normalized_progress;
+    } else {
+        // No reward during the episode
+        out_reward.v = 0.0f;
+    }
 }
 
 // [REQUIRED_INTERFACE] Keep track of the number of steps remaining in the episode and
@@ -333,26 +336,28 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto phys_done = phys::PhysicsSystem::setupCleanupTasks(
         builder, {agent_zero_vel});
 
-    // [REQUIRED_INTERFACE] Compute initial reward now that physics has updated the world state
-    auto reward_sys = builder.addToGraph<ParallelForNode<Engine,
-         rewardSystem,
-            Position,
-            Progress,
-            Reward
-        >>({phys_done});
-
     // [REQUIRED_INTERFACE] Check if the episode is over
     auto done_sys = builder.addToGraph<ParallelForNode<Engine,
         stepTrackerSystem,
             StepsRemaining,
             Done
-        >>({reward_sys});
+        >>({phys_done});
+
+    // [REQUIRED_INTERFACE] Compute reward - only given at episode end
+    auto reward_sys = builder.addToGraph<ParallelForNode<Engine,
+         rewardSystem,
+            Position,
+            Progress,
+            Reward,
+            Done,
+            StepsRemaining
+        >>({done_sys});
 
     // [REQUIRED_INTERFACE] Conditionally reset the world if the episode is over
     auto reset_sys = builder.addToGraph<ParallelForNode<Engine,
         resetSystem,
             WorldReset
-        >>({done_sys});
+        >>({reward_sys});
 
     // [BOILERPLATE] Clear temporary allocations
     auto clear_tmp = builder.addToGraph<ResetTmpAllocNode>({reset_sys});
