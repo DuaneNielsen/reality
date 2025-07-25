@@ -1,4 +1,5 @@
 #include "mgr.hpp"
+#include "types.hpp"
 
 #include <madrona/macros.hpp>
 #include <madrona/py/bindings.hpp>
@@ -13,6 +14,12 @@ NB_MODULE(madrona_escape_room, m) {
     // Each simulator has a madrona submodule that includes base types
     // like madrona::py::Tensor and madrona::py::PyExecMode.
     madrona::py::setupMadronaSubmodule(m);
+
+    // Export observation sizes as module constants
+    m.attr("SELF_OBSERVATION_SIZE") = nb::int_(madEscape::SelfObservationFloatCount);
+    m.attr("STEPS_REMAINING_SIZE") = nb::int_(madEscape::StepsRemainingCount);
+    m.attr("AGENT_ID_SIZE") = nb::int_(madEscape::AgentIDDimension);
+    m.attr("TOTAL_OBSERVATION_SIZE") = nb::int_(madEscape::TotalObservationSize);
 
     nb::class_<Manager> (m, "SimManager")
         .def("__init__", [](Manager *self,

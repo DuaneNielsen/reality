@@ -72,6 +72,7 @@ namespace madEscape {
         float maxY;
         float theta;
     };
+    inline constexpr size_t SelfObservationFloatCount = sizeof(SelfObservation) / sizeof(float);
 
     // [GAME_SPECIFIC]
     // The state of the world is passed to each agent in terms of egocentric
@@ -92,6 +93,7 @@ namespace madEscape {
     struct StepsRemaining {
         uint32_t t;
     };
+    inline constexpr size_t StepsRemainingCount = 1;  // Single value
 
     //[GAME_SPECIFIC]
     // Tracks progress the agent has made through the challenge, used to add
@@ -166,5 +168,10 @@ namespace madEscape {
                   // viewer and batch renderer
                   madrona::render::Renderable> {};
 
+    // Additional observation dimensions added by the Python wrapper
+    inline constexpr size_t AgentIDDimension = 1;  // Agent ID for multi-agent scenarios
+    
+    // Total observation size for the RL environment
+    inline constexpr size_t TotalObservationSize = SelfObservationFloatCount + StepsRemainingCount + AgentIDDimension;
 
 } // namespace madEscape

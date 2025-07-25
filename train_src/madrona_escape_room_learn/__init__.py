@@ -8,6 +8,7 @@ from madrona_escape_room_learn.actor_critic import (
         Backbone, BackboneShared, BackboneSeparate,
     )
 from madrona_escape_room_learn.profile import profile
+from madrona_escape_room_learn.env_wrapper import MadronaEscapeRoomEnv
 import madrona_escape_room_learn.models
 import madrona_escape_room_learn.rnn
 
@@ -18,4 +19,5 @@ __all__ = [
         "ActorCritic", "DiscreteActor", "Critic",
         "BackboneEncoder", "RecurrentBackboneEncoder",
         "Backbone", "BackboneShared", "BackboneSeparate",
+        "MadronaEscapeRoomEnv",
     ]
