@@ -620,11 +620,10 @@ Tensor Manager::resetTensor() const
 // [BOILERPLATE]
 Tensor Manager::actionTensor() const
 {
-    // [GAME_SPECIFIC] Discrete actions per agent: move amount/angle, rotate
+    // [GAME_SPECIFIC] Discrete actions per world: move amount/angle, rotate
     return impl_->exportTensor(ExportID::Action, TensorElementType::Int32,
         {
             impl_->cfg.numWorlds,
-            consts::numAgents,
             consts::numActionComponents,
         });
 }
@@ -731,7 +730,6 @@ void Manager::triggerReset(int32_t world_idx)
 
 // [REQUIRED_INTERFACE] Set agent actions for the escape room
 void Manager::setAction(int32_t world_idx,
-                        int32_t agent_idx,
                         int32_t move_amount,
                         int32_t move_angle,
                         int32_t rotate)
@@ -743,9 +741,8 @@ void Manager::setAction(int32_t world_idx,
         .rotate = rotate,
     };
 
-    // [GAME_SPECIFIC] Calculate buffer offset for specific agent
-    auto *action_ptr = impl_->agentActionsBuffer +
-        world_idx * consts::numAgents + agent_idx;
+    // [GAME_SPECIFIC] Calculate buffer offset for world
+    auto *action_ptr = impl_->agentActionsBuffer + world_idx;
 
     if (impl_->cfg.execMode == ExecMode::CUDA) {
 #ifdef MADRONA_CUDA_SUPPORT

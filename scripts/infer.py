@@ -48,8 +48,8 @@ actions = sim.action_tensor().to_torch()
 dones = sim.done_tensor().to_torch()
 rewards = sim.reward_tensor().to_torch()
 
-# Flatten N, A, ... tensors to N * A, ...
-actions = actions.view(-1, *actions.shape[2:])
+# Flatten N, A, ... tensors to N * A, ... for rewards and dones (still per-agent)
+# Actions are now per-world, so no flattening needed
 dones  = dones.view(-1, *dones.shape[2:])
 rewards = rewards.view(-1, *rewards.shape[2:])
 
@@ -92,9 +92,7 @@ for i in range(args.num_steps):
     print(" ", np.array_str(probs[2][0].cpu().numpy(), precision=2, suppress_small=True))
     print(" ", np.array_str(probs[2][1].cpu().numpy(), precision=2, suppress_small=True))
 
-    print("Grab Probs")
-    print(" ", np.array_str(probs[3][0].cpu().numpy(), precision=2, suppress_small=True))
-    print(" ", np.array_str(probs[3][1].cpu().numpy(), precision=2, suppress_small=True))
+    # Grab action removed - only 3 action components now
 
     print("Actions:\n", actions.cpu().numpy())
     print("Values:\n", values.cpu().numpy())

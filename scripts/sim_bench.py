@@ -27,7 +27,6 @@ for i in range(args.num_steps):
     actions[..., 0] = torch.randint_like(actions[..., 0], 0, 4)
     actions[..., 1] = torch.randint_like(actions[..., 1], 0, 8)
     actions[..., 2] = torch.randint_like(actions[..., 2], 0, 5)
-    actions[..., 3] = torch.randint_like(actions[..., 3], 0, 2)
 
     sim.step()
 

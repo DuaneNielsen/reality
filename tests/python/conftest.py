@@ -38,8 +38,8 @@ class RecordingWrapper:
         
         # Get manager info
         self.num_worlds = manager.action_tensor().to_torch().shape[0]
-        self.num_agents = manager.action_tensor().to_torch().shape[1]
-        self.action_dims = manager.action_tensor().to_torch().shape[2]
+        self.num_agents = 1  # Single agent per world
+        self.action_dims = manager.action_tensor().to_torch().shape[1]
         
         self.actions = []
         self.step_count = 0
@@ -65,10 +65,10 @@ class RecordingWrapper:
         if self.step_count == 0:
             return None
             
-        # Stack all actions: shape is [steps, worlds, agents, 3]
+        # Stack all actions: shape is [steps, worlds, 3]
         all_actions = np.stack(self.actions)
         
-        # The viewer expects data in order: [step][world][agent][3 components]
+        # The viewer expects data in order: [step][world][3 components]
         # numpy.flatten() uses C-order (row-major) by default, which is correct
         # for this layout. Just ensure we're saving as int32.
         flat_actions = all_actions.astype(np.int32).flatten()

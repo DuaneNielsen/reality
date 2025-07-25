@@ -111,19 +111,15 @@ int main(int argc, char *argv[])
         printf("Step: %u\n", cur_replay_step);
 
         for (uint32_t i = 0; i < num_worlds; i++) {
-            for (uint32_t j = 0; j < num_views; j++) {
-                uint32_t base_idx = 0;
-                base_idx = 3 * (cur_replay_step * num_views * num_worlds +
-                    i * num_views + j);
+            uint32_t base_idx = 3 * (cur_replay_step * num_worlds + i);
 
-                int32_t move_amount = (*replay_log)[base_idx];
-                int32_t move_angle = (*replay_log)[base_idx + 1];
-                int32_t turn = (*replay_log)[base_idx + 2];
+            int32_t move_amount = (*replay_log)[base_idx];
+            int32_t move_angle = (*replay_log)[base_idx + 1];
+            int32_t turn = (*replay_log)[base_idx + 2];
 
-                printf("%d, %d: %d %d %d\n",
-                       i, j, move_amount, move_angle, turn);
-                mgr.setAction(i, j, move_amount, move_angle, turn);
-            }
+            printf("%d: %d %d %d\n",
+                   i, move_amount, move_angle, turn);
+            mgr.setAction(i, move_amount, move_angle, turn);
         }
 
         cur_replay_step++;
@@ -225,7 +221,7 @@ int main(int argc, char *argv[])
             move_angle = 0;
         }
 
-        mgr.setAction(world_idx, agent_idx, move_amount, move_angle, r);
+        mgr.setAction(world_idx, move_amount, move_angle, r);
     }, [&]() {
         if (replay_log.has_value()) {
             bool replay_finished = replayStep();

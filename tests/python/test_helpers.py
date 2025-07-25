@@ -22,66 +22,66 @@ class AgentController:
         """Clear all actions to zero"""
         self.actions[:] = 0
         
-    def move_forward(self, world_idx: Optional[int] = None, agent_idx: int = 0, speed: float = 1.0):
+    def move_forward(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Move agent(s) forward"""
         if world_idx is None:
             # Apply to all worlds
-            self.actions[:, agent_idx, 0] = speed
-            self.actions[:, agent_idx, 1] = 0  # Straight ahead
+            self.actions[:, 0] = speed
+            self.actions[:, 1] = 0  # Straight ahead
         else:
-            self.actions[world_idx, agent_idx, 0] = speed
-            self.actions[world_idx, agent_idx, 1] = 0
+            self.actions[world_idx, 0] = speed
+            self.actions[world_idx, 1] = 0
             
-    def move_backward(self, world_idx: Optional[int] = None, agent_idx: int = 0, speed: float = 1.0):
+    def move_backward(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Move agent(s) backward"""
         if world_idx is None:
-            self.actions[:, agent_idx, 0] = speed
-            self.actions[:, agent_idx, 1] = 4  # 180 degrees
+            self.actions[:, 0] = speed
+            self.actions[:, 1] = 4  # 180 degrees
         else:
-            self.actions[world_idx, agent_idx, 0] = speed
-            self.actions[world_idx, agent_idx, 1] = 4
+            self.actions[world_idx, 0] = speed
+            self.actions[world_idx, 1] = 4
             
-    def turn_left(self, world_idx: Optional[int] = None, agent_idx: int = 0, speed: float = 1.0):
+    def turn_left(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Turn agent(s) left while moving"""
         if world_idx is None:
-            self.actions[:, agent_idx, 0] = speed
-            self.actions[:, agent_idx, 1] = 6  # Left angle
+            self.actions[:, 0] = speed
+            self.actions[:, 1] = 6  # Left angle
         else:
-            self.actions[world_idx, agent_idx, 0] = speed
-            self.actions[world_idx, agent_idx, 1] = 6
+            self.actions[world_idx, 0] = speed
+            self.actions[world_idx, 1] = 6
             
-    def turn_right(self, world_idx: Optional[int] = None, agent_idx: int = 0, speed: float = 1.0):
+    def turn_right(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Turn agent(s) right while moving"""
         if world_idx is None:
-            self.actions[:, agent_idx, 0] = speed
-            self.actions[:, agent_idx, 1] = 2  # Right angle
+            self.actions[:, 0] = speed
+            self.actions[:, 1] = 2  # Right angle
         else:
-            self.actions[world_idx, agent_idx, 0] = speed
-            self.actions[world_idx, agent_idx, 1] = 2
+            self.actions[world_idx, 0] = speed
+            self.actions[world_idx, 1] = 2
             
-    def stop(self, world_idx: Optional[int] = None, agent_idx: int = 0):
+    def stop(self, world_idx: Optional[int] = None):
         """Stop agent(s) movement"""
         if world_idx is None:
-            self.actions[:, agent_idx, 0] = 0
+            self.actions[:, 0] = 0
         else:
-            self.actions[world_idx, agent_idx, 0] = 0
+            self.actions[world_idx, 0] = 0
             
-    def rotate_only(self, world_idx: Optional[int] = None, agent_idx: int = 0, rotation: int = 0):
+    def rotate_only(self, world_idx: Optional[int] = None, rotation: int = 0):
         """Rotate agent(s) in place (no movement)"""
         if world_idx is None:
-            self.actions[:, agent_idx, 0] = 0  # No movement
-            self.actions[:, agent_idx, 2] = rotation  # Rotation bucket
+            self.actions[:, 0] = 0  # No movement
+            self.actions[:, 2] = rotation  # Rotation bucket
         else:
-            self.actions[world_idx, agent_idx, 0] = 0
-            self.actions[world_idx, agent_idx, 2] = rotation
+            self.actions[world_idx, 0] = 0
+            self.actions[world_idx, 2] = rotation
             
-    def set_custom_action(self, world_idx: int, agent_idx: int, 
+    def set_custom_action(self, world_idx: int, 
                          move_amount: float, move_angle: int, 
                          rotate: int = 0):
-        """Set custom action values for specific agent"""
-        self.actions[world_idx, agent_idx, 0] = move_amount
-        self.actions[world_idx, agent_idx, 1] = move_angle
-        self.actions[world_idx, agent_idx, 2] = rotate
+        """Set custom action values for specific world"""
+        self.actions[world_idx, 0] = move_amount
+        self.actions[world_idx, 1] = move_angle
+        self.actions[world_idx, 2] = rotate
         
     def step(self, num_steps: int = 1):
         """Execute simulation steps"""

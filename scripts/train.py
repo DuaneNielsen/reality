@@ -120,8 +120,8 @@ actions = sim.action_tensor().to_torch()
 dones = sim.done_tensor().to_torch()
 rewards = sim.reward_tensor().to_torch()
 
-# Flatten N, A, ... tensors to N * A, ...
-actions = actions.view(-1, *actions.shape[2:])
+# Flatten N, A, ... tensors to N * A, ... for rewards and dones (still per-agent)
+# Actions are now per-world, so no flattening needed
 dones  = dones.view(-1, *dones.shape[2:])
 rewards = rewards.view(-1, *rewards.shape[2:])
 

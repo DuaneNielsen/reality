@@ -48,7 +48,6 @@ public:
     // with keyboard inputs in place of DNN policy actions
     void triggerReset(int32_t world_idx);
     void setAction(int32_t world_idx,
-                   int32_t agent_idx,
                    int32_t move_amount,
                    int32_t move_angle,
                    int32_t rotate);

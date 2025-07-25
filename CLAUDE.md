@@ -144,7 +144,7 @@ uv run --extra test pytest tests/python/test_reward_system.py -v
 # Run all Python tests
 uv run --extra test pytest tests/python/ -v
 
-# Run tests with action recording (saves to test_outputs/)
+# Run tests with action recording (saves to test_recordings/)
 uv run --extra test pytest tests/python/test_reward_system.py -v --record-actions
 
 # Run tests with recording and automatic visualization

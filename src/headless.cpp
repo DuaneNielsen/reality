@@ -74,18 +74,16 @@ int main(int argc, char *argv[])
     for (CountT i = 0; i < (CountT)num_steps; i++) {
         if (rand_actions) {
             for (CountT j = 0; j < (CountT)num_worlds; j++) {
-                for (CountT k = 0; k < 2; k++) {
-                    int32_t x = act_rand(rand_gen);
-                    int32_t y = act_rand(rand_gen);
-                    int32_t r = act_rand(rand_gen);
+                int32_t x = act_rand(rand_gen);
+                int32_t y = act_rand(rand_gen);
+                int32_t r = act_rand(rand_gen);
 
-                    mgr.setAction(j, k, x, y, r);
-                    
-                    int64_t base_idx = j * num_steps * 2 * 3 + i * 2 * 3 + k * 3;
-                    action_store[base_idx] = x;
-                    action_store[base_idx + 1] = y;
-                    action_store[base_idx + 2] = r;
-                }
+                mgr.setAction(j, x, y, r);
+                
+                int64_t base_idx = j * num_steps * 3 + i * 3;
+                action_store[base_idx] = x;
+                action_store[base_idx + 1] = y;
+                action_store[base_idx + 2] = r;
             }
         }
         mgr.step();
