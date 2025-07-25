@@ -12,45 +12,6 @@ torch.manual_seed(42)
 np.random.seed(42)
 
 
-@pytest.fixture(scope="session")
-def cpu_manager():
-    """Create a single CPU SimManager for all CPU tests"""
-    import madrona_escape_room
-    from madrona_escape_room import SimManager
-    
-    mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
-        gpu_id=0,
-        num_worlds=4,
-        rand_seed=42,
-        enable_batch_renderer=False,
-        auto_reset=True
-    )
-    yield mgr
-    # Cleanup happens automatically when mgr goes out of scope
-
-
-@pytest.fixture(scope="session")
-def gpu_manager():
-    """Create a single GPU SimManager for all GPU tests"""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-    
-    import madrona_escape_room
-    from madrona_escape_room import SimManager
-    
-    mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CUDA,
-        gpu_id=0,
-        num_worlds=4,
-        rand_seed=42,
-        enable_batch_renderer=False,
-        auto_reset=True
-    )
-    yield mgr
-    # Cleanup happens automatically when mgr goes out of scope
-
-
 def test_cpu_import():
     """Test basic CPU import"""
     from madrona_escape_room import SimManager
