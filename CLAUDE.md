@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement learning environment built on the Madrona Engine. It implements a cooperative puzzle game where agents must navigate rooms by stepping on buttons or pushing blocks to open doors.
+This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement learning environment built on the Madrona Engine. It implements a navigation environment where agents explore and try to maximize their forward progress through the world.
 
 **Tech Stack:**
 - C++ (core simulation using Entity Component System pattern)
@@ -253,12 +253,27 @@ The simulator uses Madrona's Entity Component System (ECS) pattern:
 
 ### System Execution Order
 The task graph defines precise system dependencies:
-1. **Input**: Action processing
+1. **Input Processing**: 
+   - `movementSystem` - Converts actions to forces/torques
 2. **Physics Pipeline**: 
-   - `movementSystem` → `broadphase_setup` → `grabSystem` → `physicsSystem` → `agentZeroVel`
+   - `broadphase_setup` - Builds BVH for collision detection
+   - `physicsStepTasks` - Runs physics simulation (multiple substeps)
+   - `agentZeroVelSystem` - Zeros agent velocities for direct control
+   - `physicsCleanupTasks` - Finalizes physics state
 3. **Game Logic Pipeline**:
-   - `doorOpenSystem` → `rewardSystem` → `doneSystem` → `resetSystem`
-4. **Output**: Observation collection
+   - `stepTrackerSystem` - Decrements steps remaining, sets done flag
+   - `rewardSystem` - Computes rewards (only at episode end)
+   - `resetSystem` - Handles episode resets
+4. **GPU-specific Systems** (when enabled):
+   - `RecycleEntitiesNode` - Reclaims deleted entity IDs
+   - `ResetTmpAllocNode` - Clears temporary allocations
+   - Entity sorting by world ID for cache efficiency
+5. **Post-Reset**:
+   - Second `broadphase_setup` - Rebuilds BVH after reset
+6. **Output**: 
+   - `collectObservationsSystem` - Gathers observations for policy
+7. **Rendering** (if enabled):
+   - `RenderingSystem::setupTasks` - Updates render state
 
 ### Data Flow
 1. **Actions** (Python) → `Action` components
@@ -279,10 +294,9 @@ The task graph defines precise system dependencies:
 - **Memory layout**: Components packed for cache efficiency
 
 ### Observation Space Details
-- **Egocentric coordinates**: All positions relative to agent
-- **Normalization**: Distances by world size, angles by π
-- **Fixed arrays**: Padded to `maxEntitiesPerRoom`
-- **Lidar**: 30 samples in circle around agent
+- **Self Observation**: Contains agent's global position (x, y, z), maximum Y reached (maxY), and rotation angle (theta)
+- **Normalization**: Positions normalized by world size, angles normalized by π
+- **Reward**: Progress-based reward given only at episode end (normalized max Y position reached)
 
 ### Modifying the Simulator
 
@@ -321,13 +335,11 @@ The task graph defines precise system dependencies:
 
 ### Manager Creation Flow
 The Manager constructor performs crucial initialization:
-```cpp
-Manager::Manager(const Config &cfg) {
-    // 1. Initialize implementation via Impl::init()
-    // 2. Force reset all worlds via triggerReset()
-    // 3. Execute one step via step()
-}
-```
+
+**Function: `Manager::Manager()`**
+1. Initialize implementation via `Impl::init()`
+2. Force reset all worlds via `triggerReset()`
+3. Execute one step via `step()`
 
 ### Execution Mode Initialization
 
@@ -391,172 +403,35 @@ Manager::Manager(const Config &cfg) {
 The Manager acts as the interface between Python and the simulation. During construction:
 
 **Manager Creation - Step 1: Simulation Configuration**
-```cpp
-// In Manager::Impl::init() - src/mgr.cpp:443
-Sim::Config sim_cfg;
-sim_cfg.autoReset = mgr_cfg.autoReset;  // [REQUIRED_INTERFACE] Enable automatic episode restart
-sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);  // [BOILERPLATE] Initialize RNG
 
-switch (mgr_cfg.execMode) {
-case ExecMode::CUDA: {
-    // GPU-specific configuration...
-    break;
-}
-case ExecMode::CPU: {
-    // CPU-specific configuration...
-    // Creates PhysicsLoader for CPU execution
-    PhysicsLoader phys_loader(ExecMode::CPU, 10);  // 10 = max collision objects
-    
-    // Load physics assets
-    loadPhysicsObjects(phys_loader);
-    
-    // Pass physics object manager to sim config
-    sim_cfg.rigidBodyObjMgr = phys_loader.getObjectManager();
-    break;
-}
-}
-```
+`Manager::Impl::init()` (src/mgr.cpp:443) - Initializes the simulation configuration based on execution mode (CPU or CUDA). For CPU mode, creates a PhysicsLoader and calls loadPhysicsObjects() to load collision geometry. Sets up the physics object manager and random number generator.
 
-**Manager Creation - Step 2: Load Physics Assets** (`loadPhysicsObjects()`)
-```cpp
-// 1. Load collision meshes from OBJ files
-AssetImporter::importFromDisk({
-    "cube_collision.obj",    // Pushable blocks
-    "wall_collision.obj",    // Static walls and doors
-    "agent_collision_simplified.obj",  // Agent collision shape
-});
+**Manager Creation - Step 2: Load Physics Assets**
 
-// 2. Process meshes into collision hulls
-RigidBodyAssets::processRigidBodyAssets() performs:
-- Convex hull optimization
-- Bounding volume calculation
-- Mass and inertia tensor computation
+`loadPhysicsObjects()` - Loads collision meshes from OBJ files (cube, wall, agent) and processes them into optimized collision hulls. Configures physics properties for each object type including mass, friction coefficients, and movement constraints. Specifically constrains agent rotation to Z-axis only by setting X and Y inverse inertia to zero.
 
-// 3. Configure physics properties per object type
-setupHull(SimObject::Cube, 0.075f, {.muS = 0.5f, .muD = 0.75f});  // Pushable
-setupHull(SimObject::Wall, 0.f, {.muS = 0.5f, .muD = 0.5f});      // Static
-setupHull(SimObject::Agent, 1.f, {.muS = 0.5f, .muD = 0.5f});     // Controlled
+**Manager Creation - Step 3: Load Render Assets**
 
-// 4. Special handling: Constrain agent rotation to Z-axis only
-rigid_body_assets.metadatas[Agent].mass.invInertiaTensor.x = 0.f;  // No X rotation
-rigid_body_assets.metadatas[Agent].mass.invInertiaTensor.y = 0.f;  // No Y rotation
-
-// 5. Pass physics object manager to sim config
-sim_cfg.rigidBodyObjMgr = phys_loader.getObjectManager();
-```
-
-**Manager Creation - Step 3: Load Render Assets** (`loadRenderObjects()` - if rendering enabled)
-```cpp
-// 1. Load visual meshes from OBJ files
-AssetImporter::importFromDisk({
-    "cube_render.obj",    // Visual cube mesh
-    "wall_render.obj",    // Wall/door mesh
-    "agent_render.obj",   // Multi-part agent mesh
-});
-
-// 2. Define materials (colors, textures)
-materials[0] = { rgb(191, 108, 10), ...};  // Brown cube
-materials[5] = { rgb(230, 20, 20), ...};   // Red door
-materials[6] = { rgb(230, 230, 20), ...};  // Yellow button
-
-// 3. Assign materials to mesh parts
-render_assets->objects[SimObject::Agent].meshes[0].materialIDX = 2;  // Body
-render_assets->objects[SimObject::Agent].meshes[1].materialIDX = 3;  // Eyes
-
-// 4. Load textures
-ImageImporter::importImages({"green_grid.png", "smile.png"});
-
-// 5. Configure scene lighting
-render_mgr.configureLighting({direction, color, intensity});
-```
+`loadRenderObjects()` (if rendering enabled) - Loads visual meshes from OBJ files for rendering. Defines materials with colors and assigns them to mesh parts. Loads texture images and configures scene lighting parameters.
 
 **Manager Creation - Step 4: Create Executor**
-```cpp
-// For CPU mode - src/mgr.cpp:525-540
-TaskGraphExecutor<Engine, Sim, Sim::Config, Sim::WorldInit> cpu_exec {
-    ThreadPoolExecutor::Config {
-        .numWorlds = (uint32_t)mgr_cfg.numWorlds,
-        .numExportedBuffers = (uint32_t)ExportID::NumExports,  // [GAME_SPECIFIC]
-    },
-    sim_cfg,
-    {},  // Per-world init data
-    (uint32_t)TaskGraphID::NumTaskGraphs  // [GAME_SPECIFIC]
-};
 
-// For CUDA mode - src/mgr.cpp:461-480
-MWCudaExecutor gpu_exec({
-    .worldDataSize = sizeof(Sim),
-    .worldDataAlignment = alignof(Sim),
-    .numWorldDataSlots = (uint32_t)mgr_cfg.numWorlds,
-    .numTaskGraphs = (uint32_t)TaskGraphID::NumTaskGraphs,  // [GAME_SPECIFIC]
-    .numExportedBuffers = (uint32_t)ExportID::NumExports,    // [GAME_SPECIFIC]
-}, {
-    { MADRONA_ESCAPE_ROOM_SRC_LIST },  // [GAME_SPECIFIC] Source files
-}, sim_cfg, {});
-```
+`TaskGraphExecutor` (CPU) or `MWCudaExecutor` (GPU) construction - Creates the execution engine for running the simulation. Configures the number of parallel worlds, exported buffers for Python access, and task graphs. For GPU mode, also specifies source files for JIT compilation.
 
 **Manager Creation - Step 5: Get Export Pointers**
-```cpp
-// In Manager::Impl::init() - src/mgr.cpp:542-544 (CPU) or 483-485 (CUDA)
-WorldReset *reset_buffer = (WorldReset *)cpu_exec.getExported(
-    (uint32_t)ExportID::Reset);
-    
-Action *action_buffer = (Action *)cpu_exec.getExported(
-    (uint32_t)ExportID::Action);
 
-// These are game-specific exports defined in types.hpp:
-enum class ExportID : uint32_t {
-    Reset,
-    Action,
-    Reward,
-    Done,
-    SelfObservation,
-    PartnerObservations,
-    RoomEntityObservations,
-    DoorObservation,
-    Lidar,
-    StepsRemaining,
-    NumExports,  // Must be last
-};
-```
+`getExported()` calls - Retrieves pointers to the exported component data that will be accessible from Python. Each export ID corresponds to a component registered in `Sim::registerTypes()`. The ExportID enum [GAME_SPECIFIC] defines all the tensors that will be exposed to Python: Reset, Action, Reward, Done, SelfObservation, StepsRemaining.
 
 **Manager Creation - Step 6: Initial World Setup**
-```cpp
-// In Manager::Manager() constructor - src/mgr.cpp:576-592
-Manager::Manager(const Config &cfg)
-    : impl_(Impl::init(cfg))  // Calls Impl::init() to set up everything
-{
-    // [REQUIRED_INTERFACE] Force initial reset for all worlds
-    // This ensures all worlds start in a valid state
-    for (int32_t i = 0; i < (int32_t)cfg.numWorlds; i++) {
-        triggerReset(i);
-    }
 
-    // [BOILERPLATE] Execute one step to populate initial observations
-    // This is required so Python can see the initial state
-    step();
-}
+**Function: `Manager::Manager()` Constructor**
+The Manager constructor:
+- Calls `Impl::init()` to set up all the internal state
+- [REQUIRED_INTERFACE] Forces an initial reset for all worlds by calling `triggerReset()` for each world to ensure they start in a valid state
+- [BOILERPLATE] Executes one simulation step to populate initial observations so Python can see the initial state
 
-// triggerReset implementation - src/mgr.cpp:762-778
-void Manager::triggerReset(int32_t world_idx)
-{
-    // [GAME_SPECIFIC] Set reset flag to trigger world regeneration
-    WorldReset reset {
-        1,  // reset flag
-    };
-
-    auto *reset_ptr = impl_->worldResetBuffer + world_idx;
-
-    if (impl_->cfg.execMode == ExecMode::CUDA) {
-#ifdef MADRONA_CUDA_SUPPORT
-        cudaMemcpy(reset_ptr, &reset, sizeof(WorldReset),
-                   cudaMemcpyHostToDevice);
-#endif
-    } else {
-        *reset_ptr = reset;
-    }
-}
-```
+**Function: `triggerReset()`**
+[GAME_SPECIFIC] Sets the reset flag in the WorldReset buffer to trigger world regeneration. Handles both CPU (direct memory write) and CUDA (cudaMemcpy) execution modes.
    
 ### 2. **Executor Initialization Phase** (inside TaskGraphExecutor/MWCudaExecutor constructor)
 
@@ -565,28 +440,14 @@ void Manager::triggerReset(int32_t world_idx)
 - Call `getECSRegistry()` to obtain the ECS registry
 
 **Executor Init - Step 2: ECS Registration** (`Sim::registerTypes()`)
-```cpp
-// In Sim::registerTypes() - src/sim.cpp:40-93
-// [GAME_SPECIFIC] Register all game components
-registry.registerComponent<Action>();
-registry.registerComponent<Reward>();
-registry.registerComponent<Done>();
-// ... register all other game-specific component types
 
-// [GAME_SPECIFIC] Register game archetypes (entity templates)
-registry.registerArchetype<Agent>();        // Player-controlled entities
-registry.registerArchetype<PhysicsEntity>(); // Movable objects
-// ... register other entity types
-
-// [GAME_SPECIFIC] Export components for Python access
-// Pattern: registry.exportColumn<Archetype, Component>(ExportID)
-registry.exportSingleton<WorldReset>((uint32_t)ExportID::Reset);
-registry.exportColumn<Agent, Action>((uint32_t)ExportID::Action);
-registry.exportColumn<Agent, Reward>((uint32_t)ExportID::Reward);
-// ... export all components that Python needs to access
-
-// Note: Export IDs must match the ExportID enum in types.hpp
-```
+**Function: `Sim::registerTypes()`**
+[GAME_SPECIFIC] Registers all ECS types with the registry:
+- Registers all game components (Action, Reward, Done, etc.)
+- Registers game archetypes/entity templates (Agent for player-controlled entities, PhysicsEntity for movable objects, etc.)
+- Exports components for Python access using the pattern `registry.exportColumn<Archetype, Component>(ExportID)`
+- Exports singletons like WorldReset and per-entity components like Action, Reward, observations
+- Export IDs must match the ExportID enum in types.hpp
 - **Memory allocation**: Virtual address space (1B × component size) reserved per exported component
 
 **Executor Init - Step 3: World Construction**
@@ -594,122 +455,26 @@ registry.exportColumn<Agent, Reward>((uint32_t)ExportID::Reward);
 - Construct world data instances (`WorldT` objects)
 
 **Executor Init - Step 4: Task Graph Setup** (`Sim::setupTasks()`)
-```cpp
-// In Sim::setupTasks() - src/sim.cpp:574-720
-void Sim::setupTasks(TaskGraphManager &taskgraph_mgr,
-                     const Config &cfg)
-{
-    TaskGraphBuilder &builder = taskgraph_mgr.init(TaskGraphID::Step);
 
-    // ===== Phase 1: Input Processing =====
-    // Convert actions from policy into forces/torques for physics
-    // This must run first to prepare inputs for the physics simulation
-    auto move_sys = builder.addToGraph<ParallelForNode<Engine,
-        movementSystem,
-        Action,           // Input from policy
-        Rotation,         // Current orientation
-        ExternalForce,    // Output: forces for physics
-        ExternalTorque    // Output: torques for physics
-    >>({/* no dependencies - runs first */});
+**Function: `Sim::setupTasks()`**
+Builds the static execution graph defining system execution order. The function creates a task graph with the following phases:
 
-    // ===== Phase 2: Pre-Physics Updates =====
-    // Update kinematically-controlled objects (doors, platforms, etc.)
-    // These objects move based on game state, not physics
-    auto set_door_pos = builder.addToGraph<ParallelForNode<Engine,
-        setDoorPositionSystem,
-        Position,         // Output: updated position
-        OpenState         // Input: whether door is open
-    >>({move_sys});       // Must run after input processing
-
-    // ===== Phase 3: Spatial Structure Build =====
-    // Build BVH for efficient collision detection and raycasting
-    // Must run after all position updates, before any spatial queries
-    auto broadphase_setup = PhysicsSystem::setupBroadphaseTasks(
-        builder, {set_door_pos});
-
-    // ===== Phase 4: Spatial Query Systems =====
-    // Systems that need raycasting or proximity queries
-    // Example: grab system uses raycast to find objects to pick up
-    auto grab_sys = builder.addToGraph<ParallelForNode<Engine,
-        grabSystem,
-        Entity,           // Self reference
-        Position,         // Current position
-        Rotation,         // Facing direction for raycast
-        Action,           // Grab button state
-        GrabState         // Output: what we're holding
-    >>({broadphase_setup}); // Needs BVH for raycasting
-
-    // ===== Phase 5: Physics Simulation =====
-    // Run the actual physics simulation
-    // This is a monolithic step - no other systems can run during it
-    auto phys_sys = PhysicsSystem::setupPhysicsSimulationTasks(
-        builder, cfg.rigidBodyObjMgr, {grab_sys});
-    
-    // Post-physics cleanup (clear temporary collision data)
-    auto phys_cleanup = PhysicsSystem::setupCleanupTasks(
-        builder, {phys_sys});
-
-    // ===== Phase 6: Post-Physics Corrections =====
-    // Zero velocities for direct control (common in RL environments)
-    auto agent_zero_vel = builder.addToGraph<ParallelForNode<Engine,
-        agentZeroVelSystem,
-        Velocity,         // Output: zeroed velocity
-        Action            // Only for controlled agents
-    >>({phys_cleanup});   // Must wait for physics to complete
-
-    // ===== Phase 7: Game Logic =====
-    // Check win conditions, calculate rewards, manage game state
-    // These systems read physics results but don't modify positions
-    
-    auto door_open_sys = builder.addToGraph<ParallelForNode<Engine,
-        doorOpenSystem,
-        OpenState,        // Output: is door open?
-        DoorProperties    // Input: which buttons open this door
-    >>({agent_zero_vel}); // Runs after physics is finalized
-
-    auto reward_sys = builder.addToGraph<ParallelForNode<Engine,
-        rewardSystem,
-        Position,         // Input: where is agent?
-        Progress,         // Input/Output: level progress
-        Reward            // Output: reward signal
-    >>({door_open_sys});
-
-    auto done_sys = builder.addToGraph<ParallelForNode<Engine,
-        doneSystem,
-        Progress,         // Input: did we complete level?
-        StepsRemaining,   // Input: time limit check
-        Done              // Output: episode over flag
-    >>({reward_sys});
-
-    // ===== Phase 8: Episode Management =====
-    // Handle resets when episodes end
-    auto reset_sys = builder.addToGraph<ParallelForNode<Engine,
-        resetSystem,
-        WorldReset        // Input/Output: reset request/acknowledgment
-    >>({done_sys});
-
-    // ===== Phase 9: Post-Reset Spatial Rebuild =====
-    // Rebuild BVH after reset (world geometry changed)
-    // On GPU, this runs every frame (can't conditionally execute)
-    auto post_reset_broadphase = PhysicsSystem::setupBroadphaseTasks(
-        builder, {reset_sys});
-
-    // ===== Phase 10: Observation Collection =====
-    // Gather all observations for the policy
-    // MUST run last after all state updates
-    auto collect_obs = builder.addToGraph<ParallelForNode<Engine,
-        collectObservationsSystem,
-        Position,                // Input: agent position
-        Rotation,                // Input: agent orientation
-        Progress,                // Input: game state
-        GrabState,               // Input: what we're holding
-        SelfObservation,         // Output: egocentric obs
-        PartnerObservations,     // Output: teammate info
-        RoomEntityObservations,  // Output: object positions
-        DoorObservation          // Output: door states
-    >>({post_reset_broadphase}); // Must run after everything
-}
-```
+1. **Input Processing**: `movementSystem` converts actions from the policy into forces/torques for physics
+2. **Spatial Structure Build**: `PhysicsSystem::setupBroadphaseTasks` builds the BVH for collision detection
+3. **Physics Simulation**: `PhysicsSystem::setupPhysicsStepTasks` runs physics collision detection and solver (multiple substeps)
+4. **Post-Physics Corrections**: `agentZeroVelSystem` zeros velocities for direct control
+5. **Physics Cleanup**: `PhysicsSystem::setupCleanupTasks` finalizes physics subsystem work
+6. **Episode Management**: 
+   - `stepTrackerSystem` decrements steps remaining and sets done flag
+   - `rewardSystem` computes rewards (only given at episode end)
+   - `resetSystem` conditionally resets the world if episode is over
+7. **GPU Backend Tasks** (when enabled):
+   - `ResetTmpAllocNode` clears temporary allocations
+   - `RecycleEntitiesNode` reclaims deleted entity IDs
+8. **Post-Reset Spatial Rebuild**: Second BVH build (required due to current API limitation)
+9. **Observation Collection**: `collectObservationsSystem` gathers all observations for the policy
+10. **Rendering Setup**: `RenderingSystem::setupTasks` (if rendering enabled)
+11. **Entity Sorting** (GPU only): Sorts entities by world ID for cache efficiency
 
 **Executor Init - Step 5: Export Initialization**
 - Call `initExport()` which triggers initial `copyOutExportedColumns()`
@@ -719,113 +484,28 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr,
 ### 3. **Per-World Sim Construction Phase** (`Sim::Sim()` constructor)
 
 **World Init - Step 1: Calculate Entity Limits**
-```cpp
-// In Sim::Sim() constructor - src/sim.cpp:729-761
-Sim::Sim(Engine &ctx,
-         const Config &cfg,
-         const WorldInit &)
-    : WorldBase(ctx)
-{
-    // [GAME_SPECIFIC] Calculate max entities based on game parameters
-    constexpr CountT max_total_entities = consts::numAgents +
-        consts::numRooms * (consts::maxEntitiesPerRoom + 3) +  // +3 for doors/walls per room
-        4;  // side walls + floor
 
-    // [BOILERPLATE] Initialize physics with entity limit
-    PhysicsSystem::init(ctx, cfg.rigidBodyObjMgr,
-        consts::deltaT, consts::numPhysicsSubsteps, -9.8f * math::up,
-        max_total_entities);
-
-    // [BOILERPLATE] Store configuration
-    initRandKey = cfg.initRandKey;
-    autoReset = cfg.autoReset;
-
-    // ... rendering initialization ...
-
-    // [GAME_SPECIFIC] Create persistent entities and generate initial world
-    createPersistentEntities(ctx);  // Creates agents, walls, floor
-    initWorld(ctx);                 // Generates level layout
-}
-```
+**Function: `Sim::Sim()` Constructor**
+The Sim constructor initializes each simulation world by:
+- [GAME_SPECIFIC] Calculating the maximum total entities based on game parameters (agents + floor + walls)
+- [BOILERPLATE] Initializing the physics system with the entity limit, time step, substeps, gravity, and rigid body object manager
+- [BOILERPLATE] Storing the initial random key and auto-reset configuration
+- [GAME_SPECIFIC] Calling `createPersistentEntities()` to create agents, walls, and floor
+- [GAME_SPECIFIC] Calling `initWorld()` to generate the initial level layout
 
 **World Init - Step 2: Create Persistent Entities** (`createPersistentEntities()`)
 
 The `createPersistentEntities` function creates entities that persist across all episodes. These entities are created once during world initialization and are reused/reset for each episode rather than destroyed and recreated.
 
-```cpp
-// In createPersistentEntities() - src/level_gen.cpp:76-188
-void createPersistentEntities(Engine &ctx)
-{
-    // [GAME_SPECIFIC] Create floor plane - a static physics entity
-    ctx.data().floorPlane = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        ctx.data().floorPlane,
-        Vector3 { 0, 0, 0 },        // Position at origin
-        Quat { 1, 0, 0, 0 },        // No rotation
-        SimObject::Plane,           // Physics object type
-        EntityType::None,           // Floor plane type never queried
-        ResponseType::Static);      // Immovable
-
-    // [GAME_SPECIFIC] Create outer boundary walls
-    // Three walls are created (behind, right, left) - front is open
-    
-    // Behind wall (at y=0)
-    ctx.data().borders[0] = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        ctx.data().borders[0],
-        Vector3 { 0, -consts::wallWidth / 2.f, 0 },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Wall,
-        EntityType::Wall,
-        ResponseType::Static,
-        Diag3x3 {  // Scale to span entire world width
-            consts::worldWidth + consts::wallWidth * 2,
-            consts::wallWidth,
-            2.f
-        });
-
-    // Right and Left walls similarly positioned at world boundaries...
-
-    // [GAME_SPECIFIC] Create agent entities
-    for (CountT i = 0; i < consts::numAgents; ++i) {
-        Entity agent = ctx.data().agents[i] = 
-            ctx.makeRenderableEntity<Agent>();
-
-        // [GAME_SPECIFIC] Attach camera view to agent (if rendering enabled)
-        if (ctx.data().enableRender) {
-            render::RenderingSystem::attachEntityToView(ctx,
-                agent,
-                100.f,              // Far plane distance
-                0.001f,             // Near plane distance  
-                1.5f * math::up);   // Camera offset from agent
-        }
-
-        // [GAME_SPECIFIC] Initialize agent components
-        ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };
-        ctx.get<ObjectID>(agent) = ObjectID { (int32_t)SimObject::Agent };
-        ctx.get<ResponseType>(agent) = ResponseType::Dynamic;
-        ctx.get<GrabState>(agent).constraintEntity = Entity::none();
-        ctx.get<EntityType>(agent) = EntityType::Agent;
-    }
-
-    // [GAME_SPECIFIC] Populate OtherAgents component
-    // Each agent maintains references to all other agents for observations
-    for (CountT i = 0; i < consts::numAgents; i++) {
-        Entity cur_agent = ctx.data().agents[i];
-        OtherAgents &other_agents = ctx.get<OtherAgents>(cur_agent);
-        
-        CountT out_idx = 0;
-        for (CountT j = 0; j < consts::numAgents; j++) {
-            if (i == j) continue;  // Skip self
-            
-            Entity other_agent = ctx.data().agents[j];
-            other_agents.e[out_idx++] = other_agent;
-        }
-    }
-}
-```
+**Function: `createPersistentEntities()`**
+[GAME_SPECIFIC] Creates all persistent entities by:
+- Creating the floor plane as a static physics entity at the origin
+- Creating three outer boundary walls (behind, right, left - front is open) scaled to span the world width
+- For each agent:
+  - Creating an Agent entity
+  - Attaching a camera view (if rendering enabled) with specified near/far planes and offset
+  - Initializing components: scale, object ID, response type as Dynamic, empty grab state, and entity type
+- Populating the OtherAgents component for each agent with references to all other agents (for teammate observations)
 
 **Key Points about Persistent Entities:**
 - **Floor and Walls**: Static collision geometry that defines world boundaries
@@ -845,46 +525,15 @@ The `generateWorld` function then calls:
 1. `resetPersistentEntities()` - Resets agents and re-registers all persistent entities
 2. `generateLevel()` - Creates the procedural level layout
 
-Inside `resetPersistentEntities()`:
-- `registerRigidBodyEntity()` is called for each persistent entity (floor, walls, agents) to re-register them with the physics broadphase
-- For each agent, the following game-specific state is reset:
-
-```cpp
-// [GAME_SPECIFIC] Agent spawn positioning
-Vector3 pos {
-    randInRangeCentered(ctx, consts::worldWidth / 2.f - 2.5f * consts::agentRadius),
-    randBetween(ctx, consts::agentRadius * 1.1f, 2.f),  // Slightly above floor
-    0.f
-};
-
-// Spread agents left/right alternately
-if (i % 2 == 0) {
-    pos.x += consts::worldWidth / 4.f;
-} else {
-    pos.x -= consts::worldWidth / 4.f;
-}
-
-// [GAME_SPECIFIC] Random initial rotation (±45 degrees)
-ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
-    randInRangeCentered(ctx, math::pi / 4.f), math::up);
-
-// [GAME_SPECIFIC] Clear grab state from previous episode
-auto &grab_state = ctx.get<GrabState>(agent_entity);
-if (grab_state.constraintEntity != Entity::none()) {
-    ctx.destroyEntity(grab_state.constraintEntity);
-    grab_state.constraintEntity = Entity::none();
-}
-
-// [GAME_SPECIFIC] Reset gameplay components
-ctx.get<Progress>(agent_entity).maxY = pos.y;  // Track forward progress
-ctx.get<Action>(agent_entity) = Action {
-    .moveAmount = 0,
-    .moveAngle = 0,
-    .rotate = consts::numTurnBuckets / 2,  // Center rotation bucket
-    .grab = 0
-};
-ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;  // Reset timer
-```
+**Function: `resetPersistentEntities()` Agent Reset Logic**
+Inside `resetPersistentEntities()`, each persistent entity is re-registered with the physics broadphase, and for each agent:
+- [GAME_SPECIFIC] Sets a random spawn position near the starting wall, slightly above the floor
+- [GAME_SPECIFIC] Spreads agents left/right alternately by adding/subtracting from X position
+- [GAME_SPECIFIC] Applies a random initial rotation (±45 degrees around the up axis)
+- [GAME_SPECIFIC] Clears any existing grab constraints from the previous episode
+- [GAME_SPECIFIC] Resets progress tracking to the spawn Y position
+- [GAME_SPECIFIC] Resets action to default values (no movement, center rotation bucket, no grab)
+- [GAME_SPECIFIC] Resets steps remaining timer to episode length
 
 ### 4. **First Step Execution Phase**
 
@@ -910,35 +559,11 @@ The reset sequence handles transitioning between episodes in the escape room env
 
 The `resetSystem` function is the main entry point for episode resets. It's executed every simulation step as part of the task graph.
 
-```cpp
-// [REQUIRED_INTERFACE] Reset system - every episodic environment needs this
-// This system runs each frame and checks if the current episode is complete
-// or if code external to the application has forced a reset by writing to the
-// WorldReset singleton.
-inline void resetSystem(Engine &ctx, WorldReset &reset)
-{
-    // [GAME_SPECIFIC] Check manual reset flag
-    int32_t should_reset = reset.reset;
-    
-    // [GAME_SPECIFIC] Check auto-reset condition
-    if (ctx.data().autoReset) {
-        for (CountT i = 0; i < consts::numAgents; i++) {
-            Entity agent = ctx.data().agents[i];
-            Done done = ctx.get<Done>(agent);
-            if (done.v) {
-                should_reset = 1;  // Any agent done triggers reset
-            }
-        }
-    }
-
-    if (should_reset != 0) {
-        reset.reset = 0;  // Clear the reset flag
-        
-        cleanupWorld(ctx);  // Destroy dynamic entities
-        initWorld(ctx);     // Create new episode
-    }
-}
-```
+**Function: `resetSystem()`**
+[REQUIRED_INTERFACE] Reset system that runs each frame to check if the current episode is complete or if external code has triggered a reset. The function:
+- Checks the manual reset flag from the WorldReset singleton
+- If auto-reset is enabled, checks if any agent's Done flag is set
+- When reset is needed, clears the reset flag, calls `cleanupWorld()` to destroy dynamic entities, and calls `initWorld()` to create a new episode
 
 **Reset Triggers:**
 1. **Manual Reset**: External code sets `WorldReset.reset = 1` via `Manager::triggerReset()`
@@ -949,29 +574,12 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
 
 Destroys all dynamically created entities from the current episode:
 
-```cpp
-// [GAME_SPECIFIC] Helper to cleanup world before reset
-static inline void cleanupWorld(Engine &ctx)
-{
-    // Destroy current level entities
-    LevelState &level = ctx.singleton<LevelState>();
-    for (CountT i = 0; i < consts::numRooms; i++) {
-        Room &room = level.rooms[i];
-        
-        // Destroy room entities (buttons, blocks, etc.)
-        for (CountT j = 0; j < consts::maxEntitiesPerRoom; j++) {
-            if (room.entities[j] != Entity::none()) {
-                ctx.destroyRenderableEntity(room.entities[j]);
-            }
-        }
-        
-        // Destroy walls and doors for this room
-        ctx.destroyRenderableEntity(room.walls[0]);  // Left wall segment
-        ctx.destroyRenderableEntity(room.walls[1]);  // Right wall segment
-        ctx.destroyRenderableEntity(room.door);      // Door entity
-    }
-}
-```
+**Function: `cleanupWorld()`**
+[GAME_SPECIFIC] Helper function that destroys all dynamic entities before a reset. This should:
+- Iterate through all dynamically created entities (those created during level generation)
+- Call `ctx.destroyRenderableEntity()` for each dynamic entity
+- Clear any references to destroyed entities
+- Leave persistent entities (agents, static world geometry) untouched
 
 **Important**: Persistent entities (agents, floor, outer walls) are NOT destroyed during cleanup.
 
@@ -979,21 +587,11 @@ static inline void cleanupWorld(Engine &ctx)
 
 Prepares the world for a new episode:
 
-```cpp
-// [GAME_SPECIFIC] Helper to initialize a new escape room world
-static inline void initWorld(Engine &ctx)
-{
-    // [BOILERPLATE] Always reset physics first
-    phys::PhysicsSystem::reset(ctx);  // Clears collision pairs, constraints, BVH
-    
-    // [BOILERPLATE] Assign a new episode ID and RNG
-    ctx.data().rng = RNG(rand::split_i(ctx.data().initRandKey,
-        ctx.data().curWorldEpisode++, (uint32_t)ctx.worldID().idx));
-    
-    // [GAME_SPECIFIC] Generate new world layout
-    generateWorld(ctx);  // Defined in src/level_gen.cpp
-}
-```
+**Function: `initWorld()`**
+[GAME_SPECIFIC] Helper function that initializes a new escape room world by:
+- Calling `PhysicsSystem::reset()` [BOILERPLATE] to clear all collision pairs, constraints, and the BVH
+- Creating a new RNG instance [BOILERPLATE] with a unique seed based on the episode counter and world ID
+- Calling `generateWorld()` [GAME_SPECIFIC] to create the new level layout
 
 **Call Sequence:**
 1. `PhysicsSystem::reset()` - [BOILERPLATE] Clears all physics state
@@ -1004,113 +602,42 @@ static inline void initWorld(Engine &ctx)
 
 Orchestrates the world generation process:
 
-```cpp
-void generateWorld(Engine &ctx)
-{
-    resetPersistentEntities(ctx);  // Reset agents and re-register entities
-    generateLevel(ctx);            // Create new room layout
-}
-```
+**Function: `generateWorld()`**
+Orchestrates the world generation by calling:
+- `resetPersistentEntities()` to reset agents and re-register persistent entities with the physics system
+- `generateLevel()` to create the new procedural room layout
 
 #### **Persistent Entity Reset** (`resetPersistentEntities()` - src/level_gen.cpp:193)
 
 Resets entities that persist across episodes:
 
-```cpp
-static void resetPersistentEntities(Engine &ctx)
-{
-    // [BOILERPLATE] Re-register persistent entities with physics
-    registerRigidBodyEntity(ctx, ctx.data().floorPlane, SimObject::Plane);
-    
-    // Re-register boundary walls
-    for (CountT i = 0; i < 3; i++) {
-        Entity wall_entity = ctx.data().borders[i];
-        registerRigidBodyEntity(ctx, wall_entity, SimObject::Wall);
-    }
-    
-    // [GAME_SPECIFIC] Reset each agent
-    for (CountT i = 0; i < consts::numAgents; i++) {
-        Entity agent_entity = ctx.data().agents[i];
-        
-        // [BOILERPLATE] Re-register with physics
-        registerRigidBodyEntity(ctx, agent_entity, SimObject::Agent);
-        
-        // [GAME_SPECIFIC] Random spawn position near starting wall
-        Vector3 pos {
-            randInRangeCentered(ctx, 
-                consts::worldWidth / 2.f - 2.5f * consts::agentRadius),
-            randBetween(ctx, consts::agentRadius * 1.1f, 2.f),  // Slightly above floor
-            0.f,
-        };
-        
-        // Spread agents left/right alternately
-        if (i % 2 == 0) {
-            pos.x += consts::worldWidth / 4.f;
-        } else {
-            pos.x -= consts::worldWidth / 4.f;
-        }
-        
-        ctx.get<Position>(agent_entity) = pos;
-        
-        // [GAME_SPECIFIC] Random initial rotation (±45 degrees)
-        ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
-            randInRangeCentered(ctx, math::pi / 4.f), math::up);
-        
-        // [GAME_SPECIFIC] Clear grab constraint from previous episode
-        auto &grab_state = ctx.get<GrabState>(agent_entity);
-        if (grab_state.constraintEntity != Entity::none()) {
-            ctx.destroyEntity(grab_state.constraintEntity);
-            grab_state.constraintEntity = Entity::none();
-        }
-        
-        // [GAME_SPECIFIC] Reset progress tracking
-        ctx.get<Progress>(agent_entity).maxY = pos.y;
-        
-        // [BOILERPLATE] Clear physics state
-        ctx.get<Velocity>(agent_entity) = { Vector3::zero(), Vector3::zero() };
-        ctx.get<ExternalForce>(agent_entity) = Vector3::zero();
-        ctx.get<ExternalTorque>(agent_entity) = Vector3::zero();
-        
-        // [GAME_SPECIFIC] Reset action and timer
-        ctx.get<Action>(agent_entity) = Action {
-            .moveAmount = 0,
-            .moveAngle = 0,
-            .rotate = consts::numTurnBuckets / 2,  // Center bucket
-            .grab = 0,
-        };
-        ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;
-    }
-}
-```
+**Function: `resetPersistentEntities()`**
+Resets all persistent entities (entities that survive across episodes) by:
+- Re-registering the floor plane and boundary walls with the physics system [BOILERPLATE]
+- For each agent [GAME_SPECIFIC]:
+  - Re-registering with the physics system
+  - Setting a random spawn position near the starting wall, spread left/right alternately
+  - Applying a random initial rotation (±45 degrees)
+  - Clearing any existing grab constraints from the previous episode
+  - Resetting progress tracking to the spawn Y position
+  - Clearing all physics state (velocity, forces, torques) [BOILERPLATE]
+  - Resetting the action to default values and timer to episode length
 
 #### **Level Generation** (`generateLevel()` - src/level_gen.cpp:486)
 
 Creates the procedural room layout for the new episode:
 
-```cpp
-static void generateLevel(Engine &ctx)
-{
-    LevelState &level = ctx.singleton<LevelState>();
-    
-    // [GAME_SPECIFIC] Generate each room with random type
-    for (CountT room_idx = 0; room_idx < consts::numRooms; room_idx++) {
-        int room_type_idx = (int)randBetween(ctx, 0, (int)RoomType::NumTypes);
-        RoomType room_type = (RoomType)room_type_idx;
-        
-        makeRoom(ctx, level, room_idx, room_type);
-    }
-}
-```
-
-Each room is generated with:
-- Random room type (SingleButton, DoubleButton, Cube)
-- End walls with doors at random positions
-- Buttons, blocks, and other interactive elements
-- All new entities registered with the physics system
+**Function: `generateLevel()`**
+[GAME_SPECIFIC] Generates the procedural level layout. This function should:
+- Create any dynamic entities needed for the current episode
+- Set up level geometry, obstacles, goals, or interactive elements
+- Register all new entities with the physics system using `registerRigidBodyEntity()`
+- Initialize entity positions, rotations, and other component values
+- Store references to dynamic entities for cleanup during reset
 
 #### **Key Points:**
 
-- **Persistent vs Dynamic**: Agents, floor, and outer walls persist; rooms are recreated
+- **Persistent vs Dynamic**: Some entities persist across episodes (agents, static world geometry) while others are recreated each episode
 - **Physics Reset**: Critical to clear collision state before world generation
 - **Entity Registration**: All entities must be re-registered with physics after reset
 - **Random Seed**: Each episode gets unique RNG state for procedural generation
