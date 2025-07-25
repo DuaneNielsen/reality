@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
 """
-Test agent movement physics - simple forward movement test.
-
-Important notes about the action system:
-1. The movement system is EGOCENTRIC - "forward" means forward relative to the agent's 
-   current facing direction, not global coordinates. This matches standard WASD game controls.
-2. Agents spawn with random rotation (±45 degrees), so "forward" movement may not be 
-   towards +Y in world coordinates.
-3. The viewer expects rotation values centered at 2, not 0. This is because the viewer's
-   keyboard input starts with r=2 as the default (no rotation) and modifies from there.
-4. Action components are: [moveAmount, moveAngle, rotate] (3 values total)
-   - The grab action was removed in the minimal version
+Test agent forward movement.
 """
 
 import numpy as np
@@ -39,9 +29,6 @@ class MoveAngle:
 
 
 class Rotate:
-    # IMPORTANT: These values must match the viewer's expectations
-    # The viewer initializes r=2 as the default (no rotation)
-    # This differs from the comment in types.hpp that says rotate is [-2, 2]
     FAST_LEFT = 0
     SLOW_LEFT = 1
     NONE = 2        # Center bucket - no rotation (viewer default)
@@ -101,5 +88,3 @@ def test_forward_only(test_manager):
     
     # Basic sanity check - agent should have moved forward
     assert max_y > 0.1, f"Agent should have moved forward, but max_y = {max_y}"
-
-

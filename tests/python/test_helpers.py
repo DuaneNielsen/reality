@@ -1,0 +1,165 @@
+"""
+Helper functions for controlling agents in tests.
+Provides a cleaner interface for agent movement and actions.
+"""
+
+import torch
+import numpy as np
+from typing import Optional, Union
+
+
+class AgentController:
+    """Simple controller for agent movement in tests"""
+    
+    def __init__(self, manager):
+        """Initialize controller with a SimManager instance"""
+        self.mgr = manager
+        self.actions = manager.action_tensor().to_torch()
+        self.num_worlds = self.actions.shape[0]
+        self.num_agents = self.actions.shape[1]
+        
+    def reset_actions(self):
+        """Clear all actions to zero"""
+        self.actions[:] = 0
+        
+    def move_forward(self, world_idx: Optional[int] = None, agent_idx: int = 0, speed: float = 1.0):
+        """Move agent(s) forward"""
+        if world_idx is None:
+            # Apply to all worlds
+            self.actions[:, agent_idx, 0] = speed
+            self.actions[:, agent_idx, 1] = 0  # Straight ahead
+        else:
+            self.actions[world_idx, agent_idx, 0] = speed
+            self.actions[world_idx, agent_idx, 1] = 0
+            
+    def move_backward(self, world_idx: Optional[int] = None, agent_idx: int = 0, speed: float = 1.0):
+        """Move agent(s) backward"""
+        if world_idx is None:
+            self.actions[:, agent_idx, 0] = speed
+            self.actions[:, agent_idx, 1] = 4  # 180 degrees
+        else:
+            self.actions[world_idx, agent_idx, 0] = speed
+            self.actions[world_idx, agent_idx, 1] = 4
+            
+    def turn_left(self, world_idx: Optional[int] = None, agent_idx: int = 0, speed: float = 1.0):
+        """Turn agent(s) left while moving"""
+        if world_idx is None:
+            self.actions[:, agent_idx, 0] = speed
+            self.actions[:, agent_idx, 1] = 6  # Left angle
+        else:
+            self.actions[world_idx, agent_idx, 0] = speed
+            self.actions[world_idx, agent_idx, 1] = 6
+            
+    def turn_right(self, world_idx: Optional[int] = None, agent_idx: int = 0, speed: float = 1.0):
+        """Turn agent(s) right while moving"""
+        if world_idx is None:
+            self.actions[:, agent_idx, 0] = speed
+            self.actions[:, agent_idx, 1] = 2  # Right angle
+        else:
+            self.actions[world_idx, agent_idx, 0] = speed
+            self.actions[world_idx, agent_idx, 1] = 2
+            
+    def stop(self, world_idx: Optional[int] = None, agent_idx: int = 0):
+        """Stop agent(s) movement"""
+        if world_idx is None:
+            self.actions[:, agent_idx, 0] = 0
+        else:
+            self.actions[world_idx, agent_idx, 0] = 0
+            
+    def rotate_only(self, world_idx: Optional[int] = None, agent_idx: int = 0, rotation: int = 0):
+        """Rotate agent(s) in place (no movement)"""
+        if world_idx is None:
+            self.actions[:, agent_idx, 0] = 0  # No movement
+            self.actions[:, agent_idx, 2] = rotation  # Rotation bucket
+        else:
+            self.actions[world_idx, agent_idx, 0] = 0
+            self.actions[world_idx, agent_idx, 2] = rotation
+            
+    def set_custom_action(self, world_idx: int, agent_idx: int, 
+                         move_amount: float, move_angle: int, 
+                         rotate: int = 0):
+        """Set custom action values for specific agent"""
+        self.actions[world_idx, agent_idx, 0] = move_amount
+        self.actions[world_idx, agent_idx, 1] = move_angle
+        self.actions[world_idx, agent_idx, 2] = rotate
+        
+    def step(self, num_steps: int = 1):
+        """Execute simulation steps"""
+        for _ in range(num_steps):
+            self.mgr.step()
+
+
+class ObservationReader:
+    """Helper for reading and interpreting observations"""
+    
+    def __init__(self, manager):
+        """Initialize reader with SimManager instance"""
+        self.mgr = manager
+        
+    def get_position(self, world_idx: int, agent_idx: int = 0) -> np.ndarray:
+        """Get agent's current position (x, y, z)"""
+        obs = self.mgr.self_observation_tensor().to_torch()
+        return obs[world_idx, agent_idx, :3].cpu().numpy()
+    
+    def get_normalized_position(self, world_idx: int, agent_idx: int = 0) -> tuple:
+        """Get agent's normalized position (x_norm, y_norm, z_norm)"""
+        obs = self.mgr.self_observation_tensor().to_torch()
+        # Positions are already normalized in observations
+        x_norm = obs[world_idx, agent_idx, 0].item()
+        y_norm = obs[world_idx, agent_idx, 1].item()
+        z_norm = obs[world_idx, agent_idx, 2].item()
+        return (x_norm, y_norm, z_norm)
+    
+    def get_max_y_progress(self, world_idx: int, agent_idx: int = 0) -> float:
+        """Get agent's maximum Y progress (normalized)"""
+        obs = self.mgr.self_observation_tensor().to_torch()
+        # Index 4 is max Y reached
+        return obs[world_idx, agent_idx, 4].item()
+    
+    def get_reward(self, world_idx: int, agent_idx: int = 0) -> float:
+        """Get agent's current reward"""
+        rewards = self.mgr.reward_tensor().to_torch()
+        return rewards[world_idx, agent_idx, 0].item()
+    
+    def get_done_flag(self, world_idx: int, agent_idx: int = 0) -> bool:
+        """Check if episode is done"""
+        dones = self.mgr.done_tensor().to_torch()
+        return bool(dones[world_idx, agent_idx, 0].item())
+    
+    def get_steps_remaining(self, world_idx: int, agent_idx: int = 0) -> int:
+        """Get steps remaining in episode"""
+        steps = self.mgr.steps_remaining_tensor().to_torch()
+        return int(steps[world_idx, agent_idx, 0].item())
+    
+    def print_agent_state(self, world_idx: int, agent_idx: int = 0):
+        """Print current agent state for debugging"""
+        pos = self.get_position(world_idx, agent_idx)
+        norm_pos = self.get_normalized_position(world_idx, agent_idx)
+        max_y = self.get_max_y_progress(world_idx, agent_idx)
+        reward = self.get_reward(world_idx, agent_idx)
+        done = self.get_done_flag(world_idx, agent_idx)
+        steps = self.get_steps_remaining(world_idx, agent_idx)
+        
+        print(f"Agent {agent_idx} in World {world_idx}:")
+        print(f"  Position: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
+        print(f"  Normalized: ({norm_pos[0]:.3f}, {norm_pos[1]:.3f}, {norm_pos[2]:.3f})")
+        print(f"  Max Y Progress: {max_y:.3f}")
+        print(f"  Reward: {reward:.3f}")
+        print(f"  Done: {done}, Steps Remaining: {steps}")
+
+
+def reset_world(manager, world_idx: int):
+    """Reset a specific world"""
+    reset_tensor = manager.reset_tensor().to_torch()
+    reset_tensor[:] = 0
+    reset_tensor[world_idx] = 1
+    manager.step()
+    reset_tensor[:] = 0  # Clear reset flag
+
+
+def reset_all_worlds(manager):
+    """Reset all worlds"""
+    reset_tensor = manager.reset_tensor().to_torch()
+    reset_tensor[:] = 1
+    manager.step()
+    reset_tensor[:] = 0  # Clear reset flags

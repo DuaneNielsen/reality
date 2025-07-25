@@ -65,11 +65,13 @@ class RecordingWrapper:
         if self.step_count == 0:
             return None
             
-        # Stack all actions
+        # Stack all actions: shape is [steps, worlds, agents, 3]
         all_actions = np.stack(self.actions)
         
-        # Flatten in the order viewer expects
-        flat_actions = all_actions.flatten()
+        # The viewer expects data in order: [step][world][agent][3 components]
+        # numpy.flatten() uses C-order (row-major) by default, which is correct
+        # for this layout. Just ensure we're saving as int32.
+        flat_actions = all_actions.astype(np.int32).flatten()
         
         # Save binary file
         flat_actions.tofile(str(self.output_path))
