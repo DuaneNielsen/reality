@@ -137,6 +137,18 @@ cd build && make -j$(nproc) && cd ..
 
 # Run tests
 uv run --extra test pytest tests/python/test_bindings.py -v --tb=short
+
+# Run reward system tests
+uv run --extra test pytest tests/python/test_reward_system.py -v
+
+# Run all Python tests
+uv run --extra test pytest tests/python/ -v
+
+# Run tests with action recording (saves to test_outputs/)
+uv run --extra test pytest tests/python/test_reward_system.py -v --record-actions
+
+# Run tests with recording and automatic visualization
+uv run --extra test pytest tests/python/test_reward_system.py -v --record-actions --visualize
 ```
 
 #### Testing Configuration
