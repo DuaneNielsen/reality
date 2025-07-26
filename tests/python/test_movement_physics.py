@@ -75,23 +75,23 @@ def test_forward_only(test_manager):
     # Set same action for ALL worlds (in case viewer shows a different one)
     num_worlds = actions.shape[0]
     for world in range(num_worlds):
-        actions[world, 0, 0] = MoveAmount.MEDIUM  # Medium speed
-        actions[world, 0, 1] = MoveAngle.FORWARD  # Forward direction
-        actions[world, 0, 2] = Rotate.NONE        # No rotation
+        actions[world, 0] = MoveAmount.MEDIUM  # Medium speed
+        actions[world, 1] = MoveAngle.FORWARD   # Forward direction
+        actions[world, 2] = Rotate.NONE         # No rotation
     
     # Debug: print action values and tensor info
     print(f"Action tensor shape: {actions.shape}")
-    print(f"Action values set: moveAmount={actions[0, 0, 0]}, moveAngle={actions[0, 0, 1]}, rotate={actions[0, 0, 2]}")
-    print(f"Full action for world 0: {actions[0, 0].tolist()}")
+    print(f"Action values set: moveAmount={actions[0, 0]}, moveAngle={actions[0, 1]}, rotate={actions[0, 2]}")
+    print(f"Full action for world 0: {actions[0].tolist()}")
     
     # Run for entire episode (200 steps)
     for step in range(200):
         mgr.step()
         if step < 5:  # Check first few steps
-            print(f"Step {step}: actions = {actions[0, 0].tolist()}")
+            print(f"Step {step}: actions = {actions[0].tolist()}")
     
     # Check final state
-    final_obs = mgr.self_observation_tensor().to_torch()[0, 0]
+    final_obs = mgr.self_observation_tensor().to_torch()[0, 0]  # [world, agent]
     final_y = final_obs[ObsIndex.GLOBAL_Y].item()
     max_y = final_obs[ObsIndex.MAX_Y].item()
     

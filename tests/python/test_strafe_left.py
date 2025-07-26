@@ -70,7 +70,7 @@ def test_strafe_left(test_manager):
     # We must apply forces and wait for the rotation to settle before testing.
     actions = mgr.action_tensor().to_torch()
     actions[:] = 0  # Clear all actions
-    actions[:, :, 2] = Rotate.NONE  # Explicitly set no rotation
+    actions[:, 2] = Rotate.NONE  # Explicitly set no rotation
     
     num_worlds = actions.shape[0]
     settled_x = None
@@ -109,9 +109,9 @@ def test_strafe_left(test_manager):
     # Now test strafing from this baseline
     print("\nTesting strafe left from settled position...")
     for world in range(num_worlds):
-        actions[world, 0, 0] = MoveAmount.MEDIUM  # Medium speed
-        actions[world, 0, 1] = MoveAngle.LEFT  # Left direction (270 degrees)
-        actions[world, 0, 2] = Rotate.NONE  # No rotation
+        actions[world, 0] = MoveAmount.MEDIUM  # Medium speed
+        actions[world, 1] = MoveAngle.LEFT  # Left direction (270 degrees)
+        actions[world, 2] = Rotate.NONE  # No rotation
     
     # Run strafe test for 50 steps
     for step in range(50):
