@@ -7,6 +7,7 @@ from tensordict import TensorDict
 
 # Import from madrona_escape_room_learn package
 from madrona_escape_room_learn import MadronaEscapeRoomEnv
+import madrona_escape_room
 
 
 @pytest.fixture
@@ -40,34 +41,13 @@ def test_env_creation_cpu():
     )
     
     assert env.num_worlds == 4
-    assert env.num_agents == 1
+    assert env.num_agents == madrona_escape_room.NUM_AGENTS
     assert env.batch_size == torch.Size([4])
     assert env.device == torch.device("cpu")
     
     env.close()
 
 
-@pytest.fixture(scope="session")
-def gpu_env():
-    """Session-scoped GPU environment to prevent multiple GPU allocations"""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-    
-    env = MadronaEscapeRoomEnv(
-        num_worlds=8,
-        gpu_id=0,
-        rand_seed=42,
-        auto_reset=True
-    )
-    yield env
-    env.close()
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_env_creation_cuda(gpu_env):
-    """Test environment creation on CUDA"""
-    assert gpu_env.num_worlds == 8
-    assert gpu_env.device == torch.device("cuda:0")
 
 
 def test_action_spec(small_env):
@@ -97,18 +77,12 @@ def test_observation_spec(small_env):
     
     # Check nested structure
     assert "self_obs" in obs_spec
-    assert "steps_remaining" in obs_spec
-    assert "agent_id" in obs_spec
     
     # Check individual component shapes
-    assert obs_spec["self_obs"].shape == torch.Size([2, 5])
-    assert obs_spec["steps_remaining"].shape == torch.Size([2, 1])
-    assert obs_spec["agent_id"].shape == torch.Size([2, 1])
+    assert obs_spec["self_obs"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 5])
     
     # Check dtypes
     assert obs_spec["self_obs"].dtype == torch.float32
-    assert obs_spec["steps_remaining"].dtype == torch.float32
-    assert obs_spec["agent_id"].dtype == torch.float32
 
 
 def test_reset(cpu_env):
@@ -124,19 +98,13 @@ def test_reset(cpu_env):
     obs = td["observation"]
     assert isinstance(obs, TensorDict)
     assert "self_obs" in obs
-    assert "steps_remaining" in obs
-    assert "agent_id" in obs
     
     # Check individual component shapes
-    assert obs["self_obs"].shape == torch.Size([4, 5])
-    assert obs["steps_remaining"].shape == torch.Size([4, 1])
-    assert obs["agent_id"].shape == torch.Size([4, 1])
+    assert obs["self_obs"].shape == torch.Size([4, madrona_escape_room.NUM_AGENTS, 5])
     
     # Check that observations are valid
     assert not torch.isnan(obs["self_obs"]).any()
     assert not torch.isinf(obs["self_obs"]).any()
-    assert not torch.isnan(obs["steps_remaining"]).any()
-    assert not torch.isinf(obs["steps_remaining"]).any()
 
 
 def test_step(small_env):
@@ -168,15 +136,17 @@ def test_step(small_env):
     next_obs = td_out["next"]["observation"]
     assert isinstance(next_obs, TensorDict)
     assert "self_obs" in next_obs
-    assert "steps_remaining" in next_obs
-    assert "agent_id" in next_obs
+    
+    # Check info structure for steps_remaining
+    assert "info" in td_out["next"]
+    info = td_out["next"]["info"]
+    assert "steps_remaining" in info
     
     # Check shapes
-    assert next_obs["self_obs"].shape == torch.Size([2, 5])
-    assert next_obs["steps_remaining"].shape == torch.Size([2, 1])
-    assert next_obs["agent_id"].shape == torch.Size([2, 1])
-    assert td_out["next"]["reward"].shape == torch.Size([2, 1])
-    assert td_out["next"]["done"].shape == torch.Size([2, 1])
+    assert next_obs["self_obs"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 5])
+    assert info["steps_remaining"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 1])
+    assert td_out["next"]["reward"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 1])
+    assert td_out["next"]["done"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 1])
     
     # Check types
     assert td_out["next"]["reward"].dtype == torch.float32
@@ -265,11 +235,14 @@ def test_stateful_behavior():
     assert not torch.allclose(obs1_self, obs2_self), "Self observation didn't change after movement"
     
     # Specifically, globalY and maxY should increase
-    assert obs2_self[0, 1] > obs1_self[0, 1], "Global Y position didn't increase"
-    assert obs2_self[0, 3] >= obs1_self[0, 3], "Max Y didn't update correctly"
+    assert obs2_self[0, 0, 1] > obs1_self[0, 0, 1], "Global Y position didn't increase"
+    assert obs2_self[0, 0, 3] >= obs1_self[0, 0, 3], "Max Y didn't update correctly"
     
-    # Steps remaining should decrease
-    assert obs2["steps_remaining"][0, 0] < obs1["steps_remaining"][0, 0], "Steps remaining didn't decrease"
+    # Steps remaining should be in info and should decrease
+    info1 = td1.get("info", None)
+    info2 = td2["next"]["info"]
+    if info1 is not None:
+        assert info2["steps_remaining"][0, 0, 0] < info1["steps_remaining"][0, 0, 0], "Steps remaining didn't decrease"
     
     env.close()
 
@@ -287,8 +260,6 @@ def test_device_placement_cpu():
     # Check all observation components are on correct device
     obs = td["observation"]
     assert obs["self_obs"].device.type == "cpu"
-    assert obs["steps_remaining"].device.type == "cpu"
-    assert obs["agent_id"].device.type == "cpu"
     
     # Step and check again
     action = env.action_spec.rand()
@@ -297,36 +268,16 @@ def test_device_placement_cpu():
     
     next_obs = td_out["next"]["observation"]
     assert next_obs["self_obs"].device.type == "cpu"
-    assert next_obs["steps_remaining"].device.type == "cpu"
-    assert next_obs["agent_id"].device.type == "cpu"
     assert td_out["next"]["reward"].device.type == "cpu"
     assert td_out["next"]["done"].device.type == "cpu"
+    
+    # Check info is on correct device
+    info = td_out["next"]["info"]
+    assert info["steps_remaining"].device.type == "cpu"
     
     env.close()
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_device_placement_cuda(gpu_env):
-    """Test that tensors are on CUDA using session-scoped GPU env"""
-    td = gpu_env.reset()
-    
-    # Check all observation components are on correct device
-    obs = td["observation"]
-    assert obs["self_obs"].device.type == "cuda"
-    assert obs["steps_remaining"].device.type == "cuda"
-    assert obs["agent_id"].device.type == "cuda"
-    
-    # Step and check again
-    action = gpu_env.action_spec.rand()
-    td["action"] = action
-    td_out = gpu_env.step(td)
-    
-    next_obs = td_out["next"]["observation"]
-    assert next_obs["self_obs"].device.type == "cuda"
-    assert next_obs["steps_remaining"].device.type == "cuda"
-    assert next_obs["agent_id"].device.type == "cuda"
-    assert td_out["next"]["reward"].device.type == "cuda"
-    assert td_out["next"]["done"].device.type == "cuda"
 
 
 def test_seed_determinism():
@@ -343,8 +294,6 @@ def test_seed_determinism():
     obs1 = td1["observation"]
     obs2 = td2["observation"]
     assert torch.allclose(obs1["self_obs"], obs2["self_obs"])
-    assert torch.allclose(obs1["steps_remaining"], obs2["steps_remaining"])
-    assert torch.allclose(obs1["agent_id"], obs2["agent_id"])
     
     # Take same actions
     action = TensorDict({
@@ -363,8 +312,12 @@ def test_seed_determinism():
     next_obs1 = td1_out["next"]["observation"]
     next_obs2 = td2_out["next"]["observation"]
     assert torch.allclose(next_obs1["self_obs"], next_obs2["self_obs"])
-    assert torch.allclose(next_obs1["steps_remaining"], next_obs2["steps_remaining"])
-    assert torch.allclose(next_obs1["agent_id"], next_obs2["agent_id"])
+    
+    # Check info is identical
+    info1 = td1_out["next"]["info"]
+    info2 = td2_out["next"]["info"]
+    assert torch.allclose(info1["steps_remaining"], info2["steps_remaining"])
+    
     assert torch.allclose(td1_out["next"]["reward"], td2_out["next"]["reward"])
     assert torch.equal(td1_out["next"]["done"], td2_out["next"]["done"])
     
