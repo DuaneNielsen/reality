@@ -190,6 +190,8 @@ make -j$(nproc)
 
 #### Using MCP GDB Server in Claude Code
 
+When the users says "debug the code" or "debug this function" or makes other referencess to "debugging" interpret this as the user requesting you to use the MCP GDB server to trace through the code and diagnose the cause of issues, check the values of varaibles during execution etc
+
 When debugging in Claude Code, use the following MCP tools:
 - `mcp__gdb__gdb_start` - Start a new debugging session
 - `mcp__gdb__gdb_load` - Load executable with arguments

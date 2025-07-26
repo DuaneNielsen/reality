@@ -109,13 +109,31 @@ class MadronaEscapeRoomEnv(EnvBase):
             device=self.device
         )
         
-        # Observation spec
+        # Observation spec with separate components
         self.observation_spec = Composite(
-            observation=Bounded(
-                low=-np.inf,
-                high=np.inf,
-                shape=(*self.batch_size, madrona_escape_room.TOTAL_OBSERVATION_SIZE),
-                dtype=torch.float32,
+            observation=Composite(
+                self_obs=Bounded(
+                    low=-np.inf,
+                    high=np.inf,
+                    shape=(*self.batch_size, madrona_escape_room.SELF_OBSERVATION_SIZE),
+                    dtype=torch.float32,
+                    device=self.device
+                ),
+                steps_remaining=Bounded(
+                    low=0.0,
+                    high=1.0,
+                    shape=(*self.batch_size, 1),
+                    dtype=torch.float32,
+                    device=self.device
+                ),
+                agent_id=Bounded(
+                    low=0,
+                    high=self._num_agents - 1,
+                    shape=(*self.batch_size, 1),
+                    dtype=torch.float32,
+                    device=self.device
+                ),
+                shape=self.batch_size,
                 device=self.device
             ),
             shape=self.batch_size,
@@ -218,17 +236,22 @@ class MadronaEscapeRoomEnv(EnvBase):
         # Create agent IDs (useful for multi-agent, but single agent gets 0)
         agent_ids = torch.zeros(*batch_shape, 1, device=self.device)
         
-        # Concatenate all observations
-        full_obs = torch.cat([self_obs, steps_remaining, agent_ids], dim=-1)
-        
         # Get rewards and done flags
         rewards = self._reward_tensor.view(*batch_shape, 1)
         dones = self._done_tensor.view(*batch_shape, 1).bool()
         
-        # Create output tensordict
+        # Create output tensordict with separate observation components
         return TensorDict(
             {
-                "observation": full_obs,
+                "observation": TensorDict(
+                    {
+                        "self_obs": self_obs,
+                        "steps_remaining": steps_remaining,
+                        "agent_id": agent_ids,
+                    },
+                    batch_size=batch_shape,
+                    device=self.device,
+                ),
                 "reward": rewards,
                 "done": dones,
                 "terminated": dones,  # No truncation in this env

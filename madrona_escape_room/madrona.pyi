@@ -1,0 +1,70 @@
+from typing import Any, Optional, overload, Typing, Sequence, Iterable, Union, Callable
+from enum import Enum
+import madrona_escape_room.madrona
+
+class CudaSync:
+    """
+    None
+    """
+
+    def __init__(*args, **kwargs):
+        """
+        Initialize self.  See help(type(self)) for accurate signature.
+        """
+        ...
+    
+    def wait(self, arg: int, /) -> None:
+        ...
+    
+class ExecMode:
+    """
+    None
+    """
+
+    CPU: ExecMode
+    
+    CUDA: ExecMode
+    
+    def __init__(*args, **kwargs):
+        """
+        Initialize self.  See help(type(self)) for accurate signature.
+        """
+        ...
+    
+class Tensor:
+    """
+    None
+    """
+
+    def __init__(self, arg: numpy.typing.NDArray, /) -> None:
+        ...
+    
+    def to_jax(*args, **kwargs):
+        """
+        to_jax(self) -> jaxlib.xla_extension.DeviceArray[]
+        """
+        ...
+    
+    def to_torch(*args, **kwargs):
+        """
+        to_torch(self) -> torch.Tensor[]
+        """
+        ...
+    
+class TrainInterface:
+    """
+    None
+    """
+
+    def __init__(*args, **kwargs):
+        """
+        Initialize self.  See help(type(self)) for accurate signature.
+        """
+        ...
+    
+    def step_inputs(self) -> dict:
+        ...
+    
+    def step_outputs(self) -> dict:
+        ...
+    

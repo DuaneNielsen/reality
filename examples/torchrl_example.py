@@ -56,7 +56,13 @@ def make_simple_policy(env):
     Returns:
         Actor module for the policy
     """
-    obs_shape = env.observation_spec["observation"].shape[-1]
+    # Calculate total observation size from components
+    obs_spec = env.observation_spec["observation"]
+    obs_shape = (
+        obs_spec["self_obs"].shape[-1] +
+        obs_spec["steps_remaining"].shape[-1] +
+        obs_spec["agent_id"].shape[-1]
+    )
     
     # Simple MLP backbone
     backbone = nn.Sequential(
@@ -80,12 +86,23 @@ def make_simple_policy(env):
             self.rotate_head = rotate_head
             
         def forward(self, obs):
-            features = self.backbone(obs)
+            # Handle nested observation structure
+            if isinstance(obs, TensorDict):
+                # Concatenate observation components
+                obs_concat = torch.cat([
+                    obs["self_obs"],
+                    obs["steps_remaining"],
+                    obs["agent_id"]
+                ], dim=-1)
+            else:
+                obs_concat = obs
+                
+            features = self.backbone(obs_concat)
             return TensorDict({
                 "move_amount_logits": self.move_amount_head(features),
                 "move_angle_logits": self.move_angle_head(features),
                 "rotate_logits": self.rotate_head(features),
-            }, batch_size=obs.shape[:-1])
+            }, batch_size=obs_concat.shape[:-1])
     
     return DiscretePolicy()
 
@@ -101,7 +118,8 @@ def random_rollout_example():
     
     # Reset environment
     td = env.reset()
-    print(f"Initial observation shape: {td['observation'].shape}")
+    print(f"Initial observation keys: {list(td['observation'].keys())}")
+    print(f"Self obs shape: {td['observation']['self_obs'].shape}")
     print(f"Batch size: {env.batch_size}")
     
     # Run a few steps with random actions
@@ -210,6 +228,7 @@ def data_collection_example():
             logits = self.policy(obs)
             
             # Sample actions
+            batch_size = td.batch_size
             actions = TensorDict({
                 "move_amount": torch.distributions.Categorical(
                     logits=logits["move_amount_logits"]
@@ -220,7 +239,7 @@ def data_collection_example():
                 "rotate": torch.distributions.Categorical(
                     logits=logits["rotate_logits"]
                 ).sample(),
-            }, batch_size=obs.shape[:-1])
+            }, batch_size=batch_size)
             
             td["action"] = actions
             return td
