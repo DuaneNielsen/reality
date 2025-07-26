@@ -6,6 +6,7 @@ Provides a cleaner interface for agent movement and actions.
 import torch
 import numpy as np
 from typing import Optional, Union
+import madrona_escape_room
 
 
 class AgentController:
@@ -19,65 +20,67 @@ class AgentController:
         self.num_agents = self.actions.shape[1]
         
     def reset_actions(self):
-        """Clear all actions to zero"""
+        """Clear all actions to default values"""
         self.actions[:] = 0
+        # Set rotation to center position (no rotation)
+        self.actions[:, 2] = madrona_escape_room.action.rotate.NONE
         
     def move_forward(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Move agent(s) forward"""
         if world_idx is None:
             # Apply to all worlds
             self.actions[:, 0] = speed
-            self.actions[:, 1] = 0  # Straight ahead
+            self.actions[:, 1] = madrona_escape_room.action.move_angle.FORWARD
         else:
             self.actions[world_idx, 0] = speed
-            self.actions[world_idx, 1] = 0
+            self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.FORWARD
             
     def move_backward(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Move agent(s) backward"""
         if world_idx is None:
             self.actions[:, 0] = speed
-            self.actions[:, 1] = 4  # 180 degrees
+            self.actions[:, 1] = madrona_escape_room.action.move_angle.BACKWARD
         else:
             self.actions[world_idx, 0] = speed
-            self.actions[world_idx, 1] = 4
+            self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.BACKWARD
             
     def turn_left(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Turn agent(s) left while moving"""
         if world_idx is None:
             self.actions[:, 0] = speed
-            self.actions[:, 1] = 6  # Left angle
+            self.actions[:, 1] = madrona_escape_room.action.move_angle.LEFT
         else:
             self.actions[world_idx, 0] = speed
-            self.actions[world_idx, 1] = 6
+            self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.LEFT
             
     def turn_right(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Turn agent(s) right while moving"""
         if world_idx is None:
             self.actions[:, 0] = speed
-            self.actions[:, 1] = 2  # Right angle
+            self.actions[:, 1] = madrona_escape_room.action.move_angle.RIGHT
         else:
             self.actions[world_idx, 0] = speed
-            self.actions[world_idx, 1] = 2
+            self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.RIGHT
             
     def stop(self, world_idx: Optional[int] = None):
         """Stop agent(s) movement"""
         if world_idx is None:
-            self.actions[:, 0] = 0
+            self.actions[:, 0] = madrona_escape_room.action.move_amount.STOP
         else:
-            self.actions[world_idx, 0] = 0
+            self.actions[world_idx, 0] = madrona_escape_room.action.move_amount.STOP
             
-    def rotate_only(self, world_idx: Optional[int] = None, rotation: int = 0):
+    def rotate_only(self, world_idx: Optional[int] = None, rotation: int = madrona_escape_room.action.rotate.NONE):
         """Rotate agent(s) in place (no movement)"""
         if world_idx is None:
-            self.actions[:, 0] = 0  # No movement
-            self.actions[:, 2] = rotation  # Rotation bucket
+            self.actions[:, 0] = madrona_escape_room.action.move_amount.STOP
+            self.actions[:, 2] = rotation
         else:
-            self.actions[world_idx, 0] = 0
+            self.actions[world_idx, 0] = madrona_escape_room.action.move_amount.STOP
             self.actions[world_idx, 2] = rotation
             
     def set_custom_action(self, world_idx: int, 
                          move_amount: float, move_angle: int, 
-                         rotate: int = 0):
+                         rotate: int = madrona_escape_room.action.rotate.NONE):
         """Set custom action values for specific world"""
         self.actions[world_idx, 0] = move_amount
         self.actions[world_idx, 1] = move_angle

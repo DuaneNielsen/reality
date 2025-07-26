@@ -39,6 +39,37 @@ inline constexpr madrona::CountT numTurnBuckets = 5;
 // Number of action components per agent
 inline constexpr madrona::CountT numActionComponents = 3;
 
+// Action value constants for better code readability and Python bindings
+namespace action {
+    // Movement amount values (0-3)
+    namespace move_amount {
+        inline constexpr int32_t STOP = 0;
+        inline constexpr int32_t SLOW = 1;
+        inline constexpr int32_t MEDIUM = 2;
+        inline constexpr int32_t FAST = 3;
+    }
+    
+    // Movement angle values (0-7) - 8 directions
+    namespace move_angle {
+        inline constexpr int32_t FORWARD = 0;
+        inline constexpr int32_t FORWARD_RIGHT = 1;
+        inline constexpr int32_t RIGHT = 2;
+        inline constexpr int32_t BACKWARD_RIGHT = 3;
+        inline constexpr int32_t BACKWARD = 4;
+        inline constexpr int32_t BACKWARD_LEFT = 5;
+        inline constexpr int32_t LEFT = 6;
+        inline constexpr int32_t FORWARD_LEFT = 7;
+    }
+    
+    // Rotation values (0-4)
+    namespace rotate {
+        inline constexpr int32_t FAST_LEFT = 0;
+        inline constexpr int32_t SLOW_LEFT = 1;
+        inline constexpr int32_t NONE = 2;  // Center value - no rotation
+        inline constexpr int32_t SLOW_RIGHT = 3;
+        inline constexpr int32_t FAST_RIGHT = 4;
+    }
+}
 
 // Time (seconds) per step
 inline constexpr float deltaT = 0.04f;
