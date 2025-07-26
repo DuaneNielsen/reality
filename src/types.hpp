@@ -56,6 +56,9 @@ namespace madEscape {
     // [BOILERPLATE]
     // Per-agent component that indicates that the agent's episode is finished
     // This is exported per-agent for simplicity in the training code
+    // TODO: Done should be a world-level singleton, not per-agent. The entire
+    // episode is done, not individual agents. This causes unnecessary tensor
+    // dimensions [num_worlds, num_agents, 1] instead of [num_worlds, 1].
     struct Done {
         // Currently bool components are not supported due to
         // padding issues, so Done is an int32_t

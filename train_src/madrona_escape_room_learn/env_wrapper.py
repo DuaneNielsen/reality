@@ -7,12 +7,19 @@ escape room simulator, enabling seamless integration with TorchRL's RL algorithm
 import torch
 import numpy as np
 from typing import Optional, Union, Dict, Any
+import time
+import sys
+import os
 
 from torchrl.envs import EnvBase
 from torchrl.data import TensorSpec, Composite, Categorical, Bounded
 from tensordict import TensorDict, TensorDictBase
 
 import madrona_escape_room
+
+# # Add scripts directory to path for imports
+# sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'scripts'))
+# from step_timer import StepTimer
 
 
 class MadronaEscapeRoomEnv(EnvBase):
@@ -55,9 +62,13 @@ class MadronaEscapeRoomEnv(EnvBase):
             
         # Store configuration
         self.num_worlds = num_worlds
-        self._num_agents = 1  # Single agent per world in current version
+        
+        # # Initialize timers
+        # self._init_timer = StepTimer()
+        # self._runtime_timer = StepTimer()
         
         # Initialize the Madrona simulator
+        # self._init_timer.start("sim_manager_creation")
         self.sim = madrona_escape_room.SimManager(
             exec_mode=exec_mode,
             gpu_id=gpu_id,
@@ -66,6 +77,9 @@ class MadronaEscapeRoomEnv(EnvBase):
             auto_reset=auto_reset,
             enable_batch_renderer=False
         )
+        if gpu_id >= 0:
+            torch.cuda.synchronize()
+        # self._init_timer.stop("sim_manager_creation")
         
         # Get tensor references from simulator
         self._action_tensor = self.sim.action_tensor().to_torch()
@@ -78,7 +92,7 @@ class MadronaEscapeRoomEnv(EnvBase):
         # Initialize parent class with batch size
         super().__init__(
             device=device,
-            batch_size=torch.Size([num_worlds * self._num_agents]),
+            batch_size=torch.Size([num_worlds]),
             **kwargs
         )
         
@@ -115,21 +129,7 @@ class MadronaEscapeRoomEnv(EnvBase):
                 self_obs=Bounded(
                     low=-np.inf,
                     high=np.inf,
-                    shape=(*self.batch_size, madrona_escape_room.SELF_OBSERVATION_SIZE),
-                    dtype=torch.float32,
-                    device=self.device
-                ),
-                steps_remaining=Bounded(
-                    low=0.0,
-                    high=1.0,
-                    shape=(*self.batch_size, 1),
-                    dtype=torch.float32,
-                    device=self.device
-                ),
-                agent_id=Bounded(
-                    low=0,
-                    high=self._num_agents - 1,
-                    shape=(*self.batch_size, 1),
+                    shape=(*self.batch_size, madrona_escape_room.NUM_AGENTS, madrona_escape_room.SELF_OBSERVATION_SIZE),
                     dtype=torch.float32,
                     device=self.device
                 ),
@@ -144,7 +144,7 @@ class MadronaEscapeRoomEnv(EnvBase):
         self.reward_spec = Bounded(
             low=-np.inf,
             high=np.inf,
-            shape=(*self.batch_size, 1),
+            shape=(*self.batch_size, madrona_escape_room.NUM_AGENTS, 1),
             dtype=torch.float32,
             device=self.device
         )
@@ -152,14 +152,14 @@ class MadronaEscapeRoomEnv(EnvBase):
         # Done spec
         self.done_spec = Categorical(
             n=2,
-            shape=(*self.batch_size, 1),
+            shape=(*self.batch_size, madrona_escape_room.NUM_AGENTS, 1),
             dtype=torch.bool,
             device=self.device
         )
         
     def _reset(self, tensordict: TensorDictBase, **kwargs) -> TensorDictBase:
         """Reset the environment.
-        
+
         Args:
             tensordict: Input tensordict (may contain reset masks)
             **kwargs: Additional reset arguments
@@ -167,26 +167,31 @@ class MadronaEscapeRoomEnv(EnvBase):
         Returns:
             TensorDict containing initial observations
         """
+        # self._runtime_timer.start("reset_total")
+        
         # Check if we need to do a partial reset (some environments)
+        # todo this is lazy, fix it so it correctly resets if a mask is provided, if non mask, then
+        # self._runtime_timer.start("reset_setup")
         if tensordict is not None and "_reset" in tensordict:
             reset_mask = tensordict["_reset"]
             # Convert boolean mask to world indices
             if reset_mask.any():
                 # For now, we reset all worlds if any need resetting
-                # Future: implement partial reset by world
+                # todo reset this properly
                 self._reset_tensor.fill_(1)
         else:
             # Full reset - all worlds
             self._reset_tensor.fill_(1)
-        
-        # Step the simulator to process resets
+
         self.sim.step()
         
         # Clear the reset tensor
         self._reset_tensor.fill_(0)
         
         # Collect initial observations
-        return self._get_observations().select("observation")
+        result = self._get_observations().select("observation")
+        
+        return result
     
     def _step(self, tensordict: TensorDictBase) -> TensorDictBase:
         """Execute one step in the environment.
@@ -197,26 +202,21 @@ class MadronaEscapeRoomEnv(EnvBase):
         Returns:
             TensorDict containing observations, rewards, done flags
         """
-        # Extract actions from tensordict
+
         action = tensordict["action"]
         
         # Actions are already in the correct shape for single agent per world
         # Just ensure correct dtype
-        move_amount = action["move_amount"]
-        move_angle = action["move_angle"]
-        rotate = action["rotate"]
-        
-        # Write actions to simulator tensor
-        # Action tensor is (num_worlds, 3) for single agent case
-        self._action_tensor[:, 0] = move_amount.to(self._action_tensor.dtype)
-        self._action_tensor[:, 1] = move_angle.to(self._action_tensor.dtype)
-        self._action_tensor[:, 2] = rotate.to(self._action_tensor.dtype)
-        
+        self._action_tensor[:, 0] = action["move_amount"]
+        self._action_tensor[:, 1] = action["move_angle"]
+        self._action_tensor[:, 2] = action["rotate"]
+
         # Step the simulator
         self.sim.step()
+
+        result = self._get_observations()
         
-        # Collect results
-        return self._get_observations()
+        return result
     
     def _get_observations(self) -> TensorDictBase:
         """Collect observations from the simulator.
@@ -224,42 +224,35 @@ class MadronaEscapeRoomEnv(EnvBase):
         Returns:
             TensorDict containing observations, rewards, done flags
         """
-        # Flatten world and agent dimensions
+        
         batch_shape = self.batch_size
         
-        # Get self observations (already normalized in simulator)
-        self_obs = self._self_obs_tensor.view(*batch_shape, -1)
+        # Use natural tensor shapes from simulator - no views needed!
+        self_obs = self._self_obs_tensor  # Shape: [batch, agents_per_world, obs_dim]
         
-        # Get steps remaining and normalize
-        steps_remaining = self._steps_remaining_tensor.view(*batch_shape, 1).float() / 200.0
-        
-        # Create agent IDs (useful for multi-agent, but single agent gets 0)
-        agent_ids = torch.zeros(*batch_shape, 1, device=self.device)
+        # Get steps remaining as integer
+        steps_remaining = self._steps_remaining_tensor  # Shape: [batch, agents_per_world, 1]
         
         # Get rewards and done flags
-        rewards = self._reward_tensor.view(*batch_shape, 1)
-        dones = self._done_tensor.view(*batch_shape, 1).bool()
+        rewards = self._reward_tensor  # Shape: [batch, agents_per_world, 1]
+        dones = self._done_tensor.bool()  # Shape: [batch, agents_per_world, 1]
         
-        # Create output tensordict with separate observation components
-        return TensorDict(
-            {
-                "observation": TensorDict(
-                    {
-                        "self_obs": self_obs,
-                        "steps_remaining": steps_remaining,
-                        "agent_id": agent_ids,
-                    },
-                    batch_size=batch_shape,
-                    device=self.device,
-                ),
-                "reward": rewards,
-                "done": dones,
-                "terminated": dones,  # No truncation in this env
-                "truncated": torch.zeros_like(dones),
-            },
-            batch_size=batch_shape,
-            device=self.device,
-        )
+        # Create output tensordict bypassing validation where possible
+        # Construct nested structure manually to minimize overhead
+        obs_td = TensorDict({}, batch_size=batch_shape, device=self.device)
+        obs_td._set_str("self_obs", self_obs, validated=False, inplace=False)
+        
+        info_td = TensorDict({}, batch_size=batch_shape, device=self.device)
+        info_td._set_str("steps_remaining", steps_remaining, validated=False, inplace=False)
+        
+        result = TensorDict({}, batch_size=batch_shape, device=self.device)
+        result._set_str("observation", obs_td, validated=False, inplace=False)
+        result._set_str("reward", rewards, validated=False, inplace=False)
+        result._set_str("done", dones, validated=False, inplace=False)
+        result._set_str("terminated", dones, validated=False, inplace=False)
+        result._set_str("truncated", torch.zeros_like(dones), validated=False, inplace=False)
+        result._set_str("info", info_td, validated=False, inplace=False)
+        return result
     
     def _set_seed(self, seed: Optional[int]) -> Optional[int]:
         """Set the random seed.
@@ -287,11 +280,4 @@ class MadronaEscapeRoomEnv(EnvBase):
     @property
     def num_agents(self) -> int:
         """Number of agents per world."""
-        return self._num_agents
-    
-    @num_agents.setter 
-    def num_agents(self, value: int) -> None:
-        """Set number of agents (currently fixed at 1)."""
-        if value != 1:
-            raise ValueError("Current version only supports 1 agent per world")
-        self._num_agents = value
+        return madrona_escape_room.NUM_AGENTS

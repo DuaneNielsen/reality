@@ -17,3 +17,6 @@ imgui.ini
 
 # IDE configuration
 .idea/
+
+# Temporary/scratch files
+scratch/

@@ -1,5 +1,6 @@
 #include "mgr.hpp"
 #include "types.hpp"
+#include "consts.hpp"
 
 #include <madrona/macros.hpp>
 #include <madrona/py/bindings.hpp>
@@ -20,6 +21,9 @@ NB_MODULE(madrona_escape_room, m) {
     m.attr("STEPS_REMAINING_SIZE") = nb::int_(madEscape::StepsRemainingCount);
     m.attr("AGENT_ID_SIZE") = nb::int_(madEscape::AgentIDDimension);
     m.attr("TOTAL_OBSERVATION_SIZE") = nb::int_(madEscape::TotalObservationSize);
+    
+    // Export simulation constants
+    m.attr("NUM_AGENTS") = nb::int_(madEscape::consts::numAgents);
 
     nb::class_<Manager> (m, "SimManager")
         .def("__init__", [](Manager *self,
