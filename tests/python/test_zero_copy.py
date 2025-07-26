@@ -320,18 +320,12 @@ def test_memory_sharing_sim_to_env(sim_manager):
     env.close()
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_gpu_zero_copy():
+def test_gpu_zero_copy(gpu_env):
     """Test zero-copy behavior on GPU tensors.
     
     GPU tensors should maintain zero-copy semantics just like CPU tensors.
     """
-    env = MadronaEscapeRoomEnv(
-        num_worlds=4,
-        gpu_id=0,
-        rand_seed=42,
-        auto_reset=True
-    )
+    env = gpu_env
     
     # Verify tensors are on GPU
     assert env._action_tensor.is_cuda
@@ -354,8 +348,6 @@ def test_gpu_zero_copy():
     obs_view = env._self_obs_tensor.view(-1)
     assert obs_view.data_ptr() == env._self_obs_tensor.data_ptr(), \
         "GPU tensor view doesn't share storage"
-    
-    env.close()
 
 
 if __name__ == "__main__":

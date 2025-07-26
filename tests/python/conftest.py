@@ -25,6 +25,26 @@ def pytest_addoption(parser):
         default=False,
         help="Launch viewer after test with recorded actions"
     )
+    parser.addoption(
+        "--no-gpu",
+        action="store_true",
+        default=False,
+        help="Skip all tests that require GPU"
+    )
+
+
+def pytest_runtest_setup(item):
+    """Hook to skip tests with GPU fixtures when --no-gpu is passed"""
+    if item.config.getoption("--no-gpu"):
+        # Get all fixtures used by this test
+        fixtures_used = item.fixturenames
+        
+        # List of GPU-related fixtures to skip
+        gpu_fixtures = {"gpu_manager", "gpu_env"}  # Add any other GPU fixtures here
+        
+        # Check if test uses any GPU fixtures
+        if any(fixture in gpu_fixtures for fixture in fixtures_used):
+            pytest.skip("Skipping GPU test due to --no-gpu flag")
 
 
 class RecordingWrapper:
@@ -128,6 +148,10 @@ def cpu_manager(request):
 @pytest.fixture(scope="session")
 def gpu_manager(request):
     """Create a GPU SimManager for the entire test session"""
+    # Check --no-gpu flag first
+    if request.config.getoption("--no-gpu"):
+        pytest.skip("Skipping GPU fixture due to --no-gpu flag")
+        
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
     
@@ -149,6 +173,29 @@ def gpu_manager(request):
     
     # Cleanup - ensure manager is properly destroyed at end of session
     del mgr
+
+
+@pytest.fixture(scope="session")
+def gpu_env(request):
+    """Create a GPU MadronaEscapeRoomEnv for the entire test session"""
+    # Check --no-gpu flag first
+    if request.config.getoption("--no-gpu"):
+        pytest.skip("Skipping GPU fixture due to --no-gpu flag")
+        
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+    
+    from madrona_escape_room_learn import MadronaEscapeRoomEnv
+    
+    env = MadronaEscapeRoomEnv(
+        num_worlds=4,
+        gpu_id=0,
+        rand_seed=42,
+        auto_reset=False
+    )
+    
+    yield env
+    env.close()
 
 
 @pytest.fixture(scope="module")
