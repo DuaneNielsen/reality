@@ -135,14 +135,18 @@ uv run python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-pat
 # Rebuild after C++ changes
 cd build && make -j$(nproc) && cd ..
 
-# Run tests
+# Run tests - ALWAYS run CPU tests first, then GPU tests
+# Run all CPU tests (default)
+uv run --extra test pytest tests/python/ -v --no-gpu
+
+# Only after CPU tests pass, run GPU tests
+uv run --extra test pytest tests/python/ -v -k "gpu"
+
+# Run specific test file
 uv run --extra test pytest tests/python/test_bindings.py -v --tb=short
 
 # Run reward system tests
 uv run --extra test pytest tests/python/test_reward_system.py -v
-
-# Run all Python tests
-uv run --extra test pytest tests/python/ -v
 
 # Run tests with action recording (saves to test_recordings/)
 uv run --extra test pytest tests/python/test_reward_system.py -v --record-actions
@@ -169,10 +173,21 @@ This configuration:
 - Skips build artifacts and virtual environment directories
 - Follows standard pytest naming conventions for test discovery
 
-To run all tests:
-```bash
-uv run --extra test pytest -v
-```
+##### Testing Flags
+
+The test suite supports several custom flags:
+
+- `--no-gpu`: Skip all tests that require GPU. This is the default way to run tests.
+- `--record-actions`: Record agent actions during test execution for viewer replay
+- `--visualize`: Automatically launch the viewer after tests complete (requires --record-actions)
+
+##### Testing Order
+
+**IMPORTANT**: Always run tests in this order:
+1. **CPU tests first**: `uv run --extra test pytest tests/python/ -v --no-gpu`
+2. **GPU tests only after CPU tests pass**: `uv run --extra test pytest tests/python/ -v -k "gpu"`
+
+This ensures that basic functionality is validated before testing GPU-specific features.
 
 ### Debugging with GDB
 
