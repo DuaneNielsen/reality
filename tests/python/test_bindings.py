@@ -6,6 +6,7 @@ Test Python bindings for Madrona Escape Room using pytest.
 import numpy as np
 import pytest
 import torch
+import madrona_escape_room
 
 # Set seeds for reproducibility
 torch.manual_seed(42)
@@ -368,3 +369,83 @@ def test_deterministic_actions(cpu_manager):
             all_same = False
             break
     assert not all_same, "Different actions should produce different positions"
+
+
+def test_trajectory_logging_methods(cpu_manager):
+    """Test that trajectory logging methods are accessible and work correctly."""
+    mgr = cpu_manager
+    
+    # Test that methods exist and are callable
+    assert hasattr(mgr, 'enable_trajectory_logging'), "SimManager should have enable_trajectory_logging method"
+    assert hasattr(mgr, 'disable_trajectory_logging'), "SimManager should have disable_trajectory_logging method"
+    
+    # Test enabling trajectory logging
+    # This should not raise an exception
+    mgr.enable_trajectory_logging(world_idx=0, agent_idx=0)
+    
+    # Run a few steps with logging enabled
+    for _ in range(5):
+        mgr.step()
+    
+    # Test disabling trajectory logging
+    # This should not raise an exception
+    mgr.disable_trajectory_logging()
+    
+    # Run a few more steps with logging disabled
+    for _ in range(5):
+        mgr.step()
+    
+    # Test enabling for different agent (if multi-agent)
+    if madrona_escape_room.NUM_AGENTS > 1:
+        mgr.enable_trajectory_logging(world_idx=0, agent_idx=1)
+        mgr.step()
+        mgr.disable_trajectory_logging()
+    
+    # Test with invalid indices (should print error but not crash)
+    mgr.enable_trajectory_logging(world_idx=999, agent_idx=999)
+    mgr.step()  # Should still work, just no logging
+    mgr.disable_trajectory_logging()
+
+
+def test_trajectory_logging_functionality(cpu_manager):
+    """Test that trajectory logging functionality works without errors.
+    
+    Note: We cannot test the actual output content using pytest's capsys fixture
+    because trajectory logging happens in C++ code using printf/fprintf, which
+    writes directly to the process stdout/stderr file descriptors. The capsys
+    fixture only captures Python-level stdout/stderr through sys.stdout/sys.stderr.
+    
+    To properly test C++ stdout output, one would need to:
+    1. Use subprocess to run the test in a separate process
+    2. Redirect stdout at the OS level using dup2() or similar
+    3. Use a C++ testing framework that captures C++ stdout
+    
+    For now, we just verify the methods work without crashing and trust that
+    the C++ logging code works correctly (which we can see in the test output).
+    """
+    mgr = cpu_manager
+    
+    # Test the full lifecycle
+    # 1. Enable logging for valid world/agent
+    mgr.enable_trajectory_logging(world_idx=0, agent_idx=0)
+    
+    # 2. Run multiple steps with logging enabled
+    for _ in range(10):
+        mgr.step()
+    
+    # 3. Switch to different agent
+    if madrona_escape_room.NUM_AGENTS > 1:
+        mgr.enable_trajectory_logging(world_idx=0, agent_idx=1)
+        mgr.step()
+    
+    # 4. Disable and re-enable
+    mgr.disable_trajectory_logging()
+    mgr.step()  # No logging
+    mgr.enable_trajectory_logging(world_idx=0, agent_idx=0)
+    mgr.step()  # Logging again
+    
+    # 5. Final disable
+    mgr.disable_trajectory_logging()
+    
+    # If we get here without crashes, the test passes
+    assert True, "Trajectory logging worked without errors"

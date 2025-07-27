@@ -147,7 +147,7 @@ uv run --extra test pytest tests/python/test_bindings.py::test_progress_tensor -
 uv run --extra test pytest tests/python/test_bindings.py -v
 
 # Common issues and fixes:
-# - ImportError: rebuild with 'cd build && make -j$(nproc)'
+# - ImportError: rebuild with 'cd build && make -j$(nproc) && cd ..'
 # - Shape mismatch: verify tensor dimensions in step 4
 # - Missing attribute: ensure Python binding was added in step 5
 ```

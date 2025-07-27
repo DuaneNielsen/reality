@@ -17,12 +17,7 @@ This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement 
 
 ### Building the Project
 ```bash
-# Initial setup (from repo root)
-mkdir build
-cd build
-/opt/cmake/bin/cmake ..
-make -j$(nproc)
-cd ..
+cd build && /opt/cmake/bin/cmake .. && make -j$(nproc) && cd ..
 
 # Install Python package (ALWAYS use uv)
 uv pip install -e .
@@ -84,8 +79,9 @@ uv run python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-pat
 ### Development
 
 ```bash
-# Rebuild after C++ changes
+# Rebuild after C++ changes (ALWAYS return to root directory)
 cd build && make -j$(nproc) && cd ..
+# Note: The '&& cd ..' is critical - many Python commands expect to run from project root
 
 # Run tests - ALWAYS run CPU tests first, then GPU tests
 # Run all CPU tests (default)
@@ -108,7 +104,7 @@ uv run --extra test pytest tests/python/test_reward_system.py -v --record-action
 
 # View recorded actions from tests in the interactive viewer
 # Tests record 4 worlds, so viewer must use 4 worlds to replay correctly
-./build/viewer 4 --cpu tests/python/test_recordings/test_name/actions.bin
+./build/viewer 4 --cpu test_recordings/test_name/actions.bin
 ```
 
 ### Debugging using GDB

@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
     
     // Enable trajectory tracking if requested
     if (track_trajectory) {
-        mgr.enableAgentTrajectory(track_world_idx, track_agent_idx);
+        mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx);
     }
     
     // Print help for controls
@@ -265,15 +265,15 @@ int main(int argc, char *argv[])
         if (input.keyHit(Key::T)) {
             // Toggle trajectory tracking for current world
             if (track_trajectory && track_world_idx == (int32_t)world_idx) {
-                mgr.disableAgentTrajectory();
+                mgr.disableTrajectoryLogging();
                 track_trajectory = false;
-                printf("Trajectory tracking disabled\n");
+                printf("Trajectory logging disabled\n");
             } else {
-                mgr.enableAgentTrajectory(world_idx, 0); // Track agent 0 by default
+                mgr.enableTrajectoryLogging(world_idx, 0); // Log agent 0 by default
                 track_trajectory = true;
                 track_world_idx = world_idx;
                 track_agent_idx = 0;
-                printf("Trajectory tracking enabled for World %d, Agent 0\n", (int)world_idx);
+                printf("Trajectory logging enabled for World %d, Agent 0\n", (int)world_idx);
             }
         }
     },

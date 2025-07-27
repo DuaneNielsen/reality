@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     
     // Enable trajectory tracking if requested
     if (track_agent) {
-        mgr.enableAgentTrajectory(track_world_idx, track_agent_idx);
+        mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx);
     }
 
     std::random_device rd;

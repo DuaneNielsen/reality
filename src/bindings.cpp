@@ -86,6 +86,11 @@ NB_MODULE(madrona_escape_room, m) {
         .def("progress_tensor", &Manager::progressTensor)
         .def("rgb_tensor", &Manager::rgbTensor)
         .def("depth_tensor", &Manager::depthTensor)
+        .def("enable_trajectory_logging", &Manager::enableTrajectoryLogging,
+             nb::arg("world_idx"), nb::arg("agent_idx"),
+             "Enable trajectory logging for a specific agent. Logs position and progress to stdout each step.")
+        .def("disable_trajectory_logging", &Manager::disableTrajectoryLogging,
+             "Disable trajectory logging.")
     ;
 }
 

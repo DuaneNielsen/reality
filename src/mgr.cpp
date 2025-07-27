@@ -28,6 +28,7 @@
 #include <fstream>
 #include <string>
 #include <cmath>
+#include <stdexcept>
 
 #ifdef MADRONA_CUDA_SUPPORT
 #include <madrona/mw_gpu.hpp>
@@ -117,8 +118,8 @@ struct Manager::Impl {
     Optional<RenderGPUState> renderGPUState;
     Optional<render::RenderManager> renderMgr;
     
-    // Trajectory tracking state
-    bool enableTrajectoryTracking = false;
+    // Trajectory logging state
+    bool enableTrajectoryLogging = false;
     int32_t trackWorldIdx = -1;
     int32_t trackAgentIdx = -1;
     uint32_t stepCount = 0;
@@ -630,8 +631,8 @@ void Manager::step()
         impl_->renderMgr->batchRender();
     }
     
-    // Print trajectory if tracking is enabled
-    if (impl_->enableTrajectoryTracking && 
+    // Print trajectory if logging is enabled
+    if (impl_->enableTrajectoryLogging && 
         impl_->trackWorldIdx >= 0 && 
         impl_->trackAgentIdx >= 0) {
         
@@ -670,7 +671,7 @@ void Manager::step()
             progress_data = ((const float*)progress.devicePtr()) + idx;
         }
         
-        // Print trajectory
+        // Log trajectory
         printf("Step %4u: World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f\n",
                impl_->stepCount++,
                impl_->trackWorldIdx,
@@ -850,21 +851,35 @@ void Manager::setAction(int32_t world_idx,
     }
 }
 
-void Manager::enableAgentTrajectory(int32_t world_idx, int32_t agent_idx)
+void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx)
 {
-    impl_->enableTrajectoryTracking = true;
+    // Validate world index
+    if (world_idx < 0 || world_idx >= (int32_t)impl_->cfg.numWorlds) {
+        fprintf(stderr, "ERROR: Invalid world_idx: %d. Must be between 0 and %u\n", 
+                world_idx, impl_->cfg.numWorlds - 1);
+        return;
+    }
+    
+    // Validate agent index
+    if (agent_idx < 0 || agent_idx >= consts::numAgents) {
+        fprintf(stderr, "ERROR: Invalid agent_idx: %d. Must be between 0 and %d\n", 
+                agent_idx, consts::numAgents - 1);
+        return;
+    }
+    
+    impl_->enableTrajectoryLogging = true;
     impl_->trackWorldIdx = world_idx;
     impl_->trackAgentIdx = agent_idx;
     impl_->stepCount = 0;
-    printf("Trajectory tracking enabled for World %d, Agent %d\n", world_idx, agent_idx);
+    printf("Trajectory logging enabled for World %d, Agent %d\n", world_idx, agent_idx);
 }
 
-void Manager::disableAgentTrajectory()
+void Manager::disableTrajectoryLogging()
 {
-    impl_->enableTrajectoryTracking = false;
+    impl_->enableTrajectoryLogging = false;
     impl_->trackWorldIdx = -1;
     impl_->trackAgentIdx = -1;
-    printf("Trajectory tracking disabled\n");
+    printf("Trajectory logging disabled\n");
 }
 
 // [BOILERPLATE] Expose render manager for visualization tools
