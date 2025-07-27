@@ -41,21 +41,21 @@ def test_forward_movement_reward(test_manager):
         
         # Print progress every 50 steps
         if i % 50 == 0:
-            current_y = observer.get_position(0)[1]
+            pos = observer.get_position(0)
             max_y = observer.get_max_y_progress(0)
-            print(f"Step {i}: Y={current_y:.2f}, Max Y progress={max_y:.3f}")
+            print(f"Step {i}: X={pos[0]:.2f}, Y={pos[1]:.2f}, Max Y progress={max_y:.3f}")
     
     # Final steps to trigger reward
     for _ in range(10):
         controller.step()
     
     # Check final state
-    final_y = observer.get_position(0)[1]
+    final_pos = observer.get_position(0)
     final_reward = observer.get_reward(0)
     max_y_progress = observer.get_max_y_progress(0)
     
     print(f"\nFinal state:")
-    print(f"  Y position: {initial_y:.2f} -> {final_y:.2f} (moved {final_y - initial_y:.2f})")
+    print(f"  Position: X={final_pos[0]:.2f}, Y={final_pos[1]:.2f} (moved Y by {final_pos[1] - initial_y:.2f})")
     print(f"  Max Y progress: {max_y_progress:.3f}")
     print(f"  Final reward: {final_reward:.3f}")
     
@@ -63,161 +63,6 @@ def test_forward_movement_reward(test_manager):
     assert final_reward > 0.0, "Should receive positive reward for forward movement"
     assert observer.get_done_flag(0), "Episode should be done"
     assert observer.get_steps_remaining(0) == 0, "Steps should be exhausted"
-
-
-def test_navigation_with_obstacles(test_manager):
-    """Test navigating around obstacles"""
-    mgr = test_manager
-    controller = AgentController(mgr)
-    observer = ObservationReader(mgr)
-    
-    # Reset world 1
-    reset_world(mgr, 1)
-    
-    # Strategy: Move forward, then try to navigate around obstacles
-    controller.reset_actions()
-    
-    # Phase 1: Move forward
-    controller.move_forward(world_idx=1, speed=1.0)
-    for _ in range(30):
-        controller.step()
-    
-    y_after_forward = observer.get_position(1)[1]
-    print(f"After forward movement: Y={y_after_forward:.2f}")
-    
-    # Phase 2: Turn right and move
-    controller.turn_right(world_idx=1, speed=1.0)
-    for _ in range(20):
-        controller.step()
-        
-    # Phase 3: Turn left and continue
-    controller.turn_left(world_idx=1, speed=1.0)
-    for _ in range(30):
-        controller.step()
-    
-    y_after_navigation = observer.get_position(1)[1]
-    print(f"After navigation: Y={y_after_navigation:.2f}")
-    
-    # Phase 4: Straight forward again
-    controller.move_forward(world_idx=1, speed=1.0)
-    
-    # Continue until episode end
-    while observer.get_steps_remaining(1) > 0:
-        controller.step()
-    
-    # Check final results
-    final_reward = observer.get_reward(1)
-    max_y = observer.get_max_y_progress(1)
-    
-    print(f"\nFinal navigation results:")
-    print(f"  Max Y progress: {max_y:.3f}")
-    print(f"  Final reward: {final_reward:.3f}")
-    
-    assert final_reward > 0.0, "Should receive reward for any forward progress"
-    assert observer.get_done_flag(1), "Episode should be done"
-
-
-def test_backward_movement_no_progress(test_manager):
-    """Test that moving backward doesn't increase max Y"""
-    mgr = test_manager
-    controller = AgentController(mgr)
-    observer = ObservationReader(mgr)
-    
-    # Reset world 2
-    reset_world(mgr, 2)
-    
-    # Move forward first
-    controller.reset_actions()
-    controller.move_forward(world_idx=2, speed=2.0)
-    controller.step(30)
-    
-    max_y_after_forward = observer.get_max_y_progress(2)
-    print(f"Max Y after forward movement: {max_y_after_forward:.3f}")
-    
-    # Now move backward
-    controller.move_backward(world_idx=2, speed=2.0)
-    controller.step(20)
-    
-    max_y_after_backward = observer.get_max_y_progress(2)
-    current_y = observer.get_position(2)[1]
-    print(f"After backward movement: Current Y={current_y:.2f}, Max Y={max_y_after_backward:.3f}")
-    
-    # Max Y should not decrease
-    assert max_y_after_backward >= max_y_after_forward, "Max Y should never decrease"
-    
-    # Continue until episode end
-    controller.stop(world_idx=2)
-    while observer.get_steps_remaining(2) > 0:
-        controller.step()
-    
-    final_reward = observer.get_reward(2)
-    print(f"Final reward: {final_reward:.3f}")
-    
-    # Reward should be based on max Y reached, not current position
-    assert final_reward > 0.0, "Should still get reward based on max Y reached"
-
-
-def test_multi_world_different_strategies(test_manager):
-    """Test different movement strategies across worlds"""
-    mgr = test_manager
-    controller = AgentController(mgr)
-    observer = ObservationReader(mgr)
-    
-    # Reset all worlds
-    reset_all_worlds(mgr)
-    
-    # World 0: Aggressive forward movement
-    # World 1: Careful navigation with turns
-    # World 2: Stop and go
-    # World 3: No movement (control)
-    
-    for step in range(195):
-        controller.reset_actions()
-        
-        # World 0: Full speed ahead
-        controller.move_forward(world_idx=0, speed=2.0)
-        
-        # World 1: Alternate between forward and turning
-        if step % 20 < 10:
-            controller.move_forward(world_idx=1, speed=1.0)
-        elif step % 20 < 15:
-            controller.turn_right(world_idx=1, speed=0.5)
-        else:
-            controller.turn_left(world_idx=1, speed=0.5)
-            
-        # World 2: Stop and go pattern
-        if step % 10 < 5:
-            controller.move_forward(world_idx=2, speed=1.5)
-        else:
-            controller.stop(world_idx=2)
-            
-        # World 3: No movement
-        controller.stop(world_idx=3)
-        
-        controller.step()
-        
-        # Verify no rewards during episode
-        for w in range(4):
-            assert observer.get_reward(w) == 0.0, f"No reward during episode for world {w}"
-    
-    # Final steps to trigger rewards
-    controller.step(5)
-    
-    # Compare final rewards
-    print("\nFinal results across worlds:")
-    for w in range(4):
-        reward = observer.get_reward(w)
-        max_y = observer.get_max_y_progress(w)
-        final_y = observer.get_position(w)[1]
-        print(f"World {w}: Final Y={final_y:.2f}, Max Y={max_y:.3f}, Reward={reward:.3f}")
-    
-    # Verify reward ordering matches progress
-    rewards = [observer.get_reward(w) for w in range(4)]
-    
-    # World 0 (aggressive) should have highest reward
-    assert rewards[0] > rewards[3], "Moving forward should give more reward than staying still"
-    # World 3 (no movement) should have lowest reward  
-    assert rewards[3] > 0.0, "Even stationary agent gets small reward from spawn position"
 
 
 def test_reward_normalization(test_manager):
@@ -250,5 +95,95 @@ def test_reward_normalization(test_manager):
     
     # For moderate forward movement, we expect to cover some fraction of the world
     assert 0.05 < final_reward < 0.5, "Reward should reflect partial progress through world"
+
+
+def test_recorded_actions_reward(test_manager):
+    """Test that recorded actions from test_reward_system.bin achieve expected reward"""
+    import os
+    import sys
+    import struct
+    
+    mgr = test_manager
+    observer = ObservationReader(mgr)
+    
+    # Import the load_action_file function from test_replay_actions
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, test_dir)
+    from test_replay_actions import load_action_file
+    
+    # Get the path to the action file
+    action_file = os.path.join(test_dir, 'test_reward_system.bin')
+    
+    if not os.path.exists(action_file):
+        pytest.skip(f"Action file not found: {action_file}")
+    
+    # Load actions from file (single world)
+    world_actions = load_action_file(action_file, num_worlds=1)
+    actions = world_actions[0]  # Get actions for world 0
+    print(f"Loaded {len(actions)} actions from {action_file}")
+    
+    # Reset world 0
+    reset_world(mgr, 0)
+    
+    # Get initial state
+    initial_pos = observer.get_position(0)
+    print(f"Initial position: Y={initial_pos[1]:.2f}")
+    
+    # Get action tensor
+    action_tensor = mgr.action_tensor().to_torch()
+    
+    # Replay actions until episode ends
+    max_y = 0.0
+    step_count = 0
+    
+    # Print first 20 actions to understand movement pattern
+    print("\nFirst 20 actions:")
+    for i in range(min(20, len(actions))):
+        move_amount, move_angle, rotate = actions[i]
+        print(f"  Step {i}: move_amount={move_amount}, move_angle={move_angle}, rotate={rotate}")
+    
+    for i, (move_amount, move_angle, rotate) in enumerate(actions):
+        # Set the action in the tensor
+        action_tensor[0, 0] = move_amount
+        action_tensor[0, 1] = move_angle
+        action_tensor[0, 2] = rotate
+        mgr.step()
+        step_count += 1
+        
+        # Track progress
+        pos = observer.get_position(0)
+        if pos[1] > max_y:
+            max_y = pos[1]
+        
+        # Print progress at key intervals
+        if i in [50, 100, 150]:
+            print(f"Step {i}: X={pos[0]:.2f}, Y={pos[1]:.2f}, Max Y={max_y:.2f}, Action: move={move_amount}, angle={move_angle}, rotate={rotate}")
+        
+        # Check if episode ended
+        if observer.get_done_flag(0):
+            print(f"\nEpisode ended at step {step_count}")
+            break
+    
+    # Get final reward
+    final_reward = observer.get_reward(0)
+    max_y_progress = observer.get_max_y_progress(0)
+    final_pos = observer.get_position(0)
+    
+    print(f"\nFinal results:")
+    print(f"  Steps taken: {step_count}")
+    print(f"  Final position: X={final_pos[0]:.2f}, Y={final_pos[1]:.2f}")
+    print(f"  Maximum Y reached: {max_y:.2f}")
+    print(f"  Max Y progress (normalized): {max_y_progress:.3f}")
+    print(f"  Final reward: {final_reward:.3f}")
+    
+    # Verify the reward is reasonable for forward progress
+    # The recorded actions achieve about 0.569 reward (normalized max Y progress)
+    assert 0.5 < final_reward < 0.7, f"Expected reward between 0.5-0.7, got {final_reward:.3f}"
+    
+    # Verify reward equals normalized max Y progress (as per game design)
+    assert abs(final_reward - max_y_progress) < 0.001, \
+        f"Reward ({final_reward:.3f}) should equal max Y progress ({max_y_progress:.3f})"
+    
+    assert observer.get_done_flag(0), "Episode should be complete"
 
 

@@ -67,8 +67,10 @@ class RecordingWrapper:
         # Store original step method
         self._original_step = manager.step
         
-        # Output paths
-        self.output_path = self.output_dir / f"{test_name}_actions.bin"
+        # Output paths - extract just the filename part from test_name
+        # test_name might be like "tests/python/test_reward_system.py__test_forward_movement_reward"
+        test_filename = test_name.split('/')[-1] if '/' in test_name else test_name
+        self.output_path = self.output_dir / f"{test_filename}_actions.bin"
         
     def step(self):
         """Step simulation and record actions"""
@@ -126,7 +128,8 @@ def cpu_manager(request):
     
     # Check if recording is enabled
     if request.config.getoption("--record-actions"):
-        test_name = request.node.name
+        # Use nodeid and replace :: with __ for filesystem compatibility
+        test_name = request.node.nodeid.replace("::", "__")
         wrapper = RecordingWrapper(mgr, test_name)
         yield wrapper
         
@@ -213,22 +216,48 @@ def test_manager(request):
         auto_reset=False  # Manual control over resets
     )
     
-    # Check if recording is enabled
+    # For module-scoped fixture with per-test recording
     if request.config.getoption("--record-actions"):
-        test_name = request.node.name
-        wrapper = RecordingWrapper(mgr, test_name)
+        # Create wrapper that we'll update per test
+        wrapper = RecordingWrapper(mgr, "placeholder")
+        wrapper._current_test_nodeid = None
+        
         yield wrapper
-        
-        # Save recording after test
-        action_path = wrapper.save_recording()
-        
-        # Launch viewer if requested
-        if request.config.getoption("--visualize") and action_path:
-            viewer_path = Path("build/viewer")
-            if viewer_path.exists():
-                print(f"Launching viewer...")
-                subprocess.run([str(viewer_path), str(wrapper.num_worlds), "CPU", action_path])
-            else:
-                print(f"Viewer not found at {viewer_path}")
     else:
         yield mgr
+
+
+@pytest.fixture(autouse=True)
+def per_test_recording_handler(request, test_manager):
+    """Autouse fixture that handles per-test recording for module-scoped test_manager"""
+    # Only run if we have recording enabled and test_manager is a RecordingWrapper
+    if hasattr(test_manager, '_current_test_nodeid') and request.config.getoption("--record-actions"):
+        # Set the current test name at test start
+        test_manager._current_test_nodeid = request.node.nodeid
+        
+        # Update wrapper with correct test name
+        current_test = request.node.nodeid.replace("::", "__")
+        test_filename = current_test.split('/')[-1] if '/' in current_test else current_test
+        test_manager.test_name = test_filename
+        test_manager.output_path = test_manager.output_dir / f"{test_filename}_actions.bin"
+        
+        # Reset recording state for this test
+        test_manager.actions = []
+        test_manager.step_count = 0
+        
+        yield
+        
+        # Save recording after test completes
+        if test_manager.step_count > 0:
+            action_path = test_manager.save_recording()
+            
+            # Launch viewer if requested
+            if request.config.getoption("--visualize") and action_path:
+                viewer_path = Path("build/viewer")
+                if viewer_path.exists():
+                    print(f"Launching viewer...")
+                    subprocess.run([str(viewer_path), str(test_manager.num_worlds), "CPU", action_path])
+                else:
+                    print(f"Viewer not found at {viewer_path}")
+    else:
+        yield
