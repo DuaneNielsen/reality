@@ -219,20 +219,6 @@ The test suite supports several custom flags:
 
 This ensures that basic functionality is validated before testing GPU-specific features.
 
-### Debugging with GDB
-
-**Important**: Always use the MCP GDB server for debugging. The MCP server provides a clean interface for debugging sessions and handles GDB interactions properly.
-
-```bash
-# Build with debug symbols (CPU mode recommended for debugging)
-mkdir build && cd build
-/opt/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DMADRONA_CUDA_SUPPORT=OFF ..
-make -j$(nproc)
-
-# Note: Ubuntu 20.04's default GDB (9.2) doesn't support DWARF 5 used by modern compilers
-# If you see "DW_FORM_strx1" errors, upgrade to GDB 16.3+
-```
-
 #### Using MCP GDB Server in Claude Code
 
 When the users says "debug the code" or "debug this function" or makes other references to "debugging" interpret this as the user requesting you to 
@@ -709,12 +695,12 @@ are documented in the docs folder, the filenames should be self explanatory
 
 - ADD_COMPONENT.md
 - ADD_SYSTEM.md
+- EXPORT_COMPONENT.md : exporting a component to the python bindings and manager
 
 ## Useful documents in the docs folder
 
 - README_BINDINGS.md : python bindings
 - ECS_ARCHITECTURE.md : the madrona ECS system
-
 
 ### GPU Execution of Systems
 

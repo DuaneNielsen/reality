@@ -1,4 +1,17 @@
-## GDB Guide
+### Debugging with GDB
+
+**Important**: Always use the MCP GDB server for debugging. The MCP server provides a clean interface for debugging sessions and handles GDB interactions properly.
+
+```bash
+# Build with debug symbols (CPU mode recommended for debugging)
+mkdir build && cd build
+/opt/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DMADRONA_CUDA_SUPPORT=OFF ..
+make -j$(nproc)
+
+# Note: Ubuntu 20.04's default GDB (9.2) doesn't support DWARF 5 used by modern compilers
+# If you see "DW_FORM_strx1" errors, upgrade to GDB 16.3+
+```
+
 
 When debugging in Claude Code, use the following MCP tools:
 - `mcp__gdb__gdb_start` - Start a new debugging session
