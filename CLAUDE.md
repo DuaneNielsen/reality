@@ -10,7 +10,7 @@ This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement 
 - C++ (core simulation using Entity Component System pattern)
 - Python (PyTorch-based PPO training)
 - CMake build system
-- CUDA (optional GPU acceleration)
+
 
 ## Code Classification System
 
@@ -378,9 +378,9 @@ The Manager constructor performs crucial initialization:
 2. Creates GPU-based `PhysicsLoader`
 3. Calls `loadPhysicsObjects()` to load collision meshes
 4. Initializes `MWCudaExecutor` with:
-   - JIT compilation of GPU kernels
-   - Device memory allocation
-   - CUDA graph optimization via `buildLaunchGraphAllTaskGraphs()`
+   - Source file list and compilation flags for JIT compilation
+   - Configuration for world count, task graphs, and exported buffers
+   - Device memory allocation happens during construction
 5. Maps device pointers via `getExported()`
 
 ### Asset Loading
@@ -644,7 +644,7 @@ Resets all persistent entities (entities that survive across episodes) by:
   - Clearing all physics state (velocity, forces, torques) [BOILERPLATE]
   - Resetting the action to default values and timer to episode length
 
-#### **Level Generation** (`generateLevel()` - src/level_gen.cpp:486)
+#### **Level Generation** (`generateLevel()` - src/level_gen.cpp)
 
 Creates the procedural room layout for the new episode:
 
@@ -714,111 +714,22 @@ for (int64_t i = 0; i < num_steps; i++) {
 - `autoReset`: Automatic episode restart
 - `enableBatchRenderer`: GPU rendering toggle
 
-### Thread/GPU Parallelism
-- **CPU**: Thread pool with automatic core detection
-- **CUDA**: One thread block per world, warp-level optimizations
-- Task graph ensures correct system execution order
-- Zero-copy memory mapping for Python integration
+## Procedures for common tasks
 
-## ECS System
+are documented in the docs folder, the filenames should be self explanatory
 
-### Adding a Component
+- ADD_COMPONENT.md
+- ADD_SYSTEM.md
 
-To add a new component to the Madrona ECS:
+## Useful documents in the docs folder
 
-1. **Define the Component** in `src/types.hpp`:
-   ```cpp
-   struct MyNewComponent {
-       float value1;
-       int32_t value2;
-   };
-   ```
+- README_BINDINGS.md : python bindings
+- ECS_ARCHITECTURE.md : the madrona ECS system
 
-2. **Register the Component** in `Sim::registerTypes()`:
-   ```cpp
-   registry.registerComponent<MyNewComponent>();
-   ```
-
-3. **Add to Archetype** if needed:
-   ```cpp
-   struct MyEntity : public madrona::Archetype<
-       Position,
-       Rotation,
-       MyNewComponent  // Add here
-   > {};
-   ```
-
-4. **Export for Python Access** (optional):
-   - In `Sim::registerTypes()`, add export column:
-     ```cpp
-     registry.exportColumn<MyEntity, MyNewComponent>(
-         (uint32_t)ExportID::MyNewComponent);
-     ```
-   - Add to `ExportID` enum in `src/types.hpp`
-   - Map tensor in `src/mgr.cpp`:
-     ```cpp
-     exported.myNewComponent = gpu_exec.getExported((uint32_t)ExportID::MyNewComponent);
-     ```
-
-5. **Initialize Component Values**:
-   - Set initial values when creating entities
-   - Update in reset systems if component should reset
-
-### Adding a System
-
-To add a new system to process components:
-
-1. **Write the System Function** in `src/sim.cpp`:
-   ```cpp
-   inline void myNewSystem(Engine &ctx,
-                          Position &pos,
-                          MyNewComponent &my_comp)
-   {
-       // System logic here
-       my_comp.value1 += pos.x;
-   }
-   ```
-
-2. **Register System** in `Sim::setupTasks()`:
-   ```cpp
-   TaskGraphNodeID my_new_sys = builder.addToGraph<ParallelForNode<Engine,
-       myNewSystem,
-       Position,
-       MyNewComponent
-   >>({optional_dependencies});
-   ```
-
-3. **Define Dependencies**:
-   - Systems execute in dependency order
-   - Add node ID to dependency array of later systems:
-     ```cpp
-     TaskGraphNodeID later_sys = builder.addToGraph<...>({
-         my_new_sys,  // This system depends on myNewSystem
-         other_dep
-     });
-     ```
-
-4. **Considerations**:
-   - **Query Scope**: Systems automatically iterate over all entities with required components
-   - **Context Access**: Use `ctx` to access world state, entity references
-   - **Performance**: Keep systems focused, avoid random memory access
-   - **GPU Compatibility**: Use `#ifdef MADRONA_GPU_MODE` for GPU-specific code
-   - **Parallelism**: Systems run in parallel across worlds and entities
 
 ### GPU Execution of Systems
 
-Madrona automatically compiles and executes systems on GPU without requiring manual CUDA code:
-
-#### How GPU Compilation Works
-
-1. **Automatic Translation**: System functions written in standard C++ are automatically compiled for GPU via NVRTC (NVIDIA Runtime Compilation)
-2. **JIT Compilation**: At runtime, Madrona:
-   - Compiles all system functions into PTX code
-   - Generates a "megakernel" containing all systems
-   - Creates dispatch logic to route execution
-3. **Execution Model**:
-   - **CPU**: One thread iterates through entities sequentially
-   - **GPU**: Multiple threads process entities in parallel per world
+Madrona automatically compiles and executes systems on GPU using [NVRTC](https://docs.nvidia.com/cuda/nvrtc/index.html)
 
 #### Supported C++ Features in Systems
 
@@ -838,7 +749,7 @@ Madrona automatically compiles and executes systems on GPU without requiring man
 - File I/O or system calls
 - Global/static variables
 - Recursive functions
-
+ 
 #### GPU-Specific Optimizations
 
 1. **Warp-Level Systems** using `CustomParallelForNode`:
@@ -868,13 +779,6 @@ Madrona automatically compiles and executes systems on GPU without requiring man
    }
    ```
 
-#### Key GPU Architecture Details
-
-- **Megakernel Design**: All systems run in a single CUDA kernel to minimize launch overhead
-- **One Thread Block Per World**: Each simulation world gets dedicated threads
-- **Work Stealing**: Dynamic load balancing across thread blocks
-- **Zero-Copy Memory**: Direct mapping between GPU memory and Python tensors
-- **Compilation Cache**: Compiled kernels cached to avoid recompilation
 
 ### Task Graph Setup (setupTasks)
 
