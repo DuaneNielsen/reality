@@ -116,7 +116,13 @@ class ObservationReader:
     def get_max_y_progress(self, world_idx: int, agent_idx: int = 0) -> float:
         """Get agent's maximum Y progress (normalized)"""
         obs = self.mgr.self_observation_tensor().to_torch()
-        # Index 4 is max Y reached
+        # Index 3 is max Y reached
+        return obs[world_idx, agent_idx, 3].item()
+    
+    def get_rotation(self, world_idx: int, agent_idx: int = 0) -> float:
+        """Get agent's rotation (theta) - normalized to [-1, 1]"""
+        obs = self.mgr.self_observation_tensor().to_torch()
+        # Index 4 is theta
         return obs[world_idx, agent_idx, 4].item()
     
     def get_reward(self, world_idx: int, agent_idx: int = 0) -> float:

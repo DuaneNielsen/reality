@@ -153,6 +153,10 @@ uv run --extra test pytest tests/python/test_reward_system.py -v --record-action
 
 # Run tests with recording and automatic visualization
 uv run --extra test pytest tests/python/test_reward_system.py -v --record-actions --visualize
+
+# View recorded actions from tests in the interactive viewer
+# Tests record 4 worlds, so viewer must use 4 worlds to replay correctly
+./build/viewer 4 --cpu tests/python/test_recordings/test_name/actions.bin
 ```
 
 #### Testing Configuration

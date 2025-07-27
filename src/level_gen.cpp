@@ -82,7 +82,7 @@ void createPersistentEntities(Engine &ctx)
         ctx.data().borders[0],
         Vector3 {
             0,
-            -consts::wallWidth / 2.f,
+            -5.f,  // Moved farther back to allow room for backward movement tests
             0,
         },
         Quat { 1, 0, 0, 0 },
@@ -102,7 +102,7 @@ void createPersistentEntities(Engine &ctx)
         ctx.data().borders[1],
         Vector3 {
             consts::worldWidth / 2.f + consts::wallWidth / 2.f,
-            consts::worldLength / 2.f,
+            consts::worldLength / 2.f - 2.5f,  // Adjusted to span from behind wall to front wall
             0,
         },
         Quat { 1, 0, 0, 0 },
@@ -111,7 +111,7 @@ void createPersistentEntities(Engine &ctx)
         ResponseType::Static,
         Diag3x3 {
             consts::wallWidth,
-            consts::worldLength,
+            consts::worldLength + 5.f,  // Extended to cover the gap created by moving behind wall
             2.f,
         });
 
@@ -122,7 +122,7 @@ void createPersistentEntities(Engine &ctx)
         ctx.data().borders[2],
         Vector3 {
             -consts::worldWidth / 2.f - consts::wallWidth / 2.f,
-            consts::worldLength / 2.f,
+            consts::worldLength / 2.f - 2.5f,  // Adjusted to span from behind wall to front wall
             0,
         },
         Quat { 1, 0, 0, 0 },
@@ -131,7 +131,7 @@ void createPersistentEntities(Engine &ctx)
         ResponseType::Static,
         Diag3x3 {
             consts::wallWidth,
-            consts::worldLength,
+            consts::worldLength + 5.f,  // Extended to cover the gap created by moving behind wall
             2.f,
         });
 
