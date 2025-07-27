@@ -140,7 +140,7 @@ are in the docs folder when given a task, or creating a plan, if the name of the
 - INITIALIZATION_SEQUENCE: detailed description of the simulator initialization sequence
 - RESET_SEQUENCE: detailed description of the reset sequence
 - STEP_SEQUENCE: detailed description of the step sequence
-
+- VIEWER_GUIDE: instructions for building and using the viewer
 
 ## Documentation creation rules
 
