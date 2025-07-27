@@ -83,6 +83,7 @@ NB_MODULE(madrona_escape_room, m) {
         .def("done_tensor", &Manager::doneTensor)
         .def("self_observation_tensor", &Manager::selfObservationTensor)
         .def("steps_remaining_tensor", &Manager::stepsRemainingTensor)
+        .def("progress_tensor", &Manager::progressTensor)
         .def("rgb_tensor", &Manager::rgbTensor)
         .def("depth_tensor", &Manager::depthTensor)
     ;

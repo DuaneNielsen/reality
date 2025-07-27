@@ -26,6 +26,7 @@ public:
         uint32_t batchRenderViewHeight = 64;
         madrona::render::APIBackend *extRenderAPI = nullptr;
         madrona::render::GPUDevice *extRenderDev = nullptr;
+        bool enableTrajectoryTracking = false; // Print agent trajectories to stdout
     };
 
     Manager(const Config &cfg);
@@ -41,6 +42,7 @@ public:
     madrona::py::Tensor doneTensor() const;
     madrona::py::Tensor selfObservationTensor() const;
     madrona::py::Tensor stepsRemainingTensor() const;
+    madrona::py::Tensor progressTensor() const;
     madrona::py::Tensor rgbTensor() const;
     madrona::py::Tensor depthTensor() const;
 

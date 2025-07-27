@@ -105,8 +105,25 @@ uv pip install -e .
 
 ### Running the Simulation
 ```bash
-# Interactive viewer
+# Interactive viewer (basic usage)
 ./build/viewer
+
+# Viewer with command line options
+./build/viewer [num_worlds] [--cpu|--cuda] [options]
+
+# Viewer command line options:
+# - num_worlds: Number of parallel worlds (default: 1)
+# - --cpu: Use CPU execution mode
+# - --cuda: Use CUDA/GPU execution mode
+# - --trajectory: Print agent trajectory to stdout (one line per step)
+# - --record <path>: Record actions to file (press SPACE to start)
+# - <replay_file>: Path to action file for replay
+
+# Examples:
+./build/viewer 4 --cpu                    # 4 worlds on CPU
+./build/viewer 1 --cuda --trajectory      # 1 world on GPU with trajectory printing
+./build/viewer 2 --cpu --record demo.bin  # Record 2 worlds to demo.bin
+./build/viewer 2 --cpu demo.bin           # Replay demo.bin with 2 worlds
 
 # Benchmark performance
 uv run python scripts/sim_bench.py --num-worlds 1024 --num-steps 1000 --gpu-id 0
@@ -232,6 +249,8 @@ The simulator uses Madrona's Entity Component System (ECS) pattern:
 - `scripts/policy.py`: Neural network policy definitions
 - `src/consts.hpp`: Game parameters and constants
 - `src/viewer.cpp'` : Renders the environment, and allows user to switch to first person view to control the agent
+- `src/bindings.cpp` : Python bindings for the manager, types and constants
+- `scripts/sim_bench.py` : PyInstrument benchmark to check performance 
 
 ### System Execution Order
 The task graph defines precise system dependencies:

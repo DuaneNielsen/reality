@@ -704,6 +704,17 @@ Tensor Manager::stepsRemainingTensor() const
                                });
 }
 
+Tensor Manager::progressTensor() const
+{
+    return impl_->exportTensor(ExportID::Progress,
+                               TensorElementType::Float32,
+                               {
+                                   impl_->cfg.numWorlds,
+                                   consts::numAgents,
+                                   1,
+                               });
+}
+
 //[GAME_SPECIFIC]
 Tensor Manager::rgbTensor() const
 {

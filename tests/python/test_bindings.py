@@ -223,6 +223,42 @@ def test_state_persistence(cpu_manager):
     assert rewards.shape == (4, 1, 1)
 
 
+def test_progress_tensor(cpu_manager):
+    """Test that progress tensor is accessible and has correct shape."""
+    mgr = cpu_manager
+    
+    # Get progress tensor
+    progress = mgr.progress_tensor().to_torch()
+    
+    # Check shape
+    expected_shape = (4, 1, 1)  # 4 worlds, 1 agent, 1 value
+    assert progress.shape == expected_shape, f"Expected shape {expected_shape}, got {progress.shape}"
+    
+    # Check initial values are reasonable (should be near spawn position)
+    assert (progress >= 0).all(), "Progress values should be non-negative"
+    assert (progress < 10).all(), "Initial progress should be less than 10"
+    
+    # Run some steps and verify progress updates
+    initial_progress = progress.clone()
+    
+    # Move agents forward
+    actions = mgr.action_tensor().to_torch()
+    actions[:, 0] = 1  # Move forward
+    actions[:, 1] = 0  # Forward angle
+    actions[:, 2] = 2  # No rotation
+    
+    for _ in range(50):
+        mgr.step()
+    
+    final_progress = mgr.progress_tensor().to_torch()
+    
+    # At least some agents should have made progress
+    assert (final_progress > initial_progress).any(), "Some agents should have made progress"
+    
+    # Progress should never decrease (it tracks maximum Y)
+    assert (final_progress >= initial_progress).all(), "Progress should never decrease"
+
+
 def test_random_actions_comprehensive(cpu_manager):
     """Test simulation with fully random actions over extended period"""
     mgr = cpu_manager
