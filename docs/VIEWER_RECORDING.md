@@ -41,13 +41,6 @@ Example:
 ./build/viewer 4 --cuda multi_world_recording.bin
 ```
 
-## Features
-
-- **Binary Format**: Recordings use the same efficient binary format as inference dumps
-- **Multi-World Support**: Records actions for all worlds simultaneously
-- **Default Actions**: Non-controlled worlds receive default actions (no movement, no rotation)
-- **Progress Display**: Shows recording progress every 100 frames
-- **Auto-Reset**: Automatically enables episode auto-reset during recording
 
 ## File Format
 
@@ -64,15 +57,3 @@ Recordings are stored as binary files containing sequential int32_t values:
 - **TAB**: Switch between worlds (in multi-world mode)
 - **R**: Reset current world
 - **ESC**: Stop recording and save
-
-## Testing
-
-Run the test script to verify recording functionality:
-```bash
-./test_recording.sh
-```
-
-This will test:
-1. Single world recording and replay
-2. Multi-world recording and replay
-3. File creation and size verification
