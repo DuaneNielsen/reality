@@ -168,9 +168,9 @@ void myFunction(int required, const char* optional = nullptr);
 - Use `std::optional<std::string>` in the binding layer and convert to `const char*`
 - Always include `<nanobind/stl/string.h>` and `<nanobind/stl/optional.h>` for STL type support
 
-### Keyword Arguments Support
+### Coding standard
 
-To ensure functions work with both positional and keyword arguments:
+Ensure functions work with both positional and keyword arguments:
 
 1. **All parameters must be annotated** when using `nb::arg()`
 2. **Use consistent naming** between C++ parameter names and Python argument names
