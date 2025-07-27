@@ -124,6 +124,13 @@ namespace madEscape {
     // logic associated with them.
     struct PhysicsEntity : public madrona::Archetype<RigidBody, EntityType, madrona::render::Renderable> {};
 
+    // [GAME_SPECIFIC]
+    // Archetype for entities that only need rendering, no physics
+    struct RenderOnlyEntity : public madrona::Archetype<
+        Position, Rotation, Scale, ObjectID,
+        madrona::render::Renderable
+    > {};
+
 
     // [GAME_SPECIFIC]
     // Room itself is not a component but is used by the singleton

@@ -176,6 +176,12 @@ void createPersistentEntities(Engine &ctx)
         ctx.get<EntityType>(agent) = EntityType::Agent;
     }
 
+    // Create origin marker - a medium cube at (0, 0, 0)
+    ctx.data().originMarker = ctx.makeRenderableEntity<RenderOnlyEntity>();
+    ctx.get<Position>(ctx.data().originMarker) = Vector3{0, 0, 0};
+    ctx.get<Rotation>(ctx.data().originMarker) = Quat{1, 0, 0, 0};
+    ctx.get<Scale>(ctx.data().originMarker) = Diag3x3{0.5f, 0.5f, 0.5f};
+    ctx.get<ObjectID>(ctx.data().originMarker) = ObjectID{(int32_t)SimObject::Cube};
 }
 
 // Although agents and walls persist between episodes, we still need to

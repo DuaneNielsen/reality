@@ -57,6 +57,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Escape room archetypes
     registry.registerArchetype<Agent>();
     registry.registerArchetype<PhysicsEntity>();
+    registry.registerArchetype<RenderOnlyEntity>();
 
     // [REQUIRED_INTERFACE] Export reset control
     registry.exportSingleton<WorldReset>(
