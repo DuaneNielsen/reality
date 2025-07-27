@@ -28,6 +28,20 @@ static HeapArray<int32_t> readReplayLog(const char *path)
     return log;
 }
 
+static void printUsage(const char *program_name)
+{
+    fprintf(stderr, "Usage: %s [num_worlds] [--cpu|--cuda] [options]\n", program_name);
+    fprintf(stderr, "\nOptions:\n");
+    fprintf(stderr, "  --track <world_id> <agent_id>  Enable trajectory tracking for specific agent\n");
+    fprintf(stderr, "  --record <path>                Record actions to file (press SPACE to start)\n");
+    fprintf(stderr, "  <replay_file>                  Path to action file for replay\n");
+    fprintf(stderr, "\nExamples:\n");
+    fprintf(stderr, "  %s 4 --cpu                     # 4 worlds on CPU\n", program_name);
+    fprintf(stderr, "  %s 1 --cuda --track 0 0        # Track world 0, agent 0 on GPU\n", program_name);
+    fprintf(stderr, "  %s 2 --cpu --record demo.bin   # Record 2 worlds to demo.bin\n", program_name);
+    fprintf(stderr, "  %s 2 --cpu demo.bin            # Replay demo.bin with 2 worlds\n", program_name);
+}
+
 int main(int argc, char *argv[])
 {
     using namespace madEscape;
@@ -59,25 +73,40 @@ int main(int argc, char *argv[])
     
     // Parse additional arguments
     for (int i = 3; i < argc; i++) {
-        if (strcmp("--record", argv[i]) == 0) {
-            if (i + 1 < argc) {
-                record_log_path = argv[i + 1];
-                is_recording = true;
-                i++; // Skip next arg
+        if (strncmp("--", argv[i], 2) == 0) {
+            // This is a flag starting with --
+            if (strcmp("--record", argv[i]) == 0) {
+                if (i + 1 < argc) {
+                    record_log_path = argv[i + 1];
+                    is_recording = true;
+                    i++; // Skip next arg
+                } else {
+                    fprintf(stderr, "Error: --record flag requires output path\n");
+                    return 1;
+                }
+            } else if (strcmp("--track", argv[i]) == 0) {
+                track_trajectory = true;
+                if (i + 2 < argc) {
+                    track_world_idx = atoi(argv[i + 1]);
+                    track_agent_idx = atoi(argv[i + 2]);
+                    i += 2; // Skip world and agent indices
+                }
+                // If no indices provided, defaults to world 0, agent 0
             } else {
-                fprintf(stderr, "Error: --record flag requires output path\n");
+                // Unknown flag
+                fprintf(stderr, "Error: Unknown option '%s'\n\n", argv[i]);
+                printUsage(argv[0]);
                 return 1;
             }
-        } else if (strcmp("--track", argv[i]) == 0) {
-            track_trajectory = true;
-            if (i + 2 < argc) {
-                track_world_idx = atoi(argv[i + 1]);
-                track_agent_idx = atoi(argv[i + 2]);
-                i += 2; // Skip world and agent indices
+        } else {
+            // This is a replay file path
+            if (replay_log_path == nullptr) {
+                replay_log_path = argv[i];
+            } else {
+                fprintf(stderr, "Error: Multiple replay files specified\n\n");
+                printUsage(argv[0]);
+                return 1;
             }
-            // If no indices provided, defaults to world 0, agent 0
-        } else if (replay_log_path == nullptr) {
-            replay_log_path = argv[i];
         }
     }
 
