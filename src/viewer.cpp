@@ -8,6 +8,8 @@
 
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <cstring>
 
 using namespace madrona;
 using namespace madrona::viz;
@@ -47,10 +49,24 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Setup replay log
+    // Setup replay/recording
     const char *replay_log_path = nullptr;
+    const char *record_log_path = nullptr;
+    bool is_recording = false;
+    
+    // Parse additional arguments
     if (argc >= 4) {
-        replay_log_path = argv[3];
+        if (strcmp("--record", argv[3]) == 0) {
+            if (argc >= 5) {
+                record_log_path = argv[4];
+                is_recording = true;
+            } else {
+                fprintf(stderr, "Error: --record flag requires output path\n");
+                return 1;
+            }
+        } else {
+            replay_log_path = argv[3];
+        }
     }
 
     auto replay_log = Optional<HeapArray<int32_t>>::none();
@@ -59,6 +75,28 @@ int main(int argc, char *argv[])
     if (replay_log_path != nullptr) {
         replay_log = readReplayLog(replay_log_path);
         num_replay_steps = replay_log->size() / (num_worlds * num_views * 3);
+    }
+    
+    // Setup recording
+    std::ofstream recording_file;
+    std::vector<int32_t> frame_actions;
+    uint32_t recorded_frames = 0;
+    bool recording_started = false;  // Track if Space has been pressed to start recording
+    
+    if (is_recording) {
+        recording_file.open(record_log_path, std::ios::binary);
+        if (!recording_file.is_open()) {
+            fprintf(stderr, "Error: Failed to open recording file: %s\n", record_log_path);
+            return 1;
+        }
+        frame_actions.resize(num_worlds * 3);
+        // Initialize with default actions
+        for (uint32_t i = 0; i < num_worlds; i++) {
+            frame_actions[i * 3] = 0;      // move_amount = 0 (stop)
+            frame_actions[i * 3 + 1] = 0;  // move_angle = 0 (forward)
+            frame_actions[i * 3 + 2] = 2;  // rotate = 2 (no rotation)
+        }
+        printf("Recording mode enabled. Press SPACE to start recording to: %s\n", record_log_path);
     }
 
     bool enable_batch_renderer =
@@ -78,7 +116,7 @@ int main(int argc, char *argv[])
         .gpuID = 0,
         .numWorlds = num_worlds,
         .randSeed = 5,
-        .autoReset = replay_log.has_value(),
+        .autoReset = replay_log.has_value() || is_recording,
         .enableBatchRenderer = enable_batch_renderer,
         .extRenderAPI = wm.gpuAPIManager().backend(),
         .extRenderDev = render_gpu.device(),
@@ -101,6 +139,7 @@ int main(int argc, char *argv[])
         .cameraPosition = initial_camera_position,
         .cameraRotation = initial_camera_rotation,
     });
+    
 
     // Replay step
     auto replayStep = [&]() {
@@ -152,14 +191,23 @@ int main(int argc, char *argv[])
 
     // Main loop for the viewer viewer
     viewer.loop(
-    [&mgr](CountT world_idx, const Viewer::UserInput &input)
+    [&mgr, &is_recording, &recording_started](CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
+        
+        // Check for Space key to start recording
+        if (is_recording && !recording_started && input.keyHit(Key::Space)) {
+            recording_started = true;
+            printf("Recording started!\n");
+            // Optionally reset the world for a clean start
+            mgr.triggerReset(world_idx);
+        }
+        
         if (input.keyHit(Key::R)) {
             mgr.triggerReset(world_idx);
         }
     },
-    [&mgr](CountT world_idx, CountT agent_idx,
+    [&mgr, &is_recording, &recording_started, &frame_actions](CountT world_idx, CountT agent_idx,
            const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
@@ -222,6 +270,14 @@ int main(int argc, char *argv[])
         }
 
         mgr.setAction(world_idx, move_amount, move_angle, r);
+        
+        // Record the action if recording has started
+        if (is_recording && recording_started) {
+            uint32_t base_idx = world_idx * 3;
+            frame_actions[base_idx] = move_amount;
+            frame_actions[base_idx + 1] = move_angle;
+            frame_actions[base_idx + 2] = r;
+        }
     }, [&]() {
         if (replay_log.has_value()) {
             bool replay_finished = replayStep();
@@ -230,9 +286,37 @@ int main(int argc, char *argv[])
                 viewer.stopLoop();
             }
         }
+        
+        // Write frame actions if recording has started
+        if (is_recording && recording_started) {
+            recording_file.write(reinterpret_cast<const char*>(frame_actions.data()), 
+                               frame_actions.size() * sizeof(int32_t));
+            recorded_frames++;
+            
+            // Reset actions to defaults for next frame
+            for (uint32_t i = 0; i < num_worlds; i++) {
+                frame_actions[i * 3] = 0;      // move_amount
+                frame_actions[i * 3 + 1] = 0;  // move_angle
+                frame_actions[i * 3 + 2] = 2;  // rotate
+            }
+            
+            if (recorded_frames % 100 == 0) {
+                printf("Recorded %u frames...\n", recorded_frames);
+            }
+        }
 
         mgr.step();
 
         //printObs();
     }, []() {});
+    
+    // Cleanup recording
+    if (is_recording) {
+        recording_file.close();
+        if (recorded_frames > 0) {
+            printf("Recording complete: %u frames saved to %s\n", recorded_frames, record_log_path);
+        } else {
+            printf("Recording cancelled: No frames were recorded\n");
+        }
+    }
 }
