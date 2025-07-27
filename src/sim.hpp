@@ -37,6 +37,9 @@ enum class SimObject : uint32_t {
     Wall,
     Agent,
     Plane,
+    AxisX,  // Red cube for X axis
+    AxisY,  // Green cube for Y axis
+    AxisZ,  // Blue cube for Z axis
     NumObjects,
 };
 
@@ -103,8 +106,9 @@ struct Sim : public madrona::WorldBase {
     // and are just reset to the start of the level on reset.
     Entity agents[consts::numAgents];
 
-    // Origin marker entity to visualize (0, 0, 0) position
-    Entity originMarker;
+    // Origin marker gizmo: 3 colored boxes for XYZ axes
+    // Red = X axis, Green = Y axis, Blue = Z axis
+    Entity originMarkerBoxes[3];
 };
 
 class Engine : public ::madrona::CustomContext<Engine, Sim> {

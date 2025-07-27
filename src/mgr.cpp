@@ -234,6 +234,12 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         (std::filesystem::path(DATA_DIR) / "agent_render.obj").string();
     render_asset_paths[(size_t)SimObject::Plane] =
         (std::filesystem::path(DATA_DIR) / "plane.obj").string();
+    render_asset_paths[(size_t)SimObject::AxisX] =
+        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();  // Reuse cube mesh
+    render_asset_paths[(size_t)SimObject::AxisY] =
+        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();  // Reuse cube mesh
+    render_asset_paths[(size_t)SimObject::AxisZ] =
+        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();  // Reuse cube mesh
 
     // [BOILERPLATE]
     std::array<const char *, (size_t)SimObject::NumObjects> render_asset_cstrs;
@@ -261,8 +267,10 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         { math::Vector4{1.f, 1.f, 1.f, 0.0f}, 1, 0.5f, 1.0f,},      // White (agent body)
         { render::rgb8ToFloat(230, 230, 230),   -1, 0.8f, 1.0f },   // Light gray (agent parts)
         { math::Vector4{0.5f, 0.3f, 0.3f, 0.0f},  0, 0.8f, 0.2f,},  // Brown (floor)
-        { render::rgb8ToFloat(230, 20, 20),   -1, 0.8f, 1.0f },     // Red (door)
+        { render::rgb8ToFloat(230, 20, 20),   -1, 0.8f, 1.0f },     // Red (door/X-axis)
         { render::rgb8ToFloat(230, 230, 20),   -1, 0.8f, 1.0f },    // Yellow (button)
+        { render::rgb8ToFloat(20, 230, 20),   -1, 0.8f, 1.0f },     // Green (Y-axis)
+        { render::rgb8ToFloat(20, 20, 230),   -1, 0.8f, 1.0f },     // Blue (Z-axis)
     });
 
     // [GAME_SPECIFIC] Assign materials to each object's meshes
@@ -272,6 +280,9 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     render_assets->objects[(CountT)SimObject::Agent].meshes[1].materialIDX = 3;  // Eyes
     render_assets->objects[(CountT)SimObject::Agent].meshes[2].materialIDX = 3;  // Other parts
     render_assets->objects[(CountT)SimObject::Plane].meshes[0].materialIDX = 4;
+    render_assets->objects[(CountT)SimObject::AxisX].meshes[0].materialIDX = 5;  // Red
+    render_assets->objects[(CountT)SimObject::AxisY].meshes[0].materialIDX = 7;  // Green
+    render_assets->objects[(CountT)SimObject::AxisZ].meshes[0].materialIDX = 8;  // Blue
 
     // [GAME_SPECIFIC] Load textures for materials
     imp::ImageImporter img_importer;
@@ -298,7 +309,10 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
 {
 
     // [GAME_SPECIFIC]
-    std::array<std::string, (size_t)SimObject::NumObjects - 1> asset_paths;
+    // Only Cube, Wall, and Agent need physics assets (3 objects)
+    // Plane uses built-in plane collision, AxisX/Y/Z are render-only
+    constexpr size_t numPhysicsAssets = 3;
+    std::array<std::string, numPhysicsAssets> asset_paths;
     asset_paths[(size_t)SimObject::Cube] =
         (std::filesystem::path(DATA_DIR) / "cube_collision.obj").string();
     asset_paths[(size_t)SimObject::Wall] =
@@ -308,7 +322,7 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
 
 
     // [BOILERPLATE]
-    std::array<const char *, (size_t)SimObject::NumObjects - 1> asset_cstrs;
+    std::array<const char *, numPhysicsAssets> asset_cstrs;
     for (size_t i = 0; i < asset_paths.size(); i++) {
         asset_cstrs[i] = asset_paths[i].c_str();
     }
@@ -332,8 +346,20 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
 
     // [BOILERPLATE]
     DynArray<DynArray<SourceCollisionPrimitive>> prim_arrays(0);
-    HeapArray<SourceCollisionObject> src_objs(
-        (CountT)SimObject::NumObjects);
+    // Only allocate physics for objects that need it (Cube, Wall, Agent, Plane)
+    constexpr CountT numPhysicsObjects = 4;  // Cube, Wall, Agent, Plane
+    HeapArray<SourceCollisionObject> src_objs(numPhysicsObjects);
+
+    // Map SimObject IDs to physics array indices
+    auto getPhysicsIdx = [](SimObject obj_id) -> CountT {
+        switch(obj_id) {
+            case SimObject::Cube: return 0;
+            case SimObject::Wall: return 1;
+            case SimObject::Agent: return 2;
+            case SimObject::Plane: return 3;
+            default: FATAL("Object type has no physics");
+        }
+    };
 
     // [BOILERPLATE]
     auto setupHull = [&](SimObject obj_id,
@@ -354,7 +380,7 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
 
         prim_arrays.emplace_back(std::move(prims));
 
-        src_objs[(CountT)obj_id] = SourceCollisionObject {
+        src_objs[getPhysicsIdx(obj_id)] = SourceCollisionObject {
             .prims = Span<const SourceCollisionPrimitive>(prim_arrays.back()),
             .invMass = inv_mass,
             .friction = friction,
@@ -383,7 +409,7 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         .plane = {},
     };
 
-    src_objs[(CountT)SimObject::Plane] = {
+    src_objs[getPhysicsIdx(SimObject::Plane)] = {
         .prims = Span<const SourceCollisionPrimitive>(&plane_prim, 1),
         .invMass = 0.f,
         .friction = {
@@ -413,9 +439,9 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     // This prevents agents from tipping over and ensures controllability
     // Setting inverse inertia to 0 makes rotation impossible around that axis
     rigid_body_assets.metadatas[
-        (CountT)SimObject::Agent].mass.invInertiaTensor.x = 0.f;
+        getPhysicsIdx(SimObject::Agent)].mass.invInertiaTensor.x = 0.f;
     rigid_body_assets.metadatas[
-        (CountT)SimObject::Agent].mass.invInertiaTensor.y = 0.f;
+        getPhysicsIdx(SimObject::Agent)].mass.invInertiaTensor.y = 0.f;
 
     // [BOILERPLATE]
     loader.loadRigidBodies(rigid_body_assets);

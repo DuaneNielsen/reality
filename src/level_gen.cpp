@@ -176,12 +176,27 @@ void createPersistentEntities(Engine &ctx)
         ctx.get<EntityType>(agent) = EntityType::Agent;
     }
 
-    // Create origin marker - a medium cube at (0, 0, 0)
-    ctx.data().originMarker = ctx.makeRenderableEntity<RenderOnlyEntity>();
-    ctx.get<Position>(ctx.data().originMarker) = Vector3{0, 0, 0};
-    ctx.get<Rotation>(ctx.data().originMarker) = Quat{1, 0, 0, 0};
-    ctx.get<Scale>(ctx.data().originMarker) = Diag3x3{0.5f, 0.5f, 0.5f};
-    ctx.get<ObjectID>(ctx.data().originMarker) = ObjectID{(int32_t)SimObject::Cube};
+    // Create origin marker gizmo - 3 colored boxes for XYZ axes
+    // Box 0: Red box along X axis
+    ctx.data().originMarkerBoxes[0] = ctx.makeRenderableEntity<RenderOnlyEntity>();
+    ctx.get<Position>(ctx.data().originMarkerBoxes[0]) = Vector3{0.75f, 0, 0};  // Offset along X
+    ctx.get<Rotation>(ctx.data().originMarkerBoxes[0]) = Quat{1, 0, 0, 0};
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[0]) = Diag3x3{1.5f, 0.3f, 0.3f};  // Elongated along X
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[0]) = ObjectID{(int32_t)SimObject::AxisX};
+    
+    // Box 1: Green box along Y axis  
+    ctx.data().originMarkerBoxes[1] = ctx.makeRenderableEntity<RenderOnlyEntity>();
+    ctx.get<Position>(ctx.data().originMarkerBoxes[1]) = Vector3{0, 0.75f, 0};  // Offset along Y
+    ctx.get<Rotation>(ctx.data().originMarkerBoxes[1]) = Quat{1, 0, 0, 0};
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[1]) = Diag3x3{0.3f, 1.5f, 0.3f};  // Elongated along Y
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[1]) = ObjectID{(int32_t)SimObject::AxisY};
+    
+    // Box 2: Blue box along Z axis
+    ctx.data().originMarkerBoxes[2] = ctx.makeRenderableEntity<RenderOnlyEntity>();
+    ctx.get<Position>(ctx.data().originMarkerBoxes[2]) = Vector3{0, 0, 0.75f};  // Offset along Z
+    ctx.get<Rotation>(ctx.data().originMarkerBoxes[2]) = Quat{1, 0, 0, 0};
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[2]) = Diag3x3{0.3f, 0.3f, 1.5f};  // Elongated along Z
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[2]) = ObjectID{(int32_t)SimObject::AxisZ};
 }
 
 // Although agents and walls persist between episodes, we still need to
