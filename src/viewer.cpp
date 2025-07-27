@@ -53,19 +53,31 @@ int main(int argc, char *argv[])
     const char *replay_log_path = nullptr;
     const char *record_log_path = nullptr;
     bool is_recording = false;
+    bool track_trajectory = false;
+    int32_t track_world_idx = 0;
+    int32_t track_agent_idx = 0;
     
     // Parse additional arguments
-    if (argc >= 4) {
-        if (strcmp("--record", argv[3]) == 0) {
-            if (argc >= 5) {
-                record_log_path = argv[4];
+    for (int i = 3; i < argc; i++) {
+        if (strcmp("--record", argv[i]) == 0) {
+            if (i + 1 < argc) {
+                record_log_path = argv[i + 1];
                 is_recording = true;
+                i++; // Skip next arg
             } else {
                 fprintf(stderr, "Error: --record flag requires output path\n");
                 return 1;
             }
-        } else {
-            replay_log_path = argv[3];
+        } else if (strcmp("--track", argv[i]) == 0) {
+            track_trajectory = true;
+            if (i + 2 < argc) {
+                track_world_idx = atoi(argv[i + 1]);
+                track_agent_idx = atoi(argv[i + 2]);
+                i += 2; // Skip world and agent indices
+            }
+            // If no indices provided, defaults to world 0, agent 0
+        } else if (replay_log_path == nullptr) {
+            replay_log_path = argv[i];
         }
     }
 
@@ -121,6 +133,20 @@ int main(int argc, char *argv[])
         .extRenderAPI = wm.gpuAPIManager().backend(),
         .extRenderDev = render_gpu.device(),
     });
+    
+    // Enable trajectory tracking if requested
+    if (track_trajectory) {
+        mgr.enableAgentTrajectory(track_world_idx, track_agent_idx);
+    }
+    
+    // Print help for controls
+    printf("\nViewer Controls:\n");
+    printf("  R: Reset current world\n");
+    printf("  T: Toggle trajectory tracking for current world\n");
+    if (is_recording) {
+        printf("  SPACE: Start recording\n");
+    }
+    printf("\n");
 
     float camera_move_speed = 10.f;
 
@@ -191,7 +217,7 @@ int main(int argc, char *argv[])
 
     // Main loop for the viewer viewer
     viewer.loop(
-    [&mgr, &is_recording, &recording_started](CountT world_idx, const Viewer::UserInput &input)
+    [&mgr, &is_recording, &recording_started, &track_trajectory, &track_world_idx, &track_agent_idx](CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
         
@@ -205,6 +231,21 @@ int main(int argc, char *argv[])
         
         if (input.keyHit(Key::R)) {
             mgr.triggerReset(world_idx);
+        }
+        
+        if (input.keyHit(Key::T)) {
+            // Toggle trajectory tracking for current world
+            if (track_trajectory && track_world_idx == (int32_t)world_idx) {
+                mgr.disableAgentTrajectory();
+                track_trajectory = false;
+                printf("Trajectory tracking disabled\n");
+            } else {
+                mgr.enableAgentTrajectory(world_idx, 0); // Track agent 0 by default
+                track_trajectory = true;
+                track_world_idx = world_idx;
+                track_agent_idx = 0;
+                printf("Trajectory tracking enabled for World %d, Agent 0\n", (int)world_idx);
+            }
         }
     },
     [&mgr, &is_recording, &recording_started, &frame_actions](CountT world_idx, CountT agent_idx,

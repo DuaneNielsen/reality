@@ -115,15 +115,24 @@ uv pip install -e .
 # - num_worlds: Number of parallel worlds (default: 1)
 # - --cpu: Use CPU execution mode
 # - --cuda: Use CUDA/GPU execution mode
-# - --trajectory: Print agent trajectory to stdout (one line per step)
+# - --track [world_id] [agent_id]: Enable trajectory tracking for specific agent
 # - --record <path>: Record actions to file (press SPACE to start)
 # - <replay_file>: Path to action file for replay
 
 # Examples:
-./build/viewer 4 --cpu                    # 4 worlds on CPU
-./build/viewer 1 --cuda --trajectory      # 1 world on GPU with trajectory printing
-./build/viewer 2 --cpu --record demo.bin  # Record 2 worlds to demo.bin
-./build/viewer 2 --cpu demo.bin           # Replay demo.bin with 2 worlds
+./build/viewer 4 --cpu                           # 4 worlds on CPU
+./build/viewer 1 --cuda --track 0 0             # Track world 0, agent 0 on GPU
+./build/viewer 2 --cpu --record demo.bin        # Record 2 worlds to demo.bin
+./build/viewer 2 --cpu demo.bin                 # Replay demo.bin with 2 worlds
+./build/viewer 4 --cpu --track 2 0              # 4 worlds, track world 2 agent 0
+
+# Viewer keyboard controls:
+# - R: Reset current world
+# - T: Toggle trajectory tracking for current world
+# - SPACE: Start recording (when --record is used)
+# - WASD: Move agent (when in agent view)
+# - Q/E: Rotate agent left/right
+# - Shift: Move faster
 
 # Benchmark performance
 uv run python scripts/sim_bench.py --num-worlds 1024 --num-steps 1000 --gpu-id 0

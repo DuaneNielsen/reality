@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     using namespace madEscape;
 
     if (argc < 4) {
-        fprintf(stderr, "%s TYPE NUM_WORLDS NUM_STEPS [--rand-actions]\n", argv[0]);
+        fprintf(stderr, "%s TYPE NUM_WORLDS NUM_STEPS [--rand-actions] [--track-agent WORLD_ID AGENT_ID]\n", argv[0]);
         return -1;
     }
     std::string type(argv[1]);
@@ -50,9 +50,20 @@ int main(int argc, char *argv[])
         num_worlds * 2 * num_steps * 3);
 
     bool rand_actions = false;
-    if (argc >= 5) {
-        if (std::string(argv[4]) == "--rand-actions") {
+    bool track_agent = false;
+    int32_t track_world_idx = -1;
+    int32_t track_agent_idx = -1;
+    
+    // Parse optional arguments
+    for (int i = 4; i < argc; i++) {
+        std::string arg(argv[i]);
+        if (arg == "--rand-actions") {
             rand_actions = true;
+        } else if (arg == "--track-agent" && i + 2 < argc) {
+            track_agent = true;
+            track_world_idx = std::stoi(argv[i + 1]);
+            track_agent_idx = std::stoi(argv[i + 2]);
+            i += 2; // Skip the next two arguments
         }
     }
 
@@ -64,6 +75,11 @@ int main(int argc, char *argv[])
         .autoReset = false,
         .enableBatchRenderer = false,
     });
+    
+    // Enable trajectory tracking if requested
+    if (track_agent) {
+        mgr.enableAgentTrajectory(track_world_idx, track_agent_idx);
+    }
 
     std::random_device rd;
     std::mt19937 rand_gen(rd());

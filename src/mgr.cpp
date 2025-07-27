@@ -27,6 +27,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <cmath>
 
 #ifdef MADRONA_CUDA_SUPPORT
 #include <madrona/mw_gpu.hpp>
@@ -115,6 +116,12 @@ struct Manager::Impl {
     Action *agentActionsBuffer;      // [REQUIRED_INTERFACE] Agent action buffer
     Optional<RenderGPUState> renderGPUState;
     Optional<render::RenderManager> renderMgr;
+    
+    // Trajectory tracking state
+    bool enableTrajectoryTracking = false;
+    int32_t trackWorldIdx = -1;
+    int32_t trackAgentIdx = -1;
+    uint32_t stepCount = 0;
 
     inline Impl(const Manager::Config &mgr_cfg,
                 PhysicsLoader &&phys_loader,
@@ -622,6 +629,58 @@ void Manager::step()
     if (impl_->cfg.enableBatchRenderer) {
         impl_->renderMgr->batchRender();
     }
+    
+    // Print trajectory if tracking is enabled
+    if (impl_->enableTrajectoryTracking && 
+        impl_->trackWorldIdx >= 0 && 
+        impl_->trackAgentIdx >= 0) {
+        
+        // Get tensor data
+        auto self_obs = selfObservationTensor();
+        auto progress = progressTensor();
+        
+        // Calculate index for the specific agent
+        int32_t idx = impl_->trackWorldIdx * consts::numAgents + impl_->trackAgentIdx;
+        
+        // Get data pointers based on execution mode
+        const SelfObservation* obs_data;
+        const float* progress_data;
+        
+        if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+            // For CUDA, we need to copy data to host
+            SelfObservation host_obs;
+            float host_progress;
+            
+            cudaMemcpy(&host_obs, 
+                      ((const SelfObservation*)self_obs.devicePtr()) + idx,
+                      sizeof(SelfObservation), 
+                      cudaMemcpyDeviceToHost);
+            cudaMemcpy(&host_progress,
+                      ((const float*)progress.devicePtr()) + idx,
+                      sizeof(float),
+                      cudaMemcpyDeviceToHost);
+            
+            obs_data = &host_obs;
+            progress_data = &host_progress;
+#endif
+        } else {
+            // For CPU, direct access
+            obs_data = ((const SelfObservation*)self_obs.devicePtr()) + idx;
+            progress_data = ((const float*)progress.devicePtr()) + idx;
+        }
+        
+        // Print trajectory
+        printf("Step %4u: World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f\n",
+               impl_->stepCount++,
+               impl_->trackWorldIdx,
+               impl_->trackAgentIdx,
+               obs_data->globalX,
+               obs_data->globalY,
+               obs_data->globalZ,
+               obs_data->theta * 180.0f / M_PI,
+               *progress_data);
+    }
 }
 
 // ============================================================================
@@ -789,6 +848,23 @@ void Manager::setAction(int32_t world_idx,
     } else {
         *action_ptr = action;
     }
+}
+
+void Manager::enableAgentTrajectory(int32_t world_idx, int32_t agent_idx)
+{
+    impl_->enableTrajectoryTracking = true;
+    impl_->trackWorldIdx = world_idx;
+    impl_->trackAgentIdx = agent_idx;
+    impl_->stepCount = 0;
+    printf("Trajectory tracking enabled for World %d, Agent %d\n", world_idx, agent_idx);
+}
+
+void Manager::disableAgentTrajectory()
+{
+    impl_->enableTrajectoryTracking = false;
+    impl_->trackWorldIdx = -1;
+    impl_->trackAgentIdx = -1;
+    printf("Trajectory tracking disabled\n");
 }
 
 // [BOILERPLATE] Expose render manager for visualization tools

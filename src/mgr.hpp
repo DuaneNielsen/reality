@@ -53,6 +53,10 @@ public:
                    int32_t move_amount,
                    int32_t move_angle,
                    int32_t rotate);
+    
+    // Trajectory tracking for debugging
+    void enableAgentTrajectory(int32_t world_idx, int32_t agent_idx);
+    void disableAgentTrajectory();
 
     madrona::render::RenderManager & getRenderManager();
 
