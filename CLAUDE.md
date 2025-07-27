@@ -147,6 +147,10 @@ are in the docs folder when given a task, or creating a plan, if the name of the
 - when proposing new documents, always add them to the docs folder
 - when the user asks save a plan to a file it should be written to docs\plan_dump
 
+# Scratch files
+
+When creating a python file that we don't want to keep in the repo, but just want to use for the purposes of a one-time test or to study/understand code better.  Create it in the ./scratch folder. 
+
 # Code Classification System
 
 The codebase uses a three-tier classification system to help developers understand what needs to be modified:
