@@ -379,7 +379,7 @@ def test_trajectory_logging_methods(cpu_manager):
     assert hasattr(mgr, 'enable_trajectory_logging'), "SimManager should have enable_trajectory_logging method"
     assert hasattr(mgr, 'disable_trajectory_logging'), "SimManager should have disable_trajectory_logging method"
     
-    # Test enabling trajectory logging
+    # Test enabling trajectory logging with keyword arguments
     # This should not raise an exception
     mgr.enable_trajectory_logging(world_idx=0, agent_idx=0)
     
@@ -391,9 +391,15 @@ def test_trajectory_logging_methods(cpu_manager):
     # This should not raise an exception
     mgr.disable_trajectory_logging()
     
-    # Run a few more steps with logging disabled
-    for _ in range(5):
-        mgr.step()
+    # Test enabling with positional arguments
+    mgr.enable_trajectory_logging(0, 0)
+    mgr.step()
+    mgr.disable_trajectory_logging()
+    
+    # Test with mixed positional and keyword arguments
+    mgr.enable_trajectory_logging(0, agent_idx=0)
+    mgr.step()
+    mgr.disable_trajectory_logging()
     
     # Test enabling for different agent (if multi-agent)
     if madrona_escape_room.NUM_AGENTS > 1:
@@ -449,3 +455,66 @@ def test_trajectory_logging_functionality(cpu_manager):
     
     # If we get here without crashes, the test passes
     assert True, "Trajectory logging worked without errors"
+
+
+def test_trajectory_logging_to_file(cpu_manager, tmp_path):
+    """Test that trajectory logging to file works correctly."""
+    mgr = cpu_manager
+    
+    # Create a temporary file path
+    log_file = tmp_path / "trajectory_log.txt"
+    
+    # Test 1: Enable logging to file with keyword arguments
+    mgr.enable_trajectory_logging(world_idx=0, agent_idx=0, filename=str(log_file))
+    
+    # Run some steps
+    for _ in range(5):
+        mgr.step()
+    
+    # Disable logging
+    mgr.disable_trajectory_logging()
+    
+    # Verify file exists and has content
+    assert log_file.exists(), "Log file should exist"
+    
+    # Read and verify content
+    content = log_file.read_text()
+    lines = content.strip().split('\n')
+    
+    # Should have 5 lines (one per step)
+    assert len(lines) == 5, f"Expected 5 lines, got {len(lines)}"
+    
+    # Verify format of each line
+    for i, line in enumerate(lines):
+        assert f"Step {i:4d}:" in line, f"Line should contain step number {i}"
+        assert "World 0 Agent 0:" in line, "Line should specify world and agent"
+        assert "pos=" in line, "Line should contain position"
+        assert "rot=" in line, "Line should contain rotation"
+        assert "progress=" in line, "Line should contain progress"
+    
+    # Test 2: Enable logging with positional arguments
+    log_file2 = tmp_path / "trajectory_log2.txt"
+    mgr.enable_trajectory_logging(0, 0, str(log_file2))
+    mgr.step()
+    mgr.disable_trajectory_logging()
+    
+    # Verify second file was created
+    assert log_file2.exists(), "Second log file should exist"
+    content2 = log_file2.read_text()
+    assert "Step    0:" in content2, "Should have logged step 0"
+    
+    # Test 3: Enable logging without filename (stdout)
+    mgr.enable_trajectory_logging(0, 0)  # No filename - should log to stdout
+    mgr.step()
+    mgr.disable_trajectory_logging()
+    
+    # Test 4: Test appending to existing file by enabling again
+    mgr.enable_trajectory_logging(world_idx=0, agent_idx=0, filename=str(log_file))
+    mgr.step()
+    mgr.disable_trajectory_logging()
+    
+    # File should be overwritten (not appended), so only 1 line
+    new_content = log_file.read_text()
+    new_lines = new_content.strip().split('\n')
+    assert len(new_lines) == 1, "File should be overwritten, not appended"
+    assert "Step    0:" in new_lines[0], "Should restart at step 0"

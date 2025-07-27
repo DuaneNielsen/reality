@@ -22,7 +22,7 @@ mgr = madrona_escape_room.SimManager(
     auto_reset=True
 )
 
-# Enable logging for world 0, agent 0
+# Enable logging for world 0, agent 0 to stdout
 mgr.enable_trajectory_logging(world_idx=0, agent_idx=0)
 
 # Run simulation - trajectory will be printed to stdout
@@ -30,10 +30,31 @@ for i in range(100):
     mgr.step()
 ```
 
+### Logging to File
+
+You can optionally log trajectories to a file instead of stdout:
+
+```python
+# Enable logging to a specific file
+mgr.enable_trajectory_logging(world_idx=0, agent_idx=0, filename="agent_trajectory.txt")
+
+# Run simulation - trajectory will be written to file
+for i in range(100):
+    mgr.step()
+
+# Always disable logging when done to close the file
+mgr.disable_trajectory_logging()
+```
+
+**Important notes about file logging:**
+- The file is opened in write mode ('w'), overwriting any existing content
+- Always call `disable_trajectory_logging()` to properly close the file
+- If the file cannot be opened, an error is printed and logging falls back to stdout
+
 ### Disabling Trajectory Logging
 
 ```python
-# Disable trajectory logging
+# Disable trajectory logging (closes file if logging to file)
 mgr.disable_trajectory_logging()
 ```
 
@@ -104,12 +125,18 @@ mgr.disable_trajectory_logging()
 
 ## Performance Considerations
 
-- Trajectory logging prints to stdout at every step, which can impact performance
+- Trajectory logging writes output at every step, which can impact performance
 - Use sparingly during training - primarily for debugging
-- Consider redirecting output to a file for analysis:
-  ```bash
-  python my_script.py > trajectory_log.txt
-  ```
+- Two options for capturing output:
+  1. **Direct file logging** (recommended):
+     ```python
+     mgr.enable_trajectory_logging(0, 0, filename="trajectory.txt")
+     ```
+  2. **Shell redirection** (for stdout logging):
+     ```bash
+     python my_script.py > trajectory_log.txt
+     ```
+- File logging is more efficient than stdout redirection in most cases
 
 ## Integration with Other Tools
 
@@ -129,11 +156,6 @@ Trajectory logging works in headless mode:
 ```python
 import madrona_escape_room
 import matplotlib.pyplot as plt
-import sys
-
-# Redirect stdout to capture trajectory
-from io import StringIO
-import contextlib
 
 # Create manager
 mgr = madrona_escape_room.SimManager(
@@ -144,19 +166,19 @@ mgr = madrona_escape_room.SimManager(
     auto_reset=True
 )
 
-# Capture trajectory data
+# Log trajectory to file
+trajectory_file = "agent_trajectory.log"
+mgr.enable_trajectory_logging(0, 0, filename=trajectory_file)
+
+for _ in range(200):
+    mgr.step()
+
+mgr.disable_trajectory_logging()
+
+# Parse trajectory data from file
 trajectory_data = []
-with contextlib.redirect_stdout(StringIO()) as output:
-    mgr.enable_trajectory_logging(0, 0)
-    
-    for _ in range(200):
-        mgr.step()
-    
-    mgr.disable_trajectory_logging()
-    
-    # Parse output
-    lines = output.getvalue().strip().split('\n')
-    for line in lines:
+with open(trajectory_file, 'r') as f:
+    for line in f:
         if 'Step' in line:
             # Extract position data
             parts = line.split()
@@ -198,5 +220,7 @@ if trajectory_data:
 
 - Only one agent can be tracked at a time
 - Logging state is not preserved across manager destruction
-- Output goes to stdout and cannot be redirected programmatically (use shell redirection)
+- Output can go to either stdout or a specified file
+- When logging to file, the file is overwritten each time logging is enabled
 - The step counter resets when logging is re-enabled
+- Always call `disable_trajectory_logging()` to ensure files are properly closed

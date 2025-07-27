@@ -71,6 +71,8 @@ sim = SimManager(
 - `steps_remaining_tensor()` - Access episode time remaining
 - `rgb_tensor()` - Access RGB render output (if batch renderer enabled)
 - `depth_tensor()` - Access depth render output (if batch renderer enabled)
+- `enable_trajectory_logging(world_idx, agent_idx, filename=None)` - Enable position logging for debugging
+- `disable_trajectory_logging()` - Disable position logging
 
 ### Converting to PyTorch Tensors
 
@@ -134,6 +136,85 @@ for step in range(num_steps):
 3. **Zero-Copy**: Tensors provide direct access to simulation memory
 4. **Thread Safety**: SimManager is not thread-safe - use one per thread
 5. **State Persistence**: Manager maintains state between calls
+
+## Advanced Binding Patterns
+
+### Optional String Parameters
+
+When creating Python bindings for C++ functions with optional string parameters, special care is needed:
+
+```cpp
+// C++ function with optional string parameter
+void myFunction(int required, const char* optional = nullptr);
+
+// INCORRECT: Won't work with keyword arguments
+.def("my_function", &myFunction, 
+     nb::arg("required"), nb::arg("optional") = nb::none())
+
+// CORRECT: Use wrapper with std::optional<std::string>
+.def("my_function", 
+     [](MyClass& self, int required, std::optional<std::string> optional) {
+         if (optional.has_value()) {
+             self.myFunction(required, optional->c_str());
+         } else {
+             self.myFunction(required, nullptr);
+         }
+     },
+     nb::arg("required"), nb::arg("optional") = nb::none())
+```
+
+**Key learnings:**
+- nanobind cannot bind `std::optional<T*>` where T has a special type caster (like `const char*`)
+- Use `std::optional<std::string>` in the binding layer and convert to `const char*`
+- Always include `<nanobind/stl/string.h>` and `<nanobind/stl/optional.h>` for STL type support
+
+### Keyword Arguments Support
+
+To ensure functions work with both positional and keyword arguments:
+
+1. **All parameters must be annotated** when using `nb::arg()`
+2. **Use consistent naming** between C++ parameter names and Python argument names
+3. **Test both calling styles** in your test suite:
+   ```python
+   # Both should work
+   mgr.my_function(42, "value")                    # Positional
+   mgr.my_function(required=42, optional="value")  # Keyword
+   mgr.my_function(42, optional="value")           # Mixed
+   ```
+
+### Common Pitfalls
+
+1. **Missing STL headers**: Always include the appropriate nanobind STL headers for type conversion
+2. **Type caster conflicts**: Some types (like `const char*`) have special handling that conflicts with `std::optional`
+3. **Partial annotations**: If you use `nb::arg()` for one parameter, you must use it for all parameters
+4. **C++ function signatures**: When using `std::optional` in C++, remember to include `<optional>` in the header file
+
+### Example: Trajectory Logging Implementation
+
+Here's how the trajectory logging feature was implemented with optional file parameter:
+
+```cpp
+// mgr.hpp
+#include <optional>
+void enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, 
+                           std::optional<const char*> filename = std::nullopt);
+
+// bindings.cpp
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
+
+.def("enable_trajectory_logging", 
+     [](Manager &mgr, int32_t world_idx, int32_t agent_idx, 
+        std::optional<std::string> filename) {
+         if (filename.has_value()) {
+             mgr.enableTrajectoryLogging(world_idx, agent_idx, filename->c_str());
+         } else {
+             mgr.enableTrajectoryLogging(world_idx, agent_idx, std::nullopt);
+         }
+     },
+     nb::arg("world_idx"), nb::arg("agent_idx"), nb::arg("filename") = nb::none(),
+     "Enable trajectory logging for a specific agent")
+```
 
 ## Verified Functionality
 

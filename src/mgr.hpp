@@ -1,4 +1,5 @@
 #include <memory>
+#include <optional>
 
 #include <madrona/py/utils.hpp>
 #include <madrona/exec_mode.hpp>
@@ -55,7 +56,7 @@ public:
                    int32_t rotate);
     
     // Trajectory logging for debugging
-    void enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx);
+    void enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std::optional<const char*> filename = std::nullopt);
     void disableTrajectoryLogging();
 
     madrona::render::RenderManager & getRenderManager();

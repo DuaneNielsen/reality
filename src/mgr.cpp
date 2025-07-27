@@ -123,6 +123,7 @@ struct Manager::Impl {
     int32_t trackWorldIdx = -1;
     int32_t trackAgentIdx = -1;
     uint32_t stepCount = 0;
+    FILE* trajectoryLogFile = nullptr;
 
     inline Impl(const Manager::Config &mgr_cfg,
                 PhysicsLoader &&phys_loader,
@@ -671,16 +672,18 @@ void Manager::step()
             progress_data = ((const float*)progress.devicePtr()) + idx;
         }
         
-        // Log trajectory
-        printf("Step %4u: World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f\n",
-               impl_->stepCount++,
-               impl_->trackWorldIdx,
-               impl_->trackAgentIdx,
-               obs_data->globalX,
-               obs_data->globalY,
-               obs_data->globalZ,
-               obs_data->theta * 180.0f / M_PI,
-               *progress_data);
+        // Log trajectory to file or stdout
+        FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
+        fprintf(output, "Step %4u: World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f\n",
+                impl_->stepCount++,
+                impl_->trackWorldIdx,
+                impl_->trackAgentIdx,
+                obs_data->globalX,
+                obs_data->globalY,
+                obs_data->globalZ,
+                obs_data->theta * 180.0f / M_PI,
+                *progress_data);
+        fflush(output);  // Ensure output is written immediately
     }
 }
 
@@ -851,7 +854,7 @@ void Manager::setAction(int32_t world_idx,
     }
 }
 
-void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx)
+void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std::optional<const char*> filename)
 {
     // Validate world index
     if (world_idx < 0 || world_idx >= (int32_t)impl_->cfg.numWorlds) {
@@ -867,11 +870,30 @@ void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx)
         return;
     }
     
+    // Close existing file if open
+    if (impl_->trajectoryLogFile != nullptr && impl_->trajectoryLogFile != stdout) {
+        fclose(impl_->trajectoryLogFile);
+        impl_->trajectoryLogFile = nullptr;
+    }
+    
+    // Open new file if filename provided
+    if (filename.has_value() && filename.value() != nullptr) {
+        impl_->trajectoryLogFile = fopen(filename.value(), "w");
+        if (impl_->trajectoryLogFile == nullptr) {
+            fprintf(stderr, "ERROR: Could not open file '%s' for trajectory logging\n", filename.value());
+            return;
+        }
+        printf("Trajectory logging enabled for World %d, Agent %d to file: %s\n", 
+               world_idx, agent_idx, filename.value());
+    } else {
+        impl_->trajectoryLogFile = stdout;
+        printf("Trajectory logging enabled for World %d, Agent %d\n", world_idx, agent_idx);
+    }
+    
     impl_->enableTrajectoryLogging = true;
     impl_->trackWorldIdx = world_idx;
     impl_->trackAgentIdx = agent_idx;
     impl_->stepCount = 0;
-    printf("Trajectory logging enabled for World %d, Agent %d\n", world_idx, agent_idx);
 }
 
 void Manager::disableTrajectoryLogging()
@@ -879,6 +901,13 @@ void Manager::disableTrajectoryLogging()
     impl_->enableTrajectoryLogging = false;
     impl_->trackWorldIdx = -1;
     impl_->trackAgentIdx = -1;
+    
+    // Close file if it's not stdout
+    if (impl_->trajectoryLogFile != nullptr && impl_->trajectoryLogFile != stdout) {
+        fclose(impl_->trajectoryLogFile);
+    }
+    impl_->trajectoryLogFile = nullptr;
+    
     printf("Trajectory logging disabled\n");
 }
 

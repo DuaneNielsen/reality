@@ -4,6 +4,8 @@
 
 #include <madrona/macros.hpp>
 #include <madrona/py/bindings.hpp>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
 
 namespace nb = nanobind;
 
@@ -86,9 +88,16 @@ NB_MODULE(madrona_escape_room, m) {
         .def("progress_tensor", &Manager::progressTensor)
         .def("rgb_tensor", &Manager::rgbTensor)
         .def("depth_tensor", &Manager::depthTensor)
-        .def("enable_trajectory_logging", &Manager::enableTrajectoryLogging,
-             nb::arg("world_idx"), nb::arg("agent_idx"),
-             "Enable trajectory logging for a specific agent. Logs position and progress to stdout each step.")
+        .def("enable_trajectory_logging", 
+             [](Manager &mgr, int32_t world_idx, int32_t agent_idx, std::optional<std::string> filename) {
+                 if (filename.has_value()) {
+                     mgr.enableTrajectoryLogging(world_idx, agent_idx, filename->c_str());
+                 } else {
+                     mgr.enableTrajectoryLogging(world_idx, agent_idx, std::nullopt);
+                 }
+             },
+             nb::arg("world_idx"), nb::arg("agent_idx"), nb::arg("filename") = nb::none(),
+             "Enable trajectory logging for a specific agent. Logs position and progress to file if filename provided, otherwise to stdout.")
         .def("disable_trajectory_logging", &Manager::disableTrajectoryLogging,
              "Disable trajectory logging.")
     ;

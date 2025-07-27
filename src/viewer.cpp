@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
     
     // Enable trajectory tracking if requested
     if (track_trajectory) {
-        mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx);
+        mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx, std::nullopt);
     }
     
     // Print help for controls
@@ -269,7 +269,7 @@ int main(int argc, char *argv[])
                 track_trajectory = false;
                 printf("Trajectory logging disabled\n");
             } else {
-                mgr.enableTrajectoryLogging(world_idx, 0); // Log agent 0 by default
+                mgr.enableTrajectoryLogging(world_idx, 0, std::nullopt); // Log agent 0 by default
                 track_trajectory = true;
                 track_world_idx = world_idx;
                 track_agent_idx = 0;
