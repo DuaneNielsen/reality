@@ -193,40 +193,56 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Only 1 agent per world now
-    HeapArray<int32_t> action_store(
-        num_worlds * num_steps * 3);
-
     bool replay_mode = !replay_file.empty();
+    uint32_t replay_seed = rand_seed;
     
-    // Handle replay mode
+    // Handle replay mode - load metadata first
     if (replay_mode) {
-        std::ifstream replay_in(replay_file, std::ios::binary);
-        if (!replay_in.is_open()) {
-            std::cerr << "Error: Failed to open replay file: " << replay_file << "\n";
+        // Temporarily create a manager to load replay and get metadata
+        Manager temp_mgr({
+            .execMode = exec_mode,
+            .gpuID = 0,
+            .numWorlds = 1,  // Temporary value
+            .randSeed = 5,
+            .autoReset = false,
+        });
+        
+        if (!temp_mgr.loadReplay(replay_file)) {
+            std::cerr << "Error: Failed to load replay file: " << replay_file << "\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        // Check file size matches expected size
-        replay_in.seekg(0, std::ios::end);
-        size_t file_size = replay_in.tellg();
-        size_t expected_size = num_worlds * num_steps * 3 * sizeof(int32_t);
-        
-        if (file_size != expected_size) {
-            std::cerr << "Error: Replay file size mismatch. Expected " << expected_size 
-                      << " bytes, got " << file_size << " bytes\n";
-            std::cerr << "Make sure num_worlds and num_steps match the recording\n";
+        const auto* replay_data = temp_mgr.getReplayData();
+        if (!replay_data) {
+            std::cerr << "Error: Failed to get replay data\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        replay_in.seekg(0, std::ios::beg);
-        replay_in.read((char*)action_store.data(), file_size);
-        replay_in.close();
+        // Update parameters from replay metadata
+        if (num_worlds != replay_data->metadata.num_worlds) {
+            std::cerr << "Warning: Replay was recorded with " << replay_data->metadata.num_worlds 
+                      << " worlds, but headless is using " << num_worlds << " worlds.\n";
+            std::cerr << "Setting num_worlds to match replay file.\n";
+            num_worlds = replay_data->metadata.num_worlds;
+        }
+        
+        if (num_steps != replay_data->metadata.num_steps) {
+            std::cerr << "Warning: Replay was recorded with " << replay_data->metadata.num_steps
+                      << " steps, but headless is using " << num_steps << " steps.\n";
+            std::cerr << "Setting num_steps to match replay file.\n";
+            num_steps = replay_data->metadata.num_steps;
+        }
+        
+        replay_seed = replay_data->metadata.seed;
+        std::cout << "Using seed " << replay_seed << " from replay file\n";
     }
+    
+    // Only needed for random actions now
+    HeapArray<int32_t> action_store(rand_actions ? (num_worlds * num_steps * 3) : 0);
 
     printf("Executing %lu Steps x %lu Worlds (%s)\n",
            num_steps, num_worlds,
@@ -236,10 +252,20 @@ int main(int argc, char *argv[])
         .execMode = exec_mode,
         .gpuID = 0,
         .numWorlds = (uint32_t)num_worlds,
-        .randSeed = rand_seed,
+        .randSeed = replay_mode ? replay_seed : rand_seed,
         .autoReset = false,
         .enableBatchRenderer = false,
     });
+    
+    // Load replay if available
+    if (replay_mode) {
+        if (!mgr.loadReplay(replay_file)) {
+            std::cerr << "Error: Failed to load replay into manager\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
+        }
+    }
 
     if (rand_actions || replay_mode) {
         std::mt19937 rand_gen(rand_seed);
@@ -272,9 +298,16 @@ int main(int argc, char *argv[])
 
     auto start = std::chrono::system_clock::now();
     for (uint64_t i = 0; i < num_steps; i++) {
-        if (rand_actions || replay_mode) {
+        if (replay_mode) {
+            // Use Manager's replay functionality
+            bool finished = mgr.replayStep();
+            if (finished) {
+                printf("Replay finished at step %lu\n", i);
+                break;
+            }
+        } else if (rand_actions) {
+            // Set random actions
             for (uint64_t j = 0; j < num_worlds; j++) {
-                // Only one agent per world in this version
                 uint64_t base_idx = 3 * (i * num_worlds + j);
                 mgr.setAction(j,
                               action_store[base_idx],
