@@ -30,18 +30,33 @@ static HeapArray<int32_t> readReplayLog(const char *path)
 
 static void printUsage(const char *program_name)
 {
-    fprintf(stderr, "Usage: %s [num_worlds] [--cpu|--cuda] [options]\n", program_name);
-    fprintf(stderr, "\nOptions:\n");
-    fprintf(stderr, "  --track <world_id> <agent_id>  Enable trajectory tracking for specific agent\n");
-    fprintf(stderr, "  --record <path>                Record actions to file (press SPACE to start)\n");
-    fprintf(stderr, "  --seed <value>                 Set random seed (default: 5)\n");
-    fprintf(stderr, "  <replay_file>                  Path to action file for replay\n");
-    fprintf(stderr, "\nExamples:\n");
-    fprintf(stderr, "  %s 4 --cpu                     # 4 worlds on CPU\n", program_name);
-    fprintf(stderr, "  %s 1 --cuda --track 0 0        # Track world 0, agent 0 on GPU\n", program_name);
-    fprintf(stderr, "  %s 2 --cpu --record demo.bin   # Record 2 worlds to demo.bin\n", program_name);
-    fprintf(stderr, "  %s 2 --cpu demo.bin            # Replay demo.bin with 2 worlds\n", program_name);
-    fprintf(stderr, "  %s 4 --cpu --seed 42           # 4 worlds with seed 42\n", program_name);
+    printf("Madrona Escape Room - Interactive Viewer\n");
+    printf("3D visualization and control of the simulation\n\n");
+    printf("Usage: %s [num_worlds] [--cpu|--cuda] [options]\n", program_name);
+    printf("\nArguments:\n");
+    printf("  num_worlds     Number of parallel worlds (default: 1)\n");
+    printf("  --cpu          Use CPU execution mode (default)\n");
+    printf("  --cuda         Use CUDA/GPU execution mode\n");
+    printf("\nOptions:\n");
+    printf("  --help, -h                     Show this help message\n");
+    printf("  --track <world_id> <agent_id>  Enable trajectory tracking for specific agent\n");
+    printf("  --record <path>                Record actions to file (press SPACE to start)\n");
+    printf("  --seed <value>                 Set random seed (default: 5)\n");
+    printf("  <replay_file>                  Path to action file for replay\n");
+    printf("\nKeyboard Controls:\n");
+    printf("  R          Reset current world\n");
+    printf("  T          Toggle trajectory tracking for current world\n");
+    printf("  SPACE      Start recording (when --record is used)\n");
+    printf("  WASD       Move agent (when in agent view)\n");
+    printf("  Q/E        Rotate agent left/right\n");
+    printf("  Shift      Move faster\n");
+    printf("\nExamples:\n");
+    printf("  %s                             # Single world on CPU\n", program_name);
+    printf("  %s 4 --cpu                     # 4 worlds on CPU\n", program_name);
+    printf("  %s 1 --cuda --track 0 0        # Track world 0, agent 0 on GPU\n", program_name);
+    printf("  %s 2 --cpu --record demo.bin   # Record 2 worlds to demo.bin\n", program_name);
+    printf("  %s 2 --cpu demo.bin            # Replay demo.bin with 2 worlds\n", program_name);
+    printf("  %s 4 --cpu --seed 42           # 4 worlds with seed 42\n", program_name);
 }
 
 int main(int argc, char *argv[])
@@ -49,6 +64,14 @@ int main(int argc, char *argv[])
     using namespace madEscape;
 
     constexpr int64_t num_views = consts::numAgents;
+
+    // Check for help flag
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            printUsage(argv[0]);
+            return 0;
+        }
+    }
 
     // Read command line arguments
     uint32_t num_worlds = 1;

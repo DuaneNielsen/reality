@@ -27,8 +27,32 @@ int main(int argc, char *argv[])
 {
     using namespace madEscape;
 
+    // Check for help flag
+    if (argc >= 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
+        printf("Madrona Escape Room - Headless Mode\n");
+        printf("Run simulation without graphics for benchmarking and testing\n\n");
+        printf("Usage: %s TYPE NUM_WORLDS NUM_STEPS [OPTIONS]\n\n", argv[0]);
+        printf("Required Arguments:\n");
+        printf("  TYPE         Execution mode: CPU or CUDA\n");
+        printf("  NUM_WORLDS   Number of parallel worlds to simulate\n");
+        printf("  NUM_STEPS    Number of simulation steps to run\n\n");
+        printf("Options:\n");
+        printf("  --help, -h                        Show this help message\n");
+        printf("  --rand-actions                    Generate random actions for benchmarking\n");
+        printf("  --replay <file>                   Replay actions from file\n");
+        printf("  --seed <value>                    Set random seed (default: 5)\n");
+        printf("  --track-agent WORLD_ID AGENT_ID   Track specific agent trajectory\n");
+        printf("  --track-file <file>               Save trajectory to file (requires --track-agent)\n\n");
+        printf("Examples:\n");
+        printf("  %s CPU 1 1000                     # Basic CPU run\n", argv[0]);
+        printf("  %s CUDA 8192 1000 --rand-actions  # GPU benchmark\n", argv[0]);
+        printf("  %s CPU 100 1000 --track-agent 5 0 # Track agent 0 in world 5\n", argv[0]);
+        return 0;
+    }
+
     if (argc < 4) {
         fprintf(stderr, "%s TYPE NUM_WORLDS NUM_STEPS [--rand-actions] [--replay <file>] [--seed <value>] [--track-agent WORLD_ID AGENT_ID [--track-file <file>]]\n", argv[0]);
+        fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
         return -1;
     }
     std::string type(argv[1]);
