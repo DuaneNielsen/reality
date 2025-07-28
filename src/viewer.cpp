@@ -5,6 +5,7 @@
 #include "sim.hpp"
 #include "mgr.hpp"
 #include "types.hpp"
+#include "replay_metadata.hpp"
 
 #include <optionparser.h>
 
@@ -13,22 +14,46 @@
 #include <string>
 #include <cstring>
 #include <iostream>
+#include <chrono>
 
 using namespace madrona;
 using namespace madrona::viz;
 
-static HeapArray<int32_t> readReplayLog(const char *path)
+struct ReplayData {
+    escape_room::ReplayMetadata metadata;
+    HeapArray<int32_t> actions;
+};
+
+static ReplayData readReplayLog(const char *path)
 {
     std::ifstream replay_log(path, std::ios::binary);
-    replay_log.seekg(0, std::ios::end);
-    int64_t size = replay_log.tellg();
-    replay_log.seekg(0, std::ios::beg);
-
-    HeapArray<int32_t> log(size / sizeof(int32_t));
-
-    replay_log.read((char *)log.data(), (size / sizeof(int32_t)) * sizeof(int32_t));
-
-    return log;
+    if (!replay_log.is_open()) {
+        std::cerr << "Error: Failed to open replay file: " << path << "\n";
+        return {escape_room::ReplayMetadata::createDefault(), HeapArray<int32_t>(0)};
+    }
+    
+    // Read metadata header
+    escape_room::ReplayMetadata metadata;
+    replay_log.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
+    
+    // Validate metadata
+    if (!metadata.isValid()) {
+        std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
+                  << std::hex << escape_room::REPLAY_MAGIC << ", got: 0x" 
+                  << metadata.magic << std::dec << "\n";
+        return {escape_room::ReplayMetadata::createDefault(), HeapArray<int32_t>(0)};
+    }
+    
+    // Read actions after metadata
+    int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
+    HeapArray<int32_t> log(actions_size / sizeof(int32_t));
+    replay_log.read((char *)log.data(), actions_size);
+    
+    std::cout << "Loaded replay: " << metadata.sim_name << " v" << metadata.version 
+              << " - " << metadata.num_worlds << " worlds, " << metadata.num_steps 
+              << " steps, seed: " << metadata.seed << "\n";
+    
+    return {metadata, std::move(log)};
 }
 
 namespace ArgChecker {
@@ -80,7 +105,6 @@ int main(int argc, char *argv[])
 {
     using namespace madEscape;
 
-    constexpr int64_t num_views = consts::numAgents;
 
     // Parse arguments
     argc-=(argc>0); argv+=(argc>0); // skip program name argv[0] if present
@@ -210,21 +234,29 @@ int main(int argc, char *argv[])
     }
 
     // Setup replay
-    auto replay_log = Optional<HeapArray<int32_t>>::none();
+    auto replay_data = Optional<ReplayData>::none();
     uint32_t cur_replay_step = 0;
     uint32_t num_replay_steps = 0;
     if (!replay_path.empty()) {
-        replay_log = readReplayLog(replay_path.c_str());
-        if (num_worlds > 0 && num_views > 0) {
-            num_replay_steps = replay_log->size() / (num_worlds * num_views * 3);
+        auto loaded_data = readReplayLog(replay_path.c_str());
+        if (loaded_data.actions.size() > 0) {
+            // Validate that num_worlds matches
+            if (num_worlds != loaded_data.metadata.num_worlds) {
+                std::cerr << "Warning: Replay was recorded with " << loaded_data.metadata.num_worlds 
+                          << " worlds, but viewer is using " << num_worlds << " worlds.\n";
+                std::cerr << "Setting num_worlds to match replay file.\n";
+                num_worlds = loaded_data.metadata.num_worlds;
+            }
+            num_replay_steps = loaded_data.metadata.num_steps;
+            replay_data = std::move(loaded_data);
         }
     }
     
     // Setup recording
     std::ofstream recording_file;
     std::vector<int32_t> frame_actions;
+    escape_room::ReplayMetadata recording_metadata;
     uint32_t recorded_frames = 0;
-    bool recording_started = false;
     bool is_recording = !record_path.empty();
     
     if (is_recording) {
@@ -235,6 +267,17 @@ int main(int argc, char *argv[])
             delete[] buffer;
             return 1;
         }
+        
+        // Prepare metadata
+        recording_metadata = escape_room::ReplayMetadata::createDefault();
+        recording_metadata.num_worlds = num_worlds;
+        recording_metadata.num_agents_per_world = 1; // Single agent per world in escape room
+        recording_metadata.seed = rand_seed;
+        recording_metadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+        
+        // Write metadata header (will update num_steps when closing)
+        recording_file.write(reinterpret_cast<const char*>(&recording_metadata), sizeof(recording_metadata));
+        
         frame_actions.resize(num_worlds * 3);
         // Initialize with default actions
         for (uint32_t i = 0; i < num_worlds; i++) {
@@ -242,7 +285,7 @@ int main(int argc, char *argv[])
             frame_actions[i * 3 + 1] = 0;  // move_angle = 0 (forward)
             frame_actions[i * 3 + 2] = 2;  // rotate = 2 (no rotation)
         }
-        std::cout << "Recording mode enabled. Press SPACE to start recording to: " << record_path << "\n";
+        std::cout << "Recording to: " << record_path << "\n";
     }
 
     bool enable_batch_renderer =
@@ -256,13 +299,20 @@ int main(int argc, char *argv[])
     WindowHandle window = wm.makeWindow("Escape Room", 2730, 1536);
     render::GPUHandle render_gpu = wm.initGPU(0, { window.get() });
 
+    // Use seed from replay metadata if replaying
+    uint32_t sim_seed = rand_seed;
+    if (replay_data.has_value()) {
+        sim_seed = replay_data->metadata.seed;
+        std::cout << "Using seed " << sim_seed << " from replay file\n";
+    }
+
     // Create the simulation manager
     Manager mgr({
         .execMode = exec_mode,
         .gpuID = 0,
         .numWorlds = num_worlds,
-        .randSeed = rand_seed,
-        .autoReset = replay_log.has_value() || is_recording,
+        .randSeed = sim_seed,
+        .autoReset = replay_data.has_value() || is_recording,
         .enableBatchRenderer = enable_batch_renderer,
         .extRenderAPI = wm.gpuAPIManager().backend(),
         .extRenderDev = render_gpu.device(),
@@ -277,9 +327,6 @@ int main(int argc, char *argv[])
     std::cout << "\nViewer Controls:\n";
     std::cout << "  R: Reset current world\n";
     std::cout << "  T: Toggle trajectory tracking for current world\n";
-    if (is_recording) {
-        std::cout << "  SPACE: Start recording\n";
-    }
     std::cout << "\n";
 
     float camera_move_speed = 10.f;
@@ -303,18 +350,19 @@ int main(int argc, char *argv[])
 
     // Replay step
     auto replayStep = [&]() {
-        if (cur_replay_step == num_replay_steps - 1) {
+        if (!replay_data.has_value() || cur_replay_step == num_replay_steps - 1) {
             return true;
         }
 
         printf("Step: %u\n", cur_replay_step);
 
+        const auto& actions = replay_data->actions;
         for (uint32_t i = 0; i < num_worlds; i++) {
             uint32_t base_idx = 3 * (cur_replay_step * num_worlds + i);
 
-            int32_t move_amount = (*replay_log)[base_idx];
-            int32_t move_angle = (*replay_log)[base_idx + 1];
-            int32_t turn = (*replay_log)[base_idx + 2];
+            int32_t move_amount = actions[base_idx];
+            int32_t move_angle = actions[base_idx + 1];
+            int32_t turn = actions[base_idx + 2];
 
             printf("%d: %d %d %d\n",
                    i, move_amount, move_angle, turn);
@@ -351,17 +399,9 @@ int main(int argc, char *argv[])
 
     // Main loop for the viewer viewer
     viewer.loop(
-    [&mgr, &is_recording, &recording_started, &track_trajectory, &track_world_idx, &track_agent_idx](CountT world_idx, const Viewer::UserInput &input)
+    [&mgr, &track_trajectory, &track_world_idx, &track_agent_idx](CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
-        
-        // Check for Space key to start recording
-        if (is_recording && !recording_started && input.keyHit(Key::Space)) {
-            recording_started = true;
-            printf("Recording started!\n");
-            // Optionally reset the world for a clean start
-            mgr.triggerReset(world_idx);
-        }
         
         if (input.keyHit(Key::R)) {
             mgr.triggerReset(world_idx);
@@ -382,7 +422,7 @@ int main(int argc, char *argv[])
             }
         }
     },
-    [&mgr, &is_recording, &recording_started, &frame_actions](CountT world_idx, CountT,
+    [&mgr, &is_recording, &frame_actions](CountT world_idx, CountT,
            const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
@@ -446,15 +486,15 @@ int main(int argc, char *argv[])
 
         mgr.setAction(world_idx, move_amount, move_angle, r);
         
-        // Record the action if recording has started
-        if (is_recording && recording_started) {
+        // Record the action if recording
+        if (is_recording) {
             uint32_t base_idx = world_idx * 3;
             frame_actions[base_idx] = move_amount;
             frame_actions[base_idx + 1] = move_angle;
             frame_actions[base_idx + 2] = r;
         }
     }, [&]() {
-        if (replay_log.has_value()) {
+        if (replay_data.has_value()) {
             bool replay_finished = replayStep();
 
             if (replay_finished) {
@@ -462,8 +502,8 @@ int main(int argc, char *argv[])
             }
         }
         
-        // Write frame actions if recording has started
-        if (is_recording && recording_started) {
+        // Write frame actions if recording
+        if (is_recording) {
             recording_file.write(reinterpret_cast<const char*>(frame_actions.data()), 
                                frame_actions.size() * sizeof(int32_t));
             recorded_frames++;
@@ -487,12 +527,20 @@ int main(int argc, char *argv[])
     
     // Cleanup recording
     if (is_recording) {
-        recording_file.close();
         if (recorded_frames > 0) {
+            // Update metadata with actual number of steps
+            recording_metadata.num_steps = recorded_frames;
+            
+            // Seek back to beginning and rewrite the metadata
+            recording_file.seekp(0, std::ios::beg);
+            recording_file.write(reinterpret_cast<const char*>(&recording_metadata), sizeof(recording_metadata));
+            
             printf("Recording complete: %u frames saved to %s\n", recorded_frames, record_path.c_str());
+            printf("Metadata: %u worlds, seed %u\n", recording_metadata.num_worlds, recording_metadata.seed);
         } else {
             printf("Recording cancelled: No frames were recorded\n");
         }
+        recording_file.close();
     }
     
     delete[] options;
