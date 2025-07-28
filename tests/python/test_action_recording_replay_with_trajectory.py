@@ -135,7 +135,10 @@ def parse_trajectory_file(filepath):
 
 
 def test_action_recording_replay_with_trajectory(test_manager):
-    """Test that action recording and replay produces identical trajectories."""
+    """Test that action recording and replay produces identical trajectories.
+    
+    Note: The test_manager fixture uses rand_seed=42, so replay must use the same seed.
+    """
     mgr = test_manager
     observer = ObservationReader(mgr)
     
@@ -147,8 +150,8 @@ def test_action_recording_replay_with_trajectory(test_manager):
     original_trajectory_file = os.path.join(test_output_dir, "original_trajectory.txt")
     replay_trajectory_file = os.path.join(test_output_dir, "replay_trajectory.txt")
     
-    # Reset world 0 to ensure clean start
-    reset_world(mgr, 0)
+    # Don't reset world 0 - use initial world state to match headless behavior
+    # reset_world(mgr, 0)
     
     # Enable trajectory logging for recording phase
     mgr.enable_trajectory_logging(0, 0, original_trajectory_file)
@@ -225,6 +228,7 @@ def test_action_recording_replay_with_trajectory(test_manager):
         "CPU",  # Use CPU mode to match test_manager
         "1",    # Single world
         str(len(actions_to_record)),  # Number of steps
+        "--seed", "42",  # Use same seed as test_manager fixture (rand_seed=42)
         "--replay", action_file,
         "--track-agent", "0", "0",
         "--track-file", replay_trajectory_file
