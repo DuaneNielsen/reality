@@ -4,9 +4,9 @@
 
 ```bash
 # Build with debug symbols (CPU mode recommended for debugging)
-mkdir build && cd build
-/opt/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DMADRONA_CUDA_SUPPORT=OFF ..
-make -j$(nproc)
+mkdir build
+/opt/cmake/bin/cmake -B build -DCMAKE_BUILD_TYPE=Debug -DMADRONA_CUDA_SUPPORT=OFF
+make -C build -j$(nproc)
 
 # Note: Ubuntu 20.04's default GDB (9.2) doesn't support DWARF 5 used by modern compilers
 # If you see "DW_FORM_strx1" errors, upgrade to GDB 16.3+

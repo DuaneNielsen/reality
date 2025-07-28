@@ -6,10 +6,9 @@ This document describes the Python bindings for the Madrona Escape Room simulato
 
 ```bash
 # Build the project
-mkdir build && cd build
-/opt/cmake/bin/cmake ..
-make -j$(nproc)
-cd ..
+mkdir build
+/opt/cmake/bin/cmake -B build
+make -C build -j$(nproc)
 
 # Install Python package with uv
 pip install -e .

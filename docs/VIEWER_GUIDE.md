@@ -9,9 +9,9 @@ The viewer provides an interactive 3D visualization of the Madrona Escape Room e
 The viewer is built automatically with the project:
 
 ```bash
-mkdir build && cd build
-/opt/cmake/bin/cmake ..
-make -j$(nproc)
+mkdir build
+/opt/cmake/bin/cmake -B build
+make -C build -j$(nproc)
 ```
 
 This creates the `viewer` executable in the `build/` directory.

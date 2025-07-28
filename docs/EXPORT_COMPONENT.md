@@ -97,13 +97,9 @@ print(f"Best agent: World {best_world}, Agent {best_agent} with progress {progre
 ### 7. Build the project
 
 ```bash
-cd build
-make -j$(nproc)
-cd ..
+make -C build -j$(nproc)
 # The Python package automatically picks up the changes
 ```
-
-IMPORTANT: don't forget to cd .. after build completes successfully!
 
 ### 8. Add test to tests/python/test_bindings.py
 
@@ -147,7 +143,7 @@ uv run --extra test pytest tests/python/test_bindings.py::test_progress_tensor -
 uv run --extra test pytest tests/python/test_bindings.py -v
 
 # Common issues and fixes:
-# - ImportError: rebuild with 'cd build && make -j$(nproc) && cd ..'
+# - ImportError: rebuild with 'make -C build -j$(nproc)'
 # - Shape mismatch: verify tensor dimensions in step 4
 # - Missing attribute: ensure Python binding was added in step 5
 ```
