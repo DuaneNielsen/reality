@@ -5,56 +5,19 @@
 #include "sim.hpp"
 #include "mgr.hpp"
 #include "types.hpp"
-#include "replay_metadata.hpp"
 
 #include <optionparser.h>
 
 #include <filesystem>
-#include <fstream>
 #include <string>
 #include <cstring>
 #include <iostream>
-#include <chrono>
+#include <vector>
 
 using namespace madrona;
 using namespace madrona::viz;
 
-struct ReplayData {
-    escape_room::ReplayMetadata metadata;
-    HeapArray<int32_t> actions;
-};
-
-static ReplayData readReplayLog(const char *path)
-{
-    std::ifstream replay_log(path, std::ios::binary);
-    if (!replay_log.is_open()) {
-        std::cerr << "Error: Failed to open replay file: " << path << "\n";
-        return {escape_room::ReplayMetadata::createDefault(), HeapArray<int32_t>(0)};
-    }
-    
-    // Read metadata header
-    escape_room::ReplayMetadata metadata;
-    replay_log.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
-    
-    // Validate metadata
-    if (!metadata.isValid()) {
-        std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
-                  << std::hex << escape_room::REPLAY_MAGIC << ", got: 0x" 
-                  << metadata.magic << std::dec << "\n";
-        return {escape_room::ReplayMetadata::createDefault(), HeapArray<int32_t>(0)};
-    }
-    
-    // Read actions after metadata
-    int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
-    HeapArray<int32_t> log(actions_size / sizeof(int32_t));
-    replay_log.read((char *)log.data(), actions_size);
-    
-    std::cout << "Loaded replay: " << metadata.sim_name << " v" << metadata.version 
-              << " - " << metadata.num_worlds << " worlds, " << metadata.num_steps 
-              << " steps, seed: " << metadata.seed << "\n";
-    
-    return {metadata, std::move(log)};
-}
+// Replay functionality moved to Manager class
 
 namespace ArgChecker {
     static option::ArgStatus Required(const option::Option& option, bool msg)
@@ -233,51 +196,40 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Setup replay
-    auto replay_data = Optional<ReplayData>::none();
-    uint32_t cur_replay_step = 0;
-    uint32_t num_replay_steps = 0;
+    // Setup replay - temporarily load to get metadata
+    bool has_replay = false;
+    uint32_t replay_seed = rand_seed;
     if (!replay_path.empty()) {
-        auto loaded_data = readReplayLog(replay_path.c_str());
-        if (loaded_data.actions.size() > 0) {
-            // Validate that num_worlds matches
-            if (num_worlds != loaded_data.metadata.num_worlds) {
-                std::cerr << "Warning: Replay was recorded with " << loaded_data.metadata.num_worlds 
-                          << " worlds, but viewer is using " << num_worlds << " worlds.\n";
-                std::cerr << "Setting num_worlds to match replay file.\n";
-                num_worlds = loaded_data.metadata.num_worlds;
+        // Temporarily create a manager to load replay and get metadata
+        Manager temp_mgr({
+            .execMode = exec_mode,
+            .gpuID = 0,
+            .numWorlds = 1,  // Temporary value
+            .randSeed = 5,
+            .autoReset = false,
+        });
+        
+        if (temp_mgr.loadReplay(replay_path)) {
+            const auto* replay_data = temp_mgr.getReplayData();
+            if (replay_data) {
+                // Validate and update num_worlds
+                if (num_worlds != replay_data->metadata.num_worlds) {
+                    std::cerr << "Warning: Replay was recorded with " << replay_data->metadata.num_worlds 
+                              << " worlds, but viewer is using " << num_worlds << " worlds.\n";
+                    std::cerr << "Setting num_worlds to match replay file.\n";
+                    num_worlds = replay_data->metadata.num_worlds;
+                }
+                replay_seed = replay_data->metadata.seed;
+                has_replay = true;
             }
-            num_replay_steps = loaded_data.metadata.num_steps;
-            replay_data = std::move(loaded_data);
         }
     }
     
     // Setup recording
-    std::ofstream recording_file;
     std::vector<int32_t> frame_actions;
-    escape_room::ReplayMetadata recording_metadata;
-    uint32_t recorded_frames = 0;
     bool is_recording = !record_path.empty();
     
     if (is_recording) {
-        recording_file.open(record_path, std::ios::binary);
-        if (!recording_file.is_open()) {
-            std::cerr << "Error: Failed to open recording file: " << record_path << "\n";
-            delete[] options;
-            delete[] buffer;
-            return 1;
-        }
-        
-        // Prepare metadata
-        recording_metadata = escape_room::ReplayMetadata::createDefault();
-        recording_metadata.num_worlds = num_worlds;
-        recording_metadata.num_agents_per_world = 1; // Single agent per world in escape room
-        recording_metadata.seed = rand_seed;
-        recording_metadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-        
-        // Write metadata header (will update num_steps when closing)
-        recording_file.write(reinterpret_cast<const char*>(&recording_metadata), sizeof(recording_metadata));
-        
         frame_actions.resize(num_worlds * 3);
         // Initialize with default actions
         for (uint32_t i = 0; i < num_worlds; i++) {
@@ -285,7 +237,6 @@ int main(int argc, char *argv[])
             frame_actions[i * 3 + 1] = 0;  // move_angle = 0 (forward)
             frame_actions[i * 3 + 2] = 2;  // rotate = 2 (no rotation)
         }
-        std::cout << "Recording to: " << record_path << "\n";
     }
 
     bool enable_batch_renderer =
@@ -299,10 +250,9 @@ int main(int argc, char *argv[])
     WindowHandle window = wm.makeWindow("Escape Room", 2730, 1536);
     render::GPUHandle render_gpu = wm.initGPU(0, { window.get() });
 
-    // Use seed from replay metadata if replaying
-    uint32_t sim_seed = rand_seed;
-    if (replay_data.has_value()) {
-        sim_seed = replay_data->metadata.seed;
+    // Use seed from replay if available
+    uint32_t sim_seed = has_replay ? replay_seed : rand_seed;
+    if (has_replay) {
         std::cout << "Using seed " << sim_seed << " from replay file\n";
     }
 
@@ -312,11 +262,21 @@ int main(int argc, char *argv[])
         .gpuID = 0,
         .numWorlds = num_worlds,
         .randSeed = sim_seed,
-        .autoReset = replay_data.has_value() || is_recording,
+        .autoReset = has_replay || is_recording,
         .enableBatchRenderer = enable_batch_renderer,
         .extRenderAPI = wm.gpuAPIManager().backend(),
         .extRenderDev = render_gpu.device(),
     });
+    
+    // Load replay if available
+    if (has_replay) {
+        mgr.loadReplay(replay_path);
+    }
+    
+    // Start recording if requested
+    if (is_recording) {
+        mgr.startRecording(record_path, rand_seed);
+    }
     
     // Enable trajectory tracking if requested
     if (track_trajectory) {
@@ -349,29 +309,14 @@ int main(int argc, char *argv[])
     
 
     // Replay step
-    auto replayStep = [&]() {
-        if (!replay_data.has_value() || cur_replay_step == num_replay_steps - 1) {
+    auto replayStep = [&mgr]() {
+        if (!mgr.hasReplay()) {
             return true;
         }
-
-        printf("Step: %u\n", cur_replay_step);
-
-        const auto& actions = replay_data->actions;
-        for (uint32_t i = 0; i < num_worlds; i++) {
-            uint32_t base_idx = 3 * (cur_replay_step * num_worlds + i);
-
-            int32_t move_amount = actions[base_idx];
-            int32_t move_angle = actions[base_idx + 1];
-            int32_t turn = actions[base_idx + 2];
-
-            printf("%d: %d %d %d\n",
-                   i, move_amount, move_angle, turn);
-            mgr.setAction(i, move_amount, move_angle, turn);
-        }
-
-        cur_replay_step++;
-
-        return false;
+        
+        printf("Step: %u\n", mgr.getCurrentReplayStep());
+        bool finished = mgr.replayStep();
+        return finished;
     };
 
     // Printers
@@ -494,7 +439,7 @@ int main(int argc, char *argv[])
             frame_actions[base_idx + 2] = r;
         }
     }, [&]() {
-        if (replay_data.has_value()) {
+        if (mgr.hasReplay()) {
             bool replay_finished = replayStep();
 
             if (replay_finished) {
@@ -504,19 +449,13 @@ int main(int argc, char *argv[])
         
         // Write frame actions if recording
         if (is_recording) {
-            recording_file.write(reinterpret_cast<const char*>(frame_actions.data()), 
-                               frame_actions.size() * sizeof(int32_t));
-            recorded_frames++;
+            mgr.recordActions(frame_actions);
             
             // Reset actions to defaults for next frame
             for (uint32_t i = 0; i < num_worlds; i++) {
                 frame_actions[i * 3] = 0;      // move_amount
                 frame_actions[i * 3 + 1] = 0;  // move_angle
                 frame_actions[i * 3 + 2] = 2;  // rotate
-            }
-            
-            if (recorded_frames % 100 == 0) {
-                printf("Recorded %u frames...\n", recorded_frames);
             }
         }
 
@@ -527,20 +466,7 @@ int main(int argc, char *argv[])
     
     // Cleanup recording
     if (is_recording) {
-        if (recorded_frames > 0) {
-            // Update metadata with actual number of steps
-            recording_metadata.num_steps = recorded_frames;
-            
-            // Seek back to beginning and rewrite the metadata
-            recording_file.seekp(0, std::ios::beg);
-            recording_file.write(reinterpret_cast<const char*>(&recording_metadata), sizeof(recording_metadata));
-            
-            printf("Recording complete: %u frames saved to %s\n", recorded_frames, record_path.c_str());
-            printf("Metadata: %u worlds, seed %u\n", recording_metadata.num_worlds, recording_metadata.seed);
-        } else {
-            printf("Recording cancelled: No frames were recorded\n");
-        }
-        recording_file.close();
+        mgr.stopRecording();
     }
     
     delete[] options;

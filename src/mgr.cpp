@@ -1,6 +1,8 @@
 #include "mgr.hpp"
 #include "sim.hpp"
 
+#include <chrono>
+
 /*
  * This file uses a three-tier classification system for code:
  * 
@@ -124,6 +126,16 @@ struct Manager::Impl {
     int32_t trackAgentIdx = -1;
     uint32_t stepCount = 0;
     FILE* trajectoryLogFile = nullptr;
+    
+    // Replay state
+    Optional<ReplayData> replayData = Optional<ReplayData>::none();
+    uint32_t currentReplayStep = 0;
+    
+    // Recording state
+    std::ofstream recordingFile;
+    madrona::escape_room::ReplayMetadata recordingMetadata;
+    uint32_t recordedFrames = 0;
+    bool isRecordingActive = false;
 
     inline Impl(const Manager::Config &mgr_cfg,
                 PhysicsLoader &&phys_loader,
@@ -915,6 +927,168 @@ void Manager::disableTrajectoryLogging()
 render::RenderManager & Manager::getRenderManager()
 {
     return *impl_->renderMgr;
+}
+
+// Recording functionality
+void Manager::startRecording(const std::string& filepath, uint32_t seed)
+{
+    if (impl_->isRecordingActive) {
+        std::cerr << "Recording already in progress\n";
+        return;
+    }
+    
+    impl_->recordingFile.open(filepath, std::ios::binary);
+    if (!impl_->recordingFile.is_open()) {
+        std::cerr << "Failed to open recording file: " << filepath << "\n";
+        return;
+    }
+    
+    // Prepare metadata
+    impl_->recordingMetadata = madrona::escape_room::ReplayMetadata::createDefault();
+    impl_->recordingMetadata.num_worlds = impl_->cfg.numWorlds;
+    impl_->recordingMetadata.num_agents_per_world = 1; // Single agent per world
+    impl_->recordingMetadata.seed = seed;
+    impl_->recordingMetadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+    
+    // Write metadata header (will update num_steps when closing)
+    impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
+                              sizeof(impl_->recordingMetadata));
+    
+    impl_->recordedFrames = 0;
+    impl_->isRecordingActive = true;
+    std::cout << "Recording to: " << filepath << "\n";
+}
+
+void Manager::stopRecording()
+{
+    if (!impl_->isRecordingActive) {
+        return;
+    }
+    
+    if (impl_->recordedFrames > 0) {
+        // Update metadata with actual number of steps
+        impl_->recordingMetadata.num_steps = impl_->recordedFrames;
+        
+        // Seek back to beginning and rewrite the metadata
+        impl_->recordingFile.seekp(0, std::ios::beg);
+        impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
+                                  sizeof(impl_->recordingMetadata));
+        
+        printf("Recording complete: %u frames saved\n", impl_->recordedFrames);
+        printf("Metadata: %u worlds, seed %u\n", 
+               impl_->recordingMetadata.num_worlds, impl_->recordingMetadata.seed);
+    } else {
+        printf("Recording cancelled: No frames were recorded\n");
+    }
+    
+    impl_->recordingFile.close();
+    impl_->isRecordingActive = false;
+}
+
+bool Manager::isRecording() const
+{
+    return impl_->isRecordingActive;
+}
+
+void Manager::recordActions(const std::vector<int32_t>& frame_actions)
+{
+    if (!impl_->isRecordingActive) {
+        return;
+    }
+    
+    impl_->recordingFile.write(reinterpret_cast<const char*>(frame_actions.data()), 
+                              frame_actions.size() * sizeof(int32_t));
+    impl_->recordedFrames++;
+    
+    if (impl_->recordedFrames % 100 == 0) {
+        printf("Recorded %u frames...\n", impl_->recordedFrames);
+    }
+}
+
+// Replay functionality
+bool Manager::loadReplay(const std::string& filepath)
+{
+    std::ifstream replay_file(filepath, std::ios::binary);
+    if (!replay_file.is_open()) {
+        std::cerr << "Error: Failed to open replay file: " << filepath << "\n";
+        return false;
+    }
+    
+    // Read metadata header
+    madrona::escape_room::ReplayMetadata metadata;
+    replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
+    
+    // Validate metadata
+    if (!metadata.isValid()) {
+        std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
+                  << std::hex << madrona::escape_room::REPLAY_MAGIC << ", got: 0x" 
+                  << metadata.magic << std::dec << "\n";
+        return false;
+    }
+    
+    // Read actions after metadata
+    int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
+    HeapArray<int32_t> actions(actions_size / sizeof(int32_t));
+    replay_file.read((char *)actions.data(), actions_size);
+    
+    std::cout << "Loaded replay: " << metadata.sim_name << " v" << metadata.version 
+              << " - " << metadata.num_worlds << " worlds, " << metadata.num_steps 
+              << " steps, seed: " << metadata.seed << "\n";
+    
+    impl_->replayData = ReplayData{metadata, std::move(actions)};
+    impl_->currentReplayStep = 0;
+    
+    return true;
+}
+
+bool Manager::hasReplay() const
+{
+    return impl_->replayData.has_value();
+}
+
+bool Manager::replayStep()
+{
+    if (!impl_->replayData.has_value() || 
+        impl_->currentReplayStep >= impl_->replayData->metadata.num_steps) {
+        return true; // Replay finished
+    }
+    
+    const auto& actions = impl_->replayData->actions;
+    const auto& metadata = impl_->replayData->metadata;
+    
+    for (uint32_t i = 0; i < metadata.num_worlds; i++) {
+        uint32_t base_idx = 3 * (impl_->currentReplayStep * metadata.num_worlds + i);
+        
+        int32_t move_amount = actions[base_idx];
+        int32_t move_angle = actions[base_idx + 1];
+        int32_t turn = actions[base_idx + 2];
+        
+        setAction(i, move_amount, move_angle, turn);
+    }
+    
+    impl_->currentReplayStep++;
+    return false; // Not finished
+}
+
+uint32_t Manager::getCurrentReplayStep() const
+{
+    return impl_->currentReplayStep;
+}
+
+uint32_t Manager::getTotalReplaySteps() const
+{
+    if (!impl_->replayData.has_value()) {
+        return 0;
+    }
+    return impl_->replayData->metadata.num_steps;
+}
+
+const Manager::ReplayData* Manager::getReplayData() const
+{
+    if (!impl_->replayData.has_value()) {
+        return nullptr;
+    }
+    return &(*impl_->replayData);
 }
 
 }

@@ -1,10 +1,14 @@
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include <madrona/py/utils.hpp>
 #include <madrona/exec_mode.hpp>
+#include <madrona/heap_array.hpp>
 
 #include <madrona/render/render_mgr.hpp>
+#include "replay_metadata.hpp"
 
 namespace madEscape {
 
@@ -60,6 +64,26 @@ public:
     void disableTrajectoryLogging();
 
     madrona::render::RenderManager & getRenderManager();
+
+    // Replay functionality
+    struct ReplayData {
+        madrona::escape_room::ReplayMetadata metadata;
+        madrona::HeapArray<int32_t> actions;
+    };
+    
+    // Recording functionality
+    void startRecording(const std::string& filepath, uint32_t seed);
+    void stopRecording();
+    bool isRecording() const;
+    void recordActions(const std::vector<int32_t>& frame_actions);
+    
+    // Replay functionality
+    bool loadReplay(const std::string& filepath);
+    bool hasReplay() const;
+    bool replayStep();
+    uint32_t getCurrentReplayStep() const;
+    uint32_t getTotalReplaySteps() const;
+    const ReplayData* getReplayData() const;
 
 private:
     struct Impl;
