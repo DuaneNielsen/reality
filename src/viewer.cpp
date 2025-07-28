@@ -34,12 +34,14 @@ static void printUsage(const char *program_name)
     fprintf(stderr, "\nOptions:\n");
     fprintf(stderr, "  --track <world_id> <agent_id>  Enable trajectory tracking for specific agent\n");
     fprintf(stderr, "  --record <path>                Record actions to file (press SPACE to start)\n");
+    fprintf(stderr, "  --seed <value>                 Set random seed (default: 5)\n");
     fprintf(stderr, "  <replay_file>                  Path to action file for replay\n");
     fprintf(stderr, "\nExamples:\n");
     fprintf(stderr, "  %s 4 --cpu                     # 4 worlds on CPU\n", program_name);
     fprintf(stderr, "  %s 1 --cuda --track 0 0        # Track world 0, agent 0 on GPU\n", program_name);
     fprintf(stderr, "  %s 2 --cpu --record demo.bin   # Record 2 worlds to demo.bin\n", program_name);
     fprintf(stderr, "  %s 2 --cpu demo.bin            # Replay demo.bin with 2 worlds\n", program_name);
+    fprintf(stderr, "  %s 4 --cpu --seed 42           # 4 worlds with seed 42\n", program_name);
 }
 
 int main(int argc, char *argv[])
@@ -70,6 +72,7 @@ int main(int argc, char *argv[])
     bool track_trajectory = false;
     int32_t track_world_idx = 0;
     int32_t track_agent_idx = 0;
+    uint32_t rand_seed = 5;
     
     // Parse additional arguments
     for (int i = 3; i < argc; i++) {
@@ -92,6 +95,14 @@ int main(int argc, char *argv[])
                     i += 2; // Skip world and agent indices
                 }
                 // If no indices provided, defaults to world 0, agent 0
+            } else if (strcmp("--seed", argv[i]) == 0) {
+                if (i + 1 < argc) {
+                    rand_seed = (uint32_t)atoi(argv[i + 1]);
+                    i++; // Skip next arg
+                } else {
+                    fprintf(stderr, "Error: --seed flag requires a value\n");
+                    return 1;
+                }
             } else {
                 // Unknown flag
                 fprintf(stderr, "Error: Unknown option '%s'\n\n", argv[i]);
@@ -156,7 +167,7 @@ int main(int argc, char *argv[])
         .execMode = exec_mode,
         .gpuID = 0,
         .numWorlds = num_worlds,
-        .randSeed = 5,
+        .randSeed = rand_seed,
         .autoReset = replay_log.has_value() || is_recording,
         .enableBatchRenderer = enable_batch_renderer,
         .extRenderAPI = wm.gpuAPIManager().backend(),

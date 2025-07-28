@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     using namespace madEscape;
 
     if (argc < 4) {
-        fprintf(stderr, "%s TYPE NUM_WORLDS NUM_STEPS [--rand-actions] [--replay <file>] [--track-agent WORLD_ID AGENT_ID [--track-file <file>]]\n", argv[0]);
+        fprintf(stderr, "%s TYPE NUM_WORLDS NUM_STEPS [--rand-actions] [--replay <file>] [--seed <value>] [--track-agent WORLD_ID AGENT_ID [--track-file <file>]]\n", argv[0]);
         return -1;
     }
     std::string type(argv[1]);
@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
     std::string replay_file;
     std::string track_file;
     bool replay_mode = false;
+    uint32_t rand_seed = 5;
     
     // Parse optional arguments
     for (int i = 4; i < argc; i++) {
@@ -74,6 +75,9 @@ int main(int argc, char *argv[])
         } else if (arg == "--track-file" && i + 1 < argc) {
             track_file = argv[i + 1];
             i += 1; // Skip the next argument
+        } else if (arg == "--seed" && i + 1 < argc) {
+            rand_seed = (uint32_t)std::stoi(argv[i + 1]);
+            i += 1; // Skip the next argument
         }
     }
     
@@ -87,7 +91,7 @@ int main(int argc, char *argv[])
         .execMode = exec_mode,
         .gpuID = 0,
         .numWorlds = (uint32_t)num_worlds,
-        .randSeed = 5,
+        .randSeed = rand_seed,
         .autoReset = false,
         .enableBatchRenderer = false,
     });
