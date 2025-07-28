@@ -51,22 +51,25 @@ uv pip install -e .
 ./build/viewer
 
 # Viewer with command line options
-./build/viewer [num_worlds] [--cpu|--cuda] [options]
+./build/viewer [options]
 
 # Viewer command line options:
-# - num_worlds: Number of parallel worlds (default: 1)
+# - --num-worlds N: Number of parallel worlds (default: 1)
 # - --cpu: Use CPU execution mode
 # - --cuda: Use CUDA/GPU execution mode
-# - --track [world_id] [agent_id]: Enable trajectory tracking for specific agent
+# - --track: Enable trajectory tracking (default: world 0, agent 0)
+# - --track-world N: Specify world to track (default: 0)
+# - --track-agent N: Specify agent to track (default: 0)
 # - --record <path>: Record actions to file (press SPACE to start)
-# - <replay_file>: Path to action file for replay
+# - --replay <file>: Replay actions from file
 
 # Examples:
-./build/viewer 4 --cpu                           # 4 worlds on CPU
-./build/viewer 1 --cuda --track 0 0             # Track world 0, agent 0 on GPU
-./build/viewer 2 --cpu --record demo.bin        # Record 2 worlds to demo.bin
-./build/viewer 2 --cpu demo.bin                 # Replay demo.bin with 2 worlds
-./build/viewer 4 --cpu --track 2 0              # 4 worlds, track world 2 agent 0
+./build/viewer --num-worlds 4 --cpu              # 4 worlds on CPU
+./build/viewer --cuda --track                    # Track world 0, agent 0 on GPU
+./build/viewer -n 2 --cpu --record demo.bin     # Record 2 worlds to demo.bin
+./build/viewer -n 2 --cpu --replay demo.bin     # Replay demo.bin with 2 worlds
+./build/viewer -n 4 --cpu --track-world 2       # 4 worlds, track world 2 agent 0
+./build/viewer -n 4 --cpu --track-world 2 --track-agent 1  # Track world 2, agent 1
 
 # Viewer keyboard controls:
 # - R: Reset current world

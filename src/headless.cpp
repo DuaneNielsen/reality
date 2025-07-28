@@ -1,11 +1,15 @@
 #include "mgr.hpp"
 
+#include <optionparser.h>
+
 #include <cstdio>
 #include <chrono>
 #include <string>
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <iostream>
+#include <algorithm>
 
 #include <madrona/heap_array.hpp>
 
@@ -16,100 +20,217 @@ using namespace madrona;
     int32_t total_num_steps,
     int32_t world_idx)
 {
-    const int32_t *world_base = action_store.data() + world_idx * total_num_steps * 2 * 3;
+    const int32_t *world_base = action_store.data() + world_idx * total_num_steps * 3;
 
     std::ofstream f("/tmp/actions", std::ios::binary);
     f.write((char *)world_base,
-            sizeof(uint32_t) * total_num_steps * 2 * 3);
+            sizeof(uint32_t) * total_num_steps * 3);
 }
+
+namespace ArgChecker {
+    static option::ArgStatus Required(const option::Option& option, bool msg)
+    {
+        if (option.arg != 0)
+            return option::ARG_OK;
+        
+        if (msg) std::cerr << "Option '" << option.name << "' requires an argument\n";
+        return option::ARG_ILLEGAL;
+    }
+    
+    static option::ArgStatus Numeric(const option::Option& option, bool msg)
+    {
+        char* endptr = 0;
+        if (option.arg != 0 && strtol(option.arg, &endptr, 10)){};
+        if (endptr != option.arg && *endptr == 0)
+            return option::ARG_OK;
+        
+        if (msg) std::cerr << "Option '" << option.name << "' requires a numeric argument\n";
+        return option::ARG_ILLEGAL;
+    }
+}
+
+enum OptionIndex { 
+    UNKNOWN, HELP, MODE, NUM_WORLDS, NUM_STEPS, RAND_ACTIONS, REPLAY, SEED, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE 
+};
+
+const option::Descriptor usage[] = {
+    {UNKNOWN, 0, "", "", option::Arg::None, "USAGE: headless [options]\n\n"
+                                            "Madrona Escape Room - Headless Mode\n"
+                                            "Run simulation without graphics for benchmarking and testing\n\n"
+                                            "Options:"},
+    {HELP,         0, "h", "help", option::Arg::None, "  --help, -h  \tShow this help message"},
+    {MODE,         0, "m", "mode", ArgChecker::Required, "  --mode, -m <cpu|cuda>  \tExecution mode (required)"},
+    {NUM_WORLDS,   0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds, -n <value>  \tNumber of parallel worlds (required)"},
+    {NUM_STEPS,    0, "s", "num-steps", ArgChecker::Numeric, "  --num-steps, -s <value>  \tNumber of simulation steps (required)"},
+    {RAND_ACTIONS, 0, "", "rand-actions", option::Arg::None, "  --rand-actions  \tGenerate random actions for benchmarking"},
+    {REPLAY,       0, "", "replay", ArgChecker::Required, "  --replay <file>  \tReplay actions from file"},
+    {SEED,         0, "", "seed", ArgChecker::Numeric, "  --seed <value>  \tSet random seed (default: 5)"},
+    {TRACK,        0, "t", "track", option::Arg::None, "  --track, -t  \tEnable trajectory tracking (default: world 0, agent 0)"},
+    {TRACK_WORLD,  0, "", "track-world", ArgChecker::Numeric, "  --track-world <n>  \tSpecify world to track (default: 0)"},
+    {TRACK_AGENT,  0, "", "track-agent", ArgChecker::Numeric, "  --track-agent <n>  \tSpecify agent to track (default: 0)"},
+    {TRACK_FILE,   0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file (requires --track-agent)"},
+    {0,0,0,0,0,0}
+};
 
 int main(int argc, char *argv[])
 {
     using namespace madEscape;
 
-    // Check for help flag
-    if (argc >= 2 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
-        printf("Madrona Escape Room - Headless Mode\n");
-        printf("Run simulation without graphics for benchmarking and testing\n\n");
-        printf("Usage: %s TYPE NUM_WORLDS NUM_STEPS [OPTIONS]\n\n", argv[0]);
-        printf("Required Arguments:\n");
-        printf("  TYPE         Execution mode: CPU or CUDA\n");
-        printf("  NUM_WORLDS   Number of parallel worlds to simulate\n");
-        printf("  NUM_STEPS    Number of simulation steps to run\n\n");
-        printf("Options:\n");
-        printf("  --help, -h                        Show this help message\n");
-        printf("  --rand-actions                    Generate random actions for benchmarking\n");
-        printf("  --replay <file>                   Replay actions from file\n");
-        printf("  --seed <value>                    Set random seed (default: 5)\n");
-        printf("  --track-agent WORLD_ID AGENT_ID   Track specific agent trajectory\n");
-        printf("  --track-file <file>               Save trajectory to file (requires --track-agent)\n\n");
-        printf("Examples:\n");
-        printf("  %s CPU 1 1000                     # Basic CPU run\n", argv[0]);
-        printf("  %s CUDA 8192 1000 --rand-actions  # GPU benchmark\n", argv[0]);
-        printf("  %s CPU 100 1000 --track-agent 5 0 # Track agent 0 in world 5\n", argv[0]);
+    // Parse arguments
+    argc-=(argc>0); argv+=(argc>0); // skip program name argv[0] if present
+    option::Stats stats(usage, argc, argv);
+    option::Option* options = new option::Option[stats.options_max];
+    option::Option* buffer = new option::Option[stats.buffer_max];
+    option::Parser parse(usage, argc, argv, options, buffer);
+
+    if (parse.error()) {
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+
+    if (options[HELP]) {
+        option::printUsage(std::cout, usage);
+        std::cout << "\nExamples:\n";
+        std::cout << "  headless --mode cpu --num-worlds 1 --num-steps 1000     # Basic CPU run\n";
+        std::cout << "  headless -m cuda -n 8192 -s 1000 --rand-actions         # GPU benchmark\n";
+        std::cout << "  headless -m cpu -n 100 -s 1000 --track --track-world 5  # Track agent 0 in world 5\n";
+        std::cout << "  headless -m cpu -n 100 -s 1000 --track-world 5 --track-agent 1  # Track agent 1 in world 5\n";
+        delete[] options;
+        delete[] buffer;
         return 0;
     }
 
-    if (argc < 4) {
-        fprintf(stderr, "%s TYPE NUM_WORLDS NUM_STEPS [--rand-actions] [--replay <file>] [--seed <value>] [--track-agent WORLD_ID AGENT_ID [--track-file <file>]]\n", argv[0]);
-        fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
-        return -1;
+    // Check for any remaining non-option arguments
+    if (parse.nonOptionsCount() > 0) {
+        std::cerr << "Error: Unexpected arguments. All parameters must be specified as options.\n";
+        std::cerr << "Use --help for usage information.\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
     }
-    std::string type(argv[1]);
+    
+    // Required options
+    if (!options[MODE] || !options[NUM_WORLDS] || !options[NUM_STEPS]) {
+        std::cerr << "Error: Missing required options.\n";
+        std::cerr << "Required: --mode, --num-worlds, --num-steps\n";
+        std::cerr << "Use --help for usage information.\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+    
+    uint64_t num_worlds = std::stoul(options[NUM_WORLDS].arg);
+    uint64_t num_steps = std::stoul(options[NUM_STEPS].arg);
 
+
+    // Parse execution mode
+    std::string exec_mode_str(options[MODE].arg);
+    std::transform(exec_mode_str.begin(), exec_mode_str.end(), exec_mode_str.begin(), ::toupper);
     ExecMode exec_mode;
-    if (type == "CPU") {
+    if (exec_mode_str == "CPU") {
         exec_mode = ExecMode::CPU;
-    } else if (type == "CUDA") {
+    } else if (exec_mode_str == "CUDA") {
         exec_mode = ExecMode::CUDA;
     } else {
-        fprintf(stderr, "Invalid ExecMode\n");
-        return -1;
+        std::cerr << "Invalid execution mode: " << exec_mode_str << "\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
     }
 
-    uint64_t num_worlds = std::stoul(argv[2]);
-    uint64_t num_steps = std::stoul(argv[3]);
-
-    HeapArray<int32_t> action_store(
-        num_worlds * 2 * num_steps * 3);
-
-    bool rand_actions = false;
-    bool track_agent = false;
-    int32_t track_world_idx = -1;
-    int32_t track_agent_idx = -1;
-    std::string replay_file;
-    std::string track_file;
-    bool replay_mode = false;
-    uint32_t rand_seed = 5;
+    // Optional parameters
+    bool rand_actions = options[RAND_ACTIONS];
+    std::string replay_file = options[REPLAY] ? options[REPLAY].arg : "";
+    uint32_t rand_seed = options[SEED] ? strtoul(options[SEED].arg, nullptr, 10) : 5;
+    std::string track_file = options[TRACK_FILE] ? options[TRACK_FILE].arg : "";
     
-    // Parse optional arguments
-    for (int i = 4; i < argc; i++) {
-        std::string arg(argv[i]);
-        if (arg == "--rand-actions") {
-            rand_actions = true;
-        } else if (arg == "--replay" && i + 1 < argc) {
-            replay_mode = true;
-            replay_file = argv[i + 1];
-            i += 1; // Skip the next argument
-        } else if (arg == "--track-agent" && i + 2 < argc) {
-            track_agent = true;
-            track_world_idx = std::stoi(argv[i + 1]);
-            track_agent_idx = std::stoi(argv[i + 2]);
-            i += 2; // Skip the next two arguments
-        } else if (arg == "--track-file" && i + 1 < argc) {
-            track_file = argv[i + 1];
-            i += 1; // Skip the next argument
-        } else if (arg == "--seed" && i + 1 < argc) {
-            rand_seed = (uint32_t)std::stoi(argv[i + 1]);
-            i += 1; // Skip the next argument
+    // Parse tracking options
+    bool track_trajectory = false;
+    int32_t track_world_idx = 0;  // Default to world 0
+    int32_t track_agent_idx = 0;  // Default to agent 0
+    
+    // Handle tracking options
+    if (options[TRACK]) {
+        track_trajectory = true;
+    }
+    
+    if (options[TRACK_WORLD]) {
+        track_world_idx = strtol(options[TRACK_WORLD].arg, nullptr, 10);
+        // If track-world is specified without --track, enable tracking
+        track_trajectory = true;
+    }
+    
+    if (options[TRACK_AGENT]) {
+        track_agent_idx = strtol(options[TRACK_AGENT].arg, nullptr, 10);
+        // If track-agent is specified without --track, enable tracking
+        track_trajectory = true;
+    }
+    
+    // Validate world index if tracking is enabled
+    if (track_trajectory) {
+        if (track_world_idx < 0 || track_world_idx >= (int32_t)num_worlds) {
+            std::cerr << "Error: track world index " << track_world_idx 
+                      << " out of range [0, " << num_worlds - 1 << "]\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
         }
     }
     
-    // Validate options
-    if (rand_actions && replay_mode) {
-        fprintf(stderr, "Cannot use both --rand-actions and --replay\n");
-        return -1;
+    if (!track_file.empty() && !track_trajectory) {
+        std::cerr << "Error: --track-file requires tracking to be enabled (use --track, --track-world, or --track-agent)\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
     }
+    
+    // Validate conflicting options
+    if (rand_actions && !replay_file.empty()) {
+        std::cerr << "Error: Cannot specify both --rand-actions and --replay\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+
+    // Only 1 agent per world now
+    HeapArray<int32_t> action_store(
+        num_worlds * num_steps * 3);
+
+    bool replay_mode = !replay_file.empty();
+    
+    // Handle replay mode
+    if (replay_mode) {
+        std::ifstream replay_in(replay_file, std::ios::binary);
+        if (!replay_in.is_open()) {
+            std::cerr << "Error: Failed to open replay file: " << replay_file << "\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
+        }
+        
+        // Check file size matches expected size
+        replay_in.seekg(0, std::ios::end);
+        size_t file_size = replay_in.tellg();
+        size_t expected_size = num_worlds * num_steps * 3 * sizeof(int32_t);
+        
+        if (file_size != expected_size) {
+            std::cerr << "Error: Replay file size mismatch. Expected " << expected_size 
+                      << " bytes, got " << file_size << " bytes\n";
+            std::cerr << "Make sure num_worlds and num_steps match the recording\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
+        }
+        
+        replay_in.seekg(0, std::ios::beg);
+        replay_in.read((char*)action_store.data(), file_size);
+        replay_in.close();
+    }
+
+    printf("Executing %lu Steps x %lu Worlds (%s)\n",
+           num_steps, num_worlds,
+           exec_mode == ExecMode::CPU ? "CPU" : "CUDA");
 
     Manager mgr({
         .execMode = exec_mode,
@@ -119,99 +240,63 @@ int main(int argc, char *argv[])
         .autoReset = false,
         .enableBatchRenderer = false,
     });
-    
-    // Load actions from replay file if specified
-    HeapArray<int32_t> replay_actions(0);
-    uint64_t replay_num_steps = 0;
-    
-    if (replay_mode) {
-        std::ifstream replay_stream(replay_file, std::ios::binary | std::ios::ate);
-        if (!replay_stream.is_open()) {
-            fprintf(stderr, "Failed to open replay file: %s\n", replay_file.c_str());
-            return -1;
-        }
-        
-        // Get file size
-        size_t file_size = replay_stream.tellg();
-        replay_stream.seekg(0, std::ios::beg);
-        
-        // Each action is 3 int32_t values (12 bytes)
-        size_t action_size = 3 * sizeof(int32_t);
-        size_t total_actions = file_size / action_size;
-        
-        // Calculate number of steps (total_actions = num_worlds * num_steps)
-        if (total_actions % num_worlds != 0) {
-            fprintf(stderr, "Replay file contains %zu actions, not divisible by %lu worlds\n", 
-                    total_actions, num_worlds);
-            return -1;
-        }
-        
-        replay_num_steps = total_actions / num_worlds;
-        
-        // Update num_steps to match replay file
-        if (replay_num_steps != num_steps) {
-            fprintf(stderr, "Replay file contains %lu steps, using this instead of %lu\n",
-                    replay_num_steps, num_steps);
-            num_steps = replay_num_steps;
-        }
-        
-        // Load all actions
-        replay_actions = HeapArray<int32_t>(total_actions * 3);
-        replay_stream.read((char*)replay_actions.data(), file_size);
-        replay_stream.close();
-        
-        printf("Loaded %lu steps for %lu worlds from %s\n", 
-               num_steps, num_worlds, replay_file.c_str());
-    }
-    
-    // Enable trajectory tracking if requested
-    if (track_agent) {
-        if (!track_file.empty()) {
-            mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx, track_file.c_str());
-        } else {
-            mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx, std::nullopt);
+
+    if (rand_actions || replay_mode) {
+        std::mt19937 rand_gen(rand_seed);
+        std::uniform_int_distribution<int32_t> move_amount_dist(0, 3);
+        std::uniform_int_distribution<int32_t> move_angle_dist(0, 7);
+        std::uniform_int_distribution<int32_t> turn_dist(0, 4);
+
+        if (rand_actions) {
+            // Generate random actions
+            for (uint64_t i = 0; i < num_steps; i++) {
+                for (uint64_t j = 0; j < num_worlds; j++) {
+                    uint64_t base_idx = 3 * (i * num_worlds + j);
+                    action_store[base_idx] = move_amount_dist(rand_gen);
+                    action_store[base_idx + 1] = move_angle_dist(rand_gen);
+                    action_store[base_idx + 2] = turn_dist(rand_gen);
+                }
+            }
         }
     }
 
-    std::random_device rd;
-    std::mt19937 rand_gen(rd());
-    std::uniform_int_distribution<int32_t> act_rand(0, 4);
+    // Enable trajectory tracking if requested
+    if (track_trajectory) {
+        mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx, 
+            track_file.empty() ? std::nullopt : std::make_optional(track_file.c_str()));
+        printf("Tracking agent %d in world %d\n", track_agent_idx, track_world_idx);
+        if (!track_file.empty()) {
+            printf("Trajectory will be saved to: %s\n", track_file.c_str());
+        }
+    }
 
     auto start = std::chrono::system_clock::now();
-
-    for (CountT i = 0; i < (CountT)num_steps; i++) {
-        if (replay_mode) {
-            // Apply actions from replay file
-            for (CountT j = 0; j < (CountT)num_worlds; j++) {
-                // Actions are stored as: [step][world][3 components]
-                // So for step i, world j: index = (i * num_worlds + j) * 3
-                int64_t base_idx = (i * num_worlds + j) * 3;
-                int32_t x = replay_actions[base_idx];
-                int32_t y = replay_actions[base_idx + 1];
-                int32_t r = replay_actions[base_idx + 2];
-                
-                mgr.setAction(j, x, y, r);
-            }
-        } else if (rand_actions) {
-            for (CountT j = 0; j < (CountT)num_worlds; j++) {
-                int32_t x = act_rand(rand_gen);
-                int32_t y = act_rand(rand_gen);
-                int32_t r = act_rand(rand_gen);
-
-                mgr.setAction(j, x, y, r);
-                
-                int64_t base_idx = j * num_steps * 3 + i * 3;
-                action_store[base_idx] = x;
-                action_store[base_idx + 1] = y;
-                action_store[base_idx + 2] = r;
+    for (uint64_t i = 0; i < num_steps; i++) {
+        if (rand_actions || replay_mode) {
+            for (uint64_t j = 0; j < num_worlds; j++) {
+                // Only one agent per world in this version
+                uint64_t base_idx = 3 * (i * num_worlds + j);
+                mgr.setAction(j,
+                              action_store[base_idx],
+                              action_store[base_idx + 1],
+                              action_store[base_idx + 2]);
             }
         }
         mgr.step();
     }
-
     auto end = std::chrono::system_clock::now();
+
     std::chrono::duration<double> elapsed = end - start;
 
-    float fps = (double)num_steps * (double)num_worlds / elapsed.count();
-    printf("FPS %f\n", fps);
+    printf("FPS: %.0f\n", double(num_worlds * num_steps) / elapsed.count());
+
+    // Note: Trajectory tracking output is handled internally by the Manager
+    // when enableTrajectoryLogging is called
+
+    //saveWorldActions(action_store, num_steps, 0);
+    
+    delete[] options;
+    delete[] buffer;
+    
+    return 0;
 }

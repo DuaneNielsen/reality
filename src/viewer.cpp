@@ -6,10 +6,13 @@
 #include "mgr.hpp"
 #include "types.hpp"
 
+#include <optionparser.h>
+
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <cstring>
+#include <iostream>
 
 using namespace madrona;
 using namespace madrona::viz;
@@ -28,36 +31,50 @@ static HeapArray<int32_t> readReplayLog(const char *path)
     return log;
 }
 
-static void printUsage(const char *program_name)
-{
-    printf("Madrona Escape Room - Interactive Viewer\n");
-    printf("3D visualization and control of the simulation\n\n");
-    printf("Usage: %s [num_worlds] [--cpu|--cuda] [options]\n", program_name);
-    printf("\nArguments:\n");
-    printf("  num_worlds     Number of parallel worlds (default: 1)\n");
-    printf("  --cpu          Use CPU execution mode (default)\n");
-    printf("  --cuda         Use CUDA/GPU execution mode\n");
-    printf("\nOptions:\n");
-    printf("  --help, -h                     Show this help message\n");
-    printf("  --track <world_id> <agent_id>  Enable trajectory tracking for specific agent\n");
-    printf("  --record <path>                Record actions to file (press SPACE to start)\n");
-    printf("  --seed <value>                 Set random seed (default: 5)\n");
-    printf("  <replay_file>                  Path to action file for replay\n");
-    printf("\nKeyboard Controls:\n");
-    printf("  R          Reset current world\n");
-    printf("  T          Toggle trajectory tracking for current world\n");
-    printf("  SPACE      Start recording (when --record is used)\n");
-    printf("  WASD       Move agent (when in agent view)\n");
-    printf("  Q/E        Rotate agent left/right\n");
-    printf("  Shift      Move faster\n");
-    printf("\nExamples:\n");
-    printf("  %s                             # Single world on CPU\n", program_name);
-    printf("  %s 4 --cpu                     # 4 worlds on CPU\n", program_name);
-    printf("  %s 1 --cuda --track 0 0        # Track world 0, agent 0 on GPU\n", program_name);
-    printf("  %s 2 --cpu --record demo.bin   # Record 2 worlds to demo.bin\n", program_name);
-    printf("  %s 2 --cpu demo.bin            # Replay demo.bin with 2 worlds\n", program_name);
-    printf("  %s 4 --cpu --seed 42           # 4 worlds with seed 42\n", program_name);
+namespace ArgChecker {
+    static option::ArgStatus Required(const option::Option& option, bool msg)
+    {
+        if (option.arg != 0)
+            return option::ARG_OK;
+        
+        if (msg) std::cerr << "Option '" << option.name << "' requires an argument\n";
+        return option::ARG_ILLEGAL;
+    }
+    
+    static option::ArgStatus Numeric(const option::Option& option, bool msg)
+    {
+        char* endptr = 0;
+        if (option.arg != 0 && strtol(option.arg, &endptr, 10)){};
+        if (endptr != option.arg && *endptr == 0)
+            return option::ARG_OK;
+        
+        if (msg) std::cerr << "Option '" << option.name << "' requires a numeric argument\n";
+        return option::ARG_ILLEGAL;
+    }
 }
+
+enum OptionIndex { 
+    UNKNOWN, HELP, MODE, CPU, CUDA, NUM_WORLDS, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, SEED 
+};
+
+const option::Descriptor usage[] = {
+    {UNKNOWN, 0, "", "", option::Arg::None, "USAGE: viewer [options]\n\n"
+                                            "Madrona Escape Room - Interactive Viewer\n"
+                                            "3D visualization and control of the simulation\n\n"
+                                            "Options:"},
+    {HELP,    0, "h", "help", option::Arg::None, "  --help, -h  \tPrint usage and exit."},
+    {MODE,    0, "m", "mode", ArgChecker::Required, "  --mode, -m  \tExecution mode (cpu|cuda). Default: cpu"},
+    {CPU,     0, "", "cpu", option::Arg::None, "  --cpu  \tUse CPU execution mode (same as --mode cpu)"},
+    {CUDA,    0, "", "cuda", option::Arg::None, "  --cuda  \tUse CUDA/GPU execution mode (same as --mode cuda)"},
+    {NUM_WORLDS, 0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds, -n <value>  \tNumber of parallel worlds (default: 1)"},
+    {REPLAY,  0, "", "replay", ArgChecker::Required, "  --replay <file>  \tReplay actions from file"},
+    {RECORD,  0, "r", "record", ArgChecker::Required, "  --record, -r <path>  \tRecord actions to file (press SPACE to start)"},
+    {TRACK,   0, "t", "track", option::Arg::None, "  --track, -t  \tEnable trajectory tracking (default: world 0, agent 0)"},
+    {TRACK_WORLD, 0, "", "track-world", ArgChecker::Numeric, "  --track-world <n>  \tSpecify world to track (default: 0)"},
+    {TRACK_AGENT, 0, "", "track-agent", ArgChecker::Numeric, "  --track-agent <n>  \tSpecify agent to track (default: 0)"},
+    {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed, -s <value>  \tSet random seed (default: 5)"},
+    {0,0,0,0,0,0}
+};
 
 int main(int argc, char *argv[])
 {
@@ -65,103 +82,157 @@ int main(int argc, char *argv[])
 
     constexpr int64_t num_views = consts::numAgents;
 
-    // Check for help flag
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            printUsage(argv[0]);
-            return 0;
-        }
-    }
+    // Parse arguments
+    argc-=(argc>0); argv+=(argc>0); // skip program name argv[0] if present
+    option::Stats stats(usage, argc, argv);
+    option::Option* options = new option::Option[stats.options_max];
+    option::Option* buffer = new option::Option[stats.buffer_max];
+    option::Parser parse(usage, argc, argv, options, buffer);
 
-    // Read command line arguments
-    uint32_t num_worlds = 1;
-    if (argc >= 2) {
-        num_worlds = (uint32_t)atoi(argv[1]);
+    if (parse.error()) {
+        std::cerr << "Error parsing command line arguments\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
     }
-
-    ExecMode exec_mode = ExecMode::CPU;
-    if (argc >= 3) {
-        if (!strcmp("--cpu", argv[2])) {
-            exec_mode = ExecMode::CPU;
-        } else if (!strcmp("--cuda", argv[2])) {
-            exec_mode = ExecMode::CUDA;
-        }
-    }
-
-    // Setup replay/recording
-    const char *replay_log_path = nullptr;
-    const char *record_log_path = nullptr;
-    bool is_recording = false;
-    bool track_trajectory = false;
-    int32_t track_world_idx = 0;
-    int32_t track_agent_idx = 0;
-    uint32_t rand_seed = 5;
     
-    // Parse additional arguments
-    for (int i = 3; i < argc; i++) {
-        if (strncmp("--", argv[i], 2) == 0) {
-            // This is a flag starting with --
-            if (strcmp("--record", argv[i]) == 0) {
-                if (i + 1 < argc) {
-                    record_log_path = argv[i + 1];
-                    is_recording = true;
-                    i++; // Skip next arg
-                } else {
-                    fprintf(stderr, "Error: --record flag requires output path\n");
-                    return 1;
-                }
-            } else if (strcmp("--track", argv[i]) == 0) {
-                track_trajectory = true;
-                if (i + 2 < argc) {
-                    track_world_idx = atoi(argv[i + 1]);
-                    track_agent_idx = atoi(argv[i + 2]);
-                    i += 2; // Skip world and agent indices
-                }
-                // If no indices provided, defaults to world 0, agent 0
-            } else if (strcmp("--seed", argv[i]) == 0) {
-                if (i + 1 < argc) {
-                    rand_seed = (uint32_t)atoi(argv[i + 1]);
-                    i++; // Skip next arg
-                } else {
-                    fprintf(stderr, "Error: --seed flag requires a value\n");
-                    return 1;
-                }
-            } else {
-                // Unknown flag
-                fprintf(stderr, "Error: Unknown option '%s'\n\n", argv[i]);
-                printUsage(argv[0]);
-                return 1;
-            }
-        } else {
-            // This is a replay file path
-            if (replay_log_path == nullptr) {
-                replay_log_path = argv[i];
-            } else {
-                fprintf(stderr, "Error: Multiple replay files specified\n\n");
-                printUsage(argv[0]);
-                return 1;
-            }
+    // Debug: Check for unknown options
+    if (options[UNKNOWN]) {
+        std::cerr << "Warning: Unknown options detected:\n";
+        for (option::Option* opt = options[UNKNOWN]; opt; opt = opt->next()) {
+            std::cerr << "  Unknown option: ";
+            fwrite(opt->name, opt->namelen, 1, stderr);
+            std::cerr << "\n";
         }
     }
 
+    if (options[HELP]) {
+        option::printUsage(std::cout, usage);
+        std::cout << "\nKeyboard Controls:\n";
+        std::cout << "  R          Reset current world\n";
+        std::cout << "  T          Toggle trajectory tracking for current world\n";
+        std::cout << "  SPACE      Start recording (when --record is used)\n";
+        std::cout << "  WASD       Move agent (when in agent view)\n";
+        std::cout << "  Q/E        Rotate agent left/right\n";
+        std::cout << "  Shift      Move faster\n";
+        std::cout << "\nExamples:\n";
+        std::cout << "  viewer                                      # Single world on CPU\n";
+        std::cout << "  viewer --num-worlds 4 --cpu                 # 4 worlds on CPU\n";
+        std::cout << "  viewer --cuda --track                       # Track world 0, agent 0 on GPU\n";
+        std::cout << "  viewer --cuda --track-world 2 --track-agent 1  # Track world 2, agent 1\n";
+        std::cout << "  viewer -n 2 --cpu --record demo.bin        # Record 2 worlds to demo.bin\n";
+        std::cout << "  viewer -n 2 --cpu --replay demo.bin        # Replay demo.bin with 2 worlds\n";
+        std::cout << "  viewer -n 4 --cpu --seed 42                # 4 worlds with seed 42\n";
+        delete[] options;
+        delete[] buffer;
+        return 0;
+    }
+
+    // Parameters with defaults
+    uint32_t num_worlds = 1;
+    ExecMode exec_mode = ExecMode::CPU;
+    std::string record_path;
+    std::string replay_path;
+    uint32_t rand_seed = 5;
+    int32_t track_world_idx = 0;  // Default to world 0
+    int32_t track_agent_idx = 0;  // Default to agent 0
+    bool track_trajectory = false;
+
+    // Process options
+    if (options[MODE]) {
+        std::string mode_str(options[MODE].arg);
+        if (mode_str == "cuda" || mode_str == "CUDA") {
+            exec_mode = ExecMode::CUDA;
+        } else if (mode_str != "cpu" && mode_str != "CPU") {
+            std::cerr << "Invalid mode: " << mode_str << ". Use 'cpu' or 'cuda'\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
+        }
+    }
+    
+    if (options[CPU]) {
+        exec_mode = ExecMode::CPU;
+    }
+    
+    if (options[CUDA]) {
+        exec_mode = ExecMode::CUDA;
+    }
+    
+    if (options[NUM_WORLDS]) {
+        num_worlds = strtoul(options[NUM_WORLDS].arg, nullptr, 10);
+    }
+    
+    if (options[REPLAY]) {
+        replay_path = options[REPLAY].arg;
+    }
+    
+    if (options[RECORD]) {
+        record_path = options[RECORD].arg;
+    }
+    
+    // Handle tracking options
+    if (options[TRACK]) {
+        track_trajectory = true;
+    }
+    
+    if (options[TRACK_WORLD]) {
+        track_world_idx = strtol(options[TRACK_WORLD].arg, nullptr, 10);
+        // If track-world is specified without --track, enable tracking
+        track_trajectory = true;
+    }
+    
+    if (options[TRACK_AGENT]) {
+        track_agent_idx = strtol(options[TRACK_AGENT].arg, nullptr, 10);
+        // If track-agent is specified without --track, enable tracking
+        track_trajectory = true;
+    }
+    
+    if (options[SEED]) {
+        rand_seed = strtoul(options[SEED].arg, nullptr, 10);
+    }
+
+    // Check for any remaining non-option arguments
+    if (parse.nonOptionsCount() > 0) {
+        std::cerr << "Error: Unexpected arguments. All parameters must be specified as options.\n";
+        std::cerr << "Use --help for usage information.\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+
+    // Validate options
+    if (!record_path.empty() && !replay_path.empty()) {
+        std::cerr << "Error: Cannot specify both --record and --replay\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+
+    // Setup replay
     auto replay_log = Optional<HeapArray<int32_t>>::none();
     uint32_t cur_replay_step = 0;
     uint32_t num_replay_steps = 0;
-    if (replay_log_path != nullptr) {
-        replay_log = readReplayLog(replay_log_path);
-        num_replay_steps = replay_log->size() / (num_worlds * num_views * 3);
+    if (!replay_path.empty()) {
+        replay_log = readReplayLog(replay_path.c_str());
+        if (num_worlds > 0 && num_views > 0) {
+            num_replay_steps = replay_log->size() / (num_worlds * num_views * 3);
+        }
     }
     
     // Setup recording
     std::ofstream recording_file;
     std::vector<int32_t> frame_actions;
     uint32_t recorded_frames = 0;
-    bool recording_started = false;  // Track if Space has been pressed to start recording
+    bool recording_started = false;
+    bool is_recording = !record_path.empty();
     
     if (is_recording) {
-        recording_file.open(record_log_path, std::ios::binary);
+        recording_file.open(record_path, std::ios::binary);
         if (!recording_file.is_open()) {
-            fprintf(stderr, "Error: Failed to open recording file: %s\n", record_log_path);
+            std::cerr << "Error: Failed to open recording file: " << record_path << "\n";
+            delete[] options;
+            delete[] buffer;
             return 1;
         }
         frame_actions.resize(num_worlds * 3);
@@ -171,7 +242,7 @@ int main(int argc, char *argv[])
             frame_actions[i * 3 + 1] = 0;  // move_angle = 0 (forward)
             frame_actions[i * 3 + 2] = 2;  // rotate = 2 (no rotation)
         }
-        printf("Recording mode enabled. Press SPACE to start recording to: %s\n", record_log_path);
+        std::cout << "Recording mode enabled. Press SPACE to start recording to: " << record_path << "\n";
     }
 
     bool enable_batch_renderer =
@@ -203,13 +274,13 @@ int main(int argc, char *argv[])
     }
     
     // Print help for controls
-    printf("\nViewer Controls:\n");
-    printf("  R: Reset current world\n");
-    printf("  T: Toggle trajectory tracking for current world\n");
+    std::cout << "\nViewer Controls:\n";
+    std::cout << "  R: Reset current world\n";
+    std::cout << "  T: Toggle trajectory tracking for current world\n";
     if (is_recording) {
-        printf("  SPACE: Start recording\n");
+        std::cout << "  SPACE: Start recording\n";
     }
-    printf("\n");
+    std::cout << "\n";
 
     float camera_move_speed = 10.f;
 
@@ -311,7 +382,7 @@ int main(int argc, char *argv[])
             }
         }
     },
-    [&mgr, &is_recording, &recording_started, &frame_actions](CountT world_idx, CountT agent_idx,
+    [&mgr, &is_recording, &recording_started, &frame_actions](CountT world_idx, CountT,
            const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
@@ -418,9 +489,14 @@ int main(int argc, char *argv[])
     if (is_recording) {
         recording_file.close();
         if (recorded_frames > 0) {
-            printf("Recording complete: %u frames saved to %s\n", recorded_frames, record_log_path);
+            printf("Recording complete: %u frames saved to %s\n", recorded_frames, record_path.c_str());
         } else {
             printf("Recording cancelled: No frames were recorded\n");
         }
     }
+    
+    delete[] options;
+    delete[] buffer;
+    
+    return 0;
 }

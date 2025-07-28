@@ -5,29 +5,35 @@ Run Madrona Escape Room simulation without graphics for benchmarking, testing, o
 
 ## Usage
 ```bash
-./build/headless TYPE NUM_WORLDS NUM_STEPS [OPTIONS]
+./build/headless [OPTIONS]
 ```
 
-### Required Arguments
-- **TYPE**: `CPU` or `CUDA`
-- **NUM_WORLDS**: Number of parallel worlds (e.g., 1, 1024, 8192)
-- **NUM_STEPS**: Simulation steps to run (e.g., 100, 1000, 10000)
+### Required Options
+- `--mode MODE`: Execution mode (`CPU` or `CUDA`)
+- `--num-worlds N`: Number of parallel worlds (e.g., 1, 1024, 8192)
+- `--num-steps N`: Simulation steps to run (e.g., 100, 1000, 10000)
 
 ### Options
 - `--rand-actions`: Generate random actions (for benchmarking)
-- `--track-agent WORLD_ID AGENT_ID`: Track specific agent trajectory
+- `--track`: Enable trajectory tracking (default: world 0, agent 0)
+- `--track-world N`: Specify world to track (default: 0)
+- `--track-agent N`: Specify agent to track (default: 0)
+- `--track-file FILE`: Save trajectory to file
 
 ## Examples
 
 ```bash
 # Basic CPU run
-./build/headless CPU 1 1000
+./build/headless --mode cpu --num-worlds 1 --num-steps 1000
 
 # GPU benchmark with random actions
-./build/headless CUDA 8192 1000 --rand-actions
+./build/headless --mode cuda --num-worlds 8192 --num-steps 1000 --rand-actions
 
 # Track agent 0 in world 5
-./build/headless CPU 100 1000 --track-agent 5 0
+./build/headless --mode cpu --num-worlds 100 --num-steps 1000 --track --track-world 5
+
+# Track agent 1 in world 5
+./build/headless --mode cpu --num-worlds 100 --num-steps 1000 --track-world 5 --track-agent 1
 ```
 
 ## Output

@@ -71,7 +71,15 @@ if (TARGET madrona_viz)
     target_compile_definitions(viewer PRIVATE
         -DDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../data/"
     )
+    
+    target_include_directories(viewer PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../external/optionparser
+    )
 endif()
 
 add_executable(headless headless.cpp)
 target_link_libraries(headless madrona_mw_core mad_escape_mgr)
+
+target_include_directories(headless PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../external/optionparser
+)
