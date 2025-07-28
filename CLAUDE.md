@@ -118,19 +118,23 @@ If the user asks to "debug the code", or "debug it" or generally references "deb
 
 # Documentation
 
-## Procedures for common tasks
+## Instructions for common tasks
+
+Procedure files live in docs/instructions
 
 These files contain step-by-step instructions for common programming task
 When the users requests a task, and the task involves any of the below.. read the file and follow the instructions inside to implement that part of the task,
 in planning mode.. copy the steps into your plan
 
-- ADD_COMPONENT.md
-- ADD_SYSTEM.md
-- EXPORT_COMPONENT.md : exporting a component to the python bindings and manager
+- ADD_COMPONENT.md: add a new component
+- ADD_SYSTEM.md: add a new system
+- EXPORT_COMPONENT.md : exporting a component to the python bindings and mgr.cpp
 
 ## Useful documents
 
-are in the docs folder when given a task, or creating a plan, if the name of the document or the description indicates the document could be useful, read it before planning or starting the task
+live in the docs folder 
+
+When given a task, or creating a plan, if the name of the document or the description indicates the document could be useful, read it before planning or starting the task
 
 - README_BINDINGS.md : python bindings
 - ECS_ARCHITECTURE.md : the madrona ECS system
@@ -139,6 +143,11 @@ are in the docs folder when given a task, or creating a plan, if the name of the
 - RESET_SEQUENCE: detailed description of the reset sequence
 - STEP_SEQUENCE: detailed description of the step sequence
 - VIEWER_GUIDE: instructions for building and using the viewer
+- using_trajectory_logging.md: detailed instructions on the progress component
+- COLLISION_SYSTEM.md: comprehensive guide to collision detection, physics properties, and collision handling
+- GDB_GUIDE.md: debugging guide using MCP GDB server for step-through debugging
+- HEADLESS_MODE.md: running simulations without graphics for benchmarking and testing
+- using_progress_component.md: example code for accessing and using the Progress component from Python
 
 ## Documentation creation rules
 
