@@ -96,6 +96,7 @@ int main(int argc, char *argv[])
         std::cout << "  headless -m cuda -n 8192 -s 1000 --rand-actions         # GPU benchmark\n";
         std::cout << "  headless -m cpu -n 100 -s 1000 --track --track-world 5  # Track agent 0 in world 5\n";
         std::cout << "  headless -m cpu -n 100 -s 1000 --track-world 5 --track-agent 1  # Track agent 1 in world 5\n";
+        std::cout << "  headless -m cpu -n 2 -s 1000 --replay demo.bin          # Replay demo.bin\n";
         delete[] options;
         delete[] buffer;
         return 0;
@@ -244,16 +245,17 @@ int main(int argc, char *argv[])
     // Only needed for random actions now
     HeapArray<int32_t> action_store(rand_actions ? (num_worlds * num_steps * 3) : 0);
 
-    printf("Executing %lu Steps x %lu Worlds (%s)\n",
+    printf("Executing %lu Steps x %lu Worlds (%s)%s\n",
            num_steps, num_worlds,
-           exec_mode == ExecMode::CPU ? "CPU" : "CUDA");
+           exec_mode == ExecMode::CPU ? "CPU" : "CUDA",
+           replay_mode ? " [REPLAY MODE]" : "");
 
     Manager mgr({
         .execMode = exec_mode,
         .gpuID = 0,
         .numWorlds = (uint32_t)num_worlds,
         .randSeed = replay_mode ? replay_seed : rand_seed,
-        .autoReset = false,
+        .autoReset = replay_mode,
         .enableBatchRenderer = false,
     });
     
