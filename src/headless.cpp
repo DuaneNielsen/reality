@@ -92,11 +92,11 @@ int main(int argc, char *argv[])
     if (options[HELP]) {
         option::printUsage(std::cout, usage);
         std::cout << "\nExamples:\n";
-        std::cout << "  headless --mode cpu --num-worlds 1 --num-steps 1000     # Basic CPU run\n";
-        std::cout << "  headless -m cuda -n 8192 -s 1000 --rand-actions         # GPU benchmark\n";
-        std::cout << "  headless -m cpu -n 100 -s 1000 --track --track-world 5  # Track agent 0 in world 5\n";
-        std::cout << "  headless -m cpu -n 100 -s 1000 --track-world 5 --track-agent 1  # Track agent 1 in world 5\n";
-        std::cout << "  headless -m cpu -n 2 -s 1000 --replay demo.bin          # Replay demo.bin\n";
+        std::cout << "  headless --mode=cpu --num-worlds=1 --num-steps=1000     # Basic CPU run\n";
+        std::cout << "  headless -m=cuda -n=8192 -s=1000 --rand-actions         # GPU benchmark\n";
+        std::cout << "  headless -m=cpu -n=100 -s=1000 --track --track-world=5  # Track agent 0 in world 5\n";
+        std::cout << "  headless -m=cpu -n=100 -s=1000 --track-world=5 --track-agent=1  # Track agent 1 in world 5\n";
+        std::cout << "  headless -m=cpu -n=2 -s=1000 --replay=demo.bin          # Replay demo.bin\n";
         delete[] options;
         delete[] buffer;
         return 0;

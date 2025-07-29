@@ -44,7 +44,7 @@ namespace ArgChecker {
 }
 
 enum OptionIndex { 
-    UNKNOWN, HELP, MODE, CPU, CUDA, NUM_WORLDS, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, SEED 
+    UNKNOWN, HELP, CUDA, NUM_WORLDS, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, SEED 
 };
 
 const option::Descriptor usage[] = {
@@ -53,16 +53,14 @@ const option::Descriptor usage[] = {
                                             "3D visualization and control of the simulation\n\n"
                                             "Options:"},
     {HELP,    0, "h", "help", option::Arg::None, "  --help, -h  \tPrint usage and exit."},
-    {MODE,    0, "m", "mode", ArgChecker::Required, "  --mode, -m  \tExecution mode (cpu|cuda). Default: cpu"},
-    {CPU,     0, "", "cpu", option::Arg::None, "  --cpu  \tUse CPU execution mode (same as --mode cpu)"},
-    {CUDA,    0, "", "cuda", option::Arg::None, "  --cuda  \tUse CUDA/GPU execution mode (same as --mode cuda)"},
-    {NUM_WORLDS, 0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds, -n <value>  \tNumber of parallel worlds (default: 1)"},
-    {REPLAY,  0, "", "replay", ArgChecker::Required, "  --replay <file>  \tReplay actions from file"},
-    {RECORD,  0, "r", "record", ArgChecker::Required, "  --record, -r <path>  \tRecord actions to file (press SPACE to start)"},
+    {CUDA,    0, "", "cuda", ArgChecker::Numeric, "  --cuda=<n>  \tUse CUDA/GPU execution mode on device n"},
+    {NUM_WORLDS, 0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds=<value>, -n=<value>  \tNumber of parallel worlds (default: 1)"},
+    {REPLAY,  0, "", "replay", ArgChecker::Required, "  --replay=<file>  \tReplay actions from file"},
+    {RECORD,  0, "r", "record", ArgChecker::Required, "  --record=<path>, -r=<path>  \tRecord actions to file (press SPACE to start)"},
     {TRACK,   0, "t", "track", option::Arg::None, "  --track, -t  \tEnable trajectory tracking (default: world 0, agent 0)"},
-    {TRACK_WORLD, 0, "", "track-world", ArgChecker::Numeric, "  --track-world <n>  \tSpecify world to track (default: 0)"},
-    {TRACK_AGENT, 0, "", "track-agent", ArgChecker::Numeric, "  --track-agent <n>  \tSpecify agent to track (default: 0)"},
-    {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed, -s <value>  \tSet random seed (default: 5)"},
+    {TRACK_WORLD, 0, "", "track-world", ArgChecker::Numeric, "  --track-world=<n>  \tSpecify world to track (default: 0)"},
+    {TRACK_AGENT, 0, "", "track-agent", ArgChecker::Numeric, "  --track-agent=<n>  \tSpecify agent to track (default: 0)"},
+    {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed=<value>, -s=<value>  \tSet random seed (default: 5)"},
     {0,0,0,0,0,0}
 };
 
@@ -106,12 +104,12 @@ int main(int argc, char *argv[])
         std::cout << "  Shift      Move faster\n";
         std::cout << "\nExamples:\n";
         std::cout << "  viewer                                      # Single world on CPU\n";
-        std::cout << "  viewer --num-worlds 4 --cpu                 # 4 worlds on CPU\n";
-        std::cout << "  viewer --cuda --track                       # Track world 0, agent 0 on GPU\n";
-        std::cout << "  viewer --cuda --track-world 2 --track-agent 1  # Track world 2, agent 1\n";
-        std::cout << "  viewer -n 2 --cpu --record demo.bin        # Record 2 worlds to demo.bin\n";
-        std::cout << "  viewer -n 2 --cpu --replay demo.bin        # Replay demo.bin with 2 worlds\n";
-        std::cout << "  viewer -n 4 --cpu --seed 42                # 4 worlds with seed 42\n";
+        std::cout << "  viewer --num-worlds=4                       # 4 worlds on CPU\n";
+        std::cout << "  viewer --cuda=0 --track                     # Track world 0, agent 0 on GPU 0\n";
+        std::cout << "  viewer --cuda=1 --track-world=2             # Use GPU 1, track world 2\n";
+        std::cout << "  viewer -n=2 --record=demo.bin              # Record 2 worlds to demo.bin\n";
+        std::cout << "  viewer -n=2 --replay=demo.bin              # Replay demo.bin with 2 worlds\n";
+        std::cout << "  viewer -n=4 --seed=42                      # 4 worlds with seed 42\n";
         delete[] options;
         delete[] buffer;
         return 0;
@@ -120,6 +118,7 @@ int main(int argc, char *argv[])
     // Parameters with defaults
     uint32_t num_worlds = 1;
     ExecMode exec_mode = ExecMode::CPU;
+    uint32_t gpu_id = 0;
     std::string record_path;
     std::string replay_path;
     uint32_t rand_seed = 5;
@@ -129,24 +128,9 @@ int main(int argc, char *argv[])
     bool is_paused = false;  // Pause state
 
     // Process options
-    if (options[MODE]) {
-        std::string mode_str(options[MODE].arg);
-        if (mode_str == "cuda" || mode_str == "CUDA") {
-            exec_mode = ExecMode::CUDA;
-        } else if (mode_str != "cpu" && mode_str != "CPU") {
-            std::cerr << "Invalid mode: " << mode_str << ". Use 'cpu' or 'cuda'\n";
-            delete[] options;
-            delete[] buffer;
-            return 1;
-        }
-    }
-    
-    if (options[CPU]) {
-        exec_mode = ExecMode::CPU;
-    }
-    
     if (options[CUDA]) {
         exec_mode = ExecMode::CUDA;
+        gpu_id = strtoul(options[CUDA].arg, nullptr, 10);
     }
     
     if (options[NUM_WORLDS]) {
@@ -199,32 +183,27 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Setup replay - temporarily load to get metadata
+    // Setup replay - read metadata from file
     bool has_replay = false;
     uint32_t replay_seed = rand_seed;
     if (!replay_path.empty()) {
-        // Temporarily create a manager to load replay and get metadata
-        Manager temp_mgr({
-            .execMode = exec_mode,
-            .gpuID = 0,
-            .numWorlds = 1,  // Temporary value
-            .randSeed = 5,
-            .autoReset = false,
-        });
-        
-        if (temp_mgr.loadReplay(replay_path)) {
-            const auto* replay_data = temp_mgr.getReplayData();
-            if (replay_data) {
-                // Validate and update num_worlds
-                if (num_worlds != replay_data->metadata.num_worlds) {
-                    std::cerr << "Warning: Replay was recorded with " << replay_data->metadata.num_worlds 
-                              << " worlds, but viewer is using " << num_worlds << " worlds.\n";
-                    std::cerr << "Setting num_worlds to match replay file.\n";
-                    num_worlds = replay_data->metadata.num_worlds;
-                }
-                replay_seed = replay_data->metadata.seed;
-                has_replay = true;
+        auto metadata_opt = Manager::readReplayMetadata(replay_path);
+        if (metadata_opt.has_value()) {
+            const auto& metadata = metadata_opt.value();
+            // Validate and update num_worlds
+            if (num_worlds != metadata.num_worlds) {
+                std::cerr << "Warning: Replay was recorded with " << metadata.num_worlds 
+                          << " worlds, but viewer is using " << num_worlds << " worlds.\n";
+                std::cerr << "Setting num_worlds to match replay file.\n";
+                num_worlds = metadata.num_worlds;
             }
+            replay_seed = metadata.seed;
+            has_replay = true;
+        } else {
+            std::cerr << "Error: Failed to read replay metadata\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
         }
     }
     
@@ -251,7 +230,7 @@ int main(int argc, char *argv[])
 
     WindowManager wm {};
     WindowHandle window = wm.makeWindow("Escape Room", 2730, 1536);
-    render::GPUHandle render_gpu = wm.initGPU(0, { window.get() });
+    render::GPUHandle render_gpu = wm.initGPU(gpu_id, { window.get() });
 
     // Use seed from replay if available
     uint32_t sim_seed = has_replay ? replay_seed : rand_seed;
