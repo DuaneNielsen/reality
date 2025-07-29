@@ -83,3 +83,111 @@ target_link_libraries(headless madrona_mw_core mad_escape_mgr)
 target_include_directories(headless PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../external/optionparser
 )
+
+# C API wrapper library
+add_library(madrona_escape_room_c_api SHARED
+    madrona_escape_room_c_api.cpp
+)
+
+target_include_directories(madrona_escape_room_c_api
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Link all dependencies statically
+# First, link the static libraries with --whole-archive
+target_link_libraries(madrona_escape_room_c_api
+    PRIVATE
+        -Wl,--whole-archive
+        mad_escape_mgr
+        mad_escape_cpu_impl
+        ${CMAKE_BINARY_DIR}/external/madrona/src/core/libmadrona_mw_core.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/mw/libmadrona_mw_cpu.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/common/libmadrona_common.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/importer/libmadrona_importer.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/physics/libmadrona_physics_loader.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/physics/libmadrona_physics_assets.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/physics/libmadrona_mw_physics.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/render/libmadrona_rendering_system.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/render/libmadrona_render.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/render/libmadrona_render_core.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/render/libmadrona_render_asset_processor.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/python/libmadrona_python_utils.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/common/libmadrona_mem.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/common/libmadrona_err.a
+        ${CMAKE_BINARY_DIR}/external/madrona/src/common/libmadrona_bvh_builder.a
+        -Wl,--no-whole-archive
+        # External dependencies that might only be available as shared libraries
+        # We'll try to link them statically if possible
+        ${CMAKE_DL_LIBS}
+        pthread
+        stdc++
+        m
+)
+
+# For the external shared libraries, we need to handle them specially
+# Try to find static versions first
+find_library(EMBREE_STATIC_LIB NAMES embree4_static embree4.a PATHS ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/external NO_DEFAULT_PATH)
+find_library(DXCOMPILER_STATIC_LIB NAMES dxcompiler_static dxcompiler.a PATHS ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/external NO_DEFAULT_PATH)
+
+if(EMBREE_STATIC_LIB)
+    target_link_libraries(madrona_escape_room_c_api PRIVATE ${EMBREE_STATIC_LIB})
+else()
+    # If no static version, we'll have to embed the shared library
+    target_link_libraries(madrona_escape_room_c_api PRIVATE ${CMAKE_BINARY_DIR}/libembree4.so.4)
+endif()
+
+if(DXCOMPILER_STATIC_LIB)
+    target_link_libraries(madrona_escape_room_c_api PRIVATE ${DXCOMPILER_STATIC_LIB})
+else()
+    # If no static version, we'll have to embed the shared library
+    target_link_libraries(madrona_escape_room_c_api PRIVATE ${CMAKE_BINARY_DIR}/libdxcompiler.so)
+endif()
+
+# Handle the shader compiler
+if(EXISTS ${CMAKE_BINARY_DIR}/external/madrona/src/render/libmadrona_render_shader_compiler.a)
+    target_link_libraries(madrona_escape_room_c_api PRIVATE 
+        -Wl,--whole-archive
+        ${CMAKE_BINARY_DIR}/external/madrona/src/render/libmadrona_render_shader_compiler.a
+        -Wl,--no-whole-archive
+    )
+else()
+    target_link_libraries(madrona_escape_room_c_api PRIVATE ${CMAKE_BINARY_DIR}/libmadrona_render_shader_compiler.so)
+endif()
+
+# Handle the std_mem library
+if(EXISTS ${CMAKE_BINARY_DIR}/external/madrona/src/common/libmadrona_std_mem.a)
+    target_link_libraries(madrona_escape_room_c_api PRIVATE 
+        -Wl,--whole-archive
+        ${CMAKE_BINARY_DIR}/external/madrona/src/common/libmadrona_std_mem.a
+        -Wl,--no-whole-archive
+    )
+else()
+    target_link_libraries(madrona_escape_room_c_api PRIVATE ${CMAKE_BINARY_DIR}/libmadrona_std_mem.so)
+endif()
+
+# Ensure we compile without RTTI and exceptions
+target_compile_options(madrona_escape_room_c_api PRIVATE
+    -fno-rtti
+    -fno-exceptions
+    -fvisibility=hidden
+)
+
+# Add linker flags to statically link C++ runtime
+target_link_options(madrona_escape_room_c_api PRIVATE
+    -static-libgcc
+    -static-libstdc++
+)
+
+# Define building DLL for proper export
+target_compile_definitions(madrona_escape_room_c_api PRIVATE
+    BUILDING_MER_DLL
+)
+
+# Set proper rpath for the shared library
+set_target_properties(madrona_escape_room_c_api PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH TRUE
+)
