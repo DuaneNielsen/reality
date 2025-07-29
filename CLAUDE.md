@@ -30,7 +30,44 @@ This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement 
 - Python (PyTorch-based PPO training)
 - CMake build system
 
-@docs/HEADLESS_QUICK_REFERENCE.md
+# Headless Mode Quick Reference
+
+## Overview
+Run simulation without graphics for benchmarking, testing, or server deployment.
+
+## Usage
+```bash
+./build/headless [OPTIONS]
+```
+
+### Required Options
+- `--num-worlds N, -n N`: Number of parallel worlds (e.g., 1, 1024, 8192)
+- `--num-steps N, -s N`: Simulation steps to run (e.g., 100, 1000, 10000)
+
+### Optional
+- `--cuda <n>`: Use CUDA/GPU execution mode on device n (default: CPU)
+- `--rand-actions`: Generate random actions (for benchmarking)
+- `--replay <file>`: Replay actions from file
+- `--seed <value>`: Set random seed (default: 5)
+- `--track, -t`: Enable trajectory tracking (default: world 0, agent 0)
+- `--track-world N`: Specify world to track (default: 0)
+- `--track-agent N`: Specify agent to track (default: 0)
+- `--track-file <file>`: Save trajectory to file
+
+## Examples
+```bash
+# Basic CPU run
+./build/headless -n 1 -s 1000
+
+# GPU benchmark with random actions
+./build/headless --cuda 0 -n 8192 -s 1000 --rand-actions
+
+# Track agent 0 in world 5
+./build/headless -n 100 -s 1000 --track --track-world 5
+
+# Replay recording
+./build/headless -n 2 -s 1000 --replay demo.bin
+```
 
 # Essential Commands
 
@@ -47,39 +84,17 @@ uv pip install -e .
 
 ### Running the Simulation
 ```bash
-# Interactive viewer (basic usage)
-./build/viewer
+# For headless mode, see the Headless Mode Quick Reference above
+# For viewer options, run: ./build/viewer --help
 
-# Viewer with command line options
-./build/viewer [options]
+# Interactive viewer examples:
+./build/viewer                                   # Single world on CPU
+./build/viewer -n 4                              # 4 worlds on CPU
+./build/viewer --cuda 0 -n 8 --track            # 8 worlds on GPU with tracking
+./build/viewer -n 2 --record demo.bin           # Record demo (press SPACE to start)
+./build/viewer -n 2 --replay demo.bin           # Replay recorded demo
 
-# Viewer command line options:
-# - --num-worlds N: Number of parallel worlds (default: 1)
-# - --cpu: Use CPU execution mode
-# - --cuda: Use CUDA/GPU execution mode
-# - --track: Enable trajectory tracking (default: world 0, agent 0)
-# - --track-world N: Specify world to track (default: 0)
-# - --track-agent N: Specify agent to track (default: 0)
-# - --record <path>: Record actions to file (press SPACE to start)
-# - --replay <file>: Replay actions from file
-
-# Examples:
-./build/viewer --num-worlds 4 --cpu              # 4 worlds on CPU
-./build/viewer --cuda --track                    # Track world 0, agent 0 on GPU
-./build/viewer -n 2 --cpu --record demo.bin     # Record 2 worlds to demo.bin
-./build/viewer -n 2 --cpu --replay demo.bin     # Replay demo.bin with 2 worlds
-./build/viewer -n 4 --cpu --track-world 2       # 4 worlds, track world 2 agent 0
-./build/viewer -n 4 --cpu --track-world 2 --track-agent 1  # Track world 2, agent 1
-
-# Viewer keyboard controls:
-# - R: Reset current world
-# - T: Toggle trajectory tracking for current world
-# - SPACE: Start recording (when --record is used)
-# - WASD: Move agent (when in agent view)
-# - Q/E: Rotate agent left/right
-# - Shift: Move faster
-
-# Benchmark performance
+# Python benchmark
 uv run python scripts/sim_bench.py --num-worlds 1024 --num-steps 1000 --gpu-id 0
 ```
 
@@ -98,7 +113,7 @@ uv run python scripts/train.py --num-worlds 8192 --num-updates 5000 --profile-re
 uv run python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-path build/checkpoints/5000.pth --action-dump-path build/dumped_actions
 
 # Replay in viewer
-./build/viewer 1 --cpu build/dumped_actions
+./build/viewer -n 1 --replay build/dumped_actions
 ```
 
 ### Development
@@ -106,6 +121,10 @@ uv run python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-pat
 ```bash
 # Rebuild after C++ changes
 make -C build -j$(nproc)
+
+# Run quick smoke tests
+./tests/quick_test.sh   # Quick CPU test (assumes built)
+./tests/smoke_test.sh   # Full rebuild and test with FPS verification (270k-310k range)
 
 # Run tests - ALWAYS run CPU tests first, then GPU tests
 # Run all CPU tests (default)
