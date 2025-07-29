@@ -44,7 +44,7 @@ namespace ArgChecker {
 }
 
 enum OptionIndex { 
-    UNKNOWN, HELP, CUDA, NUM_WORLDS, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, SEED 
+    UNKNOWN, HELP, CUDA, NUM_WORLDS, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED 
 };
 
 const option::Descriptor usage[] = {
@@ -60,6 +60,7 @@ const option::Descriptor usage[] = {
     {TRACK,   0, "t", "track", option::Arg::None, "  --track, -t  \tEnable trajectory tracking (default: world 0, agent 0)"},
     {TRACK_WORLD, 0, "", "track-world", ArgChecker::Numeric, "  --track-world=<n>  \tSpecify world to track (default: 0)"},
     {TRACK_AGENT, 0, "", "track-agent", ArgChecker::Numeric, "  --track-agent=<n>  \tSpecify agent to track (default: 0)"},
+    {TRACK_FILE, 0, "", "track-file", ArgChecker::Required, "  --track-file=<file>  \tSave trajectory to file (requires --track-agent)"},
     {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed=<value>, -s=<value>  \tSet random seed (default: 5)"},
     {0,0,0,0,0,0}
 };
@@ -110,6 +111,7 @@ int main(int argc, char *argv[])
         std::cout << "  viewer -n=2 --record=demo.bin              # Record 2 worlds to demo.bin\n";
         std::cout << "  viewer -n=2 --replay=demo.bin              # Replay demo.bin with 2 worlds\n";
         std::cout << "  viewer -n=4 --seed=42                      # 4 worlds with seed 42\n";
+        std::cout << "  viewer --track --track-file=trajectory.csv  # Track and save to file\n";
         delete[] options;
         delete[] buffer;
         return 0;
@@ -125,6 +127,7 @@ int main(int argc, char *argv[])
     int32_t track_world_idx = 0;  // Default to world 0
     int32_t track_agent_idx = 0;  // Default to agent 0
     bool track_trajectory = false;
+    std::string track_file;
     bool is_paused = false;  // Pause state
 
     // Process options
@@ -162,6 +165,12 @@ int main(int argc, char *argv[])
         track_trajectory = true;
     }
     
+    if (options[TRACK_FILE]) {
+        track_file = options[TRACK_FILE].arg;
+        // If track-file is specified without --track, enable tracking
+        track_trajectory = true;
+    }
+    
     if (options[SEED]) {
         rand_seed = strtoul(options[SEED].arg, nullptr, 10);
     }
@@ -178,6 +187,14 @@ int main(int argc, char *argv[])
     // Validate options
     if (!record_path.empty() && !replay_path.empty()) {
         std::cerr << "Error: Cannot specify both --record and --replay\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+    
+    if (!track_file.empty() && !track_trajectory) {
+        std::cerr << "Error: --track-file requires trajectory tracking to be enabled\n";
+        std::cerr << "Use --track, --track-world, or --track-agent to enable tracking\n";
         delete[] options;
         delete[] buffer;
         return 1;
@@ -262,7 +279,11 @@ int main(int argc, char *argv[])
     
     // Enable trajectory tracking if requested
     if (track_trajectory) {
-        mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx, std::nullopt);
+        mgr.enableTrajectoryLogging(track_world_idx, track_agent_idx, 
+            track_file.empty() ? std::nullopt : std::make_optional(track_file.c_str()));
+        if (!track_file.empty()) {
+            printf("Trajectory will be saved to: %s\n", track_file.c_str());
+        }
     }
     
     // Print help for controls
