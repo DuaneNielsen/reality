@@ -53,15 +53,15 @@ const option::Descriptor usage[] = {
                                             "3D visualization and control of the simulation\n\n"
                                             "Options:"},
     {HELP,    0, "h", "help", option::Arg::None, "  --help, -h  \tPrint usage and exit."},
-    {CUDA,    0, "", "cuda", ArgChecker::Numeric, "  --cuda=<n>  \tUse CUDA/GPU execution mode on device n"},
-    {NUM_WORLDS, 0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds=<value>, -n=<value>  \tNumber of parallel worlds (default: 1)"},
-    {REPLAY,  0, "", "replay", ArgChecker::Required, "  --replay=<file>  \tReplay actions from file"},
-    {RECORD,  0, "r", "record", ArgChecker::Required, "  --record=<path>, -r=<path>  \tRecord actions to file (press SPACE to start)"},
+    {CUDA,    0, "", "cuda", ArgChecker::Numeric, "  --cuda <n>  \tUse CUDA/GPU execution mode on device n"},
+    {NUM_WORLDS, 0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds <value>, -n <value>  \tNumber of parallel worlds (default: 1)"},
+    {REPLAY,  0, "", "replay", ArgChecker::Required, "  --replay <file>  \tReplay actions from file"},
+    {RECORD,  0, "r", "record", ArgChecker::Required, "  --record <path>, -r <path>  \tRecord actions to file (press SPACE to start)"},
     {TRACK,   0, "t", "track", option::Arg::None, "  --track, -t  \tEnable trajectory tracking (default: world 0, agent 0)"},
-    {TRACK_WORLD, 0, "", "track-world", ArgChecker::Numeric, "  --track-world=<n>  \tSpecify world to track (default: 0)"},
-    {TRACK_AGENT, 0, "", "track-agent", ArgChecker::Numeric, "  --track-agent=<n>  \tSpecify agent to track (default: 0)"},
-    {TRACK_FILE, 0, "", "track-file", ArgChecker::Required, "  --track-file=<file>  \tSave trajectory to file"},
-    {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed=<value>, -s=<value>  \tSet random seed (default: 5)"},
+    {TRACK_WORLD, 0, "", "track-world", ArgChecker::Numeric, "  --track-world <n>  \tSpecify world to track (default: 0)"},
+    {TRACK_AGENT, 0, "", "track-agent", ArgChecker::Numeric, "  --track-agent <n>  \tSpecify agent to track (default: 0)"},
+    {TRACK_FILE, 0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file"},
+    {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed <value>, -s <value>  \tSet random seed (default: 5)"},
     {0,0,0,0,0,0}
 };
 
@@ -105,13 +105,13 @@ int main(int argc, char *argv[])
         std::cout << "  Shift      Move faster\n";
         std::cout << "\nExamples:\n";
         std::cout << "  viewer                                      # Single world on CPU\n";
-        std::cout << "  viewer --num-worlds=4                       # 4 worlds on CPU\n";
-        std::cout << "  viewer --cuda=0 --track                     # Track world 0, agent 0 on GPU 0\n";
-        std::cout << "  viewer --cuda=1 --track-world=2             # Use GPU 1, track world 2\n";
-        std::cout << "  viewer -n=2 --record=demo.bin              # Record 2 worlds to demo.bin\n";
-        std::cout << "  viewer -n=2 --replay=demo.bin              # Replay demo.bin with 2 worlds\n";
-        std::cout << "  viewer -n=4 --seed=42                      # 4 worlds with seed 42\n";
-        std::cout << "  viewer --track --track-file=trajectory.csv  # Track and save to file\n";
+        std::cout << "  viewer --num-worlds 4                       # 4 worlds on CPU\n";
+        std::cout << "  viewer --cuda 0 --track                     # Track world 0, agent 0 on GPU 0\n";
+        std::cout << "  viewer --cuda 1 --track-world 2             # Use GPU 1, track world 2\n";
+        std::cout << "  viewer -n 2 --record demo.bin              # Record 2 worlds to demo.bin\n";
+        std::cout << "  viewer -n 2 --replay demo.bin              # Replay demo.bin with 2 worlds\n";
+        std::cout << "  viewer -n 4 --seed 42                      # 4 worlds with seed 42\n";
+        std::cout << "  viewer --track --track-file trajectory.csv  # Track and save to file\n";
         delete[] options;
         delete[] buffer;
         return 0;

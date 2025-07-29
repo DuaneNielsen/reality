@@ -50,7 +50,7 @@ namespace ArgChecker {
 }
 
 enum OptionIndex { 
-    UNKNOWN, HELP, MODE, NUM_WORLDS, NUM_STEPS, RAND_ACTIONS, REPLAY, SEED, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE 
+    UNKNOWN, HELP, CUDA, NUM_WORLDS, NUM_STEPS, RAND_ACTIONS, REPLAY, SEED, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE 
 };
 
 const option::Descriptor usage[] = {
@@ -59,9 +59,9 @@ const option::Descriptor usage[] = {
                                             "Run simulation without graphics for benchmarking and testing\n\n"
                                             "Options:"},
     {HELP,         0, "h", "help", option::Arg::None, "  --help, -h  \tShow this help message"},
-    {MODE,         0, "m", "mode", ArgChecker::Required, "  --mode, -m <cpu|cuda>  \tExecution mode (required)"},
-    {NUM_WORLDS,   0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds, -n <value>  \tNumber of parallel worlds (required)"},
-    {NUM_STEPS,    0, "s", "num-steps", ArgChecker::Numeric, "  --num-steps, -s <value>  \tNumber of simulation steps (required)"},
+    {CUDA,         0, "", "cuda", ArgChecker::Numeric, "  --cuda <n>  \tUse CUDA/GPU execution mode on device n"},
+    {NUM_WORLDS,   0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds <value>, -n <value>  \tNumber of parallel worlds (required)"},
+    {NUM_STEPS,    0, "s", "num-steps", ArgChecker::Numeric, "  --num-steps <value>, -s <value>  \tNumber of simulation steps (required)"},
     {RAND_ACTIONS, 0, "", "rand-actions", option::Arg::None, "  --rand-actions  \tGenerate random actions for benchmarking"},
     {REPLAY,       0, "", "replay", ArgChecker::Required, "  --replay <file>  \tReplay actions from file"},
     {SEED,         0, "", "seed", ArgChecker::Numeric, "  --seed <value>  \tSet random seed (default: 5)"},
@@ -92,11 +92,12 @@ int main(int argc, char *argv[])
     if (options[HELP]) {
         option::printUsage(std::cout, usage);
         std::cout << "\nExamples:\n";
-        std::cout << "  headless --mode=cpu --num-worlds=1 --num-steps=1000     # Basic CPU run\n";
-        std::cout << "  headless -m=cuda -n=8192 -s=1000 --rand-actions         # GPU benchmark\n";
-        std::cout << "  headless -m=cpu -n=100 -s=1000 --track --track-world=5  # Track agent 0 in world 5\n";
-        std::cout << "  headless -m=cpu -n=100 -s=1000 --track-world=5 --track-agent=1  # Track agent 1 in world 5\n";
-        std::cout << "  headless -m=cpu -n=2 -s=1000 --replay=demo.bin          # Replay demo.bin\n";
+        std::cout << "  headless --num-worlds 1 --num-steps 1000                # Basic CPU run\n";
+        std::cout << "  headless --cuda 0 -n 8192 -s 1000 --rand-actions        # GPU benchmark on device 0\n";
+        std::cout << "  headless -n 100 -s 1000 --track --track-world 5         # Track agent 0 in world 5\n";
+        std::cout << "  headless -n 100 -s 1000 --track-world 5 --track-agent 1 # Track agent 1 in world 5\n";
+        std::cout << "  headless -n 2 -s 1000 --replay demo.bin                 # Replay demo.bin\n";
+        std::cout << "  headless --cuda 1 -n 1000 -s 500 --track-file traj.csv  # GPU 1 with trajectory to file\n";
         delete[] options;
         delete[] buffer;
         return 0;
@@ -112,9 +113,9 @@ int main(int argc, char *argv[])
     }
     
     // Required options
-    if (!options[MODE] || !options[NUM_WORLDS] || !options[NUM_STEPS]) {
+    if (!options[NUM_WORLDS] || !options[NUM_STEPS]) {
         std::cerr << "Error: Missing required options.\n";
-        std::cerr << "Required: --mode, --num-worlds, --num-steps\n";
+        std::cerr << "Required: --num-worlds, --num-steps\n";
         std::cerr << "Use --help for usage information.\n";
         delete[] options;
         delete[] buffer;
@@ -124,20 +125,12 @@ int main(int argc, char *argv[])
     uint64_t num_worlds = std::stoul(options[NUM_WORLDS].arg);
     uint64_t num_steps = std::stoul(options[NUM_STEPS].arg);
 
-
-    // Parse execution mode
-    std::string exec_mode_str(options[MODE].arg);
-    std::transform(exec_mode_str.begin(), exec_mode_str.end(), exec_mode_str.begin(), ::toupper);
-    ExecMode exec_mode;
-    if (exec_mode_str == "CPU") {
-        exec_mode = ExecMode::CPU;
-    } else if (exec_mode_str == "CUDA") {
+    // Parse execution mode - default to CPU, use CUDA if specified
+    ExecMode exec_mode = ExecMode::CPU;
+    uint32_t gpu_id = 0;
+    if (options[CUDA]) {
         exec_mode = ExecMode::CUDA;
-    } else {
-        std::cerr << "Invalid execution mode: " << exec_mode_str << "\n";
-        delete[] options;
-        delete[] buffer;
-        return 1;
+        gpu_id = strtoul(options[CUDA].arg, nullptr, 10);
     }
 
     // Optional parameters
@@ -239,7 +232,7 @@ int main(int argc, char *argv[])
 
     Manager mgr({
         .execMode = exec_mode,
-        .gpuID = 0,
+        .gpuID = (int)gpu_id,
         .numWorlds = (uint32_t)num_worlds,
         .randSeed = replay_mode ? replay_seed : rand_seed,
         .autoReset = replay_mode,
