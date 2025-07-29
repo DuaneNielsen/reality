@@ -13,6 +13,8 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
+#include <thread>
+#include <chrono>
 
 using namespace madrona;
 using namespace madrona::viz;
@@ -98,7 +100,7 @@ int main(int argc, char *argv[])
         std::cout << "\nKeyboard Controls:\n";
         std::cout << "  R          Reset current world\n";
         std::cout << "  T          Toggle trajectory tracking for current world\n";
-        std::cout << "  SPACE      Start recording (when --record is used)\n";
+        std::cout << "  SPACE      Pause/Resume simulation\n";
         std::cout << "  WASD       Move agent (when in agent view)\n";
         std::cout << "  Q/E        Rotate agent left/right\n";
         std::cout << "  Shift      Move faster\n";
@@ -124,6 +126,7 @@ int main(int argc, char *argv[])
     int32_t track_world_idx = 0;  // Default to world 0
     int32_t track_agent_idx = 0;  // Default to agent 0
     bool track_trajectory = false;
+    bool is_paused = false;  // Pause state
 
     // Process options
     if (options[MODE]) {
@@ -314,7 +317,6 @@ int main(int argc, char *argv[])
             return true;
         }
         
-        printf("Step: %u\n", mgr.getCurrentReplayStep());
         bool finished = mgr.replayStep();
         return finished;
     };
@@ -344,7 +346,7 @@ int main(int argc, char *argv[])
 
     // Main loop for the viewer viewer
     viewer.loop(
-    [&mgr, &track_trajectory, &track_world_idx, &track_agent_idx](CountT world_idx, const Viewer::UserInput &input)
+    [&mgr, &track_trajectory, &track_world_idx, &track_agent_idx, &is_paused](CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
         
@@ -365,6 +367,12 @@ int main(int argc, char *argv[])
                 track_agent_idx = 0;
                 printf("Trajectory logging enabled for World %d, Agent 0\n", (int)world_idx);
             }
+        }
+        
+        if (input.keyHit(Key::Space)) {
+            // Toggle pause
+            is_paused = !is_paused;
+            printf("Simulation %s\n", is_paused ? "PAUSED" : "RESUMED");
         }
     },
     [&mgr, &is_recording, &frame_actions](CountT world_idx, CountT,
@@ -439,27 +447,32 @@ int main(int argc, char *argv[])
             frame_actions[base_idx + 2] = r;
         }
     }, [&]() {
-        if (mgr.hasReplay()) {
-            bool replay_finished = replayStep();
+        if (!is_paused) {
+            if (mgr.hasReplay()) {
+                bool replay_finished = replayStep();
 
-            if (replay_finished) {
-                viewer.stopLoop();
+                if (replay_finished) {
+                    viewer.stopLoop();
+                }
             }
-        }
-        
-        // Write frame actions if recording
-        if (is_recording) {
-            mgr.recordActions(frame_actions);
             
-            // Reset actions to defaults for next frame
-            for (uint32_t i = 0; i < num_worlds; i++) {
-                frame_actions[i * 3] = 0;      // move_amount
-                frame_actions[i * 3 + 1] = 0;  // move_angle
-                frame_actions[i * 3 + 2] = 2;  // rotate
+            // Write frame actions if recording
+            if (is_recording) {
+                mgr.recordActions(frame_actions);
+                
+                // Reset actions to defaults for next frame
+                for (uint32_t i = 0; i < num_worlds; i++) {
+                    frame_actions[i * 3] = 0;      // move_amount
+                    frame_actions[i * 3 + 1] = 0;  // move_angle
+                    frame_actions[i * 3 + 2] = 2;  // rotate
+                }
             }
-        }
 
-        mgr.step();
+            mgr.step();
+        } else {
+            // Sleep for 16ms (roughly 60 FPS) when paused to avoid burning CPU
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        }
 
         //printObs();
     }, []() {});
