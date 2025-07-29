@@ -84,6 +84,9 @@ public:
     uint32_t getCurrentReplayStep() const;
     uint32_t getTotalReplaySteps() const;
     const ReplayData* getReplayData() const;
+    
+    // Static method to read replay metadata without creating a Manager
+    static std::optional<madrona::escape_room::ReplayMetadata> readReplayMetadata(const std::string& filepath);
 
 private:
     struct Impl;

@@ -240,8 +240,6 @@ int main(int argc, char *argv[])
             frame_actions[i * 3 + 1] = 0;  // move_angle = 0 (forward)
             frame_actions[i * 3 + 2] = 2;  // rotate = 2 (no rotation)
         }
-        // Start paused when recording to allow user to choose when to start
-        is_paused = true;
     }
 
     bool enable_batch_renderer =
@@ -292,10 +290,6 @@ int main(int argc, char *argv[])
     std::cout << "\nViewer Controls:\n";
     std::cout << "  R: Reset current world\n";
     std::cout << "  T: Toggle trajectory tracking for current world\n";
-    std::cout << "  SPACE: Pause/Resume simulation\n";
-    if (is_recording) {
-        std::cout << "\nRecording mode: Simulation starts PAUSED. Press SPACE to begin recording.\n";
-    }
     std::cout << "\n";
 
     float camera_move_speed = 10.f;

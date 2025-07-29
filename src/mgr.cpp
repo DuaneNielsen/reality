@@ -1006,6 +1006,34 @@ void Manager::recordActions(const std::vector<int32_t>& frame_actions)
 }
 
 // Replay functionality
+std::optional<madrona::escape_room::ReplayMetadata> Manager::readReplayMetadata(const std::string& filepath)
+{
+    std::ifstream replay_file(filepath, std::ios::binary);
+    if (!replay_file.is_open()) {
+        std::cerr << "Error: Failed to open replay file: " << filepath << "\n";
+        return std::nullopt;
+    }
+    
+    // Read metadata header
+    madrona::escape_room::ReplayMetadata metadata;
+    replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
+    
+    // Validate metadata
+    if (!metadata.isValid()) {
+        std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
+                  << std::hex << madrona::escape_room::REPLAY_MAGIC << ", got: 0x" 
+                  << metadata.magic << std::dec << "\n";
+        return std::nullopt;
+    }
+    
+    // Show replay information
+    std::cout << "Loaded replay: " << metadata.sim_name << " v" << metadata.version
+              << " - " << metadata.num_worlds << " worlds, " 
+              << metadata.num_steps << " steps, seed: " << metadata.seed << "\n";
+    
+    return metadata;
+}
+
 bool Manager::loadReplay(const std::string& filepath)
 {
     std::ifstream replay_file(filepath, std::ios::binary);

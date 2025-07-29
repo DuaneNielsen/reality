@@ -199,46 +199,32 @@ int main(int argc, char *argv[])
     
     // Handle replay mode - load metadata first
     if (replay_mode) {
-        // Temporarily create a manager to load replay and get metadata
-        Manager temp_mgr({
-            .execMode = exec_mode,
-            .gpuID = 0,
-            .numWorlds = 1,  // Temporary value
-            .randSeed = 5,
-            .autoReset = false,
-        });
-        
-        if (!temp_mgr.loadReplay(replay_file)) {
+        auto metadata_opt = Manager::readReplayMetadata(replay_file);
+        if (!metadata_opt.has_value()) {
             std::cerr << "Error: Failed to load replay file: " << replay_file << "\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        const auto* replay_data = temp_mgr.getReplayData();
-        if (!replay_data) {
-            std::cerr << "Error: Failed to get replay data\n";
-            delete[] options;
-            delete[] buffer;
-            return 1;
-        }
+        const auto& metadata = metadata_opt.value();
         
         // Update parameters from replay metadata
-        if (num_worlds != replay_data->metadata.num_worlds) {
-            std::cerr << "Warning: Replay was recorded with " << replay_data->metadata.num_worlds 
+        if (num_worlds != metadata.num_worlds) {
+            std::cerr << "Warning: Replay was recorded with " << metadata.num_worlds 
                       << " worlds, but headless is using " << num_worlds << " worlds.\n";
             std::cerr << "Setting num_worlds to match replay file.\n";
-            num_worlds = replay_data->metadata.num_worlds;
+            num_worlds = metadata.num_worlds;
         }
         
-        if (num_steps != replay_data->metadata.num_steps) {
-            std::cerr << "Warning: Replay was recorded with " << replay_data->metadata.num_steps
+        if (num_steps != metadata.num_steps) {
+            std::cerr << "Warning: Replay was recorded with " << metadata.num_steps
                       << " steps, but headless is using " << num_steps << " steps.\n";
             std::cerr << "Setting num_steps to match replay file.\n";
-            num_steps = replay_data->metadata.num_steps;
+            num_steps = metadata.num_steps;
         }
         
-        replay_seed = replay_data->metadata.seed;
+        replay_seed = metadata.seed;
         std::cout << "Using seed " << replay_seed << " from replay file\n";
     }
     
