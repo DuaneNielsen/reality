@@ -60,7 +60,7 @@ const option::Descriptor usage[] = {
     {TRACK,   0, "t", "track", option::Arg::None, "  --track, -t  \tEnable trajectory tracking (default: world 0, agent 0)"},
     {TRACK_WORLD, 0, "", "track-world", ArgChecker::Numeric, "  --track-world=<n>  \tSpecify world to track (default: 0)"},
     {TRACK_AGENT, 0, "", "track-agent", ArgChecker::Numeric, "  --track-agent=<n>  \tSpecify agent to track (default: 0)"},
-    {TRACK_FILE, 0, "", "track-file", ArgChecker::Required, "  --track-file=<file>  \tSave trajectory to file (requires --track-agent)"},
+    {TRACK_FILE, 0, "", "track-file", ArgChecker::Required, "  --track-file=<file>  \tSave trajectory to file"},
     {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed=<value>, -s=<value>  \tSet random seed (default: 5)"},
     {0,0,0,0,0,0}
 };
@@ -192,13 +192,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     
-    if (!track_file.empty() && !track_trajectory) {
-        std::cerr << "Error: --track-file requires trajectory tracking to be enabled\n";
-        std::cerr << "Use --track, --track-world, or --track-agent to enable tracking\n";
-        delete[] options;
-        delete[] buffer;
-        return 1;
-    }
+    // No need to check if tracking is enabled for track_file since we auto-enable it now
 
     // Setup replay - read metadata from file
     bool has_replay = false;

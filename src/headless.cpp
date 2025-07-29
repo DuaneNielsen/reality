@@ -68,7 +68,7 @@ const option::Descriptor usage[] = {
     {TRACK,        0, "t", "track", option::Arg::None, "  --track, -t  \tEnable trajectory tracking (default: world 0, agent 0)"},
     {TRACK_WORLD,  0, "", "track-world", ArgChecker::Numeric, "  --track-world <n>  \tSpecify world to track (default: 0)"},
     {TRACK_AGENT,  0, "", "track-agent", ArgChecker::Numeric, "  --track-agent <n>  \tSpecify agent to track (default: 0)"},
-    {TRACK_FILE,   0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file (requires --track-agent)"},
+    {TRACK_FILE,   0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file"},
     {0,0,0,0,0,0}
 };
 
@@ -168,6 +168,12 @@ int main(int argc, char *argv[])
         track_trajectory = true;
     }
     
+    if (options[TRACK_FILE]) {
+        track_file = options[TRACK_FILE].arg;
+        // If track-file is specified without --track, enable tracking
+        track_trajectory = true;
+    }
+    
     // Validate world index if tracking is enabled
     if (track_trajectory) {
         if (track_world_idx < 0 || track_world_idx >= (int32_t)num_worlds) {
@@ -179,12 +185,7 @@ int main(int argc, char *argv[])
         }
     }
     
-    if (!track_file.empty() && !track_trajectory) {
-        std::cerr << "Error: --track-file requires tracking to be enabled (use --track, --track-world, or --track-agent)\n";
-        delete[] options;
-        delete[] buffer;
-        return 1;
-    }
+    // No need to check if tracking is enabled for track_file since we auto-enable it now
     
     // Validate conflicting options
     if (rand_actions && !replay_file.empty()) {
