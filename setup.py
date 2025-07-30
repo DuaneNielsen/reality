@@ -49,7 +49,8 @@ setup(
     author="Your Name",
     author_email="your.email@example.com",
     url="https://github.com/yourusername/madrona_escape_room",
-    packages=find_packages(exclude=["tests", "tests.*", "external", "external.*", "scripts"]),
+    packages=find_packages(exclude=["tests", "tests.*", "external", "external.*", "scripts"]) + find_packages(where="train_src"),
+    package_dir={"madrona_escape_room_learn": "train_src/madrona_escape_room_learn"},
     package_data={
         "madrona_escape_room": [
             "*.pyi", 

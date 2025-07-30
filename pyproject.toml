@@ -1,16 +1,16 @@
 [build-system]
-requires = []
-build-backend = "madrona_py_build"
-backend-path = ["external/madrona/py"]
+requires = ["setuptools>=61.0", "wheel", "cffi>=1.15.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "madrona_escape_room"
-version = "0.0.1"
+name = "madrona-escape-room"
+version = "0.1.1"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.0.0",
     "numpy>=1.20.0",
     "torchrl>=0.2.0",
+    "cffi>=1.15.0",
 ]
 
 [project.optional-dependencies]
@@ -19,13 +19,8 @@ test = [
     "pytest-xdist>=3.0.0",  # For parallel test execution
 ]
 
-[tool.madrona.packages.madrona_escape_room]
-ext-only = true
-ext-out-dir = "build"
-
-# This module includes the PPO implementation for the training demo
-[tool.madrona.packages.madrona_escape_room_learn]
-path = "train_src/madrona_escape_room_learn"
+# Removed madrona-specific configuration
+# The package is now built using standard setuptools
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]

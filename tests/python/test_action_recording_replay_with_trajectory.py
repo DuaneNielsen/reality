@@ -225,12 +225,13 @@ def test_action_recording_replay_with_trajectory(test_manager):
     
     cmd = [
         str(headless_path),
-        "CPU",  # Use CPU mode to match test_manager
-        "1",    # Single world
-        str(len(actions_to_record)),  # Number of steps
+        "-n", "1",    # Single world
+        "-s", str(len(actions_to_record)),  # Number of steps
         "--seed", "42",  # Use same seed as test_manager fixture (rand_seed=42)
         "--replay", action_file,
-        "--track-agent", "0", "0",
+        "--track",  # Enable trajectory tracking
+        "--track-world", "0",
+        "--track-agent", "0",
         "--track-file", replay_trajectory_file
     ]
     

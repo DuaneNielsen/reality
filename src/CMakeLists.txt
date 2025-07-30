@@ -55,13 +55,8 @@ target_compile_definitions(mad_escape_mgr PRIVATE
     -DDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../data/"
 )
 
-madrona_python_module(madrona_escape_room
-    bindings.cpp
-)
-
-target_link_libraries(madrona_escape_room PRIVATE
-    mad_escape_mgr
-)
+# Nanobind bindings removed - using CFFI bindings instead
+# See include/madrona_escape_room_c_api.h and src/madrona_escape_room_c_api.cpp
 
 if (TARGET madrona_viz)
     add_executable(viewer viewer.cpp)
@@ -136,7 +131,8 @@ if(EMBREE_STATIC_LIB)
     target_link_libraries(madrona_escape_room_c_api PRIVATE ${EMBREE_STATIC_LIB})
 else()
     # If no static version, we'll have to embed the shared library
-    target_link_libraries(madrona_escape_room_c_api PRIVATE ${CMAKE_BINARY_DIR}/libembree4.so.4)
+    # Use the full path to avoid linker issues
+    target_link_libraries(madrona_escape_room_c_api PRIVATE "${CMAKE_BINARY_DIR}/libembree4.so.4")
 endif()
 
 if(DXCOMPILER_STATIC_LIB)
