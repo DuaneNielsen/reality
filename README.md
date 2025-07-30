@@ -69,6 +69,11 @@ make -j # cores to build with
 cd ..
 ```
 
+**Note:** If you encounter compiler errors about `-nostdlib++` or `-march=x86-64-v3`, your system compiler may be too old. Use the bundled Madrona toolchain:
+```bash
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=external/madrona/cmake/toolchain/madrona-toolchain.cmake
+```
+
 Or on Windows, open the cloned repository in Visual Studio and build
 the project using the integrated `cmake` functionality.
 
