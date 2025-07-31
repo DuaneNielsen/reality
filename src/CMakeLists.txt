@@ -79,6 +79,42 @@ target_include_directories(headless PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../external/optionparser
 )
 
+# Test executables for C wrapper
+add_executable(test_c_wrapper test_c_wrapper.cpp)
+target_link_libraries(test_c_wrapper 
+    PRIVATE
+        madrona_escape_room_c_api
+        mad_escape_mgr  # Need direct access to Manager
+)
+target_include_directories(test_c_wrapper PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Separate CPU test
+add_executable(test_c_wrapper_cpu test_c_wrapper_cpu.cpp)
+target_link_libraries(test_c_wrapper_cpu 
+    PRIVATE
+        madrona_escape_room_c_api
+        mad_escape_mgr
+)
+target_include_directories(test_c_wrapper_cpu PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Separate GPU test
+add_executable(test_c_wrapper_gpu test_c_wrapper_gpu.cpp)
+target_link_libraries(test_c_wrapper_gpu 
+    PRIVATE
+        madrona_escape_room_c_api
+        mad_escape_mgr
+)
+target_include_directories(test_c_wrapper_gpu PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 # C API wrapper library
 add_library(madrona_escape_room_c_api SHARED
     madrona_escape_room_c_api.cpp
@@ -118,7 +154,6 @@ target_link_libraries(madrona_escape_room_c_api
         # We'll try to link them statically if possible
         ${CMAKE_DL_LIBS}
         pthread
-        stdc++
         m
 )
 
@@ -179,11 +214,8 @@ target_compile_options(madrona_escape_room_c_api PRIVATE
     -fvisibility=hidden
 )
 
-# Add linker flags to statically link C++ runtime
-target_link_options(madrona_escape_room_c_api PRIVATE
-    -static-libgcc
-    -static-libstdc++
-)
+# Don't try to statically link C++ runtime when using Madrona toolchain
+# The toolchain uses libc++ not libstdc++
 
 # Define building DLL for proper export
 target_compile_definitions(madrona_escape_room_c_api PRIVATE
