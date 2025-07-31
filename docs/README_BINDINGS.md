@@ -14,6 +14,8 @@ make -C build -j$(nproc)
 pip install -e .
 ```
 
+**Note on CUDA Compatibility**: The bindings use static linking for CUDA libraries to avoid conflicts with PyTorch's bundled CUDA version. This ensures the package works regardless of import order between PyTorch and madrona_escape_room. See [PYTHON_BINDINGS_ARCHITECTURE.md](PYTHON_BINDINGS_ARCHITECTURE.md#cuda-library-conflicts-and-resolution) for technical details.
+
 ## Running Tests
 
 ```bash

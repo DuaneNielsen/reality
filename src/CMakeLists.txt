@@ -132,7 +132,15 @@ if(EMBREE_STATIC_LIB)
 else()
     # If no static version, we'll have to embed the shared library
     # Use the full path to avoid linker issues
-    target_link_libraries(madrona_escape_room_c_api PRIVATE "${CMAKE_BINARY_DIR}/libembree4.so.4")
+    if(EXISTS "${CMAKE_BINARY_DIR}/libembree4.so.4")
+        target_link_libraries(madrona_escape_room_c_api PRIVATE "${CMAKE_BINARY_DIR}/libembree4.so.4")
+    else()
+        # Try to find embree in the system
+        find_library(EMBREE_LIB NAMES embree4 embree3)
+        if(EMBREE_LIB)
+            target_link_libraries(madrona_escape_room_c_api PRIVATE ${EMBREE_LIB})
+        endif()
+    endif()
 endif()
 
 if(DXCOMPILER_STATIC_LIB)
@@ -187,3 +195,42 @@ set_target_properties(madrona_escape_room_c_api PROPERTIES
     INSTALL_RPATH "$ORIGIN"
     BUILD_WITH_INSTALL_RPATH TRUE
 )
+
+# Add CUDA library path to RPATH if CUDA is found
+if(CUDAToolkit_FOUND)
+    set_property(TARGET madrona_escape_room_c_api APPEND PROPERTY
+        INSTALL_RPATH "${CUDAToolkit_LIBRARY_DIR}"
+    )
+    set_property(TARGET madrona_escape_room_c_api PROPERTY
+        BUILD_RPATH "${CUDAToolkit_LIBRARY_DIR}"
+    )
+    
+    # Link against the same CUDA libraries that madrona_mw_gpu uses
+    # Use static nvJitLink to avoid conflicts with PyTorch's bundled version
+    find_library(NVJITLINK_STATIC_LIB nvJitLink_static 
+        PATHS ${CUDAToolkit_LIBRARY_DIR}
+        NO_DEFAULT_PATH)
+    
+    # Also find static nvptxcompiler
+    find_library(NVPTXCOMPILER_STATIC_LIB nvptxcompiler_static
+        PATHS ${CUDAToolkit_LIBRARY_DIR}
+        NO_DEFAULT_PATH)
+    
+    if(NVJITLINK_STATIC_LIB AND NVPTXCOMPILER_STATIC_LIB)
+        message(STATUS "Using static nvJitLink: ${NVJITLINK_STATIC_LIB}")
+        message(STATUS "Using static nvptxcompiler: ${NVPTXCOMPILER_STATIC_LIB}")
+        target_link_libraries(madrona_escape_room_c_api PRIVATE
+            CUDA::nvrtc
+            CUDA::cuda_driver
+            ${NVJITLINK_STATIC_LIB}
+            ${NVPTXCOMPILER_STATIC_LIB}
+        )
+    else()
+        message(WARNING "Static CUDA libraries not found, using dynamic linking")
+        target_link_libraries(madrona_escape_room_c_api PRIVATE
+            CUDA::nvrtc
+            CUDA::cuda_driver
+            ${CUDA_NVJITLINK_LIBRARY}
+        )
+    endif()
+endif()
