@@ -27,3 +27,8 @@ norecursedirs = ["external", "build", ".venv", "*.egg", "dist"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[dependency-groups]
+dev = [
+    "build>=1.2.2.post1",
+]

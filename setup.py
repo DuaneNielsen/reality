@@ -11,21 +11,33 @@ from setuptools.command.build_py import build_py
 from setuptools.command.install_lib import install_lib
 
 class BuildPyWithLibrary(build_py):
-    """Custom build_py that includes the C library"""
+    """Custom build_py that includes the C library and all dependencies"""
     def run(self):
         # First run the normal build_py
         super().run()
         
-        # Copy the C library to the package
-        c_lib = Path("build/libmadrona_escape_room_c_api.so")
-        if c_lib.exists():
-            # Copy to each package in the build directory
-            for package in self.packages:
-                if package == "madrona_escape_room":
-                    package_dir = Path(self.build_lib) / package
-                    dest = package_dir / c_lib.name
-                    print(f"Copying C library to {dest}")
-                    shutil.copy2(c_lib, dest)
+        # ALL libraries that ctypes needs
+        required_libs = [
+            "libmadrona_escape_room_c_api.so",  # Main C API (ctypes loads this)
+            "libembree4.so.4",                   # Embree ray tracing  
+            "libdxcompiler.so",                  # DirectX shader compiler
+            "libmadrona_render_shader_compiler.so", # Madrona rendering
+            "libmadrona_std_mem.so"              # Madrona memory management
+        ]
+        
+        build_dir = Path("build")
+        for package in self.packages:
+            if package == "madrona_escape_room":
+                package_dir = Path(self.build_lib) / package
+                
+                for lib_name in required_libs:
+                    lib_path = build_dir / lib_name
+                    if lib_path.exists():
+                        dest = package_dir / lib_name
+                        print(f"Copying {lib_name} to {dest}")
+                        shutil.copy2(lib_path, dest)
+                    else:
+                        print(f"Warning: {lib_name} not found in build directory")
 
 
 class InstallLibWithLibrary(install_lib):

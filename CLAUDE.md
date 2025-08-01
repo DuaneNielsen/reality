@@ -76,7 +76,7 @@ Run simulation without graphics for benchmarking, testing, or server deployment.
 # Initial setup (from repo root)
 mkdir build
 /opt/cmake/bin/cmake -B build
-make -C build -j$(nproc)
+make -C build -j$(nproc) -s
 
 # Note: If build fails with compiler errors about -nostdlib++ or -march=x86-64-v3,
 # use the bundled Madrona toolchain:
@@ -124,7 +124,7 @@ uv run python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-pat
 
 ```bash
 # Rebuild after C++ changes
-make -C build -j$(nproc)
+make -C build -j$(nproc) -s
 
 # Run quick smoke tests
 ./tests/quick_test.sh   # Quick CPU test (assumes built)
