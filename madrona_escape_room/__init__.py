@@ -1,5 +1,5 @@
 """
-Madrona Escape Room Python bindings using CFFI
+Madrona Escape Room Python bindings using ctypes
 Provides the same API as the original nanobind version
 """
 
@@ -14,53 +14,67 @@ _current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
 if _module_dir not in _current_ld_path:
     os.environ['LD_LIBRARY_PATH'] = f"{_module_dir}:{_current_ld_path}"
 
-# Import the CFFI module
+# Import the ctypes module
 try:
-    from ._madrona_escape_room_cffi import ffi, lib
+    from .ctypes_bindings import ffi, lib
 except ImportError as e:
     raise ImportError(
-        f"CFFI bindings not built or missing dependencies. "
-        f"Please run: uv run python setup_build.py\n"
+        f"ctypes bindings failed to load library. "
+        f"Please ensure the C API library is built: make -C build -j$(nproc)\n"
         f"Original error: {e}"
     )
 
+# Import constants from ctypes_bindings
+from .ctypes_bindings import (
+    MER_SUCCESS, MER_SELF_OBSERVATION_SIZE, MER_STEPS_REMAINING_SIZE, 
+    MER_AGENT_ID_SIZE, MER_TOTAL_OBSERVATION_SIZE, MER_NUM_AGENTS,
+    MER_MOVE_STOP, MER_MOVE_SLOW, MER_MOVE_MEDIUM, MER_MOVE_FAST,
+    MER_MOVE_FORWARD, MER_MOVE_FORWARD_RIGHT, MER_MOVE_RIGHT, MER_MOVE_BACKWARD_RIGHT,
+    MER_MOVE_BACKWARD, MER_MOVE_BACKWARD_LEFT, MER_MOVE_LEFT, MER_MOVE_FORWARD_LEFT,
+    MER_ROTATE_FAST_LEFT, MER_ROTATE_SLOW_LEFT, MER_ROTATE_NONE, 
+    MER_ROTATE_SLOW_RIGHT, MER_ROTATE_FAST_RIGHT,
+    MER_TENSOR_TYPE_UINT8, MER_TENSOR_TYPE_INT8, MER_TENSOR_TYPE_INT16,
+    MER_TENSOR_TYPE_INT32, MER_TENSOR_TYPE_INT64, MER_TENSOR_TYPE_FLOAT16,
+    MER_TENSOR_TYPE_FLOAT32, MER_EXEC_MODE_CPU, MER_EXEC_MODE_CUDA
+)
+
 # Export constants
-SELF_OBSERVATION_SIZE = lib.MER_SELF_OBSERVATION_SIZE
-STEPS_REMAINING_SIZE = lib.MER_STEPS_REMAINING_SIZE
-AGENT_ID_SIZE = lib.MER_AGENT_ID_SIZE
-TOTAL_OBSERVATION_SIZE = lib.MER_TOTAL_OBSERVATION_SIZE
-NUM_AGENTS = lib.MER_NUM_AGENTS
+SELF_OBSERVATION_SIZE = MER_SELF_OBSERVATION_SIZE
+STEPS_REMAINING_SIZE = MER_STEPS_REMAINING_SIZE
+AGENT_ID_SIZE = MER_AGENT_ID_SIZE
+TOTAL_OBSERVATION_SIZE = MER_TOTAL_OBSERVATION_SIZE
+NUM_AGENTS = MER_NUM_AGENTS
 
 # Create action submodule equivalents
 class action:
     class move_amount:
-        STOP = lib.MER_MOVE_STOP
-        SLOW = lib.MER_MOVE_SLOW
-        MEDIUM = lib.MER_MOVE_MEDIUM
-        FAST = lib.MER_MOVE_FAST
+        STOP = MER_MOVE_STOP
+        SLOW = MER_MOVE_SLOW
+        MEDIUM = MER_MOVE_MEDIUM
+        FAST = MER_MOVE_FAST
     
     class move_angle:
-        FORWARD = lib.MER_MOVE_FORWARD
-        FORWARD_RIGHT = lib.MER_MOVE_FORWARD_RIGHT
-        RIGHT = lib.MER_MOVE_RIGHT
-        BACKWARD_RIGHT = lib.MER_MOVE_BACKWARD_RIGHT
-        BACKWARD = lib.MER_MOVE_BACKWARD
-        BACKWARD_LEFT = lib.MER_MOVE_BACKWARD_LEFT
-        LEFT = lib.MER_MOVE_LEFT
-        FORWARD_LEFT = lib.MER_MOVE_FORWARD_LEFT
+        FORWARD = MER_MOVE_FORWARD
+        FORWARD_RIGHT = MER_MOVE_FORWARD_RIGHT
+        RIGHT = MER_MOVE_RIGHT
+        BACKWARD_RIGHT = MER_MOVE_BACKWARD_RIGHT
+        BACKWARD = MER_MOVE_BACKWARD
+        BACKWARD_LEFT = MER_MOVE_BACKWARD_LEFT
+        LEFT = MER_MOVE_LEFT
+        FORWARD_LEFT = MER_MOVE_FORWARD_LEFT
     
     class rotate:
-        FAST_LEFT = lib.MER_ROTATE_FAST_LEFT
-        SLOW_LEFT = lib.MER_ROTATE_SLOW_LEFT
-        NONE = lib.MER_ROTATE_NONE
-        SLOW_RIGHT = lib.MER_ROTATE_SLOW_RIGHT
-        FAST_RIGHT = lib.MER_ROTATE_FAST_RIGHT
+        FAST_LEFT = MER_ROTATE_FAST_LEFT
+        SLOW_LEFT = MER_ROTATE_SLOW_LEFT
+        NONE = MER_ROTATE_NONE
+        SLOW_RIGHT = MER_ROTATE_SLOW_RIGHT
+        FAST_RIGHT = MER_ROTATE_FAST_RIGHT
 
 # Madrona submodule for compatibility
 class madrona:
     class ExecMode(IntEnum):
-        CPU = lib.MER_EXEC_MODE_CPU
-        CUDA = lib.MER_EXEC_MODE_CUDA
+        CPU = MER_EXEC_MODE_CPU
+        CUDA = MER_EXEC_MODE_CUDA
     
     class Tensor:
         """Wrapper for tensor data from C API - provides zero-copy access"""
@@ -97,36 +111,48 @@ class madrona:
         def numBytesPerItem(self):
             """Get number of bytes per item"""
             size_map = {
-                lib.MER_TENSOR_TYPE_UINT8: 1,
-                lib.MER_TENSOR_TYPE_INT8: 1,
-                lib.MER_TENSOR_TYPE_INT16: 2,
-                lib.MER_TENSOR_TYPE_INT32: 4,
-                lib.MER_TENSOR_TYPE_INT64: 8,
-                lib.MER_TENSOR_TYPE_FLOAT16: 2,
-                lib.MER_TENSOR_TYPE_FLOAT32: 4,
+                MER_TENSOR_TYPE_UINT8: 1,
+                MER_TENSOR_TYPE_INT8: 1,
+                MER_TENSOR_TYPE_INT16: 2,
+                MER_TENSOR_TYPE_INT32: 4,
+                MER_TENSOR_TYPE_INT64: 8,
+                MER_TENSOR_TYPE_FLOAT16: 2,
+                MER_TENSOR_TYPE_FLOAT32: 4,
             }
             return size_map.get(self._element_type, 4)
         
         def to_numpy(self):
-            """Convert to numpy array (zero-copy view)"""
+            """Convert to numpy array (zero-copy view, CPU only)"""
             import numpy as np
+            import ctypes
+            
+            # Check if tensor is on GPU
+            if self.isOnGPU():
+                raise RuntimeError(
+                    "Cannot convert GPU tensor to numpy array directly. "
+                    "Use to_torch() or torch.from_dlpack() for GPU tensors."
+                )
             
             # Map element types to numpy dtypes
             dtype_map = {
-                lib.MER_TENSOR_TYPE_UINT8: np.uint8,
-                lib.MER_TENSOR_TYPE_INT8: np.int8,
-                lib.MER_TENSOR_TYPE_INT16: np.int16,
-                lib.MER_TENSOR_TYPE_INT32: np.int32,
-                lib.MER_TENSOR_TYPE_INT64: np.int64,
-                lib.MER_TENSOR_TYPE_FLOAT16: np.float16,
-                lib.MER_TENSOR_TYPE_FLOAT32: np.float32,
+                MER_TENSOR_TYPE_UINT8: np.uint8,
+                MER_TENSOR_TYPE_INT8: np.int8,
+                MER_TENSOR_TYPE_INT16: np.int16,
+                MER_TENSOR_TYPE_INT32: np.int32,
+                MER_TENSOR_TYPE_INT64: np.int64,
+                MER_TENSOR_TYPE_FLOAT16: np.float16,
+                MER_TENSOR_TYPE_FLOAT32: np.float32,
             }
             
             np_dtype = dtype_map[self._element_type]
             shape = self.dims()
             
             # Create a numpy array view of the data without copying
-            buffer = ffi.buffer(self._tensor.data, self._tensor.num_bytes)
+            # Convert void pointer to array of bytes for ctypes
+            ArrayType = ctypes.c_uint8 * self._tensor.num_bytes
+            array_ptr = ctypes.cast(self._tensor.data, ctypes.POINTER(ArrayType))
+            buffer = array_ptr.contents
+            
             array = np.frombuffer(buffer, dtype=np_dtype).reshape(shape)
             
             # The array is already a view, not a copy
@@ -134,63 +160,45 @@ class madrona:
             return array
         
         def to_torch(self):
-            """Convert to PyTorch tensor (zero-copy)"""
+            """Convert to PyTorch tensor (zero-copy when possible)"""
             import torch
             
-            # Map element types to PyTorch dtypes
-            dtype_map = {
-                lib.MER_TENSOR_TYPE_UINT8: torch.uint8,
-                lib.MER_TENSOR_TYPE_INT8: torch.int8,
-                lib.MER_TENSOR_TYPE_INT16: torch.int16,
-                lib.MER_TENSOR_TYPE_INT32: torch.int32,
-                lib.MER_TENSOR_TYPE_INT64: torch.int64,
-                lib.MER_TENSOR_TYPE_FLOAT16: torch.float16,
-                lib.MER_TENSOR_TYPE_FLOAT32: torch.float32,
-            }
-            
-            torch_dtype = dtype_map[self._element_type]
-            shape = self.dims()
-            
-            # Get pointer value as integer
-            ptr_value = int(ffi.cast("uintptr_t", self._tensor.data))
-            
-            # Determine device and create tensor
+            # For GPU tensors, prioritize DLPack protocol for zero-copy
             if self.isOnGPU():
-                # For GPU tensors, we need to create a CUDA tensor
-                # This is zero-copy - PyTorch will use the CUDA memory directly
-                device = torch.device(f'cuda:{self._gpu_id}')
-                
-                # Calculate total number of elements
-                total_elements = 1
-                for dim in shape:
-                    total_elements *= dim
-                
-                # Create storage from CUDA pointer
-                # Note: This uses PyTorch's internal API to wrap external CUDA memory
-                import torch.cuda
-                storage = torch.cuda._CudaBase.__new__(torch.cuda.ByteStorage)
-                torch.cuda._CudaBase.__init__(storage, total_elements * self.numBytesPerItem(), 
-                                            ptr_value, allocator=None, 
-                                            device=device.index, resizable=False)
-                
-                # Create tensor from storage
-                tensor = torch.empty(0, dtype=torch_dtype, device=device)
-                tensor.set_(storage, 0, shape, tuple())
-                
-                # Ensure correct dtype view
-                if torch_dtype != torch.uint8:
-                    tensor = tensor.view(torch_dtype)
-                    tensor = tensor.reshape(shape)
+                try:
+                    # Try DLPack first (this is the main goal of our work)
+                    return torch.from_dlpack(self)
+                except Exception as e:
+                    # Fallback: not ideal but for compatibility, create a zero tensor
+                    import warnings
+                    warnings.warn(
+                        f"GPU DLPack conversion failed ({e}), creating placeholder tensor. "
+                        "Real data access not available without DLPack support.",
+                        UserWarning
+                    )
+                    # Map element types to PyTorch dtypes
+                    dtype_map = {
+                        MER_TENSOR_TYPE_UINT8: torch.uint8,
+                        MER_TENSOR_TYPE_INT8: torch.int8,
+                        MER_TENSOR_TYPE_INT16: torch.int16,
+                        MER_TENSOR_TYPE_INT32: torch.int32,
+                        MER_TENSOR_TYPE_INT64: torch.int64,
+                        MER_TENSOR_TYPE_FLOAT16: torch.float16,
+                        MER_TENSOR_TYPE_FLOAT32: torch.float32,
+                    }
+                    torch_dtype = dtype_map[self._element_type]
+                    shape = self.dims()
+                    device = torch.device(f'cuda:{self._gpu_id}')
+                    return torch.zeros(shape, dtype=torch_dtype, device=device)
             else:
-                # For CPU tensors, use from_numpy which maintains zero-copy
-                # when the numpy array is already a view (which ours is)
+                # For CPU tensors, use numpy conversion (zero-copy)
                 numpy_view = self.to_numpy()
-                tensor = torch.from_numpy(numpy_view)
-                
-            return tensor
+                return torch.from_numpy(numpy_view)
         
         def __dlpack__(self, stream=None):
             """Create DLPack capsule for PyTorch consumption"""
+            import ctypes
+            
             try:
                 import _madrona_escape_room_dlpack as dlpack_ext
             except ImportError:
@@ -204,7 +212,7 @@ class madrona:
                 return self.to_torch()
             
             # Get tensor parameters
-            data_ptr = int(ffi.cast("uintptr_t", self._tensor.data))
+            data_ptr = ctypes.cast(self._tensor.data, ctypes.c_void_p).value
             shape = self.dims()
             dtype = self._element_type
             device_type = 2 if self.isOnGPU() else 1  # 2=CUDA, 1=CPU
@@ -239,29 +247,36 @@ class madrona:
             # Return numpy dtype for compatibility
             import numpy as np
             dtype_map = {
-                lib.MER_TENSOR_TYPE_UINT8: np.uint8,
-                lib.MER_TENSOR_TYPE_INT8: np.int8,
-                lib.MER_TENSOR_TYPE_INT16: np.int16,
-                lib.MER_TENSOR_TYPE_INT32: np.int32,
-                lib.MER_TENSOR_TYPE_INT64: np.int64,
-                lib.MER_TENSOR_TYPE_FLOAT16: np.float16,
-                lib.MER_TENSOR_TYPE_FLOAT32: np.float32,
+                MER_TENSOR_TYPE_UINT8: np.uint8,
+                MER_TENSOR_TYPE_INT8: np.int8,
+                MER_TENSOR_TYPE_INT16: np.int16,
+                MER_TENSOR_TYPE_INT32: np.int32,
+                MER_TENSOR_TYPE_INT64: np.int64,
+                MER_TENSOR_TYPE_FLOAT16: np.float16,
+                MER_TENSOR_TYPE_FLOAT32: np.float32,
             }
             return dtype_map.get(self._element_type, np.float32)
 
 def _check_result(result):
     """Check C API result and raise exception if error"""
-    if result != lib.MER_SUCCESS:
-        error_msg = ffi.string(lib.mer_result_to_string(result)).decode('utf-8')
-        raise RuntimeError(f"Madrona Escape Room error: {error_msg}")
+    if result != MER_SUCCESS:
+        error_msg = lib.mer_result_to_string(result)
+        if error_msg:
+            error_str = error_msg.decode('utf-8')
+        else:
+            error_str = f"Unknown error code: {result}"
+        raise RuntimeError(f"Madrona Escape Room error: {error_str}")
 
 class SimManager:
     """Main simulation manager class"""
     
     def __init__(self, exec_mode, gpu_id, num_worlds, rand_seed, auto_reset, 
                  enable_batch_renderer=False):
+        from .ctypes_bindings import MER_ManagerConfig, MER_ManagerHandle
+        from ctypes import byref
+        
         # Create config
-        config = ffi.new("MER_ManagerConfig*")
+        config = MER_ManagerConfig()
         config.exec_mode = exec_mode.value if isinstance(exec_mode, madrona.ExecMode) else exec_mode
         config.gpu_id = gpu_id
         config.num_worlds = num_worlds
@@ -272,11 +287,9 @@ class SimManager:
         config.batch_render_view_height = 64
         
         # Create handle
-        self._handle_ptr = ffi.new("MER_ManagerHandle*")
-        result = lib.mer_create_manager(self._handle_ptr, config)
+        self._handle = MER_ManagerHandle()
+        result = lib.mer_create_manager(byref(self._handle), byref(config))
         _check_result(result)
-        
-        self._handle = self._handle_ptr[0]
         
     def __del__(self):
         if hasattr(self, '_handle') and self._handle:
@@ -289,8 +302,11 @@ class SimManager:
     
     def _get_tensor(self, getter_func):
         """Helper to get tensor from C API"""
-        c_tensor = ffi.new("MER_Tensor*")
-        result = getter_func(self._handle, c_tensor)
+        from .ctypes_bindings import MER_Tensor
+        from ctypes import byref
+        
+        c_tensor = MER_Tensor()
+        result = getter_func(self._handle, byref(c_tensor))
         _check_result(result)
         return madrona.Tensor(c_tensor)
     
@@ -330,7 +346,7 @@ class SimManager:
             )
         else:
             result = lib.mer_enable_trajectory_logging(
-                self._handle, world_idx, agent_idx, ffi.NULL
+                self._handle, world_idx, agent_idx, None
             )
         _check_result(result)
     
