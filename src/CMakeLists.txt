@@ -55,7 +55,7 @@ target_compile_definitions(mad_escape_mgr PRIVATE
     -DDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../data/"
 )
 
-# Nanobind bindings removed - using CFFI bindings instead
+# Nanobind bindings removed - using ctypes bindings instead
 # See include/madrona_escape_room_c_api.h and src/madrona_escape_room_c_api.cpp
 
 if (TARGET madrona_viz)

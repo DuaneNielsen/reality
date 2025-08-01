@@ -8,7 +8,7 @@ from enum import IntEnum
 import os
 import sys
 
-# Set up environment for bundled libraries before importing CFFI module
+# Set up environment for bundled libraries before importing ctypes module
 _module_dir = os.path.dirname(os.path.abspath(__file__))
 _current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
 if _module_dir not in _current_ld_path:

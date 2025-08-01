@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Setup script for Madrona Escape Room with CFFI bindings
+Setup script for Madrona Escape Room with ctypes bindings
 """
 
 import os
@@ -72,7 +72,6 @@ setup(
             "*.pyi", 
             "*.so", 
             "libmadrona_escape_room_c_api.so", 
-            "_madrona_escape_room_cffi*.so",
             "_madrona_escape_room_dlpack*.so",
             "libembree4.so.4",
             "libdxcompiler.so",
@@ -85,7 +84,6 @@ setup(
         "torch>=2.0.0",
         "numpy>=1.20.0",
         "torchrl>=0.2.0",
-        "cffi>=1.15.0",
     ],
     extras_require={
         "test": [
