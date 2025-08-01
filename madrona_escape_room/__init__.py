@@ -189,6 +189,47 @@ class madrona:
                 
             return tensor
         
+        def __dlpack__(self, stream=None):
+            """Create DLPack capsule for PyTorch consumption"""
+            try:
+                import _madrona_escape_room_dlpack as dlpack_ext
+            except ImportError:
+                # Fallback to to_torch() if DLPack extension not available
+                import warnings
+                warnings.warn(
+                    "DLPack extension not available, falling back to to_torch(). "
+                    "Install DLPack extension for optimal performance.",
+                    UserWarning
+                )
+                return self.to_torch()
+            
+            # Get tensor parameters
+            data_ptr = int(ffi.cast("uintptr_t", self._tensor.data))
+            shape = self.dims()
+            dtype = self._element_type
+            device_type = 2 if self.isOnGPU() else 1  # 2=CUDA, 1=CPU
+            device_id = self.gpuID() if self.isOnGPU() else 0
+            
+            # Create DLPack capsule
+            return dlpack_ext.create_dlpack_capsule(
+                data_ptr, shape, dtype, device_type, device_id
+            )
+        
+        def __dlpack_device__(self):
+            """Return device info tuple for DLPack protocol"""
+            try:
+                import _madrona_escape_room_dlpack as dlpack_ext
+            except ImportError:
+                # Return device info directly if extension not available
+                device_type = 2 if self.isOnGPU() else 1  # 2=CUDA, 1=CPU
+                device_id = self.gpuID() if self.isOnGPU() else 0
+                return (device_type, device_id)
+            
+            device_type = 2 if self.isOnGPU() else 1  # 2=CUDA, 1=CPU
+            device_id = self.gpuID() if self.isOnGPU() else 0
+            
+            return dlpack_ext.get_dlpack_device(device_type, device_id)
+        
         @property
         def shape(self):
             return tuple(self.dims())

@@ -6,7 +6,7 @@ Setup script for Madrona Escape Room with CFFI bindings
 import os
 import shutil
 from pathlib import Path
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 from setuptools.command.build_py import build_py
 from setuptools.command.install_lib import install_lib
 
@@ -42,6 +42,21 @@ class InstallLibWithLibrary(install_lib):
 # Read the current version from pyproject.toml
 version = "0.1.2"  # Incremented version
 
+# DLPack extension configuration
+dlpack_extension = Extension(
+    "_madrona_escape_room_dlpack",
+    sources=["src/dlpack_extension.cpp"],
+    language="c++",
+    extra_compile_args=[
+        "-std=c++17",
+        "-O3",
+        "-fPIC", 
+        "-Wall",
+        "-Wextra",
+    ],
+    extra_link_args=[],
+)
+
 setup(
     name="madrona-escape-room",
     version=version,
@@ -50,6 +65,7 @@ setup(
     author_email="your.email@example.com",
     url="https://github.com/yourusername/madrona_escape_room",
     packages=find_packages(exclude=["tests", "tests.*", "external", "external.*", "scripts"]) + find_packages(where="train_src"),
+    ext_modules=[dlpack_extension],
     package_dir={"madrona_escape_room_learn": "train_src/madrona_escape_room_learn"},
     package_data={
         "madrona_escape_room": [
@@ -57,6 +73,7 @@ setup(
             "*.so", 
             "libmadrona_escape_room_c_api.so", 
             "_madrona_escape_room_cffi*.so",
+            "_madrona_escape_room_dlpack*.so",
             "libembree4.so.4",
             "libdxcompiler.so",
             "libmadrona_render_shader_compiler.so", 
