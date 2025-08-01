@@ -212,9 +212,20 @@ target_compile_definitions(madrona_escape_room_c_api PRIVATE
     BUILDING_MER_DLL
 )
 
+# Find CUDA toolkit for portable CUDA library paths
+find_package(CUDAToolkit QUIET)
+
 # Set proper rpath for the shared library
-set_target_properties(madrona_escape_room_c_api PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
-    BUILD_WITH_INSTALL_RPATH TRUE
-)
+# Include CUDA library directory if CUDA is found
+if(CUDAToolkit_FOUND)
+    set_target_properties(madrona_escape_room_c_api PROPERTIES
+        INSTALL_RPATH "$ORIGIN:${CUDAToolkit_LIBRARY_DIR}"
+        BUILD_WITH_INSTALL_RPATH TRUE
+    )
+else()
+    set_target_properties(madrona_escape_room_c_api PROPERTIES
+        INSTALL_RPATH "$ORIGIN"
+        BUILD_WITH_INSTALL_RPATH TRUE
+    )
+endif()
 

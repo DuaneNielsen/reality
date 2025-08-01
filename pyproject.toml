@@ -7,9 +7,8 @@ name = "madrona-escape-room"
 version = "0.1.1"
 requires-python = ">=3.10"
 dependencies = [
-    "torch>=2.0.0",
+    "torch>=2.7.0",
     "numpy>=1.20.0",
-    "torchrl>=0.2.0",
 ]
 
 [project.optional-dependencies]

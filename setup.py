@@ -93,9 +93,8 @@ setup(
     },
     python_requires=">=3.10",
     install_requires=[
-        "torch>=2.0.0",
+        "torch",
         "numpy>=1.20.0",
-        "torchrl>=0.2.0",
     ],
     extras_require={
         "test": [

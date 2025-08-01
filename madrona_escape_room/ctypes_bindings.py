@@ -57,6 +57,7 @@ def _setup_library_path():
 _setup_library_path()
 
 try:
+    # Load our library normally
     lib = ctypes.CDLL(_lib_path)
 except OSError as e:
     raise ImportError(
