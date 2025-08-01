@@ -80,16 +80,6 @@ target_include_directories(headless PRIVATE
 )
 
 # Test executables for C wrapper
-add_executable(test_c_wrapper test_c_wrapper.cpp)
-target_link_libraries(test_c_wrapper 
-    PRIVATE
-        madrona_escape_room_c_api
-        mad_escape_mgr  # Need direct access to Manager
-)
-target_include_directories(test_c_wrapper PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
 
 # Separate CPU test
 add_executable(test_c_wrapper_cpu test_c_wrapper_cpu.cpp)
