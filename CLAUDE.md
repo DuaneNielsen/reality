@@ -21,6 +21,9 @@ I follow a consistent pattern:
 
 I particularly value documentation that explains the "why" behind decisions, not just the "how." I'd rather understand the system's philosophy first, then see how that philosophy manifests in code.
 
+#includes
+@docs/README.md
+
 ## Overview
 
 This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement learning environment built on the Madrona Engine. It implements a navigation environment where agents explore and try to maximize their forward progress through the world.
