@@ -16,6 +16,9 @@ Core system design and execution flow documentation.
 ### 🛠️ Development
 Guides for developers working on the codebase.
 
+#### Dependencies
+- [**OpenGL Development Setup**](development/dependencies/OPENGL_DEVELOPMENT_SETUP.md) - Required packages for building the viewer
+
 #### Instructions
 - [**Add Component**](development/instructions/ADD_COMPONENT.md) - How to add new ECS components
 - [**Add System**](development/instructions/ADD_SYSTEM.md) - How to add new ECS systems
