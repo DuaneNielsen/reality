@@ -17,6 +17,8 @@ imgui.ini
 
 # IDE configuration
 .idea/
+.cache/
+.clangd/
 
 # Temporary/scratch files
 scratch/
