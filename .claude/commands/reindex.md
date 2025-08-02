@@ -15,6 +15,12 @@ Follow the below instructions step by step to re-index the documentation
 5. List the files in ./docs/development/instructions
 6. In CLAUDE.md under the heading `Instructions for common tasks`, ensure all instruction files are mentioned
 7. Update docs/README.md if new categories were created
+8. **Verify document descriptions in README.md**:
+   - Read each document listed in docs/README.md
+   - Compare the document's actual content with its description in the README
+   - If the description is inaccurate, incomplete, or misleading, improve it to accurately reflect the document's content
+   - Ensure descriptions are concise but informative (1-2 sentences max)
+   - Focus on what the document helps users accomplish, not just what it contains
 
 #### notes
 
@@ -25,3 +31,4 @@ Follow the below instructions step by step to re-index the documentation
 - Ensure CLAUDE.md references match the organized structure
 - When suggesting new categories, consider: user-guides/, tutorials/, api/, troubleshooting/, etc.
 - Always maintain logical grouping and clear navigation
+- Document descriptions should be outcome-focused (what users can achieve) rather than content-focused (what's inside)
