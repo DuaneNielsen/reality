@@ -11,11 +11,6 @@ dependencies = [
     "numpy>=1.20.0",
 ]
 
-[project.optional-dependencies]
-test = [
-    "pytest>=7.0.0",
-    "pytest-xdist>=3.0.0",  # For parallel test execution
-]
 
 # Removed madrona-specific configuration
 # The package is now built using standard setuptools
@@ -30,4 +25,7 @@ python_functions = ["test_*"]
 [dependency-groups]
 dev = [
     "build>=1.2.2.post1",
+    "pytest>=7.0.0",
+    "pytest-xdist>=3.0.0",  # For parallel test execution
+    "mcp-python @ file:///home/duane/madrona_escape_room/external/mcp-python",
 ]
