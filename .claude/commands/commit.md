@@ -18,8 +18,8 @@ When you're ready to commit and push changes:
    )"
    ```
 
-4. Push to duane remote: `git push duane minimal`
+4. Push to remote: `git push`
 
 5. Verify with `git log --oneline -1` to see your commit
 
-That's it! The changes are now pushed to the duane/minimal branch.
+That's it! The changes are now pushed to the remote branch.
