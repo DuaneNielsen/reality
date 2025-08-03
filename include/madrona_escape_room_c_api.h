@@ -35,6 +35,16 @@ typedef enum {
 // Opaque handle for the Manager
 typedef struct MER_Manager* MER_ManagerHandle;
 
+// Replay metadata structure
+typedef struct {
+    uint32_t num_worlds;
+    uint32_t num_agents_per_world;
+    uint32_t num_steps;
+    uint32_t seed;
+    char sim_name[64];
+    uint64_t timestamp;
+} MER_ReplayMetadata;
+
 // Execution modes
 typedef enum {
     MER_EXEC_MODE_CPU = 0,
@@ -160,6 +170,12 @@ MER_EXPORT MER_Result mer_start_recording(
 
 MER_EXPORT MER_Result mer_stop_recording(MER_ManagerHandle handle);
 MER_EXPORT MER_Result mer_is_recording(MER_ManagerHandle handle, bool* out_is_recording);
+
+// Replay metadata reading (static function - no handle needed)
+MER_EXPORT MER_Result mer_read_replay_metadata(
+    const char* filepath,
+    MER_ReplayMetadata* out_metadata
+);
 
 // Replay functionality
 MER_EXPORT MER_Result mer_load_replay(MER_ManagerHandle handle, const char* filepath);

@@ -369,6 +369,36 @@ MER_Result mer_get_replay_step_count(
     return MER_SUCCESS;
 }
 
+MER_Result mer_read_replay_metadata(
+    const char* filepath,
+    MER_ReplayMetadata* out_metadata
+) {
+    if (!filepath || !out_metadata) {
+        return MER_ERROR_NULL_POINTER;
+    }
+    
+    // Use Manager's static method to read metadata
+    auto metadata_opt = Manager::readReplayMetadata(filepath);
+    if (!metadata_opt.has_value()) {
+        return MER_ERROR_INVALID_FILE;
+    }
+    
+    const auto& metadata = metadata_opt.value();
+    
+    // Convert from C++ metadata to C metadata structure
+    out_metadata->num_worlds = metadata.num_worlds;
+    out_metadata->num_agents_per_world = metadata.num_agents_per_world;
+    out_metadata->num_steps = metadata.num_steps;
+    out_metadata->seed = metadata.seed;
+    out_metadata->timestamp = metadata.timestamp;
+    
+    // Copy sim name safely
+    std::strncpy(out_metadata->sim_name, metadata.sim_name, sizeof(out_metadata->sim_name) - 1);
+    out_metadata->sim_name[sizeof(out_metadata->sim_name) - 1] = '\0';
+    
+    return MER_SUCCESS;
+}
+
 const char* mer_result_to_string(MER_Result result) {
     switch (result) {
         case MER_SUCCESS:

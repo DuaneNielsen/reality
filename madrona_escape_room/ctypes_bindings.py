@@ -5,7 +5,7 @@ Direct replacement for CFFI bindings to resolve library loading issues
 
 import os
 import ctypes
-from ctypes import Structure, c_int, c_int32, c_int64, c_uint32, c_bool, c_void_p, c_char_p, POINTER
+from ctypes import Structure, c_int, c_int32, c_int64, c_uint32, c_uint64, c_bool, c_void_p, c_char, c_char_p, POINTER
 
 # Find the shared library
 def _find_library():
@@ -128,6 +128,17 @@ MER_ROTATE_FAST_RIGHT = 4
 # Manager handle type (opaque pointer)
 MER_ManagerHandle = c_void_p
 
+# Replay metadata structure
+class MER_ReplayMetadata(Structure):
+    _fields_ = [
+        ("num_worlds", c_uint32),
+        ("num_agents_per_world", c_uint32),
+        ("num_steps", c_uint32),
+        ("seed", c_uint32),
+        ("sim_name", c_char * 64),
+        ("timestamp", c_uint64),
+    ]
+
 # Manager configuration structure
 class MER_ManagerConfig(Structure):
     _fields_ = [
@@ -215,6 +226,10 @@ lib.mer_stop_recording.restype = c_int
 
 lib.mer_is_recording.argtypes = [MER_ManagerHandle, POINTER(c_bool)]
 lib.mer_is_recording.restype = c_int
+
+# Replay metadata reading (static function)
+lib.mer_read_replay_metadata.argtypes = [c_char_p, POINTER(MER_ReplayMetadata)]
+lib.mer_read_replay_metadata.restype = c_int
 
 # Replay functionality
 lib.mer_load_replay.argtypes = [MER_ManagerHandle, c_char_p]

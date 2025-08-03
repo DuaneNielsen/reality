@@ -42,9 +42,8 @@ Guides for developers working on the codebase.
 Production deployment, packaging, and platform-specific guides.
 
 #### Packaging
+- [**Python Bindings Guide**](deployment/packaging/PYTHON_BINDINGS_GUIDE.md) - Complete guide to the ctypes-based Python bindings with API reference and context managers
 - [**ctypes Packaging Guide**](deployment/packaging/CTYPES_PACKAGING_GUIDE.md) - Required files and libraries for distributing ctypes bindings
-- [**Python Bindings Architecture**](deployment/packaging/PYTHON_BINDINGS_ARCHITECTURE.md) - Bindings overview
-- [**Bindings README**](deployment/packaging/README_BINDINGS.md) - Python bindings installation and API overview
 - [**Packaging TODO**](deployment/packaging/PACKAGING_TODO.md) - Outstanding packaging tasks
 
 #### CUDA

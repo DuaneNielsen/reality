@@ -394,11 +394,26 @@ class SimManager:
     
     # Replay functionality
     def load_replay(self, filepath):
-        """Load a replay file for playback
+        """Load a replay file for playback (NOT RECOMMENDED - use SimManager.from_replay() instead)
+        
+        WARNING: This method can cause configuration mismatches if the current SimManager
+        was not created with the same settings as the replay file. For guaranteed correct
+        replay, use SimManager.from_replay() instead.
         
         Args:
             filepath: Path to the replay file
+            
+        Recommended alternative:
+            sim = SimManager.from_replay(filepath, exec_mode, gpu_id)
         """
+        import warnings
+        warnings.warn(
+            "Loading replay into existing manager can cause configuration mismatches. "
+            "Consider using SimManager.from_replay() for guaranteed correct replay.",
+            UserWarning,
+            stacklevel=2
+        )
+        
         filepath_bytes = filepath.encode('utf-8')
         result = lib.mer_load_replay(self._handle, filepath_bytes)
         _check_result(result)
@@ -455,6 +470,93 @@ class SimManager:
     def trajectory_logging(self, world_idx, agent_idx, filename=None):
         """Create a trajectory logging context manager"""
         return TrajectoryLogging(self, world_idx, agent_idx, filename)
+    
+    @staticmethod
+    def read_replay_metadata(filepath):
+        """Read replay metadata without creating a manager
+        
+        Args:
+            filepath: Path to replay file
+            
+        Returns:
+            dict: Replay metadata with keys: num_worlds, num_agents_per_world, 
+                  num_steps, seed, sim_name, timestamp
+                  
+        Example:
+            metadata = SimManager.read_replay_metadata("demo.bin")
+            print(f"Replay has {metadata['num_worlds']} worlds, seed {metadata['seed']}")
+        """
+        from .ctypes_bindings import MER_ReplayMetadata
+        from ctypes import byref
+        
+        metadata = MER_ReplayMetadata()
+        filepath_bytes = filepath.encode('utf-8')
+        result = lib.mer_read_replay_metadata(filepath_bytes, byref(metadata))
+        _check_result(result)
+        
+        return {
+            'num_worlds': metadata.num_worlds,
+            'num_agents_per_world': metadata.num_agents_per_world,
+            'num_steps': metadata.num_steps,
+            'seed': metadata.seed,
+            'sim_name': metadata.sim_name.decode('utf-8'),
+            'timestamp': metadata.timestamp,
+        }
+    
+    @classmethod
+    def from_replay(cls, replay_filepath, exec_mode, gpu_id=0, enable_batch_renderer=False):
+        """Create SimManager configured for replay from file
+        
+        All configuration (num_worlds, seed, auto_reset) comes from the replay file.
+        You only specify execution preferences.
+        
+        Args:
+            replay_filepath: Path to replay file
+            exec_mode: CPU or CUDA execution (madrona.ExecMode.CPU or .CUDA)
+            gpu_id: GPU device ID (ignored for CPU mode)
+            enable_batch_renderer: Enable rendering (CPU mode only)
+            
+        Returns:
+            SimManager ready to replay from step 0
+            
+        Example:
+            # Create manager configured exactly like the replay
+            sim = SimManager.from_replay("demo.bin", madrona.ExecMode.CUDA, gpu_id=0)
+            
+            # Manager is ready to replay - step through it
+            while True:
+                finished = sim.replay_step()
+                if finished:
+                    break
+                obs = sim.self_observation_tensor().to_torch()
+                # ... process replay data
+        """
+        # Read metadata to get configuration
+        metadata = cls.read_replay_metadata(replay_filepath)
+        
+        # Create manager with exact replay configuration
+        manager = cls(
+            exec_mode=exec_mode,
+            gpu_id=gpu_id,
+            num_worlds=metadata['num_worlds'],
+            rand_seed=metadata['seed'],
+            auto_reset=True,  # Always true for replay
+            enable_batch_renderer=enable_batch_renderer
+        )
+        
+        # Load replay into the manager
+        manager._load_replay_internal(replay_filepath)
+        
+        print(f"Loaded replay with {metadata['num_worlds']} worlds, "
+              f"{metadata['num_steps']} steps, seed {metadata['seed']}")
+        
+        return manager
+    
+    def _load_replay_internal(self, filepath):
+        """Internal replay loading without reconfiguration"""
+        filepath_bytes = filepath.encode('utf-8')
+        result = lib.mer_load_replay(self._handle, filepath_bytes)
+        _check_result(result)
 
 
 # Context Managers for Recording and Tracing
