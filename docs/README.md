@@ -28,6 +28,9 @@ Guides for developers working on the codebase.
 - [**Progress Component**](development/components/using_progress_component.md) - Python example for accessing agent progress data
 - [**Trajectory Logging**](development/components/using_trajectory_logging.md) - Enable and monitor agent position tracking during simulation
 
+#### Testing
+- [**Testing Guide**](development/testing/TESTING_GUIDE.md) - Testing patterns and GPU manager constraints
+
 #### Debugging
 - [**GDB Guide**](development/debugging/GDB_GUIDE.md) - Step-through debugging with GDB
 

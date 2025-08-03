@@ -5,12 +5,14 @@ Basic test for ctypes bindings - CPU and GPU manager creation
 
 import sys
 import os
+import pytest
 
 # Add the package to Python path
 sys.path.insert(0, '/home/duane/madrona/madrona_escape_room')
 
 try:
     import madrona_escape_room as mer
+    import torch
     print("✓ Successfully imported madrona_escape_room")
 except ImportError as e:
     print(f"✗ Failed to import madrona_escape_room: {e}")
@@ -57,21 +59,15 @@ def test_cpu_manager():
         traceback.print_exc()
         return False
 
-def test_gpu_manager():
-    """Test GPU manager creation and basic operations"""
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+def test_gpu_manager(gpu_manager):
+    """Test GPU manager operations using session fixture"""
     print("\n=== Testing GPU Manager ===")
     
     try:
-        # Create GPU manager
-        print("Creating GPU manager...")
-        mgr = mer.SimManager(
-            exec_mode=mer.madrona.ExecMode.CUDA,
-            gpu_id=0,
-            num_worlds=4,
-            rand_seed=42,
-            auto_reset=True
-        )
-        print("✓ GPU manager created successfully")
+        # Use the session-scoped GPU manager
+        mgr = gpu_manager
+        print("✓ Using session GPU manager")
         
         # Get tensors
         print("Getting tensors...")

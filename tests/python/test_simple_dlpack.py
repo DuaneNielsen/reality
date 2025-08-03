@@ -5,6 +5,7 @@ Simple DLPack test - one manager at a time to avoid conflicts
 
 import sys
 import os
+import pytest
 sys.path.insert(0, '/home/duane/madrona/madrona_escape_room')
 
 try:
@@ -52,7 +53,8 @@ def test_cpu_simple():
         traceback.print_exc()
         return False
 
-def test_gpu_simple():
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+def test_gpu_simple(gpu_manager):
     """Simple GPU test"""
     print("\n=== Testing GPU DLPack (Simple) ===")
     
@@ -61,15 +63,9 @@ def test_gpu_simple():
         return True
     
     try:
-        print("Creating GPU manager (this may take time for NVRTC compilation)...")
-        mgr = mer.SimManager(
-            exec_mode=mer.madrona.ExecMode.CUDA,
-            gpu_id=0,
-            num_worlds=1,  # Just 1 world
-            rand_seed=42,
-            auto_reset=True
-        )
-        print("✓ GPU manager created!")
+        # Use the session-scoped GPU manager
+        mgr = gpu_manager
+        print("✓ Using session GPU manager")
         
         # Get tensor
         obs_tensor = mgr.self_observation_tensor()
