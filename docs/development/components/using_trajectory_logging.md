@@ -58,6 +58,49 @@ mgr.disable_trajectory_logging()
 mgr.disable_trajectory_logging()
 ```
 
+## Context Manager API (Recommended)
+
+The recommended approach is to use context managers for automatic resource management:
+
+### Trajectory Logging Context Manager
+
+```python
+# Log trajectory to file with automatic cleanup
+with mgr.trajectory_logging(world_idx=0, agent_idx=0, filename="agent_trajectory.txt"):
+    for i in range(100):
+        mgr.step()
+# File is automatically closed when context exits
+
+# Log trajectory to stdout
+with mgr.trajectory_logging(world_idx=0, agent_idx=0):
+    for i in range(100):
+        mgr.step()
+```
+
+### Combined with Recording
+
+```python
+# Use the master debug session for both recording and trajectory logging
+with mgr.debug_session("debug_session"):
+    for i in range(100):
+        mgr.step()
+# Creates: debug_session.bin and debug_session_trajectory.txt
+
+# Only trajectory logging (no recording)
+with mgr.debug_session("trace_only", enable_recording=False):
+    for i in range(100):
+        mgr.step()
+# Creates: trace_only_trajectory.txt
+```
+
+**Benefits of context managers:**
+- Automatic cleanup even if exceptions occur
+- No need to remember to call `disable_trajectory_logging()`
+- Cleaner, more Pythonic code
+- Integration with pytest testing framework
+
+For more details on context managers, see [using_recording_debugging.md](using_recording_debugging.md).
+
 ## Output Format
 
 The trajectory logging outputs the following format to stdout:

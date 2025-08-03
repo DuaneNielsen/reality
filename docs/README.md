@@ -25,8 +25,9 @@ Guides for developers working on the codebase.
 - [**Export Component**](development/instructions/EXPORT_COMPONENT.md) - Export components to Python bindings
 
 #### Components
-- [**Progress Component**](development/components/using_progress_component.md) - Python example for accessing agent progress data
+- [**Progress Component**](development/components/using_progress_component.md) - How to access and monitor agent progress in Python
 - [**Trajectory Logging**](development/components/using_trajectory_logging.md) - Enable and monitor agent position tracking during simulation
+- [**Recording and Debugging**](development/components/using_recording_debugging.md) - Context managers for action recording and trajectory logging
 
 #### Testing
 - [**Testing Guide**](development/testing/TESTING_GUIDE.md) - Testing patterns and GPU manager constraints
@@ -43,7 +44,7 @@ Production deployment, packaging, and platform-specific guides.
 #### Packaging
 - [**ctypes Packaging Guide**](deployment/packaging/CTYPES_PACKAGING_GUIDE.md) - Required files and libraries for distributing ctypes bindings
 - [**Python Bindings Architecture**](deployment/packaging/PYTHON_BINDINGS_ARCHITECTURE.md) - Bindings overview
-- [**Bindings README**](deployment/packaging/README_BINDINGS.md) - Bindings usage guide
+- [**Bindings README**](deployment/packaging/README_BINDINGS.md) - Python bindings installation and API overview
 - [**Packaging TODO**](deployment/packaging/PACKAGING_TODO.md) - Outstanding packaging tasks
 
 #### CUDA
@@ -54,12 +55,12 @@ Production deployment, packaging, and platform-specific guides.
 
 #### Headless
 - [**Headless Mode**](deployment/headless/HEADLESS_MODE.md) - Running without graphics
-- [**Headless Quick Reference**](deployment/headless/HEADLESS_QUICK_REFERENCE.md) - Command reference
+- [**Headless Quick Reference**](deployment/headless/HEADLESS_QUICK_REFERENCE.md) - Command-line options and usage examples for running without graphics
 
 ### 🔧 Tools
 Documentation for development and visualization tools.
 
-- [**Viewer Guide**](tools/VIEWER_GUIDE.md) - Interactive viewer usage
+- [**Viewer Guide**](tools/VIEWER_GUIDE.md) - 3D visualization, agent control, recording, and replay functionality
 
 ## Quick Links
 

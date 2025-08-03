@@ -11,11 +11,10 @@ Follow the below instructions step by step to re-index the documentation
    - If user approves: file the document in the suggested location
    - If user doesn't approve: discuss with the user what the preferred filing system would look like
    - Upon agreement: file the document according to the agreed structure
-4. In CLAUDE.md under the heading `Useful documents`, ensure all relevant docs are mentioned with descriptions
-5. List the files in ./docs/development/instructions
-6. In CLAUDE.md under the heading `Instructions for common tasks`, ensure all instruction files are mentioned
-7. Update docs/README.md if new categories were created
-8. **Verify document descriptions in README.md**:
+4. List the files in ./docs/development/instructions
+5. In CLAUDE.md under the heading `Instructions for common tasks`, ensure all instruction files are mentioned
+6. Update docs/README.md if new categories were created
+7. **Verify document descriptions in README.md**:
    - Read each document listed in docs/README.md
    - Compare the document's actual content with its description in the README
    - If the description is inaccurate, incomplete, or misleading, improve it to accurately reflect the document's content

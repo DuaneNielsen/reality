@@ -64,10 +64,44 @@ def test_ignores_fixture(gpu_manager):
 
 ## Test Flags
 
+### Basic Flags
 ```bash
---no-gpu          # Skip all GPU tests
---record-actions  # Record actions for viewer replay
---visualize       # Auto-launch viewer after tests
+--no-gpu              # Skip all GPU tests
+```
+
+### Debugging and Visualization Flags
+```bash
+--record-actions      # Record actions to binary files for viewer replay
+--trace-trajectories  # Log agent trajectories to text files
+--visualize           # Auto-launch viewer after tests (requires --record-actions)
+```
+
+### Usage Examples
+```bash
+# Record actions for debugging
+pytest tests/python/test_reward_system.py --record-actions
+
+# Record both actions and trajectories
+pytest tests/python/test_reward_system.py --record-actions --trace-trajectories
+
+# Record, trace, and auto-launch viewer
+pytest tests/python/test_reward_system.py --record-actions --trace-trajectories --visualize
+
+# Debug specific test
+pytest tests/python/test_reward_system.py::test_forward_movement_reward -v --record-actions
+```
+
+### Output Files
+When using debugging flags, files are created in `test_recordings/` with automatic naming:
+- **Actions**: `test_recordings/test_module.py__test_function_actions.bin`  
+- **Trajectories**: `test_recordings/test_module.py__test_function_actions_trajectory.txt`
+
+Example:
+```bash
+pytest tests/python/test_reward_system.py::test_forward_movement_reward --record-actions --trace-trajectories
+# Creates:
+# test_recordings/test_reward_system.py__test_forward_movement_reward_actions.bin
+# test_recordings/test_reward_system.py__test_forward_movement_reward_actions_trajectory.txt
 ```
 
 ## Best Practices
