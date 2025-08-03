@@ -45,13 +45,12 @@ def test_cpu_simple():
             torch_tensor = obs_tensor.to_torch()
             print(f"✓ to_torch: shape={torch_tensor.shape}, device={torch_tensor.device}")
         
-        return True
         
     except Exception as e:
         print(f"✗ CPU test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_gpu_simple(gpu_manager):
@@ -60,7 +59,7 @@ def test_gpu_simple(gpu_manager):
     
     if not torch.cuda.is_available():
         print("⚠ CUDA not available")
-        return True
+        pytest.skip("CUDA not available")
     
     try:
         # Use the session-scoped GPU manager
@@ -79,22 +78,21 @@ def test_gpu_simple(gpu_manager):
             
             if dlpack_tensor.is_cuda:
                 print("🎉 GPU DLPack working! Zero-copy GPU tensors achieved!")
-                return True
             else:
                 print("✗ DLPack tensor should be on CUDA")
-                return False
+                assert False, "DLPack tensor should be on CUDA"
                 
         except Exception as e:
             print(f"✗ DLPack conversion failed: {e}")
             import traceback
             traceback.print_exc()
-            return False
+            raise
         
     except Exception as e:
         print(f"✗ GPU test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def main():
     print("Simple DLPack Test")

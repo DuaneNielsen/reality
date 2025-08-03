@@ -51,13 +51,12 @@ def test_cpu_manager():
         print("✓ Simulation step completed")
         
         print("✓ CPU manager test passed!")
-        return True
         
     except Exception as e:
         print(f"✗ CPU manager test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_gpu_manager(gpu_manager):
@@ -86,13 +85,12 @@ def test_gpu_manager(gpu_manager):
         print("✓ Simulation step completed")
         
         print("✓ GPU manager test passed!")
-        return True
         
     except Exception as e:
         print(f"✗ GPU manager test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def main():
     print("Testing ctypes bindings for Madrona Escape Room")

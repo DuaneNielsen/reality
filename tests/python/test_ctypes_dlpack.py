@@ -68,13 +68,12 @@ def test_cpu_dlpack():
             print(f"⚠ DLPack conversion failed (using fallback): {e}")
         
         print("✓ CPU DLPack test passed!")
-        return True
         
     except Exception as e:
         print(f"✗ CPU DLPack test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_gpu_dlpack(gpu_manager):
@@ -83,7 +82,7 @@ def test_gpu_dlpack(gpu_manager):
     
     if not torch.cuda.is_available():
         print("⚠ CUDA not available, skipping GPU DLPack test")
-        return True
+        pytest.skip("CUDA not available")
     
     try:
         # Use the session-scoped GPU manager
@@ -101,7 +100,7 @@ def test_gpu_dlpack(gpu_manager):
         # Verify it's on GPU
         if not torch_tensor.is_cuda:
             print("✗ PyTorch tensor should be on CUDA but isn't!")
-            return False
+            assert False, "PyTorch tensor should be on CUDA but isn't!"
         
         # Test DLPack protocol - this is the main goal!
         try:
@@ -111,7 +110,7 @@ def test_gpu_dlpack(gpu_manager):
             # Verify it's on GPU
             if not dlpack_tensor.is_cuda:
                 print("✗ DLPack tensor should be on CUDA but isn't!")
-                return False
+                assert False, "DLPack tensor should be on CUDA but isn't!"
             
             # Verify zero-copy by checking memory addresses
             torch_ptr = torch_tensor.data_ptr()
@@ -129,7 +128,7 @@ def test_gpu_dlpack(gpu_manager):
             
         except Exception as e:
             print(f"⚠ DLPack conversion failed (using fallback): {e}")
-            return False
+            raise
         
         # Test action tensor as well
         action_tensor = mgr.action_tensor()
@@ -139,13 +138,12 @@ def test_gpu_dlpack(gpu_manager):
         print(f"✓ Action DLPack: shape={action_torch.shape}, dtype={action_torch.dtype}, device={action_torch.device}")
         
         print("✓ GPU DLPack test passed!")
-        return True
         
     except Exception as e:
         print(f"✗ GPU DLPack test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def test_dlpack_device_protocol(request):
     """Test __dlpack_device__ method"""
@@ -175,13 +173,12 @@ def test_dlpack_device_protocol(request):
         else:
             print("⚠ Skipping GPU device test (CUDA not available or --no-gpu flag set)")
         
-        return True
         
     except Exception as e:
         print(f"✗ DLPack device protocol test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def main():
     print("Testing DLPack functionality for ctypes bindings")

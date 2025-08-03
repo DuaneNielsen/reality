@@ -76,11 +76,13 @@ def test_ignores_fixture(gpu_manager):
 - Use `gpu_manager` fixture for all GPU tests
 - Add CUDA availability checks to GPU tests  
 - Test CPU before GPU functionality
+- Fix warnings immediately - tests should use `assert` not `return` statements
 
 **Don'ts:**
 - Create GPU managers directly in tests
 - Mix session/function-scoped GPU fixtures
 - Forget `@pytest.mark.skipif` for GPU tests
+- Return values from test functions (causes `PytestReturnNotNoneWarning`)
 
 ## Debugging
 
