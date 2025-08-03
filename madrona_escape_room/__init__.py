@@ -442,12 +442,94 @@ class SimManager:
         result = lib.mer_get_replay_step_count(self._handle, byref(current_step), byref(total_steps))
         _check_result(result)
         return (current_step.value, total_steps.value)
+    
+    # Context manager convenience methods
+    def debug_session(self, base_path, enable_recording=True, enable_tracing=True, seed=42):
+        """Create a debug session context manager that handles both recording and tracing"""
+        return DebugSession(self, base_path, enable_recording, enable_tracing, seed)
+        
+    def recording(self, filename, seed=42):
+        """Create a recording context manager"""
+        return Recording(self, filename, seed)
+        
+    def trajectory_logging(self, world_idx, agent_idx, filename=None):
+        """Create a trajectory logging context manager"""
+        return TrajectoryLogging(self, world_idx, agent_idx, filename)
+
+
+# Context Managers for Recording and Tracing
+class Recording:
+    """Context manager for recording simulation steps to a file"""
+    def __init__(self, manager, filename, seed=42):
+        self.manager = manager
+        self.filename = filename
+        self.seed = seed
+        
+    def __enter__(self):
+        self.manager.start_recording(self.filename, self.seed)
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.manager.stop_recording()
+
+
+class TrajectoryLogging:
+    """Context manager for tracking agent trajectories"""
+    def __init__(self, manager, world_idx, agent_idx, filename=None):
+        self.manager = manager
+        self.world_idx = world_idx
+        self.agent_idx = agent_idx
+        self.filename = filename
+        
+    def __enter__(self):
+        self.manager.enable_trajectory_logging(self.world_idx, self.agent_idx, self.filename)
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.manager.disable_trajectory_logging()
+
+
+class DebugSession:
+    """Master context manager that handles both recording and trajectory logging"""
+    def __init__(self, manager, base_path, enable_recording=True, enable_tracing=True, seed=42):
+        from pathlib import Path
+        
+        self.manager = manager
+        self.base_path = Path(base_path)
+        self.enable_recording = enable_recording
+        self.enable_tracing = enable_tracing
+        self.seed = seed
+        
+        # Generate file paths - use .name to avoid issues with dots in filename
+        base_name = self.base_path.name
+        self.recording_path = self.base_path.with_name(f"{base_name}.bin") if enable_recording else None
+        self.trajectory_path = self.base_path.with_name(f"{base_name}_trajectory.txt") if enable_tracing else None
+        
+        
+    def __enter__(self):
+        if self.enable_recording and self.recording_path:
+            self.manager.start_recording(str(self.recording_path), self.seed)
+            
+        if self.enable_tracing and self.trajectory_path:
+            self.manager.enable_trajectory_logging(0, 0, str(self.trajectory_path))
+            
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.enable_recording:
+            self.manager.stop_recording()
+            
+        if self.enable_tracing:
+            self.manager.disable_trajectory_logging()
 
 # Re-export madrona submodule for compatibility
 __all__ = [
     'SimManager',
     'madrona',
     'action',
+    'Recording',
+    'TrajectoryLogging', 
+    'DebugSession',
     'SELF_OBSERVATION_SIZE',
     'STEPS_REMAINING_SIZE', 
     'AGENT_ID_SIZE',

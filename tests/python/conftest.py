@@ -26,6 +26,12 @@ def pytest_addoption(parser):
         help="Launch viewer after test with recorded actions"
     )
     parser.addoption(
+        "--trace-trajectories",
+        action="store_true",
+        default=False,
+        help="Enable trajectory tracing to file for all tests"
+    )
+    parser.addoption(
         "--no-gpu",
         action="store_true",
         default=False,
@@ -51,7 +57,7 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture(scope="function")
 def cpu_manager(request):
-    """Create a CPU SimManager with optional native recording"""
+    """Create a CPU SimManager with optional native recording and trajectory tracing"""
     import madrona_escape_room
     from madrona_escape_room import SimManager
     
@@ -64,37 +70,49 @@ def cpu_manager(request):
         auto_reset=True
     )
     
-    # Check if recording is enabled
-    if request.config.getoption("--record-actions"):
-        # Use nodeid and replace :: with __ for filesystem compatibility
+    # Check for debug flags
+    record_actions = request.config.getoption("--record-actions")
+    trace_trajectories = request.config.getoption("--trace-trajectories")
+    
+    if record_actions or trace_trajectories:
+        # Use same naming pattern as current system
         test_name = request.node.nodeid.replace("::", "__")
         test_filename = test_name.split('/')[-1] if '/' in test_name else test_name
         
-        # Create output directory
         output_dir = Path("test_recordings")
         output_dir.mkdir(exist_ok=True)
-        action_path = output_dir / f"{test_filename}_actions.bin"
+        base_path = output_dir / f"{test_filename}_actions"  # No extension - DebugSession adds them
         
-        # Start native recording
-        mgr.start_recording(str(action_path), seed=42)
-        
-        yield mgr
-        
-        # Stop recording after test
-        mgr.stop_recording()
-        
+        # Use the master context manager
+        with mgr.debug_session(
+            base_path=base_path,
+            enable_recording=record_actions,
+            enable_tracing=trace_trajectories,
+            seed=42
+        ):
+            yield mgr
+            
+        # Print debug info after context exits
         print(f"\n{'='*60}")
-        print(f"Actions recorded: {action_path}")
-        print(f"Worlds: 4, Agents: 1, Steps: {mgr.get_step_count() if hasattr(mgr, 'get_step_count') else 'N/A'}")
-        print(f"To visualize: ./build/viewer 4 --cpu --replay {action_path}")
+        if record_actions:
+            recording_path = base_path.with_suffix('.bin')
+            print(f"Actions recorded: {recording_path}")
+            print(f"Worlds: 4, Agents: 1")
+            print(f"To visualize: ./build/viewer --num-worlds 4 --replay {recording_path}")
+            
+        if trace_trajectories:
+            trajectory_path = base_path.with_name(f"{base_path.stem}_trajectory.txt")
+            print(f"Trajectory logged: {trajectory_path}")
+            
         print(f"{'='*60}\n")
         
         # Launch viewer if requested
-        if request.config.getoption("--visualize"):
+        if request.config.getoption("--visualize") and record_actions:
+            recording_path = base_path.with_suffix('.bin')
             viewer_path = Path("build/viewer")
             if viewer_path.exists():
                 print(f"Launching viewer...")
-                subprocess.run([str(viewer_path), "4", "--cpu", "--replay", str(action_path)])
+                subprocess.run([str(viewer_path), "--num-worlds", "4", "--replay", str(recording_path)])
             else:
                 print(f"Viewer not found at {viewer_path}")
     else:
@@ -174,38 +192,51 @@ def test_manager(request):
 
 @pytest.fixture(autouse=True)
 def per_test_recording_handler(request, test_manager):
-    """Autouse fixture that handles per-test native recording for module-scoped test_manager"""
-    # Only run if we have recording enabled
-    if request.config.getoption("--record-actions"):
-        # Create test-specific recording file
+    """Autouse fixture that handles per-test recording and tracing for module-scoped test_manager"""
+    # Check for debug flags
+    record_actions = request.config.getoption("--record-actions")
+    trace_trajectories = request.config.getoption("--trace-trajectories")
+    
+    # Only run if we have either recording or tracing enabled
+    if record_actions or trace_trajectories:
+        # Create test-specific files
         test_name = request.node.nodeid.replace("::", "__")
         test_filename = test_name.split('/')[-1] if '/' in test_name else test_name
         
         # Create output directory
         output_dir = Path("test_recordings")
         output_dir.mkdir(exist_ok=True)
-        action_path = output_dir / f"{test_filename}_actions.bin"
+        base_path = output_dir / f"{test_filename}_actions"  # No extension - DebugSession adds them
         
-        # Start native recording
-        test_manager.start_recording(str(action_path), seed=42)
         
-        yield
-        
-        # Stop recording after test completes
-        test_manager.stop_recording()
-        
+        # Use the master context manager
+        debug_session = test_manager.debug_session(
+            base_path=base_path,
+            enable_recording=record_actions,
+            enable_tracing=trace_trajectories,
+            seed=42
+        )
+        with debug_session:
+            yield
+            
+        # Print debug info after context exits using actual paths from DebugSession
         print(f"\n{'='*60}")
-        print(f"Actions recorded: {action_path}")
-        print(f"Worlds: 4, Agents: 1")
-        print(f"To visualize: ./build/viewer 4 --cpu --replay {action_path}")
+        if record_actions and debug_session.recording_path:
+            print(f"Actions recorded: {debug_session.recording_path}")
+            print(f"Worlds: 4, Agents: 1")
+            print(f"To visualize: ./build/viewer --num-worlds 4 --replay {debug_session.recording_path}")
+            
+        if trace_trajectories and debug_session.trajectory_path:
+            print(f"Trajectory logged: {debug_session.trajectory_path}")
+            
         print(f"{'='*60}\n")
         
         # Launch viewer if requested
-        if request.config.getoption("--visualize"):
+        if request.config.getoption("--visualize") and record_actions and debug_session.recording_path:
             viewer_path = Path("build/viewer")
             if viewer_path.exists():
                 print(f"Launching viewer...")
-                subprocess.run([str(viewer_path), "4", "--cpu", "--replay", str(action_path)])
+                subprocess.run([str(viewer_path), "--num-worlds", "4", "--replay", str(debug_session.recording_path)])
             else:
                 print(f"Viewer not found at {viewer_path}")
     else:
