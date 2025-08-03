@@ -354,6 +354,94 @@ class SimManager:
         """Disable trajectory logging"""
         result = lib.mer_disable_trajectory_logging(self._handle)
         _check_result(result)
+    
+    # Recording functionality
+    def start_recording(self, filepath, seed=None):
+        """Start recording actions to a binary file
+        
+        Args:
+            filepath: Path where to save the recording
+            seed: Random seed to store in metadata (uses current manager seed if None)
+        """
+        from ctypes import c_uint32
+        
+        if seed is None:
+            # Use a default seed - we don't have access to the manager's current seed
+            # so we'll use 0 as a placeholder
+            seed = 0
+            
+        filepath_bytes = filepath.encode('utf-8')
+        result = lib.mer_start_recording(self._handle, filepath_bytes, c_uint32(seed))
+        _check_result(result)
+    
+    def stop_recording(self):
+        """Stop recording actions"""
+        result = lib.mer_stop_recording(self._handle)
+        _check_result(result)
+    
+    def is_recording(self):
+        """Check if currently recording
+        
+        Returns:
+            bool: True if recording is active
+        """
+        from ctypes import c_bool, byref
+        
+        is_recording = c_bool()
+        result = lib.mer_is_recording(self._handle, byref(is_recording))
+        _check_result(result)
+        return is_recording.value
+    
+    # Replay functionality
+    def load_replay(self, filepath):
+        """Load a replay file for playback
+        
+        Args:
+            filepath: Path to the replay file
+        """
+        filepath_bytes = filepath.encode('utf-8')
+        result = lib.mer_load_replay(self._handle, filepath_bytes)
+        _check_result(result)
+    
+    def has_replay(self):
+        """Check if a replay is currently loaded
+        
+        Returns:
+            bool: True if replay is loaded
+        """
+        from ctypes import c_bool, byref
+        
+        has_replay = c_bool()
+        result = lib.mer_has_replay(self._handle, byref(has_replay))
+        _check_result(result)
+        return has_replay.value
+    
+    def replay_step(self):
+        """Execute one step of replay
+        
+        Returns:
+            bool: True if replay finished (no more steps), False if more steps remain
+        """
+        from ctypes import c_bool, byref
+        
+        finished = c_bool()
+        result = lib.mer_replay_step(self._handle, byref(finished))
+        _check_result(result)
+        return finished.value
+    
+    def get_replay_step_count(self):
+        """Get current and total step counts for loaded replay
+        
+        Returns:
+            tuple: (current_step, total_steps)
+        """
+        from ctypes import c_uint32, byref
+        
+        current_step = c_uint32()
+        total_steps = c_uint32()
+        result = lib.mer_get_replay_step_count(self._handle, byref(current_step), byref(total_steps))
+        _check_result(result)
+        return (current_step.value, total_steps.value)
 
 # Re-export madrona submodule for compatibility
 __all__ = [

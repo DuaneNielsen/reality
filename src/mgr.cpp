@@ -697,6 +697,45 @@ void Manager::step()
                 *progress_data);
         fflush(output);  // Ensure output is written immediately
     }
+    
+    // Automatic recording: capture current action tensor if recording is active
+    if (impl_->isRecordingActive) {
+        auto action_tensor = actionTensor();
+        
+        // Get action data based on execution mode
+        const Action* action_data;
+        std::vector<Action> host_actions;
+        
+        if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+            // For CUDA, copy actions to host
+            size_t num_agents = impl_->cfg.numWorlds * consts::numAgents;
+            host_actions.resize(num_agents);
+            cudaMemcpy(host_actions.data(),
+                      action_tensor.devicePtr(),
+                      num_agents * sizeof(Action),
+                      cudaMemcpyDeviceToHost);
+            action_data = host_actions.data();
+#endif
+        } else {
+            // For CPU, direct access
+            action_data = (const Action*)action_tensor.devicePtr();
+        }
+        
+        // Convert Action structs to int32_t vector for recordActions
+        std::vector<int32_t> frame_actions;
+        size_t num_agents = impl_->cfg.numWorlds * consts::numAgents;
+        frame_actions.reserve(num_agents * 3);
+        
+        for (size_t i = 0; i < num_agents; i++) {
+            frame_actions.push_back(static_cast<int32_t>(action_data[i].moveAmount));
+            frame_actions.push_back(static_cast<int32_t>(action_data[i].moveAngle));
+            frame_actions.push_back(static_cast<int32_t>(action_data[i].rotate));
+        }
+        
+        // Record the frame actions
+        recordActions(frame_actions);
+    }
 }
 
 // ============================================================================
@@ -1095,7 +1134,9 @@ bool Manager::replayStep()
     }
     
     impl_->currentReplayStep++;
-    return false; // Not finished
+    
+    // Check if we just consumed the last step
+    return impl_->currentReplayStep >= impl_->replayData->metadata.num_steps;
 }
 
 uint32_t Manager::getCurrentReplayStep() const
