@@ -105,7 +105,7 @@ def test_strafe_left(test_manager):
     # Now test strafing from this baseline
     print("\nTesting strafe left from settled position...")
     controller.reset_actions()
-    controller.turn_left(speed=madrona_escape_room.action.move_amount.MEDIUM)
+    controller.strafe_left(speed=madrona_escape_room.action.move_amount.MEDIUM)
     
     # Run strafe test for 50 steps
     for step in range(50):
@@ -190,7 +190,7 @@ def test_strafe_right(test_manager):
     
     # Strafe right
     controller.reset_actions()
-    controller.turn_right(speed=madrona_escape_room.action.move_amount.MEDIUM)
+    controller.strafe_right(speed=madrona_escape_room.action.move_amount.MEDIUM)
     
     # Run for 50 steps
     for _ in range(50):

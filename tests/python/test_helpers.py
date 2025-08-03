@@ -44,8 +44,8 @@ class AgentController:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.BACKWARD
             
-    def turn_left(self, world_idx: Optional[int] = None, speed: float = 1.0):
-        """Turn agent(s) left while moving"""
+    def strafe_left(self, world_idx: Optional[int] = None, speed: float = 1.0):
+        """Move agent(s) left (strafe) while maintaining orientation"""
         if world_idx is None:
             self.actions[:, 0] = speed
             self.actions[:, 1] = madrona_escape_room.action.move_angle.LEFT
@@ -53,8 +53,8 @@ class AgentController:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.LEFT
             
-    def turn_right(self, world_idx: Optional[int] = None, speed: float = 1.0):
-        """Turn agent(s) right while moving"""
+    def strafe_right(self, world_idx: Optional[int] = None, speed: float = 1.0):
+        """Move agent(s) right (strafe) while maintaining orientation"""
         if world_idx is None:
             self.actions[:, 0] = speed
             self.actions[:, 1] = madrona_escape_room.action.move_angle.RIGHT
