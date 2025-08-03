@@ -121,3 +121,17 @@ pytest tests/python/test_reward_system.py::test_forward_movement_reward --record
 ## Debugging
 
 **GPU test failures** (`Fatal Python error`, deadlocks): Check if test creates its own GPU manager instead of using the `gpu_manager` fixture.
+
+## Known Limitations
+
+### GPU Replay Factory Method
+
+**Issue**: The new `SimManager.from_replay()` factory method cannot be used in GPU tests because it creates a fresh GPU manager, violating the "one GPU manager per process" constraint.
+
+**Current Status**: 
+- CPU tests: Use `SimManager.from_replay()` (no warnings)
+- GPU tests: Continue using `mgr.load_replay()` (with warnings) 
+
+**Workaround**: GPU replay tests use the existing session-scoped `gpu_manager` fixture with the legacy `load_replay()` method.
+
+**Future**: Consider adding GPU-compatible replay factory that reuses existing GPU context.

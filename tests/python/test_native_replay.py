@@ -46,7 +46,12 @@ def test_replay_lifecycle(cpu_manager):
         # Initially should not have replay
         assert not mgr.has_replay()
         
-        # Load replay
+        # Test new interface alongside old
+        import madrona_escape_room as mer
+        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
+        assert replay_mgr.has_replay()
+        
+        # Also test old interface for compatibility
         mgr.load_replay(recording_path)
         assert mgr.has_replay()
         

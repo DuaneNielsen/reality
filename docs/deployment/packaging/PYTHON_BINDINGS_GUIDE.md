@@ -278,6 +278,8 @@ for step in range(total):
 - **Works like viewer** - same automatic configuration as viewer/headless
 - **Zero-error replay** - guaranteed bit-for-bit identical results
 
+**Note**: In testing environments with session-scoped GPU managers (to avoid the "one GPU manager per process" limitation), you may still need to use the legacy `load_replay()` method for GPU tests. See the testing guide for details.
+
 ### Trajectory Logging Context Manager
 
 Logs agent positions for debugging movement:

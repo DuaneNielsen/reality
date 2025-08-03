@@ -43,10 +43,11 @@ def test_roundtrip_basic_consistency(cpu_manager):
         
         mgr.stop_recording()
         
-        # Now replay and verify
-        mgr.load_replay(recording_path)
+        # Now replay and verify using new interface  
+        import madrona_escape_room as mer
+        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
         
-        current, total = mgr.get_replay_step_count()
+        current, total = replay_mgr.get_replay_step_count()
         assert current == 0
         assert total == num_steps
         
@@ -54,7 +55,7 @@ def test_roundtrip_basic_consistency(cpu_manager):
         
         for step in range(num_steps):
             # Step the replay
-            finished = mgr.replay_step()
+            finished = replay_mgr.replay_step()
             
             # Should not finish until the last step
             if step < num_steps - 1:
@@ -63,7 +64,7 @@ def test_roundtrip_basic_consistency(cpu_manager):
                 assert finished
             
             # Get the current action tensor state after replay step
-            current_action = mgr.action_tensor().to_torch().clone()
+            current_action = replay_mgr.action_tensor().to_torch().clone()
             replayed_actions.append(current_action)
         
         # Compare recorded vs replayed actions
@@ -114,16 +115,18 @@ def test_roundtrip_observation_consistency(cpu_manager):
         # Reset the simulation state somehow (we need a fresh manager for true consistency test)
         # For now, we'll load the replay and see if observations evolve similarly
         
-        mgr.load_replay(recording_path)
+        # Use new interface for fresh manager to ensure clean replay
+        import madrona_escape_room as mer
+        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
         
         replayed_observations = []
         
         for step in range(num_steps):
-            finished = mgr.replay_step()
-            mgr.step()  # Actually run the simulation with replay actions
+            finished = replay_mgr.replay_step()
+            replay_mgr.step()  # Actually run the simulation with replay actions
             
             # Capture observation after replay step
-            obs = mgr.self_observation_tensor().to_torch().clone()
+            obs = replay_mgr.self_observation_tensor().to_torch().clone()
             replayed_observations.append(obs)
         
         # The observations might not be identical due to different starting states,
@@ -179,15 +182,16 @@ def test_roundtrip_multiple_sessions(cpu_manager):
             assert os.path.exists(recording_path)
             assert os.path.getsize(recording_path) > 0
             
-            # Load and verify replay
-            mgr.load_replay(recording_path)
+            # Load and verify replay using new interface
+            import madrona_escape_room as mer
+            replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
             
-            current, total = mgr.get_replay_step_count()
+            current, total = replay_mgr.get_replay_step_count()
             assert total == num_steps
             
             # Step through replay
             for step in range(num_steps):
-                finished = mgr.replay_step()
+                finished = replay_mgr.replay_step()
                 if step == num_steps - 1:
                     assert finished
                 else:
@@ -220,16 +224,17 @@ def test_roundtrip_edge_cases(cpu_manager):
         mgr.step()
         mgr.stop_recording()
         
-        # Replay single step
-        mgr.load_replay(short_path)
+        # Replay single step using new interface
+        import madrona_escape_room as mer
+        replay_mgr = mer.SimManager.from_replay(short_path, mer.madrona.ExecMode.CPU)
         
-        current, total = mgr.get_replay_step_count()
+        current, total = replay_mgr.get_replay_step_count()
         assert total == 1
         
-        finished = mgr.replay_step()
+        finished = replay_mgr.replay_step()
         assert finished  # Should finish immediately
         
-        current, total = mgr.get_replay_step_count()
+        current, total = replay_mgr.get_replay_step_count()
         assert current == 1
         
     finally:
@@ -245,14 +250,15 @@ def test_roundtrip_edge_cases(cpu_manager):
         # Don't step, just stop
         mgr.stop_recording()
         
-        # Should still be loadable
-        mgr.load_replay(empty_path)
+        # Should still be loadable using new interface
+        import madrona_escape_room as mer
+        replay_mgr = mer.SimManager.from_replay(empty_path, mer.madrona.ExecMode.CPU)
         
-        current, total = mgr.get_replay_step_count()
+        current, total = replay_mgr.get_replay_step_count()
         assert total == 0
         
         # First replay step should indicate finished
-        finished = mgr.replay_step()
+        finished = replay_mgr.replay_step()
         assert finished
         
     finally:
@@ -290,14 +296,15 @@ def test_roundtrip_with_reset(cpu_manager):
         
         mgr.stop_recording()
         
-        # Replay and verify it works across resets
-        mgr.load_replay(recording_path)
+        # Replay and verify it works across resets using new interface
+        import madrona_escape_room as mer
+        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
         
-        current, total = mgr.get_replay_step_count()
+        current, total = replay_mgr.get_replay_step_count()
         assert total == num_steps
         
         for step in range(num_steps):
-            finished = mgr.replay_step()
+            finished = replay_mgr.replay_step()
             
             if step == num_steps - 1:
                 assert finished
