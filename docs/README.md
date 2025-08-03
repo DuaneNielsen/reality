@@ -63,6 +63,7 @@ Documentation for development and visualization tools.
 
 ## Quick Links
 
+- **Environment Specification**: See [ENVIRONMENT.md](../ENVIRONMENT.md) for action/observation space and usage
 - **Getting Started**: See the main [README.md](../README.md) in the project root
 - **Build Instructions**: Check [CLAUDE.md](../CLAUDE.md) for build commands
 - **Testing**: Refer to test commands in [CLAUDE.md](../CLAUDE.md)
