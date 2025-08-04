@@ -2,6 +2,54 @@
 
 **Important**: Always use the MCP GDB server for debugging. The MCP server provides a clean interface for debugging sessions and handles GDB interactions properly.
 
+## Installing the MCP GDB Server
+
+### Prerequisites
+- Claude Code CLI installed
+- Node.js v20 or later
+- GDB installed on your system
+
+### Installation Steps
+
+**Installation Notice**
+
+When the GDB MCP server is not installed, Claude Code will show a session hook message. Simply tell Claude to read the GDB_GUIDE.md and follow the installation instructions.
+
+**Manual Installation**
+
+If you need to install manually:
+
+1. **Initialize the submodule** (if not already done):
+```bash
+git submodule update --init external/mcp-gdb
+```
+
+2. **Build the MCP GDB server**:
+```bash
+cd external/mcp-gdb
+npm install
+npm run build
+cd ../..  # Return to project root
+```
+
+3. **Add to Claude Code** (using absolute path):
+```bash
+claude mcp add gdb node "$(pwd)/external/mcp-gdb/build/index.js"
+```
+
+4. **Verify installation**:
+```bash
+claude mcp list
+# Should show: gdb: node /full/path/to/external/mcp-gdb/build/index.js - ✓ Connected
+```
+
+**Troubleshooting**
+
+If the server shows as "Failed to connect":
+- Ensure you used the absolute path when adding the server
+- Test the server manually: `cd external/mcp-gdb && node build/index.js` 
+- Remove and re-add with correct path: `claude mcp remove gdb && claude mcp add gdb node "$(pwd)/external/mcp-gdb/build/index.js"`
+
 ```bash
 # Build with debug symbols (CPU mode recommended for debugging)
 mkdir build
