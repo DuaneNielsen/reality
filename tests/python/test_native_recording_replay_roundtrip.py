@@ -38,10 +38,10 @@ def test_roundtrip_basic_consistency(log_and_verify_replay_cpu_manager):
 
 
 def test_roundtrip_observation_consistency(log_and_verify_replay_cpu_manager):
-    """Test that observations are consistent between record and replay"""
+    """Test observation recording with automatic replay verification"""
     mgr = log_and_verify_replay_cpu_manager
     
-    # Debug manager is already recording
+    # Manager is already recording and tracing, just run the actions
     action_tensor = mgr.action_tensor().to_torch()
     num_steps = 4
     
@@ -56,47 +56,17 @@ def test_roundtrip_observation_consistency(log_and_verify_replay_cpu_manager):
         
         mgr.step()
         
-        # Capture observation after step
+        # Capture observation for informational purposes
         obs = mgr.self_observation_tensor().to_torch().clone()
         recorded_observations.append(obs)
     
-    # Get the debug recording path
-    recording_path = mgr._debug_recording_path
-    
-    # Reset the simulation state somehow (we need a fresh manager for true consistency test)
-    # For now, we'll load the replay and see if observations evolve similarly
-    
-    # Use new interface for fresh manager to ensure clean replay
-    import madrona_escape_room as mer
-    replay_mgr = mer.SimManager.from_replay(str(recording_path), mer.madrona.ExecMode.CPU)
-    
-    replayed_observations = []
-    
-    for step in range(num_steps):
-        finished = replay_mgr.replay_step()
-        replay_mgr.step()  # Actually run the simulation with replay actions
-        
-        # Capture observation after replay step
-        obs = replay_mgr.self_observation_tensor().to_torch().clone()
-        replayed_observations.append(obs)
-    
-    # The observations might not be identical due to different starting states,
-    # but the relative changes should be similar
-    # We'll check that positions are progressing in similar patterns
-    
-    print("Recorded observation progression:")
+    # Print observation progression for debugging
+    print("Observation progression during recording:")
     for i, obs in enumerate(recorded_observations):
         pos = obs[0, 0, :3]  # First world, first agent, xyz position  
         print(f"  Step {i}: pos=({pos[0].item():.3f}, {pos[1].item():.3f}, {pos[2].item():.3f})")
     
-    print("Replayed observation progression:")  
-    for i, obs in enumerate(replayed_observations):
-        pos = obs[0, 0, :3]  # First world, first agent, xyz position
-        print(f"  Step {i}: pos=({pos[0].item():.3f}, {pos[1].item():.3f}, {pos[2].item():.3f})")
-    
-    # Basic sanity check - we should have captured observations
-    assert len(recorded_observations) == num_steps
-    assert len(replayed_observations) == num_steps
+    # That's it! The fixture will automatically verify replay matches exactly
 
 
 def test_roundtrip_trajectory_file_verification(cpu_manager):
@@ -288,10 +258,10 @@ def test_trajectory_file_verification_detects_differences(cpu_manager):
 
 
 def test_roundtrip_session_replay(log_and_verify_replay_cpu_manager):
-    """Test a single record/replay session using debug manager"""
+    """Test a single record/replay session using automatic verification fixture"""
     mgr = log_and_verify_replay_cpu_manager
     
-    # Debug manager is already recording
+    # Manager is already recording and tracing, just run the actions
     action_tensor = mgr.action_tensor().to_torch()
     num_steps = 5
     
@@ -303,31 +273,7 @@ def test_roundtrip_session_replay(log_and_verify_replay_cpu_manager):
         
         mgr.step()
     
-    # Get the debug recording path
-    recording_path = mgr._debug_recording_path
-    
-    # Verify recording exists
-    assert os.path.exists(recording_path)
-    assert os.path.getsize(recording_path) > 0
-    
-    # Use SimManager.from_replay() to create a replay manager
-    import madrona_escape_room as mer
-    replay_mgr = mer.SimManager.from_replay(str(recording_path), mer.madrona.ExecMode.CPU)
-    
-    current, total = replay_mgr.get_replay_step_count()
-    assert total == num_steps
-    
-    # Step through replay
-    for step in range(num_steps):
-        finished = replay_mgr.replay_step()
-        replay_mgr.step()  # Actually execute the step
-        
-        if step == num_steps - 1:
-            assert finished
-        else:
-            assert not finished
-    
-    print(f"✓ Recorded and replayed {num_steps} steps")
+    # That's it! The fixture will automatically verify replay matches exactly
 
 
 def test_roundtrip_edge_cases(cpu_manager):
@@ -393,10 +339,10 @@ def test_roundtrip_edge_cases(cpu_manager):
 
 
 def test_roundtrip_with_reset(log_and_verify_replay_cpu_manager):
-    """Test recording/replay across episode resets"""
+    """Test recording/replay across episode resets with automatic verification"""
     mgr = log_and_verify_replay_cpu_manager
     
-    # Debug manager is already recording
+    # Manager is already recording and tracing, just run the actions
     action_tensor = mgr.action_tensor().to_torch()
     
     # Run enough steps to potentially trigger resets
@@ -415,23 +361,4 @@ def test_roundtrip_with_reset(log_and_verify_replay_cpu_manager):
         if done_tensor.any():
             print(f"  Episode reset occurred at step {step}")
     
-    # Get the debug recording path
-    recording_path = mgr._debug_recording_path
-    
-    # Replay and verify it works across resets using new interface
-    import madrona_escape_room as mer
-    replay_mgr = mer.SimManager.from_replay(str(recording_path), mer.madrona.ExecMode.CPU)
-    
-    current, total = replay_mgr.get_replay_step_count()
-    assert total == num_steps
-    
-    for step in range(num_steps):
-        finished = replay_mgr.replay_step()
-        replay_mgr.step()  # Actually execute the step
-        
-        if step == num_steps - 1:
-            assert finished
-        else:
-            assert not finished
-    
-    print(f"✓ Successfully replayed {num_steps} steps including episode resets")
+    # That's it! The fixture will automatically verify replay works across resets
