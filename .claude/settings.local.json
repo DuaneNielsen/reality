@@ -1,0 +1,53 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git status:*)",
+      "mcp__gdb__gdb_set_breakpoint",
+      "mcp__gdb__gdb_command",
+      "mcp__gdb__gdb_print",
+      "mcp__gdb__gdb_continue",
+      "mcp__gdb__gdb_step",
+      "mcp__gdb__gdb_next",
+      "mcp__gdb__gdb_start",
+      "mcp__gdb__gdb_load",
+      "mcp__gdb__gdb_terminate",
+      "mcp__gdb__gdb_backtrace",
+      "Bash(python:*)",
+      "Bash(grep:*)",
+      "Bash(uv run: *)",
+      "Bash(ls:*)",
+      "Bash(make:*)",
+      "Bash(./build/headless:*)",
+      "Bash(true)",
+      "Bash(./build/viewer:*)",
+      "Bash(uv run:*)",
+      "Bash(find:*)",
+      "Bash(/opt/cmake/bin/cmake -B build)",
+      "Bash(source:*)",
+      "WebFetch(domain:nanobind.readthedocs.io)",
+      "Bash(./tests/quick_test.sh:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude mcp list | grep -q 'madrona_repl' || claude mcp add madrona_repl uv run python -- scripts/fastmcp_madrona_server.py || true"
+          },
+          {
+            "type": "command",
+            "command": "claude mcp list | grep -q 'gdb' || echo 'Claude would like his GDB MCP server! Tell Claude to read docs/development/debugging/GDB_GUIDE.md and follow the installation instructions.'"
+          }
+        ]
+      }
+    ]
+  }
+}
