@@ -91,6 +91,15 @@ async def execute_python(code: str, reset: bool = False) -> str:
     stdout_capture = io.StringIO()
     stderr_capture = io.StringIO()
     
+    # Show the input code with clear formatting
+    result = "=" * 50 + "\n"
+    result += "EXECUTING:\n"
+    result += "=" * 50 + "\n"
+    
+    # Indent the code for better readability
+    indented_code = "\n".join(f"  {line}" for line in code.strip().split("\n"))
+    result += indented_code + "\n\n"
+    
     try:
         with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
             exec(code, global_namespace)
@@ -98,23 +107,31 @@ async def execute_python(code: str, reset: bool = False) -> str:
         output = stdout_capture.getvalue()
         error_output = stderr_capture.getvalue()
         
-        result = ""
-        if output:
-            result += output
-        if error_output:
-            result += error_output
-        
-        if not result:
-            result = "Code executed successfully (no output)"
+        # Format output section
+        if output or error_output:
+            result += "=" * 50 + "\n"
+            result += "OUTPUT:\n"
+            result += "=" * 50 + "\n"
+            if output:
+                result += output
+            if error_output:
+                result += error_output
+        else:
+            result += "=" * 50 + "\n"
+            result += "SUCCESS: Code executed (no output)\n"
+            result += "=" * 50
         
         return result
         
     except Exception as e:
-        error_msg = f"Error: {str(e)}\n"
+        result += "=" * 50 + "\n"
+        result += "ERROR:\n"
+        result += "=" * 50 + "\n"
+        result += f"Error: {str(e)}\n"
         if stderr_capture.getvalue():
-            error_msg += stderr_capture.getvalue()
-        error_msg += traceback.format_exc()
-        return error_msg
+            result += stderr_capture.getvalue()
+        result += traceback.format_exc()
+        return result
 
 @mcp.tool()
 async def list_variables() -> str:
