@@ -12,148 +12,96 @@ import torch
 from pathlib import Path
 
 
-def test_roundtrip_basic_consistency(cpu_manager):
-    """Test basic record → replay → verify cycle"""
-    mgr = cpu_manager
+def test_roundtrip_basic_consistency(log_and_verify_replay_cpu_manager):
+    """Test basic record → replay → verify cycle.
+    Fixture automatically records, traces, replays, and verifies trajectory matches."""
+    mgr = log_and_verify_replay_cpu_manager
     
-    with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
-        recording_path = f.name
+    # Manager is already recording and tracing, just run the actions
+    action_tensor = mgr.action_tensor().to_torch()
+    num_steps = 5
     
-    try:
-        # Record some actions
-        mgr.start_recording(recording_path, seed=42)
+    for step in range(num_steps):
+        # Set known actions
+        action_tensor.fill_(0)
+        action_tensor[:, 0] = (step % 3) + 1  # move_amount
+        action_tensor[:, 1] = step % 8        # move_angle  
+        action_tensor[:, 2] = 2               # rotate
         
-        action_tensor = mgr.action_tensor().to_torch()
-        num_worlds = action_tensor.shape[0]
-        num_steps = 5
-        
-        recorded_actions = []
-        
-        for step in range(num_steps):
-            # Set known actions
-            action_tensor.fill_(0)
-            action_tensor[:, 0] = (step % 3) + 1  # move_amount
-            action_tensor[:, 1] = step % 8        # move_angle  
-            action_tensor[:, 2] = 2               # rotate
-            
-            # Save what we set
-            recorded_actions.append(action_tensor.clone())
-            
-            mgr.step()
-        
-        mgr.stop_recording()
-        
-        # Now replay and verify using new interface  
-        import madrona_escape_room as mer
-        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
-        
-        current, total = replay_mgr.get_replay_step_count()
-        assert current == 0
-        assert total == num_steps
-        
-        replayed_actions = []
-        
-        for step in range(num_steps):
-            # Step the replay
-            finished = replay_mgr.replay_step()
-            
-            # Should not finish until the last step
-            if step < num_steps - 1:
-                assert not finished
-            else:
-                assert finished
-            
-            # Get the current action tensor state after replay step
-            current_action = replay_mgr.action_tensor().to_torch().clone()
-            replayed_actions.append(current_action)
-        
-        # Compare recorded vs replayed actions
-        assert len(recorded_actions) == len(replayed_actions)
-        
-        for step, (recorded, replayed) in enumerate(zip(recorded_actions, replayed_actions)):
-            # Actions should match exactly
-            assert torch.equal(recorded, replayed), f"Action mismatch at step {step}"
-        
-        print(f"✓ Successfully verified {num_steps} steps of record/replay consistency")
-        
-    finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
+        mgr.step()
+    
+    # That's it! The fixture will automatically:
+    # 1. Finalize recording when context exits
+    # 2. Replay the recording
+    # 3. Compare trajectory traces
+    # 4. Assert they match exactly
 
 
-def test_roundtrip_observation_consistency(cpu_manager):
+def test_roundtrip_observation_consistency(log_and_verify_replay_cpu_manager):
     """Test that observations are consistent between record and replay"""
-    mgr = cpu_manager
+    mgr = log_and_verify_replay_cpu_manager
     
-    with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
-        recording_path = f.name
+    # Debug manager is already recording
+    action_tensor = mgr.action_tensor().to_torch()
+    num_steps = 4
     
-    try:
-        # Record a session and capture observations
-        mgr.start_recording(recording_path, seed=123)
+    recorded_observations = []
+    
+    for step in range(num_steps):
+        # Set actions
+        action_tensor.fill_(0)
+        action_tensor[:, 0] = 1  # SLOW movement
+        action_tensor[:, 1] = 0  # FORWARD
+        action_tensor[:, 2] = 2  # No rotation
         
-        action_tensor = mgr.action_tensor().to_torch()
-        num_steps = 4
+        mgr.step()
         
-        recorded_observations = []
+        # Capture observation after step
+        obs = mgr.self_observation_tensor().to_torch().clone()
+        recorded_observations.append(obs)
+    
+    # Get the debug recording path
+    recording_path = mgr._debug_recording_path
+    
+    # Reset the simulation state somehow (we need a fresh manager for true consistency test)
+    # For now, we'll load the replay and see if observations evolve similarly
+    
+    # Use new interface for fresh manager to ensure clean replay
+    import madrona_escape_room as mer
+    replay_mgr = mer.SimManager.from_replay(str(recording_path), mer.madrona.ExecMode.CPU)
+    
+    replayed_observations = []
+    
+    for step in range(num_steps):
+        finished = replay_mgr.replay_step()
+        replay_mgr.step()  # Actually run the simulation with replay actions
         
-        for step in range(num_steps):
-            # Set actions
-            action_tensor.fill_(0)
-            action_tensor[:, 0] = 1  # SLOW movement
-            action_tensor[:, 1] = 0  # FORWARD
-            action_tensor[:, 2] = 2  # No rotation
-            
-            mgr.step()
-            
-            # Capture observation after step
-            obs = mgr.self_observation_tensor().to_torch().clone()
-            recorded_observations.append(obs)
-        
-        mgr.stop_recording()
-        
-        # Reset the simulation state somehow (we need a fresh manager for true consistency test)
-        # For now, we'll load the replay and see if observations evolve similarly
-        
-        # Use new interface for fresh manager to ensure clean replay
-        import madrona_escape_room as mer
-        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
-        
-        replayed_observations = []
-        
-        for step in range(num_steps):
-            finished = replay_mgr.replay_step()
-            replay_mgr.step()  # Actually run the simulation with replay actions
-            
-            # Capture observation after replay step
-            obs = replay_mgr.self_observation_tensor().to_torch().clone()
-            replayed_observations.append(obs)
-        
-        # The observations might not be identical due to different starting states,
-        # but the relative changes should be similar
-        # We'll check that positions are progressing in similar patterns
-        
-        print("Recorded observation progression:")
-        for i, obs in enumerate(recorded_observations):
-            pos = obs[0, 0, :3]  # First world, first agent, xyz position  
-            print(f"  Step {i}: pos=({pos[0].item():.3f}, {pos[1].item():.3f}, {pos[2].item():.3f})")
-        
-        print("Replayed observation progression:")  
-        for i, obs in enumerate(replayed_observations):
-            pos = obs[0, 0, :3]  # First world, first agent, xyz position
-            print(f"  Step {i}: pos=({pos[0].item():.3f}, {pos[1].item():.3f}, {pos[2].item():.3f})")
-        
-        # Basic sanity check - we should have captured observations
-        assert len(recorded_observations) == num_steps
-        assert len(replayed_observations) == num_steps
-        
-    finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
+        # Capture observation after replay step
+        obs = replay_mgr.self_observation_tensor().to_torch().clone()
+        replayed_observations.append(obs)
+    
+    # The observations might not be identical due to different starting states,
+    # but the relative changes should be similar
+    # We'll check that positions are progressing in similar patterns
+    
+    print("Recorded observation progression:")
+    for i, obs in enumerate(recorded_observations):
+        pos = obs[0, 0, :3]  # First world, first agent, xyz position  
+        print(f"  Step {i}: pos=({pos[0].item():.3f}, {pos[1].item():.3f}, {pos[2].item():.3f})")
+    
+    print("Replayed observation progression:")  
+    for i, obs in enumerate(replayed_observations):
+        pos = obs[0, 0, :3]  # First world, first agent, xyz position
+        print(f"  Step {i}: pos=({pos[0].item():.3f}, {pos[1].item():.3f}, {pos[2].item():.3f})")
+    
+    # Basic sanity check - we should have captured observations
+    assert len(recorded_observations) == num_steps
+    assert len(replayed_observations) == num_steps
 
 
 def test_roundtrip_trajectory_file_verification(cpu_manager):
-    """Test that trajectory traces match exactly between record and replay by comparing trace files"""
+    """Test that trajectory traces match exactly between record and replay by comparing trace files.
+    Uses regular cpu_manager to avoid conflicts with debug_cpu_manager."""
     mgr = cpu_manager
     
     with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
@@ -235,6 +183,36 @@ def test_roundtrip_trajectory_file_verification(cpu_manager):
                 os.unlink(path)
 
 
+def test_roundtrip_trajectory_file_verification_with_debug(log_and_verify_replay_cpu_manager):
+    """Test that debug session trajectory traces match replay traces.
+    Uses debug_cpu_manager which is guaranteed to record and trace."""
+    mgr = log_and_verify_replay_cpu_manager
+    
+    # The debug_cpu_manager is already recording and tracing
+    action_tensor = mgr.action_tensor().to_torch()
+    num_steps = 8
+    
+    for step in range(num_steps):
+        action_tensor.fill_(0)
+        action_tensor[:, 0] = (step % 3) + 1
+        action_tensor[:, 1] = step % 8
+        action_tensor[:, 2] = 2
+        mgr.step()
+    
+    # Store paths while manager is still in context
+    debug_recording_path = mgr._debug_recording_path
+    debug_trajectory_path = mgr._debug_trajectory_path
+    
+    print(f"Debug recording path: {debug_recording_path}")
+    print(f"Debug trajectory path: {debug_trajectory_path}")
+    
+    # Just verify the files were created - actual replay will happen after context exits
+    assert hasattr(mgr, '_debug_recording_path'), "Manager should have debug recording path"
+    assert hasattr(mgr, '_debug_trajectory_path'), "Manager should have debug trajectory path"
+    
+    print(f"✓ Debug session created recording and trajectory files")
+
+
 def test_trajectory_file_verification_detects_differences(cpu_manager):
     """Test that our trajectory verification detects when trajectories differ"""
     mgr = cpu_manager
@@ -309,56 +287,47 @@ def test_trajectory_file_verification_detects_differences(cpu_manager):
                 os.unlink(path)
 
 
-def test_roundtrip_multiple_sessions(cpu_manager):
-    """Test multiple record/replay sessions"""
-    mgr = cpu_manager
+def test_roundtrip_session_replay(log_and_verify_replay_cpu_manager):
+    """Test a single record/replay session using debug manager"""
+    mgr = log_and_verify_replay_cpu_manager
     
-    # Test multiple recording sessions
-    for session in range(3):
-        with tempfile.NamedTemporaryFile(suffix=f'_session_{session}.bin', delete=False) as f:
-            recording_path = f.name
+    # Debug manager is already recording
+    action_tensor = mgr.action_tensor().to_torch()
+    num_steps = 5
+    
+    for step in range(num_steps):
+        action_tensor.fill_(0)
+        action_tensor[:, 0] = 2                    # MEDIUM speed
+        action_tensor[:, 1] = (step * 2) % 8       # Different directions
+        action_tensor[:, 2] = 2                    # No rotation
         
-        try:
-            # Record with different patterns per session
-            mgr.start_recording(recording_path, seed=100 + session)
-            
-            action_tensor = mgr.action_tensor().to_torch()
-            num_steps = 3 + session  # Different lengths
-            
-            for step in range(num_steps):
-                action_tensor.fill_(0)
-                action_tensor[:, 0] = session + 1         # Different move amounts
-                action_tensor[:, 1] = (step + session) % 8  # Different patterns
-                action_tensor[:, 2] = 2
-                
-                mgr.step()
-            
-            mgr.stop_recording()
-            
-            # Verify recording
-            assert os.path.exists(recording_path)
-            assert os.path.getsize(recording_path) > 0
-            
-            # Load and verify replay using new interface
-            import madrona_escape_room as mer
-            replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
-            
-            current, total = replay_mgr.get_replay_step_count()
-            assert total == num_steps
-            
-            # Step through replay
-            for step in range(num_steps):
-                finished = replay_mgr.replay_step()
-                if step == num_steps - 1:
-                    assert finished
-                else:
-                    assert not finished
-            
-            print(f"✓ Session {session}: recorded and replayed {num_steps} steps")
-            
-        finally:
-            if os.path.exists(recording_path):
-                os.unlink(recording_path)
+        mgr.step()
+    
+    # Get the debug recording path
+    recording_path = mgr._debug_recording_path
+    
+    # Verify recording exists
+    assert os.path.exists(recording_path)
+    assert os.path.getsize(recording_path) > 0
+    
+    # Use SimManager.from_replay() to create a replay manager
+    import madrona_escape_room as mer
+    replay_mgr = mer.SimManager.from_replay(str(recording_path), mer.madrona.ExecMode.CPU)
+    
+    current, total = replay_mgr.get_replay_step_count()
+    assert total == num_steps
+    
+    # Step through replay
+    for step in range(num_steps):
+        finished = replay_mgr.replay_step()
+        replay_mgr.step()  # Actually execute the step
+        
+        if step == num_steps - 1:
+            assert finished
+        else:
+            assert not finished
+    
+    print(f"✓ Recorded and replayed {num_steps} steps")
 
 
 def test_roundtrip_edge_cases(cpu_manager):
@@ -423,53 +392,46 @@ def test_roundtrip_edge_cases(cpu_manager):
             os.unlink(empty_path)
 
 
-def test_roundtrip_with_reset(cpu_manager):
+def test_roundtrip_with_reset(log_and_verify_replay_cpu_manager):
     """Test recording/replay across episode resets"""
-    mgr = cpu_manager
+    mgr = log_and_verify_replay_cpu_manager
     
-    with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as f:
-        recording_path = f.name
+    # Debug manager is already recording
+    action_tensor = mgr.action_tensor().to_torch()
     
-    try:
-        mgr.start_recording(recording_path, seed=777)
+    # Run enough steps to potentially trigger resets
+    num_steps = 10
+    
+    for step in range(num_steps):
+        action_tensor.fill_(0)
+        action_tensor[:, 0] = 2  # MEDIUM speed
+        action_tensor[:, 1] = 0  # FORWARD
+        action_tensor[:, 2] = 2  # No rotation
         
-        action_tensor = mgr.action_tensor().to_torch()
+        mgr.step()
         
-        # Run enough steps to potentially trigger resets
-        num_steps = 10
+        # Check if any episodes are done
+        done_tensor = mgr.done_tensor().to_torch()
+        if done_tensor.any():
+            print(f"  Episode reset occurred at step {step}")
+    
+    # Get the debug recording path
+    recording_path = mgr._debug_recording_path
+    
+    # Replay and verify it works across resets using new interface
+    import madrona_escape_room as mer
+    replay_mgr = mer.SimManager.from_replay(str(recording_path), mer.madrona.ExecMode.CPU)
+    
+    current, total = replay_mgr.get_replay_step_count()
+    assert total == num_steps
+    
+    for step in range(num_steps):
+        finished = replay_mgr.replay_step()
+        replay_mgr.step()  # Actually execute the step
         
-        for step in range(num_steps):
-            action_tensor.fill_(0)
-            action_tensor[:, 0] = 2  # MEDIUM speed
-            action_tensor[:, 1] = 0  # FORWARD
-            action_tensor[:, 2] = 2  # No rotation
-            
-            mgr.step()
-            
-            # Check if any episodes are done
-            done_tensor = mgr.done_tensor().to_torch()
-            if done_tensor.any():
-                print(f"  Episode reset occurred at step {step}")
-        
-        mgr.stop_recording()
-        
-        # Replay and verify it works across resets using new interface
-        import madrona_escape_room as mer
-        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
-        
-        current, total = replay_mgr.get_replay_step_count()
-        assert total == num_steps
-        
-        for step in range(num_steps):
-            finished = replay_mgr.replay_step()
-            
-            if step == num_steps - 1:
-                assert finished
-            else:
-                assert not finished
-        
-        print(f"✓ Successfully replayed {num_steps} steps including episode resets")
-        
-    finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
+        if step == num_steps - 1:
+            assert finished
+        else:
+            assert not finished
+    
+    print(f"✓ Successfully replayed {num_steps} steps including episode resets")

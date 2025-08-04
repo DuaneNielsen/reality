@@ -119,6 +119,128 @@ def cpu_manager(request):
         yield mgr
 
 
+@pytest.fixture(scope="function")
+def log_and_verify_replay_cpu_manager(request):
+    """Create a CPU SimManager that logs trajectory and automatically verifies replay matches.
+    This fixture is independent of --record-actions flag and automatically:
+    1. Records all actions during the test
+    2. Logs trajectory traces during the test  
+    3. After test completes, replays the recording and verifies trajectory matches exactly
+    """
+    import madrona_escape_room
+    from madrona_escape_room import SimManager
+    import tempfile
+    import os
+    
+    mgr = SimManager(
+        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        gpu_id=0,
+        num_worlds=4,
+        rand_seed=42,
+        enable_batch_renderer=False,
+        auto_reset=True
+    )
+    
+    # Always create a debug session for this fixture
+    test_name = request.node.nodeid.replace("::", "__")
+    test_filename = test_name.split('/')[-1] if '/' in test_name else test_name
+    
+    output_dir = Path("test_recordings")
+    output_dir.mkdir(exist_ok=True)
+    base_path = output_dir / f"{test_filename}_debug"
+    
+    # Always enable both recording and tracing for debug manager
+    with mgr.debug_session(
+        base_path=base_path,
+        enable_recording=True,
+        enable_tracing=True,
+        seed=42
+    ) as debug_session:
+        # Store debug session info on the manager for test access
+        mgr._debug_recording_path = debug_session.recording_path
+        mgr._debug_trajectory_path = debug_session.trajectory_path
+        yield mgr
+        
+    # After context exits, recording and trajectory are finalized
+    # Now automatically verify replay matches original trajectory
+    print(f"\n{'='*60}")
+    print(f"Debug session complete - verifying replay...")
+    print(f"Recording: {debug_session.recording_path}")
+    print(f"Original trajectory: {debug_session.trajectory_path}")
+    
+    try:
+        # Create replay manager and trace file
+        replay_mgr = SimManager.from_replay(str(debug_session.recording_path), madrona_escape_room.madrona.ExecMode.CPU)
+        
+        with tempfile.NamedTemporaryFile(suffix='_replay_trace.txt', delete=False) as f:
+            replay_trace_path = f.name
+        
+        # Enable trajectory logging for replay
+        replay_mgr.enable_trajectory_logging(world_idx=0, agent_idx=0, filename=replay_trace_path)
+        
+        # Get total steps and replay them all
+        current, total = replay_mgr.get_replay_step_count()
+        print(f"Replaying {total} steps...")
+        
+        for step in range(total):
+            finished = replay_mgr.replay_step()
+            replay_mgr.step()  # Execute the simulation step
+            
+            if step == total - 1:
+                assert finished, f"Expected replay to finish at step {step}"
+        
+        replay_mgr.disable_trajectory_logging()
+        
+        # Compare trajectory files
+        with open(debug_session.trajectory_path, 'r') as f:
+            original_content = f.read().strip()
+        
+        with open(replay_trace_path, 'r') as f:
+            replay_content = f.read().strip()
+        
+        # Verify they match exactly
+        if original_content == replay_content:
+            print(f"✓ Replay verification PASSED - trajectories match exactly!")
+        else:
+            original_lines = original_content.split('\n')
+            replay_lines = replay_content.split('\n')
+            
+            print(f"✗ Replay verification FAILED:")
+            print(f"  Original: {len(original_lines)} lines, {len(original_content)} chars")
+            print(f"  Replay:   {len(replay_lines)} lines, {len(replay_content)} chars")
+            
+            # Find first difference
+            for i, (orig_line, replay_line) in enumerate(zip(original_lines, replay_lines)):
+                if orig_line != replay_line:
+                    print(f"  First difference at line {i+1}:")
+                    print(f"    Original: {orig_line}")
+                    print(f"    Replay:   {replay_line}")
+                    break
+            
+            # Clean up and fail
+            if os.path.exists(replay_trace_path):
+                os.unlink(replay_trace_path)
+            raise AssertionError("Replay trajectory verification failed - trajectories don't match!")
+        
+        # Clean up replay trace file
+        if os.path.exists(replay_trace_path):
+            os.unlink(replay_trace_path)
+            
+    except Exception as e:
+        print(f"✗ Replay verification ERROR: {e}")
+        raise
+    
+    print(f"To visualize: ./build/viewer --num-worlds 4 --replay {debug_session.recording_path}")
+    print(f"{'='*60}\n")
+    
+    # Launch viewer if --visualize was requested
+    if request.config.getoption("--visualize"):
+        viewer_path = Path("build/viewer")
+        if viewer_path.exists() and debug_session.recording_path.exists():
+            print(f"Launching viewer for debug session...")
+            subprocess.run([str(viewer_path), "--num-worlds", "4", "--replay", str(debug_session.recording_path)])
+
+
 @pytest.fixture(scope="session")
 def gpu_manager(request):
     """Create a GPU SimManager for the entire test session"""
