@@ -17,7 +17,7 @@ Core system design and execution flow documentation.
 Guides for developers working on the codebase.
 
 #### Dependencies
-- [**OpenGL Development Setup**](development/dependencies/OPENGL_DEVELOPMENT_SETUP.md) - Required packages for building the viewer
+- [**OpenGL Development Setup**](development/dependencies/OPENGL_DEVELOPMENT_SETUP.md) - Install required packages to build the 3D viewer
 
 #### Instructions
 - [**Add Component**](development/instructions/ADD_COMPONENT.md) - How to add new ECS components
@@ -27,16 +27,20 @@ Guides for developers working on the codebase.
 #### Components
 - [**Progress Component**](development/components/using_progress_component.md) - How to access and monitor agent progress in Python
 - [**Trajectory Logging**](development/components/using_trajectory_logging.md) - Enable and monitor agent position tracking during simulation
-- [**Recording and Debugging**](development/components/using_recording_debugging.md) - Context managers for action recording and trajectory logging
+- [**Recording and Debugging**](development/components/using_recording_debugging.md) - Use context managers to record actions and track trajectories for debugging workflows
 
 #### Testing
-- [**Testing Guide**](development/testing/TESTING_GUIDE.md) - Testing patterns and GPU manager constraints
+- [**Testing Guide**](development/testing/TESTING_GUIDE.md) - Learn testing patterns and understand GPU manager constraints for reliable tests
 
 #### Debugging
 - [**GDB Guide**](development/debugging/GDB_GUIDE.md) - Step-through debugging with GDB
+- [**C Stdout Capture**](development/debugging/C_STDOUT_CAPTURE.md) - Capture C-level stdout output in Python environments for debugging
+
+#### Tools
+- [**Python REPL MCP Setup**](development/tools/PYTHON_REPL_MCP_SETUP.md) - Interactive development with MCP server for debugging and exploration
 
 #### Advanced
-- [**Asset Loading**](development/advanced/ASSET_LOADING.md) - How assets are loaded and managed
+- [**Asset Loading**](development/advanced/ASSET_LOADING.md) - Understand how physics and rendering assets are loaded and managed by the engine
 
 ### 🚀 Deployment
 Production deployment, packaging, and platform-specific guides.
@@ -53,13 +57,13 @@ Production deployment, packaging, and platform-specific guides.
 - [**CFFI CUDA Research**](deployment/cuda/CFFI_CUDA_SEGFAULT_RESEARCH.md) - Segfault investigation
 
 #### Headless
-- [**Headless Mode**](deployment/headless/HEADLESS_MODE.md) - Running without graphics
-- [**Headless Quick Reference**](deployment/headless/HEADLESS_QUICK_REFERENCE.md) - Command-line options and usage examples for running without graphics
+- [**Headless Mode**](deployment/headless/HEADLESS_MODE.md) - Run simulations without graphics for server deployment and batch processing
+- [**Headless Quick Reference**](deployment/headless/HEADLESS_QUICK_REFERENCE.md) - Quick command-line reference for headless simulation options
 
 ### 🔧 Tools
 Documentation for development and visualization tools.
 
-- [**Viewer Guide**](tools/VIEWER_GUIDE.md) - 3D visualization, agent control, recording, and replay functionality
+- [**Viewer Guide**](tools/VIEWER_GUIDE.md) - Use the 3D viewer for visualization, manual agent control, and recording/replaying sessions
 
 ## Quick Links
 
