@@ -22,3 +22,14 @@ imgui.ini
 
 # Temporary/scratch files
 scratch/
+
+# Python build artifacts
+*.egg-info/
+dist/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/

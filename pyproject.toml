@@ -27,5 +27,5 @@ dev = [
     "build>=1.2.2.post1",
     "pytest>=7.0.0",
     "pytest-xdist>=3.0.0",  # For parallel test execution
-    "mcp-python @ file:///home/duane/madrona_escape_room/external/mcp-python",
+    "mcp",  # For FastMCP server
 ]
