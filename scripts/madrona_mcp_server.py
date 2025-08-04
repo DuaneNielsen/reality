@@ -41,7 +41,7 @@ class MadronaMCPServer:
         async def handle_call_tool(name: str, arguments: dict | None) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
             return await self.handle_call_tool(name, arguments)
 
-    def _initialize_madrona_environment(self):
+    def _initialize_madrona_environment(self, show_status=False):
         """Pre-load Madrona imports and helper functions into the namespace."""
         init_code = '''
 import sys
@@ -58,19 +58,22 @@ try:
     from madrona_escape_room import SimManager, madrona
     import numpy as np
     _madrona_available = True
-    print("✓ Madrona Escape Room environment ready!")
-    print("Use direct API: from madrona_escape_room import SimManager, madrona")
+    if {show_status}:
+        print("✓ Madrona Escape Room environment ready!")
+        print("Use direct API: from madrona_escape_room import SimManager, madrona")
 except ImportError as e:
     _madrona_available = False
     _import_error = str(e)
-    print(f"✗ Madrona not available: {_import_error}")
-    print("Make sure you've built the project and installed the Python package.")
+    if {show_status}:
+        print(f"✗ Madrona not available: {{_import_error}}")
+        print("Make sure you've built the project and installed the Python package.")
 '''
 
         try:
-            exec(init_code, self.global_namespace)
+            exec(init_code.format(show_status=show_status), self.global_namespace)
         except Exception as e:
-            print(f"Warning: Failed to initialize Madrona environment: {e}")
+            if show_status:
+                print(f"Warning: Failed to initialize Madrona environment: {e}")
 
     async def handle_list_tools(self) -> list[types.Tool]:
         """List available tools"""
@@ -78,28 +81,20 @@ except ImportError as e:
             types.Tool(
                 name="execute_python",
                 description=(
-                    "Execute Python code with pre-loaded Madrona imports. "
-                    "Available: SimManager, madrona, numpy as np. "
-                    "Variables persist between executions.\n\n"
-                    "CANONICAL USAGE:\n"
-                    "# 1. Create manager\n"
-                    "mgr = SimManager(\n"
-                    "    exec_mode=madrona.ExecMode.CPU,\n"
-                    "    gpu_id=-1, num_worlds=2, rand_seed=42, auto_reset=True\n"
-                    ")\n"
-                    "# 2. Get tensor references (zero-copy)\n" 
-                    "obs = mgr.self_observation_tensor().to_numpy()\n"
-                    "actions = mgr.action_tensor().to_numpy()\n"
-                    "rewards = mgr.reward_tensor().to_numpy()\n"
-                    "done = mgr.done_tensor().to_numpy()\n"
-                    "# 3. Set actions\n"
-                    "actions[0, :] = [1, 0, 0]  # move_amount, move_angle, rotate (discrete)\n"
-                    "# 4. Step simulation\n"
-                    "mgr.step()\n"
-                    "# 5. Read observations\n"
-                    "pos = obs[0, 0, :3]  # world 0, agent 0, xyz position\n"
-                    "reward = rewards[0, 0, 0]  # world 0, agent 0 reward\n"
-                    "is_done = done[0, 0, 0]  # world 0, agent 0 episode done\n\n"
+                    "Use this tool for Madrona simulation tasks. Execute Python code with "
+                    "pre-loaded Madrona environment (SimManager, madrona, numpy). "
+                    "Use when you need to:\n"
+                    "• Run Madrona escape room simulations\n"
+                    "• Test environment behavior and agent actions\n"
+                    "• Benchmark simulation performance\n"
+                    "• Analyze simulation data or trajectories\n"
+                    "• Experiment with different simulation parameters\n\n"
+                    "Variables persist between executions. Standard workflow:\n"
+                    "1. Create manager: mgr = SimManager(exec_mode=madrona.ExecMode.CPU, num_worlds=2)\n"
+                    "2. Get tensors: obs = mgr.self_observation_tensor().to_numpy()\n"
+                    "3. Set actions: actions[0, :] = [move_amount, move_angle, rotate]\n"
+                    "4. Step simulation: mgr.step()\n"
+                    "5. Read results: pos = obs[0, 0, :3]  # world 0, agent 0 position\n\n"
                     "See ENVIRONMENT.md for complete action/observation space details."
                 ),
                 inputSchema={
@@ -120,7 +115,7 @@ except ImportError as e:
             ),
             types.Tool(
                 name="list_variables",
-                description="List all variables in the current session",
+                description="Use this tool to inspect the current Python session state. Lists all variables in the current session with their types and shapes (for arrays). Use when you need to see what variables are available or debug session state.",
                 inputSchema={
                     "type": "object",
                     "properties": {},
@@ -149,7 +144,7 @@ except ImportError as e:
             # Clear namespace but keep builtins and re-initialize
             self.global_namespace.clear()
             self.global_namespace["__builtins__"] = __builtins__
-            self._initialize_madrona_environment()
+            self._initialize_madrona_environment(show_status=True)
 
         if not code.strip():
             return [types.TextContent(type="text", text="No code provided")]

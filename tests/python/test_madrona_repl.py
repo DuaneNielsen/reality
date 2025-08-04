@@ -12,6 +12,11 @@ import pytest
 import tempfile
 import os
 import sys
+import json
+import asyncio
+import subprocess
+import io
+from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
 
 # Add project root to path for imports
@@ -177,6 +182,147 @@ except Exception as e:
         # Should either complete successfully or show environment requirement
         assert ("Canonical workflow completed successfully!" in result or 
                 "Test requires built Madrona environment:" in result)
+
+
+class TestMCPProtocolCompliance:
+    """Test MCP protocol compliance according to JSON-RPC 2.0 and MCP standards"""
+    
+    @pytest.fixture
+    def server(self):
+        """Create a MadronaMCPServer instance for testing"""
+        return MadronaMCPServer()
+    
+    def test_silent_initialization(self):
+        """Test that server initialization produces no stdout/stderr output"""
+        # Capture all output during server creation
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        
+        with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+            server = MadronaMCPServer()
+        
+        stdout_output = stdout_capture.getvalue()
+        stderr_output = stderr_capture.getvalue()
+        
+        # Server initialization should be completely silent
+        assert stdout_output == "", f"Expected no stdout during init, got: {stdout_output}"
+        assert stderr_output == "", f"Expected no stderr during init, got: {stderr_output}"
+    
+    def test_list_tools_response_format(self, server):
+        """Test that list_tools returns properly formatted MCP tools"""
+        import asyncio
+        tools = asyncio.run(server.handle_list_tools())
+        
+        # Should return a list
+        assert isinstance(tools, list), "list_tools should return a list"
+        assert len(tools) > 0, "Should have at least one tool"
+        
+        # Each tool should be a proper MCP Tool object
+        for tool in tools:
+            assert isinstance(tool, types.Tool), "Each tool should be an MCP Tool instance"
+            assert hasattr(tool, 'name'), "Tool should have a name"
+            assert hasattr(tool, 'description'), "Tool should have a description"
+            assert hasattr(tool, 'inputSchema'), "Tool should have an inputSchema"
+            
+            # Name should be a non-empty string
+            assert isinstance(tool.name, str), "Tool name should be a string"
+            assert len(tool.name) > 0, "Tool name should not be empty"
+            
+            # Description should be a non-empty string
+            assert isinstance(tool.description, str), "Tool description should be a string"
+            assert len(tool.description) > 0, "Tool description should not be empty"
+    
+    def test_tool_description_content_standards(self, server):
+        """Test that tool descriptions meet MCP content standards"""
+        import asyncio
+        tools = asyncio.run(server.handle_list_tools())
+        
+        for tool in tools:
+            desc = tool.description.lower()
+            
+            # Should clearly indicate WHEN to use the tool
+            assert any(keyword in desc for keyword in [
+                'use this tool', 'use when', 'for madrona', 'simulation tasks'
+            ]), f"Tool '{tool.name}' description should clearly indicate WHEN to use it"
+            
+            # Should explain WHAT it does
+            assert any(keyword in desc for keyword in [
+                'execute', 'run', 'python code', 'simulation', 'lists', 'inspect', 'debug'
+            ]), f"Tool '{tool.name}' description should explain what it does"
+            
+            # Should not be just documentation
+            assert 'use this tool' in desc or 'use when' in desc, \
+                f"Tool '{tool.name}' description should be decision-oriented, not just documentation"
+    
+    def test_input_schema_validation(self, server):
+        """Test that tool input schemas are properly formatted JSON Schema"""
+        import asyncio
+        tools = asyncio.run(server.handle_list_tools())
+        
+        for tool in tools:
+            schema = tool.inputSchema
+            
+            # Should be a dictionary
+            assert isinstance(schema, dict), f"Tool '{tool.name}' inputSchema should be a dict"
+            
+            # Should have required JSON Schema fields
+            assert 'type' in schema, f"Tool '{tool.name}' inputSchema should have 'type'"
+            assert schema['type'] == 'object', f"Tool '{tool.name}' inputSchema type should be 'object'"
+            
+            if 'properties' in schema:
+                assert isinstance(schema['properties'], dict), \
+                    f"Tool '{tool.name}' properties should be a dict"
+                
+                # Each property should have a type
+                for prop_name, prop_def in schema['properties'].items():
+                    assert 'type' in prop_def, \
+                        f"Property '{prop_name}' in tool '{tool.name}' should have a type"
+    
+    def test_status_messages_only_on_reset(self, server):
+        """Test that status messages only appear during explicit resets"""
+        # Normal initialization should be silent
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        
+        with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+            server._initialize_madrona_environment(show_status=False)
+        
+        assert stdout_capture.getvalue() == "", "No output expected with show_status=False"
+        
+        # Reset with status should show output
+        stdout_capture = io.StringIO()
+        with redirect_stdout(stdout_capture):
+            server._initialize_madrona_environment(show_status=True)
+        
+        output = stdout_capture.getvalue()
+        assert "Madrona" in output or "not available" in output, \
+            "Should see status messages with show_status=True"
+    
+    def test_call_tool_error_format(self, server):
+        """Test that tool call errors return properly formatted responses"""
+        import asyncio
+        # Test unknown tool
+        result = asyncio.run(server.handle_call_tool("nonexistent_tool", {}))
+        
+        assert isinstance(result, list), "Tool call should return a list"
+        assert len(result) > 0, "Error response should not be empty"
+        assert isinstance(result[0], types.TextContent), "Error should be TextContent"
+        assert "Unknown tool" in result[0].text, "Should indicate unknown tool"
+    
+    def test_python_execution_output_capture(self, server):
+        """Test that Python execution properly captures and returns output"""
+        import asyncio
+        # Test normal output
+        result = asyncio.run(server._execute_python("print('Hello MCP!')"))
+        assert isinstance(result, list), "Should return a list"
+        assert len(result) == 1, "Should return one TextContent item"
+        assert isinstance(result[0], types.TextContent), "Should be TextContent"
+        assert "Hello MCP!" in result[0].text, "Should capture print output"
+        
+        # Test error output
+        result = asyncio.run(server._execute_python("raise ValueError('Test error')"))
+        assert "ValueError" in result[0].text, "Should capture error output"
+        assert "Test error" in result[0].text, "Should capture error message"
 
 
 # Add helper methods to MadronaMCPServer for sync testing
