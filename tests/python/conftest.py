@@ -363,3 +363,21 @@ def per_test_recording_handler(request, test_manager):
                 print(f"Viewer not found at {viewer_path}")
     else:
         yield
+
+
+@pytest.fixture(scope="function")
+def test_manager_from_replay():
+    """Factory fixture that creates a SimManager from a replay file.
+    Returns a function that takes a replay path and returns the manager.
+    """
+    import madrona_escape_room
+    from madrona_escape_room import SimManager
+    
+    def _create_manager(replay_path):
+        """Create a manager from replay file"""
+        return SimManager.from_replay(
+            str(replay_path),
+            madrona_escape_room.madrona.ExecMode.CPU
+        )
+    
+    return _create_manager
