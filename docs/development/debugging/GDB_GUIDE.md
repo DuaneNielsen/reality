@@ -26,11 +26,14 @@ git submodule update --init external/mcp-gdb
 
 2. **Build the MCP GDB server**:
 ```bash
+# From the project root directory
 cd external/mcp-gdb
 npm install
 npm run build
 cd ../..  # Return to project root
 ```
+
+**Note**: The build must be run from within the `external/mcp-gdb` directory for the build paths to resolve correctly.
 
 3. **Add to Claude Code** (using absolute path):
 ```bash

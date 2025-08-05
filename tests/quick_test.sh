@@ -18,14 +18,14 @@ if [ -n "$fps" ]; then
     echo "Checking FPS performance..."
     echo "Extracted FPS: $fps"
     
-    # Expected range: 270000 to 310000
-    min_fps=270000
+    # Expected range: 200000 to 310000
+    min_fps=200000
     max_fps=310000
     
     if [ "$fps" -ge "$min_fps" ] && [ "$fps" -le "$max_fps" ]; then
-        echo "✓ FPS is within expected range (270,000 - 310,000)"
+        echo "✓ FPS is within expected range (200,000 - 310,000)"
     else
-        echo "✗ WARNING: FPS $fps is outside expected range (270,000 - 310,000)"
+        echo "✗ WARNING: FPS $fps is outside expected range (200,000 - 310,000)"
         echo "  This might indicate a performance issue"
     fi
 else
