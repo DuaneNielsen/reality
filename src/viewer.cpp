@@ -230,6 +230,9 @@ int main(int argc, char *argv[])
             frame_actions[i * 3 + 1] = 0;  // move_angle = 0 (forward)
             frame_actions[i * 3 + 2] = 2;  // rotate = 2 (no rotation)
         }
+        // Start paused in recording mode
+        is_paused = true;
+        printf("Recording mode: Starting PAUSED (press SPACE to start recording)\n");
     }
 
     bool enable_batch_renderer =
@@ -240,7 +243,7 @@ int main(int argc, char *argv[])
 #endif
 
     WindowManager wm {};
-    WindowHandle window = wm.makeWindow("Escape Room", 2730, 1536);
+    WindowHandle window = wm.makeWindow("Escape Room", 1920, 1080);
     render::GPUHandle render_gpu = wm.initGPU(gpu_id, { window.get() });
 
     // Use seed from replay if available
