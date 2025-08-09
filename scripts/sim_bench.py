@@ -4,20 +4,20 @@ import argparse
 import time
 
 arg_parser = argparse.ArgumentParser()
-arg_parser.add_argument('--num-worlds', type=int, required=True)
-arg_parser.add_argument('--num-steps', type=int, required=True)
-arg_parser.add_argument('--profile-renderer', action='store_true')
-arg_parser.add_argument('--gpu-id', type=int, default=0)
+arg_parser.add_argument("--num-worlds", type=int, required=True)
+arg_parser.add_argument("--num-steps", type=int, required=True)
+arg_parser.add_argument("--profile-renderer", action="store_true")
+arg_parser.add_argument("--gpu-id", type=int, default=0)
 
 args = arg_parser.parse_args()
 
 sim = madrona_escape_room.SimManager(
-    exec_mode = madrona_escape_room.madrona.ExecMode.CUDA,
-    gpu_id = args.gpu_id,
-    num_worlds = args.num_worlds,
-    auto_reset = True,
-    rand_seed = 5,
-    enable_batch_renderer = args.profile_renderer,
+    exec_mode=madrona_escape_room.madrona.ExecMode.CUDA,
+    gpu_id=args.gpu_id,
+    num_worlds=args.num_worlds,
+    auto_reset=True,
+    rand_seed=5,
+    enable_batch_renderer=args.profile_renderer,
 )
 
 actions = sim.action_tensor().to_torch()
