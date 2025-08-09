@@ -30,7 +30,8 @@ def test_forward_movement(test_manager):
     actions = mgr.action_tensor().to_torch()
     print(f"Action tensor shape: {actions.shape}")
     print(
-        f"Action values set: moveAmount={actions[0, 0]}, moveAngle={actions[0, 1]}, rotate={actions[0, 2]}"
+        f"Action values set: moveAmount={actions[0, 0]}, moveAngle={actions[0, 1]}, "
+        f"rotate={actions[0, 2]}"
     )
     print(f"Full action for world 0: {actions[0].tolist()}")
 
@@ -96,7 +97,8 @@ def test_strafe_left(test_manager):
         # Print every 10 steps
         if step % 10 == 9:
             print(
-                f"Step {step + 1} (settling): theta={current_theta:.6f}, angular_vel={angular_vel:.6f}"
+                f"Step {step + 1} (settling): theta={current_theta:.6f}, "
+                f"angular_vel={angular_vel:.6f}"
             )
 
     # Get settled baseline position
@@ -122,7 +124,8 @@ def test_strafe_left(test_manager):
         # Print every 10 steps
         if step % 10 == 9:
             print(
-                f"Step {step + 1} (strafe): x={current_x:.3f}, y={current_y:.3f}, theta={current_theta:.6f}"
+                f"Step {step + 1} (strafe): x={current_x:.3f}, y={current_y:.3f}, "
+                f"theta={current_theta:.6f}"
             )
 
     # Final values
@@ -281,9 +284,9 @@ def test_rotation_in_place(test_manager):
     # Rotation should have changed
     theta_delta = final_theta - initial_theta
     print(f"Rotation delta: {theta_delta:.3f}")
-    assert abs(theta_delta) > 0.05, (
-        f"Agent should have rotated, but theta only changed by {theta_delta:.3f}"
-    )
+    assert (
+        abs(theta_delta) > 0.05
+    ), f"Agent should have rotated, but theta only changed by {theta_delta:.3f}"
 
 
 def test_movement_speed_differences(test_manager):

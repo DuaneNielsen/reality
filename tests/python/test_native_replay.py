@@ -171,7 +171,7 @@ def test_replay_error_handling(cpu_manager):
     current, total = mgr.get_replay_step_count()
     # Exact behavior depends on implementation, but should not crash
 
-    finished = mgr.replay_step()
+    _finished = mgr.replay_step()
     # Should indicate no replay available (likely True = finished)
 
 
@@ -250,10 +250,10 @@ def test_replay_state_consistency(cpu_manager):
         assert mgr.has_replay()
 
         # Access tensors while replay is loaded
-        action_tensor = mgr.action_tensor().to_torch()
+        _action_tensor = mgr.action_tensor().to_torch()
         assert mgr.has_replay()
 
-        obs_tensor = mgr.self_observation_tensor().to_torch()
+        _obs_tensor = mgr.self_observation_tensor().to_torch()
         assert mgr.has_replay()
 
         # Step replay

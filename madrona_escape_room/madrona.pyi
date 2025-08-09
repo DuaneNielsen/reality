@@ -1,3 +1,5 @@
+from typing import Any
+
 class CudaSync:
     """
     None
@@ -31,7 +33,7 @@ class Tensor:
     None
     """
 
-    def __init__(self, arg: "numpy.typing.NDArray", /) -> None: ...
+    def __init__(self, arg: "Any", /) -> None: ...
     def to_jax(*args, **kwargs):
         """
         to_jax(self) -> jaxlib.xla_extension.DeviceArray[]

@@ -160,7 +160,7 @@ async def list_variables() -> str:
                 value_str += f" {getattr(value, 'shape', '')}"
 
             output += f"{name:20} : {value_str}\n"
-        except:
+        except Exception:
             output += f"{name:20} : <repr error>\n"
 
     return output

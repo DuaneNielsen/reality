@@ -85,7 +85,8 @@ class LearningCallback:
             reserved_gb = torch.cuda.memory_reserved() / 1024 / 1024 / 1024
             current_gb = torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024
             print(
-                f"    PyTorch Memory Usage: {reserved_gb:.3f}GB (Reserved), {current_gb:.3f}GB (Current)"
+                f"    PyTorch Memory Usage: {reserved_gb:.3f}GB (Reserved), "
+                f"{current_gb:.3f}GB (Current)"
             )
             profile.report()
 

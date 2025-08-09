@@ -132,16 +132,16 @@ def test_dlpack_multiple_tensors(cpu_manager):
             torch_tensor = torch.from_dlpack(madrona_tensor)
 
             # Verify dtype
-            assert torch_tensor.dtype == expected_dtype, (
-                f"{name} tensor should have dtype {expected_dtype}"
-            )
+            assert (
+                torch_tensor.dtype == expected_dtype
+            ), f"{name} tensor should have dtype {expected_dtype}"
 
             # Verify it's a view (zero-copy)
             if hasattr(madrona_tensor, "to_numpy"):
                 numpy_view = madrona_tensor.to_numpy()
-                assert torch_tensor.data_ptr() == numpy_view.__array_interface__["data"][0], (
-                    f"{name} tensor should be zero-copy"
-                )
+                assert (
+                    torch_tensor.data_ptr() == numpy_view.__array_interface__["data"][0]
+                ), f"{name} tensor should be zero-copy"
 
     except ImportError as e:
         if "DLPack extension module not found" in str(e):
@@ -194,9 +194,9 @@ def test_dlpack_memory_layout(cpu_manager):
         assert numpy_strides == torch_strides, "Memory layout should be preserved"
 
         # Check contiguity
-        assert numpy_view.flags["C_CONTIGUOUS"] == torch_tensor.is_contiguous(), (
-            "Contiguity should be preserved"
-        )
+        assert (
+            numpy_view.flags["C_CONTIGUOUS"] == torch_tensor.is_contiguous()
+        ), "Contiguity should be preserved"
 
     except ImportError as e:
         if "DLPack extension module not found" in str(e):

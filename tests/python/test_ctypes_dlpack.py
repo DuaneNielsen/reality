@@ -52,14 +52,16 @@ def test_cpu_dlpack():
         # Test to_torch conversion
         torch_tensor = obs_tensor.to_torch()
         print(
-            f"✓ PyTorch conversion: shape={torch_tensor.shape}, dtype={torch_tensor.dtype}, device={torch_tensor.device}"
+            f"✓ PyTorch conversion: shape={torch_tensor.shape}, dtype={torch_tensor.dtype}, "
+            f"device={torch_tensor.device}"
         )
 
         # Test DLPack protocol
         try:
             dlpack_tensor = torch.from_dlpack(obs_tensor)
             print(
-                f"✓ DLPack conversion: shape={dlpack_tensor.shape}, dtype={dlpack_tensor.dtype}, device={dlpack_tensor.device}"
+                f"✓ DLPack conversion: shape={dlpack_tensor.shape}, dtype={dlpack_tensor.dtype}, "
+                f"device={dlpack_tensor.device}"
             )
 
             # Verify zero-copy by checking memory addresses
@@ -68,7 +70,8 @@ def test_cpu_dlpack():
             dlpack_ptr = dlpack_tensor.data_ptr()
 
             print(
-                f"✓ Memory addresses - NumPy: {hex(np_ptr)}, PyTorch: {hex(torch_ptr)}, DLPack: {hex(dlpack_ptr)}"
+                f"✓ Memory addresses - NumPy: {hex(np_ptr)}, PyTorch: {hex(torch_ptr)}, "
+                f"DLPack: {hex(dlpack_ptr)}"
             )
 
             if np_ptr == torch_ptr == dlpack_ptr:
@@ -113,7 +116,8 @@ def test_gpu_dlpack(gpu_manager):
         # Test to_torch conversion
         torch_tensor = obs_tensor.to_torch()
         print(
-            f"✓ PyTorch conversion: shape={torch_tensor.shape}, dtype={torch_tensor.dtype}, device={torch_tensor.device}"
+            f"✓ PyTorch conversion: shape={torch_tensor.shape}, dtype={torch_tensor.dtype}, "
+            f"device={torch_tensor.device}"
         )
 
         # Verify it's on GPU
@@ -125,7 +129,8 @@ def test_gpu_dlpack(gpu_manager):
         try:
             dlpack_tensor = torch.from_dlpack(obs_tensor)
             print(
-                f"✓ DLPack conversion: shape={dlpack_tensor.shape}, dtype={dlpack_tensor.dtype}, device={dlpack_tensor.device}"
+                f"✓ DLPack conversion: shape={dlpack_tensor.shape}, dtype={dlpack_tensor.dtype}, "
+                f"device={dlpack_tensor.device}"
             )
 
             # Verify it's on GPU
@@ -154,12 +159,14 @@ def test_gpu_dlpack(gpu_manager):
         # Test action tensor as well
         action_tensor = mgr.action_tensor()
         print(
-            f"✓ Action tensor: shape={action_tensor.shape}, dtype={action_tensor.dtype}, GPU={action_tensor.isOnGPU()}"
+            f"✓ Action tensor: shape={action_tensor.shape}, dtype={action_tensor.dtype}, "
+            f"GPU={action_tensor.isOnGPU()}"
         )
 
         action_torch = torch.from_dlpack(action_tensor)
         print(
-            f"✓ Action DLPack: shape={action_torch.shape}, dtype={action_torch.dtype}, device={action_torch.device}"
+            f"✓ Action DLPack: shape={action_torch.shape}, dtype={action_torch.dtype}, "
+            f"device={action_torch.device}"
         )
 
         print("✓ GPU DLPack test passed!")

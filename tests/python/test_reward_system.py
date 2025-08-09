@@ -131,7 +131,8 @@ def test_replay_reward_test_bin(test_manager_from_replay):
             max_y = observer.get_max_y_progress(0)
             reward = observer.get_reward(0)
             print(
-                f"Step {step_count}: X={pos[0]:.2f}, Y={pos[1]:.2f}, Max Y={max_y:.3f}, Reward={reward:.3f}"
+                f"Step {step_count}: X={pos[0]:.2f}, Y={pos[1]:.2f}, Max Y={max_y:.3f}, "
+                f"Reward={reward:.3f}"
             )
 
         if finished:

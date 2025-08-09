@@ -22,10 +22,10 @@ def test_gpu_feature(gpu_manager):
 
 ```bash
 # 1. CPU tests first
-uv run --extra test pytest tests/python/ -v --no-gpu
+uv run --group dev pytest tests/python/ -v --no-gpu
 
 # 2. GPU tests after CPU tests pass
-uv run --extra test pytest tests/python/ -v -k "gpu"
+uv run --group dev pytest tests/python/ -v -k "gpu"
 ```
 
 ## Fixtures
@@ -79,16 +79,16 @@ def test_ignores_fixture(gpu_manager):
 ### Usage Examples
 ```bash
 # Record actions for debugging
-pytest tests/python/test_reward_system.py --record-actions
+uv run --group dev pytest tests/python/test_reward_system.py --record-actions
 
 # Record both actions and trajectories
-pytest tests/python/test_reward_system.py --record-actions --trace-trajectories
+uv run --group dev pytest tests/python/test_reward_system.py --record-actions --trace-trajectories
 
 # Record, trace, and auto-launch viewer
-pytest tests/python/test_reward_system.py --record-actions --trace-trajectories --visualize
+uv run --group dev pytest tests/python/test_reward_system.py --record-actions --trace-trajectories --visualize
 
 # Debug specific test
-pytest tests/python/test_reward_system.py::test_forward_movement_reward -v --record-actions
+uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movement_reward -v --record-actions
 ```
 
 ### Output Files
@@ -98,7 +98,7 @@ When using debugging flags, files are created in `test_recordings/` with automat
 
 Example:
 ```bash
-pytest tests/python/test_reward_system.py::test_forward_movement_reward --record-actions --trace-trajectories
+uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movement_reward --record-actions --trace-trajectories
 # Creates:
 # test_recordings/test_reward_system.py__test_forward_movement_reward_actions.bin
 # test_recordings/test_reward_system.py__test_forward_movement_reward_actions_trajectory.txt

@@ -135,18 +135,21 @@ def test_roundtrip_trajectory_file_verification(cpu_manager):
         replay_lines = replay_content.split("\n")
 
         assert len(record_lines) == len(replay_lines), (
-            f"Trace files should have same number of lines: record={len(record_lines)}, replay={len(replay_lines)}"
+            f"Trace files should have same number of lines: record={len(record_lines)}, "
+            f"replay={len(replay_lines)}"
         )
 
         # Compare line by line for detailed error reporting
         for i, (record_line, replay_line) in enumerate(zip(record_lines, replay_lines)):
             assert record_line == replay_line, (
-                f"Trajectory mismatch at line {i + 1}:\n  Record: {record_line}\n  Replay: {replay_line}"
+                f"Trajectory mismatch at line {i + 1}:\n  Record: {record_line}\n  "
+                f"Replay: {replay_line}"
             )
 
         print(f"✓ Successfully verified {len(record_lines)} trajectory trace lines match exactly")
         print(
-            f"✓ Record trace: {len(record_content)} chars, Replay trace: {len(replay_content)} chars"
+            f"✓ Record trace: {len(record_content)} chars, "
+            f"Replay trace: {len(replay_content)} chars"
         )
 
     finally:
@@ -237,17 +240,17 @@ def test_trajectory_file_verification_detects_differences(cpu_manager):
             trace2_content = f.read().strip()
 
         # They should be different (proving our test would catch differences)
-        assert trace1_content != trace2_content, (
-            "Different actions should produce different trajectory traces"
-        )
+        assert (
+            trace1_content != trace2_content
+        ), "Different actions should produce different trajectory traces"
 
         trace1_lines = trace1_content.split("\n")
         trace2_lines = trace2_content.split("\n")
 
         # They should have same number of lines (same number of steps)
-        assert len(trace1_lines) == len(trace2_lines), (
-            "Same number of steps should produce same number of trace lines"
-        )
+        assert len(trace1_lines) == len(
+            trace2_lines
+        ), "Same number of steps should produce same number of trace lines"
 
         # But the actual positions should differ
         differences_found = 0

@@ -174,7 +174,7 @@ try:
     actions[0, :] = [1, 0, 0]  # move_amount, move_angle, rotate
     mgr.step()
     pos = obs[0, 0, :3]  # world 0, agent 0 position
-    
+
     print(f"Manager created successfully")
     print(f"Position shape: {pos.shape}")
     print("Canonical workflow completed successfully!")

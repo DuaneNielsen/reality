@@ -148,7 +148,7 @@ def test_pytorch_from_dlpack():
 
         # Test that it's zero-copy by modifying the torch tensor
         # and checking if the original tensor changes
-        original_value = action_tensor.to_numpy()[0, 0]
+        _original_value = action_tensor.to_numpy()[0, 0]
         torch_tensor[0, 0] = 999
         new_value = action_tensor.to_numpy()[0, 0]
         assert new_value == 999, "Should be zero-copy"
@@ -185,7 +185,7 @@ def test_fallback_behavior():
         # This should trigger the fallback behavior and issue a warning
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            result = action_tensor.__dlpack__()
+            _result = action_tensor.__dlpack__()
 
             # Should have issued a warning about fallback
             assert len(w) >= 1

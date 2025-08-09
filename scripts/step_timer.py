@@ -130,7 +130,7 @@ class FPSCounter:
         num_frames = len(self._frame_times)
 
         # FPS calculations
-        fps_from_avg = 1000.0 / np.mean(frame_times)  # Based on average frame time
+        # fps_from_avg = 1000.0 / np.mean(frame_times)  # Based on average frame time
         fps_from_total = num_frames / total_time  # Based on total elapsed time
         world_fps = fps_from_total * self._num_worlds
 

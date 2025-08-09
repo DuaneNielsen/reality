@@ -108,52 +108,13 @@ def test_recording_with_steps(cpu_manager):
 
         # Should have metadata + (num_steps * num_worlds * 3 * sizeof(int32))
         num_worlds = action_tensor.shape[0]
-        expected_action_data_size = num_steps * num_worlds * 3 * 4  # 3 int32s per action
+        _expected_action_data_size = num_steps * num_worlds * 3 * 4  # 3 int32s per action
 
         # File should be larger than just metadata
         assert file_size > 64  # Metadata is less than this
 
         print(f"Recorded {num_steps} steps for {num_worlds} worlds")
         print(f"File size: {file_size} bytes")
-
-    finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
-
-
-def test_gpu_recording_lifecycle(gpu_manager):
-    """Test basic recording start/stop cycle on GPU"""
-    mgr = gpu_manager
-
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
-        recording_path = f.name
-
-    try:
-        # Initially should not be recording
-        assert not mgr.is_recording()
-
-        # Start recording
-        mgr.start_recording(recording_path, seed=42)
-        assert mgr.is_recording()
-
-        # Run a few steps
-        action_tensor = mgr.action_tensor().to_torch()
-        for step in range(3):
-            action_tensor.fill_(0)
-            action_tensor[:, 0] = 1  # SLOW movement
-            action_tensor[:, 1] = 0  # FORWARD
-            action_tensor[:, 2] = 2  # No rotation
-            mgr.step()
-
-        # Stop recording
-        mgr.stop_recording()
-        assert not mgr.is_recording()
-
-        # File should exist and have content
-        assert os.path.exists(recording_path)
-        assert os.path.getsize(recording_path) > 0
-
-        print("GPU recording test completed successfully")
 
     finally:
         if os.path.exists(recording_path):
@@ -189,45 +150,6 @@ def test_recording_error_handling(cpu_manager):
         mgr.start_recording(recording_path, seed=43)
 
         mgr.stop_recording()
-
-    finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
-
-
-def test_gpu_recording_lifecycle(gpu_manager):
-    """Test basic recording start/stop cycle on GPU"""
-    mgr = gpu_manager
-
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
-        recording_path = f.name
-
-    try:
-        # Initially should not be recording
-        assert not mgr.is_recording()
-
-        # Start recording
-        mgr.start_recording(recording_path, seed=42)
-        assert mgr.is_recording()
-
-        # Run a few steps
-        action_tensor = mgr.action_tensor().to_torch()
-        for step in range(3):
-            action_tensor.fill_(0)
-            action_tensor[:, 0] = 1  # SLOW movement
-            action_tensor[:, 1] = 0  # FORWARD
-            action_tensor[:, 2] = 2  # No rotation
-            mgr.step()
-
-        # Stop recording
-        mgr.stop_recording()
-        assert not mgr.is_recording()
-
-        # File should exist and have content
-        assert os.path.exists(recording_path)
-        assert os.path.getsize(recording_path) > 0
-
-        print("GPU recording test completed successfully")
 
     finally:
         if os.path.exists(recording_path):
@@ -328,47 +250,9 @@ def test_recording_file_format(cpu_manager):
                     assert len(action_data) >= expected_action_bytes
                 else:
                     print(
-                        f"File too small ({len(file_data)} bytes) for metadata ({metadata_size} bytes)"
+                        f"File too small ({len(file_data)} bytes) for metadata "
+                        f"({metadata_size} bytes)"
                     )
-
-    finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
-
-
-def test_gpu_recording_lifecycle(gpu_manager):
-    """Test basic recording start/stop cycle on GPU"""
-    mgr = gpu_manager
-
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
-        recording_path = f.name
-
-    try:
-        # Initially should not be recording
-        assert not mgr.is_recording()
-
-        # Start recording
-        mgr.start_recording(recording_path, seed=42)
-        assert mgr.is_recording()
-
-        # Run a few steps
-        action_tensor = mgr.action_tensor().to_torch()
-        for step in range(3):
-            action_tensor.fill_(0)
-            action_tensor[:, 0] = 1  # SLOW movement
-            action_tensor[:, 1] = 0  # FORWARD
-            action_tensor[:, 2] = 2  # No rotation
-            mgr.step()
-
-        # Stop recording
-        mgr.stop_recording()
-        assert not mgr.is_recording()
-
-        # File should exist and have content
-        assert os.path.exists(recording_path)
-        assert os.path.getsize(recording_path) > 0
-
-        print("GPU recording test completed successfully")
 
     finally:
         if os.path.exists(recording_path):
@@ -400,45 +284,6 @@ def test_recording_empty_session(cpu_manager):
             os.unlink(recording_path)
 
 
-def test_gpu_recording_lifecycle(gpu_manager):
-    """Test basic recording start/stop cycle on GPU"""
-    mgr = gpu_manager
-
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
-        recording_path = f.name
-
-    try:
-        # Initially should not be recording
-        assert not mgr.is_recording()
-
-        # Start recording
-        mgr.start_recording(recording_path, seed=42)
-        assert mgr.is_recording()
-
-        # Run a few steps
-        action_tensor = mgr.action_tensor().to_torch()
-        for step in range(3):
-            action_tensor.fill_(0)
-            action_tensor[:, 0] = 1  # SLOW movement
-            action_tensor[:, 1] = 0  # FORWARD
-            action_tensor[:, 2] = 2  # No rotation
-            mgr.step()
-
-        # Stop recording
-        mgr.stop_recording()
-        assert not mgr.is_recording()
-
-        # File should exist and have content
-        assert os.path.exists(recording_path)
-        assert os.path.getsize(recording_path) > 0
-
-        print("GPU recording test completed successfully")
-
-    finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
-
-
 def test_recording_state_persistence(cpu_manager):
     """Test that recording state persists across operations"""
     mgr = cpu_manager
@@ -456,53 +301,14 @@ def test_recording_state_persistence(cpu_manager):
         mgr.step()
         assert mgr.is_recording()
 
-        action_tensor = mgr.action_tensor().to_torch()
+        _action_tensor = mgr.action_tensor().to_torch()
         assert mgr.is_recording()
 
-        reward_tensor = mgr.reward_tensor().to_torch()
+        _reward_tensor = mgr.reward_tensor().to_torch()
         assert mgr.is_recording()
 
         mgr.stop_recording()
         assert not mgr.is_recording()
-
-    finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
-
-
-def test_gpu_recording_lifecycle(gpu_manager):
-    """Test basic recording start/stop cycle on GPU"""
-    mgr = gpu_manager
-
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
-        recording_path = f.name
-
-    try:
-        # Initially should not be recording
-        assert not mgr.is_recording()
-
-        # Start recording
-        mgr.start_recording(recording_path, seed=42)
-        assert mgr.is_recording()
-
-        # Run a few steps
-        action_tensor = mgr.action_tensor().to_torch()
-        for step in range(3):
-            action_tensor.fill_(0)
-            action_tensor[:, 0] = 1  # SLOW movement
-            action_tensor[:, 1] = 0  # FORWARD
-            action_tensor[:, 2] = 2  # No rotation
-            mgr.step()
-
-        # Stop recording
-        mgr.stop_recording()
-        assert not mgr.is_recording()
-
-        # File should exist and have content
-        assert os.path.exists(recording_path)
-        assert os.path.getsize(recording_path) > 0
-
-        print("GPU recording test completed successfully")
 
     finally:
         if os.path.exists(recording_path):

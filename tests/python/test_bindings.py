@@ -83,14 +83,14 @@ def test_simulation_step(cpu_manager):
     actions[:, 0] = 1  # Set forward movement for all worlds
 
     # Get initial observations
-    rewards_before = mgr.reward_tensor().to_torch().clone()
+    _rewards_before = mgr.reward_tensor().to_torch().clone()
     self_obs_before = mgr.self_observation_tensor().to_torch()[:, :, :3].clone()  # Position
 
     # Step simulation
     mgr.step()
 
     # Check if observations changed
-    rewards_after = mgr.reward_tensor().to_torch()
+    _rewards_after = mgr.reward_tensor().to_torch()
     self_obs_after = mgr.self_observation_tensor().to_torch()[:, :, :3]
 
     # At least some positions should have changed
@@ -116,7 +116,7 @@ def test_reset_functionality(cpu_manager):
         mgr.step()
 
     # Get current steps for comparison
-    steps_before = mgr.steps_remaining_tensor().to_torch().clone()
+    _steps_before = mgr.steps_remaining_tensor().to_torch().clone()
 
     # Reset only world 0
     reset_tensor[:] = 0  # Clear all reset flags
@@ -234,9 +234,9 @@ def test_progress_tensor(cpu_manager):
 
     # Check shape
     expected_shape = (4, 1, 1)  # 4 worlds, 1 agent, 1 value
-    assert progress.shape == expected_shape, (
-        f"Expected shape {expected_shape}, got {progress.shape}"
-    )
+    assert (
+        progress.shape == expected_shape
+    ), f"Expected shape {expected_shape}, got {progress.shape}"
 
     # Check initial values are reasonable (should be near spawn position)
     assert (progress >= 0).all(), "Progress values should be non-negative"
@@ -379,12 +379,12 @@ def test_trajectory_logging_methods(cpu_manager):
     mgr = cpu_manager
 
     # Test that methods exist and are callable
-    assert hasattr(mgr, "enable_trajectory_logging"), (
-        "SimManager should have enable_trajectory_logging method"
-    )
-    assert hasattr(mgr, "disable_trajectory_logging"), (
-        "SimManager should have disable_trajectory_logging method"
-    )
+    assert hasattr(
+        mgr, "enable_trajectory_logging"
+    ), "SimManager should have enable_trajectory_logging method"
+    assert hasattr(
+        mgr, "disable_trajectory_logging"
+    ), "SimManager should have disable_trajectory_logging method"
 
     # Test enabling trajectory logging with keyword arguments
     # This should not raise an exception
