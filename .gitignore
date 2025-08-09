@@ -20,6 +20,9 @@ imgui.ini
 .cache/
 .clangd/
 
+# MCP server directories
+.serena/
+
 # Temporary/scratch files
 scratch/
 
