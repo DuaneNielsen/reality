@@ -44,7 +44,7 @@ namespace ArgChecker {
 }
 
 enum OptionIndex { 
-    UNKNOWN, HELP, CUDA, NUM_WORLDS, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED 
+    UNKNOWN, HELP, CUDA, NUM_WORLDS, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED, HIDE_MENU 
 };
 
 const option::Descriptor usage[] = {
@@ -62,6 +62,7 @@ const option::Descriptor usage[] = {
     {TRACK_AGENT, 0, "", "track-agent", ArgChecker::Numeric, "  --track-agent <n>  \tSpecify agent to track (default: 0)"},
     {TRACK_FILE, 0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file"},
     {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed <value>, -s <value>  \tSet random seed (default: 5)"},
+    {HIDE_MENU, 0, "", "hide-menu", option::Arg::None, "  --hide-menu  \tHide ImGui menu (useful for clean screenshots)"},
     {0,0,0,0,0,0}
 };
 
@@ -298,6 +299,9 @@ int main(int argc, char *argv[])
         math::Quat::angleAxis(-math::pi / 2.f, math::right)).normalize();
 
 
+    // Check if menu should be hidden
+    bool hide_menu = options[HIDE_MENU];
+    
     // Create the viewer viewer
     viz::Viewer viewer(mgr.getRenderManager(), window.get(), {
         .numWorlds = num_worlds,
@@ -305,6 +309,7 @@ int main(int argc, char *argv[])
         .cameraMoveSpeed = camera_move_speed,
         .cameraPosition = initial_camera_position,
         .cameraRotation = initial_camera_rotation,
+        .hideMenu = hide_menu,
     });
     
 

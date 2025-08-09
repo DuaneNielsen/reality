@@ -2,6 +2,17 @@
 
 When you're ready to commit and push changes:
 
+***IMPORTANT: ALWAYS RETURN TO PROJECT ROOT DIRECTORY***
+
+***CRITICAL: YOU MUST GO BACK TO /home/duane/madrona_escape_room AFTER ANY OPERATION***
+
+MANDATORY DIRECTORY RESET:
+```bash
+cd /home/duane/madrona_escape_room && pwd
+```
+
+***FAILURE TO RETURN TO PROJECT ROOT WILL BREAK ALL SUBSEQUENT COMMANDS***
+
 1. **IMPORTANT**: First verify you're in the project root directory:
    ```bash
    pwd  # Should show /home/duane/madrona_escape_room
