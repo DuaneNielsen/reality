@@ -29,7 +29,15 @@
       "Bash(source:*)",
       "WebFetch(domain:nanobind.readthedocs.io)",
       "Bash(./tests/quick_test.sh:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__find_symbol",
+      "mcp__serena__search_for_pattern",
+      "mcp__python-debugger-mcp__send_pdb_command",
+      "mcp__python-debugger-mcp__end_debug",
+      "mcp__python-debugger-mcp__restart_debug",
+      "mcp__python-debugger-mcp__start_debug",
+      "mcp__python-debugger-mcp__set_breakpoint"
     ],
     "deny": []
   },
