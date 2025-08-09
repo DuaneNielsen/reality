@@ -1,6 +1,6 @@
 [build-system]
 requires = []
-build-backend = "madrona-py-build"
+build-backend = "madrona_py_build"
 backend-path = ["external/madrona/py"]
 
 [project]
@@ -14,3 +14,8 @@ ext-out-dir = "build"
 # This module includes the PPO implementation for the training demo
 [tool.madrona.packages.madrona_escape_room_learn]
 path = "train_src/madrona_escape_room_learn"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+]
