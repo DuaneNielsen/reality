@@ -634,6 +634,36 @@ Manager::~Manager() {}
 // [BOILERPLATE] Execute one simulation step - standard Madrona pattern
 void Manager::step()
 {
+    // Record actions if recording is active
+    if (impl_->isRecordingActive) {
+        // Get current actions from the action tensor
+        auto action_tensor = actionTensor();
+        std::vector<int32_t> frame_actions;
+        
+        // Calculate total size needed: num_worlds * 3 actions per world
+        uint32_t num_worlds = impl_->cfg.numWorlds;
+        uint32_t total_actions = num_worlds * 3;
+        frame_actions.resize(total_actions);
+        
+        // Handle GPU vs CPU memory access
+        if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+            // For GPU, we need to copy the data from device to host
+            cudaMemcpy(frame_actions.data(), action_tensor.devicePtr(), 
+                      total_actions * sizeof(int32_t), cudaMemcpyDeviceToHost);
+#endif
+        } else {
+            // For CPU, we can directly access the memory
+            const int32_t* action_data = (const int32_t*)action_tensor.devicePtr();
+            for (uint32_t i = 0; i < total_actions; i++) {
+                frame_actions[i] = action_data[i];
+            }
+        }
+        
+        // Record the actions
+        recordActions(frame_actions);
+    }
+    
     impl_->run();
 
     if (impl_->renderMgr.has_value()) {
@@ -878,7 +908,7 @@ void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std:
     
     // Validate agent index
     if (agent_idx < 0 || agent_idx >= consts::numAgents) {
-        fprintf(stderr, "ERROR: Invalid agent_idx: %d. Must be between 0 and %d\n", 
+        fprintf(stderr, "ERROR: Invalid agent_idx: %d. Must be between 0 and %ld\n", 
                 agent_idx, consts::numAgents - 1);
         return;
     }
