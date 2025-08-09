@@ -3,15 +3,28 @@ ctypes bindings for Madrona Escape Room C API
 Direct replacement for CFFI bindings to resolve library loading issues
 """
 
-import os
 import ctypes
-from ctypes import Structure, c_int, c_int32, c_int64, c_uint32, c_uint64, c_bool, c_void_p, c_char, c_char_p, POINTER
+import os
+from ctypes import (
+    POINTER,
+    Structure,
+    c_bool,
+    c_char,
+    c_char_p,
+    c_int,
+    c_int32,
+    c_int64,
+    c_uint32,
+    c_uint64,
+    c_void_p,
+)
+
 
 # Find the shared library
 def _find_library():
     """Find the Madrona Escape Room C API library"""
     module_dir = os.path.dirname(os.path.abspath(__file__))
-    
+
     # Try different possible library names and locations
     possible_paths = [
         # First try the build directory (most likely location)
@@ -21,38 +34,41 @@ def _find_library():
         # Then try relative to project root
         os.path.join(module_dir, "..", "..", "build", "libmadrona_escape_room_c_api.so"),
     ]
-    
+
     for path in possible_paths:
         if os.path.exists(path):
             return os.path.abspath(path)
-    
+
     # If not found, try to load by name (system will search LD_LIBRARY_PATH)
     return "libmadrona_escape_room_c_api.so"
 
+
 # Load the library
 _lib_path = _find_library()
+
 
 # Set up environment for bundled libraries (like the original code does)
 def _setup_library_path():
     """Set up LD_LIBRARY_PATH to include directories with dependencies"""
     module_dir = os.path.dirname(os.path.abspath(__file__))
     build_dir = os.path.join(module_dir, "..", "build")
-    
+
     paths_to_add = []
     if os.path.exists(build_dir):
         paths_to_add.append(os.path.abspath(build_dir))
-    
+
     # Add package directory for bundled libraries
     paths_to_add.append(module_dir)
-    
-    current_path = os.environ.get('LD_LIBRARY_PATH', '')
+
+    current_path = os.environ.get("LD_LIBRARY_PATH", "")
     for path in paths_to_add:
         if path not in current_path:
             if current_path:
-                os.environ['LD_LIBRARY_PATH'] = f"{path}:{current_path}"
+                os.environ["LD_LIBRARY_PATH"] = f"{path}:{current_path}"
             else:
-                os.environ['LD_LIBRARY_PATH'] = path
-            current_path = os.environ['LD_LIBRARY_PATH']
+                os.environ["LD_LIBRARY_PATH"] = path
+            current_path = os.environ["LD_LIBRARY_PATH"]
+
 
 _setup_library_path()
 
@@ -94,7 +110,9 @@ MER_TENSOR_TYPE_FLOAT32 = 6
 MER_SELF_OBSERVATION_SIZE = 5
 MER_STEPS_REMAINING_SIZE = 1
 MER_AGENT_ID_SIZE = 1
-MER_TOTAL_OBSERVATION_SIZE = MER_SELF_OBSERVATION_SIZE + MER_STEPS_REMAINING_SIZE + MER_AGENT_ID_SIZE
+MER_TOTAL_OBSERVATION_SIZE = (
+    MER_SELF_OBSERVATION_SIZE + MER_STEPS_REMAINING_SIZE + MER_AGENT_ID_SIZE
+)
 
 # Simulation parameter constants
 MER_NUM_AGENTS = 1
@@ -128,6 +146,7 @@ MER_ROTATE_FAST_RIGHT = 4
 # Manager handle type (opaque pointer)
 MER_ManagerHandle = c_void_p
 
+
 # Replay metadata structure
 class MER_ReplayMetadata(Structure):
     _fields_ = [
@@ -138,6 +157,7 @@ class MER_ReplayMetadata(Structure):
         ("sim_name", c_char * 64),
         ("timestamp", c_uint64),
     ]
+
 
 # Manager configuration structure
 class MER_ManagerConfig(Structure):
@@ -152,6 +172,7 @@ class MER_ManagerConfig(Structure):
         ("batch_render_view_height", c_uint32),
     ]
 
+
 # Tensor structure
 class MER_Tensor(Structure):
     _fields_ = [
@@ -163,9 +184,13 @@ class MER_Tensor(Structure):
         ("gpu_id", c_int32),
     ]
 
+
 # Function signatures
 # Manager lifecycle functions
-lib.mer_create_manager.argtypes = [POINTER(MER_ManagerHandle), POINTER(MER_ManagerConfig)]
+lib.mer_create_manager.argtypes = [
+    POINTER(MER_ManagerHandle),
+    POINTER(MER_ManagerConfig),
+]
 lib.mer_create_manager.restype = c_int
 
 lib.mer_destroy_manager.argtypes = [MER_ManagerHandle]
@@ -211,7 +236,12 @@ lib.mer_set_action.argtypes = [MER_ManagerHandle, c_int32, c_int32, c_int32, c_i
 lib.mer_set_action.restype = c_int
 
 # Trajectory logging
-lib.mer_enable_trajectory_logging.argtypes = [MER_ManagerHandle, c_int32, c_int32, c_char_p]
+lib.mer_enable_trajectory_logging.argtypes = [
+    MER_ManagerHandle,
+    c_int32,
+    c_int32,
+    c_char_p,
+]
 lib.mer_enable_trajectory_logging.restype = c_int
 
 lib.mer_disable_trajectory_logging.argtypes = [MER_ManagerHandle]
@@ -241,7 +271,11 @@ lib.mer_has_replay.restype = c_int
 lib.mer_replay_step.argtypes = [MER_ManagerHandle, POINTER(c_bool)]
 lib.mer_replay_step.restype = c_int
 
-lib.mer_get_replay_step_count.argtypes = [MER_ManagerHandle, POINTER(c_uint32), POINTER(c_uint32)]
+lib.mer_get_replay_step_count.argtypes = [
+    MER_ManagerHandle,
+    POINTER(c_uint32),
+    POINTER(c_uint32),
+]
 lib.mer_get_replay_step_count.restype = c_int
 
 # Utility functions
@@ -251,10 +285,10 @@ lib.mer_result_to_string.restype = c_char_p
 
 class CTypesLib:
     """Wrapper class to provide CFFI-like interface for easier migration"""
-    
+
     def __init__(self):
         self.lib = lib
-        
+
     def new(self, type_name):
         """Create a new ctypes object similar to ffi.new()"""
         if type_name == "MER_ManagerConfig*":
@@ -265,27 +299,27 @@ class CTypesLib:
             return POINTER(MER_Tensor)(MER_Tensor())
         else:
             raise ValueError(f"Unknown type: {type_name}")
-    
+
     def string(self, c_char_ptr):
         """Convert C string to Python string similar to ffi.string()"""
         if c_char_ptr:
-            return c_char_ptr.decode('utf-8')
+            return c_char_ptr.decode("utf-8")
         return ""
-    
+
     def cast(self, typename, value):
         """Cast value to pointer type similar to ffi.cast()"""
         if typename == "uintptr_t":
             return ctypes.cast(value, ctypes.c_void_p).value
         else:
             raise ValueError(f"Unknown cast type: {typename}")
-    
+
     def buffer(self, data_ptr, size):
         """Create a buffer from pointer and size similar to ffi.buffer()"""
         # Convert void pointer to array of bytes
         ArrayType = ctypes.c_uint8 * size
         array_ptr = ctypes.cast(data_ptr, ctypes.POINTER(ArrayType))
         return array_ptr.contents
-    
+
     @property
     def NULL(self):
         """NULL pointer"""

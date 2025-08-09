@@ -1,17 +1,20 @@
+import math
+
+import torch
 from madrona_escape_room_learn import (
-    ActorCritic, DiscreteActor, Critic, 
-    BackboneShared, BackboneSeparate,
-    BackboneEncoder, RecurrentBackboneEncoder,
+    ActorCritic,
+    BackboneEncoder,
+    BackboneSeparate,
+    BackboneShared,
+    RecurrentBackboneEncoder,
 )
-
 from madrona_escape_room_learn.models import (
-    MLP, LinearLayerDiscreteActor, LinearLayerCritic,
+    MLP,
+    LinearLayerCritic,
+    LinearLayerDiscreteActor,
 )
-
 from madrona_escape_room_learn.rnn import LSTM
 
-import math
-import torch
 
 def setup_obs(sim):
     self_obs_tensor = sim.self_observation_tensor().to_torch()
@@ -42,21 +45,26 @@ def setup_obs(sim):
 
     return obs_tensors, num_obs_features
 
+
 def process_obs(self_obs, steps_remaining, ids):
-    assert(not torch.isnan(self_obs).any())
-    assert(not torch.isinf(self_obs).any())
+    assert not torch.isnan(self_obs).any()
+    assert not torch.isinf(self_obs).any()
 
-    assert(not torch.isnan(steps_remaining).any())
-    assert(not torch.isinf(steps_remaining).any())
+    assert not torch.isnan(steps_remaining).any()
+    assert not torch.isinf(steps_remaining).any()
 
-    return torch.cat([
-        self_obs.view(self_obs.shape[0], -1),
-        steps_remaining.float() / 200,
-        ids,
-    ], dim=1)
+    return torch.cat(
+        [
+            self_obs.view(self_obs.shape[0], -1),
+            steps_remaining.float() / 200,
+            ids,
+        ],
+        dim=1,
+    )
+
 
 def make_policy(num_obs_features, num_channels, separate_value):
-    #encoder = RecurrentBackboneEncoder(
+    # encoder = RecurrentBackboneEncoder(
     #    net = MLP(
     #        input_dim = num_obs_features,
     #        num_channels = num_channels,
@@ -67,44 +75,44 @@ def make_policy(num_obs_features, num_channels, separate_value):
     #        hidden_channels = num_channels,
     #        num_layers = 1,
     #    ),
-    #)
+    # )
 
     encoder = BackboneEncoder(
-        net = MLP(
-            input_dim = num_obs_features,
-            num_channels = num_channels,
-            num_layers = 3,
+        net=MLP(
+            input_dim=num_obs_features,
+            num_channels=num_channels,
+            num_layers=3,
         ),
     )
 
     if separate_value:
         backbone = BackboneSeparate(
-            process_obs = process_obs,
-            actor_encoder = encoder,
-            critic_encoder = RecurrentBackboneEncoder(
-                net = MLP(
-                    input_dim = num_obs_features,
-                    num_channels = num_channels,
-                    num_layers = 2,
+            process_obs=process_obs,
+            actor_encoder=encoder,
+            critic_encoder=RecurrentBackboneEncoder(
+                net=MLP(
+                    input_dim=num_obs_features,
+                    num_channels=num_channels,
+                    num_layers=2,
                 ),
-                rnn = LSTM(
-                    in_channels = num_channels,
-                    hidden_channels = num_channels,
-                    num_layers = 1,
+                rnn=LSTM(
+                    in_channels=num_channels,
+                    hidden_channels=num_channels,
+                    num_layers=1,
                 ),
-            )
+            ),
         )
     else:
         backbone = BackboneShared(
-            process_obs = process_obs,
-            encoder = encoder,
+            process_obs=process_obs,
+            encoder=encoder,
         )
 
     return ActorCritic(
-        backbone = backbone,
-        actor = LinearLayerDiscreteActor(
+        backbone=backbone,
+        actor=LinearLayerDiscreteActor(
             [4, 8, 5],
             num_channels,
         ),
-        critic = LinearLayerCritic(num_channels),
+        critic=LinearLayerCritic(num_channels),
     )

@@ -1,8 +1,10 @@
 from contextlib import contextmanager
 from time import time
+
 import torch
 
-__all__ = [ "profile" ]
+__all__ = ["profile"]
+
 
 class DummyGPUEvent:
     def __init__(self, enable_timing):
@@ -16,6 +18,7 @@ class DummyGPUEvent:
 
     def synchronize(self):
         pass
+
 
 if torch.cuda.is_available():
     GPUTimingEvent = torch.cuda.Event
@@ -98,7 +101,7 @@ class GPUTimer(Timer):
     def commit(self):
         super().commit()
 
-        assert(self.cur_event_idx == 0)
+        assert self.cur_event_idx == 0
 
         self.gpu_mean += (self.gpu_sum - self.gpu_mean) / self.N
         self.gpu_sum = 0
@@ -170,15 +173,15 @@ class Profiler:
         self._iter_timers(measure_timer)
 
     def commit(self):
-        assert(len(self.parents) == 0)
+        assert len(self.parents) == 0
         self._iter_timers(lambda x, d: x.commit())
 
     def reset(self):
-        assert(len(self.parents) == 0)
+        assert len(self.parents) == 0
         self._iter_timers(lambda x, d: x.reset())
 
     def clear(self):
-        assert(len(self.parents) == 0)
+        assert len(self.parents) == 0
         self.top.clear()
 
     def disable(self):
@@ -187,13 +190,14 @@ class Profiler:
     def enable(self):
         self.disabled = False
 
-    def report(self, base_indent='    ', depth_indent='  '):
-        assert(len(self.parents) == 0)
+    def report(self, base_indent="    ", depth_indent="  "):
+        assert len(self.parents) == 0
 
         def pad(depth):
             return f"{base_indent}{depth_indent * depth}"
 
         max_len = 0
+
         def compute_max_len(timer, depth):
             nonlocal max_len
 

@@ -1,9 +1,7 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from .action import DiscreteActionDistributions
-from .actor_critic import ActorCritic, DiscreteActor, Critic
+from .actor_critic import Critic, DiscreteActor
+
 
 class MLP(nn.Module):
     def __init__(self, input_dim, num_channels, num_layers):
@@ -23,13 +21,13 @@ class MLP(nn.Module):
 
         for layer in self.net:
             if isinstance(layer, nn.Linear):
-                nn.init.kaiming_normal_(
-                    layer.weight, nn.init.calculate_gain("relu"))
+                nn.init.kaiming_normal_(layer.weight, nn.init.calculate_gain("relu"))
                 if layer.bias is not None:
                     nn.init.constant_(layer.bias, val=0)
 
     def forward(self, inputs):
         return self.net(inputs)
+
 
 class LinearLayerDiscreteActor(DiscreteActor):
     def __init__(self, actions_num_buckets, in_channels):
@@ -40,6 +38,7 @@ class LinearLayerDiscreteActor(DiscreteActor):
 
         nn.init.orthogonal_(self.impl.weight, gain=0.01)
         nn.init.constant_(self.impl.bias, 0)
+
 
 class LinearLayerCritic(Critic):
     def __init__(self, in_channels):

@@ -28,4 +28,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-xdist>=3.0.0",  # For parallel test execution
     "mcp",  # For FastMCP server
+    "validate-pyproject",
+    "ruff",
+    "pre-commit",
 ]

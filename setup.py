@@ -3,33 +3,35 @@
 Setup script for Madrona Escape Room with ctypes bindings
 """
 
-import os
 import shutil
 from pathlib import Path
-from setuptools import setup, find_packages, Extension
+
+from setuptools import Extension, find_packages, setup
 from setuptools.command.build_py import build_py
 from setuptools.command.install_lib import install_lib
 
+
 class BuildPyWithLibrary(build_py):
     """Custom build_py that includes the C library and all dependencies"""
+
     def run(self):
         # First run the normal build_py
         super().run()
-        
+
         # ALL libraries that ctypes needs
         required_libs = [
             "libmadrona_escape_room_c_api.so",  # Main C API (ctypes loads this)
-            "libembree4.so.4",                   # Embree ray tracing  
-            "libdxcompiler.so",                  # DirectX shader compiler
-            "libmadrona_render_shader_compiler.so", # Madrona rendering
-            "libmadrona_std_mem.so"              # Madrona memory management
+            "libembree4.so.4",  # Embree ray tracing
+            "libdxcompiler.so",  # DirectX shader compiler
+            "libmadrona_render_shader_compiler.so",  # Madrona rendering
+            "libmadrona_std_mem.so",  # Madrona memory management
         ]
-        
+
         build_dir = Path("build")
         for package in self.packages:
             if package == "madrona_escape_room":
                 package_dir = Path(self.build_lib) / package
-                
+
                 for lib_name in required_libs:
                     lib_path = build_dir / lib_name
                     if lib_path.exists():
@@ -42,10 +44,11 @@ class BuildPyWithLibrary(build_py):
 
 class InstallLibWithLibrary(install_lib):
     """Custom install_lib that ensures library is installed"""
+
     def install(self):
         # First run normal install
         outfiles = super().install()
-        
+
         # The library should already be in the build directory
         # Just make sure it gets installed
         return outfiles
@@ -62,7 +65,7 @@ dlpack_extension = Extension(
     extra_compile_args=[
         "-std=c++17",
         "-O3",
-        "-fPIC", 
+        "-fPIC",
         "-Wall",
         "-Wextra",
     ],
@@ -76,19 +79,20 @@ setup(
     author="Your Name",
     author_email="your.email@example.com",
     url="https://github.com/yourusername/madrona_escape_room",
-    packages=find_packages(exclude=["tests", "tests.*", "external", "external.*", "scripts"]) + find_packages(where="train_src"),
+    packages=find_packages(exclude=["tests", "tests.*", "external", "external.*", "scripts"])
+    + find_packages(where="train_src"),
     ext_modules=[dlpack_extension],
     package_dir={"madrona_escape_room_learn": "train_src/madrona_escape_room_learn"},
     package_data={
         "madrona_escape_room": [
-            "*.pyi", 
-            "*.so", 
-            "libmadrona_escape_room_c_api.so", 
+            "*.pyi",
+            "*.so",
+            "libmadrona_escape_room_c_api.so",
             "_madrona_escape_room_dlpack*.so",
             "libembree4.so.4",
             "libdxcompiler.so",
-            "libmadrona_render_shader_compiler.so", 
-            "libmadrona_std_mem.so"
+            "libmadrona_render_shader_compiler.so",
+            "libmadrona_std_mem.so",
         ],
     },
     python_requires=">=3.10",

@@ -1,0 +1,28 @@
+# Set line length to 100 characters
+line-length = 100
+
+[lint]
+# Exclude external dependencies from linting
+exclude = [
+    "external/**",
+    "build/**",
+    ".venv/**",
+]
+
+# Select rules to enforce
+select = ["F", "E", "W", "I"]
+
+# Ignore specific rules that are too strict for this codebase
+ignore = [
+    "E402",  # Module level import not at top of file (common in test files)
+    "F401",  # Imported but unused (many legitimate cases)
+    "E731",  # Lambda assignment (sometimes cleaner)
+]
+
+[format]
+# Exclude same directories from formatting
+exclude = [
+    "external/**",
+    "build/**", 
+    ".venv/**",
+]

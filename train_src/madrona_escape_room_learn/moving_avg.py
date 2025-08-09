@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 
-from .amp import AMPState
 
 # Exponential Moving Average mean and variance estimator for
 # values and observations
@@ -23,20 +22,16 @@ class EMANormalizer(nn.Module):
         # Intermediate values used to compute the moving average
         # decay and one_minus_decay don't strictly need to be tensors, but it's
         # critically important for floating point precision that
-        # one_minus_decay is computed in fp32 rather than fp64 to 
+        # one_minus_decay is computed in fp32 rather than fp64 to
         # match the bias_correction computation below
-        self.register_buffer("decay",
-                             torch.tensor(decay, dtype=torch.float32))
+        self.register_buffer("decay", torch.tensor(decay, dtype=torch.float32))
         self.register_buffer("one_minus_decay", 1 - self.decay)
 
-        self.register_buffer("mu_biased",
-                             torch.zeros([], dtype=torch.float32))
-        self.register_buffer("sigma_sq_biased",
-                             torch.zeros([], dtype=torch.float32))
-        self.register_buffer("N",
-                             torch.zeros([], dtype=torch.int64))
+        self.register_buffer("mu_biased", torch.zeros([], dtype=torch.float32))
+        self.register_buffer("sigma_sq_biased", torch.zeros([], dtype=torch.float32))
+        self.register_buffer("N", torch.zeros([], dtype=torch.int64))
 
-        nn.init.constant_(self.mu , 0)
+        nn.init.constant_(self.mu, 0)
         nn.init.constant_(self.inv_sigma, 0)
         nn.init.constant_(self.sigma, 0)
 
@@ -46,7 +41,7 @@ class EMANormalizer(nn.Module):
 
     def forward(self, amp, x):
         if self.disable:
-            return x 
+            return x
 
         with amp.disable():
             if self.training:
@@ -55,16 +50,14 @@ class EMANormalizer(nn.Module):
                 self.N.add_(1)
                 bias_correction = -torch.expm1(self.N * torch.log(self.decay))
 
-                self.mu_biased.mul_(self.decay).addcmul_(
-                    x_f32.mean(),
-                    self.one_minus_decay)
+                self.mu_biased.mul_(self.decay).addcmul_(x_f32.mean(), self.one_minus_decay)
 
                 new_mu = self.mu_biased / bias_correction
 
                 # prev_mu needs to be unbiased (bias_correction only accounts
                 # for the initial EMA with 0), since otherwise variance would
                 # be off by a squared factor.
-                # On the first iteration, simply treat x's variance as the 
+                # On the first iteration, simply treat x's variance as the
                 # full estimate of variance
                 if self.N == 1:
                     prev_mu = new_mu
@@ -73,9 +66,7 @@ class EMANormalizer(nn.Module):
 
                 sigma_sq_new = torch.mean((x_f32 - prev_mu) * (x_f32 - new_mu))
 
-                self.sigma_sq_biased.mul_(self.decay).addcmul_(
-                    sigma_sq_new,
-                    self.one_minus_decay)
+                self.sigma_sq_biased.mul_(self.decay).addcmul_(sigma_sq_new, self.one_minus_decay)
 
                 sigma_sq = self.sigma_sq_biased / bias_correction
 

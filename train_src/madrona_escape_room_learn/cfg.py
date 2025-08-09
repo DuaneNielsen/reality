@@ -3,6 +3,7 @@ from typing import Callable, List
 
 import torch
 
+
 @dataclass(frozen=True)
 class PPOConfig:
     num_mini_batches: int
@@ -14,6 +15,7 @@ class PPOConfig:
     clip_value_loss: bool = False
     adaptive_entropy: bool = True
 
+
 @dataclass(frozen=True)
 class TrainConfig:
     num_updates: int
@@ -24,22 +26,23 @@ class TrainConfig:
     ppo: PPOConfig
     gae_lambda: float = 1.0
     normalize_advantages: bool = True
-    normalize_values : bool = True
-    value_normalizer_decay : float = 0.99999
-    mixed_precision : bool = False
+    normalize_values: bool = True
+    value_normalizer_decay: float = 0.99999
+    mixed_precision: bool = False
 
     def __repr__(self):
         rep = "TrainConfig:"
 
         for k, v in self.__dict__.items():
-            if k == 'ppo':
-                rep += f"\n  ppo:"
+            if k == "ppo":
+                rep += "\n  ppo:"
                 for ppo_k, ppo_v in self.ppo.__dict__.items():
                     rep += f"\n    {ppo_k}: {ppo_v}"
             else:
-                rep += f"\n  {k}: {v}" 
+                rep += f"\n  {k}: {v}"
 
         return rep
+
 
 @dataclass(frozen=True)
 class SimInterface:

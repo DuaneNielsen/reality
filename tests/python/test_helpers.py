@@ -3,28 +3,29 @@ Helper functions for controlling agents in tests.
 Provides a cleaner interface for agent movement and actions.
 """
 
-import torch
+from typing import Optional
+
 import numpy as np
-from typing import Optional, Union
+
 import madrona_escape_room
 
 
 class AgentController:
     """Simple controller for agent movement in tests"""
-    
+
     def __init__(self, manager):
         """Initialize controller with a SimManager instance"""
         self.mgr = manager
         self.actions = manager.action_tensor().to_torch()
         self.num_worlds = self.actions.shape[0]
         self.num_agents = self.actions.shape[1]
-        
+
     def reset_actions(self):
         """Clear all actions to default values"""
         self.actions[:] = 0
         # Set rotation to center position (no rotation)
         self.actions[:, 2] = madrona_escape_room.action.rotate.NONE
-        
+
     def move_forward(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Move agent(s) forward"""
         if world_idx is None:
@@ -34,7 +35,7 @@ class AgentController:
         else:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.FORWARD
-            
+
     def move_backward(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Move agent(s) backward"""
         if world_idx is None:
@@ -43,7 +44,7 @@ class AgentController:
         else:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.BACKWARD
-            
+
     def strafe_left(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Move agent(s) left (strafe) while maintaining orientation"""
         if world_idx is None:
@@ -52,7 +53,7 @@ class AgentController:
         else:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.LEFT
-            
+
     def strafe_right(self, world_idx: Optional[int] = None, speed: float = 1.0):
         """Move agent(s) right (strafe) while maintaining orientation"""
         if world_idx is None:
@@ -61,15 +62,19 @@ class AgentController:
         else:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.RIGHT
-            
+
     def stop(self, world_idx: Optional[int] = None):
         """Stop agent(s) movement"""
         if world_idx is None:
             self.actions[:, 0] = madrona_escape_room.action.move_amount.STOP
         else:
             self.actions[world_idx, 0] = madrona_escape_room.action.move_amount.STOP
-            
-    def rotate_only(self, world_idx: Optional[int] = None, rotation: int = madrona_escape_room.action.rotate.NONE):
+
+    def rotate_only(
+        self,
+        world_idx: Optional[int] = None,
+        rotation: int = madrona_escape_room.action.rotate.NONE,
+    ):
         """Rotate agent(s) in place (no movement)"""
         if world_idx is None:
             self.actions[:, 0] = madrona_escape_room.action.move_amount.STOP
@@ -77,15 +82,19 @@ class AgentController:
         else:
             self.actions[world_idx, 0] = madrona_escape_room.action.move_amount.STOP
             self.actions[world_idx, 2] = rotation
-            
-    def set_custom_action(self, world_idx: int, 
-                         move_amount: float, move_angle: int, 
-                         rotate: int = madrona_escape_room.action.rotate.NONE):
+
+    def set_custom_action(
+        self,
+        world_idx: int,
+        move_amount: float,
+        move_angle: int,
+        rotate: int = madrona_escape_room.action.rotate.NONE,
+    ):
         """Set custom action values for specific world"""
         self.actions[world_idx, 0] = move_amount
         self.actions[world_idx, 1] = move_angle
         self.actions[world_idx, 2] = rotate
-        
+
     def step(self, num_steps: int = 1):
         """Execute simulation steps"""
         for _ in range(num_steps):
@@ -94,16 +103,16 @@ class AgentController:
 
 class ObservationReader:
     """Helper for reading and interpreting observations"""
-    
+
     def __init__(self, manager):
         """Initialize reader with SimManager instance"""
         self.mgr = manager
-        
+
     def get_position(self, world_idx: int, agent_idx: int = 0) -> np.ndarray:
         """Get agent's current position (x, y, z)"""
         obs = self.mgr.self_observation_tensor().to_torch()
         return obs[world_idx, agent_idx, :3].cpu().numpy()
-    
+
     def get_normalized_position(self, world_idx: int, agent_idx: int = 0) -> tuple:
         """Get agent's normalized position (x_norm, y_norm, z_norm)"""
         obs = self.mgr.self_observation_tensor().to_torch()
@@ -112,34 +121,34 @@ class ObservationReader:
         y_norm = obs[world_idx, agent_idx, 1].item()
         z_norm = obs[world_idx, agent_idx, 2].item()
         return (x_norm, y_norm, z_norm)
-    
+
     def get_max_y_progress(self, world_idx: int, agent_idx: int = 0) -> float:
         """Get agent's maximum Y progress (normalized)"""
         obs = self.mgr.self_observation_tensor().to_torch()
         # Index 3 is max Y reached
         return obs[world_idx, agent_idx, 3].item()
-    
+
     def get_rotation(self, world_idx: int, agent_idx: int = 0) -> float:
         """Get agent's rotation (theta) - normalized to [-1, 1]"""
         obs = self.mgr.self_observation_tensor().to_torch()
         # Index 4 is theta
         return obs[world_idx, agent_idx, 4].item()
-    
+
     def get_reward(self, world_idx: int, agent_idx: int = 0) -> float:
         """Get agent's current reward"""
         rewards = self.mgr.reward_tensor().to_torch()
         return rewards[world_idx, agent_idx, 0].item()
-    
+
     def get_done_flag(self, world_idx: int, agent_idx: int = 0) -> bool:
         """Check if episode is done"""
         dones = self.mgr.done_tensor().to_torch()
         return bool(dones[world_idx, agent_idx, 0].item())
-    
+
     def get_steps_remaining(self, world_idx: int, agent_idx: int = 0) -> int:
         """Get steps remaining in episode"""
         steps = self.mgr.steps_remaining_tensor().to_torch()
         return int(steps[world_idx, agent_idx, 0].item())
-    
+
     def print_agent_state(self, world_idx: int, agent_idx: int = 0):
         """Print current agent state for debugging"""
         pos = self.get_position(world_idx, agent_idx)
@@ -148,7 +157,7 @@ class ObservationReader:
         reward = self.get_reward(world_idx, agent_idx)
         done = self.get_done_flag(world_idx, agent_idx)
         steps = self.get_steps_remaining(world_idx, agent_idx)
-        
+
         print(f"Agent {agent_idx} in World {world_idx}:")
         print(f"  Position: ({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})")
         print(f"  Normalized: ({norm_pos[0]:.3f}, {norm_pos[1]:.3f}, {norm_pos[2]:.3f})")

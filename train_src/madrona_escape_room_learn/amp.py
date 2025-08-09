@@ -1,7 +1,9 @@
-import torch
-from typing import Optional
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Optional
+
+import torch
+
 
 @dataclass(init=False)
 class AMPState:
@@ -16,7 +18,7 @@ class AMPState:
         if enable_mixed_precision:
             self.enabled = True
 
-            if dev.type == 'cuda':
+            if dev.type == "cuda":
                 self.compute_dtype = torch.float16
                 self.scaler = torch.cuda.amp.GradScaler()
             else:

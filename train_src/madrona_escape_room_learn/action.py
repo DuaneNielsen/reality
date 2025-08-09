@@ -1,17 +1,21 @@
 import torch
 from torch.distributions.categorical import Categorical
 
+
 class DiscreteActionDistributions:
-    def __init__(self, actions_num_buckets, logits = None):
+    def __init__(self, actions_num_buckets, logits=None):
         self.actions_num_buckets = actions_num_buckets
 
         self.dists = []
         cur_bucket_offset = 0
 
         for num_buckets in self.actions_num_buckets:
-            self.dists.append(Categorical(logits = logits[
-                :, cur_bucket_offset:cur_bucket_offset + num_buckets],
-                validate_args=False))
+            self.dists.append(
+                Categorical(
+                    logits=logits[:, cur_bucket_offset : cur_bucket_offset + num_buckets],
+                    validate_args=False,
+                )
+            )
             cur_bucket_offset += num_buckets
 
     def best(self, out):
