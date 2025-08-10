@@ -94,7 +94,7 @@ This plan outlines the removal of redundant entities and code from the level gen
 
 ## Testing Requirements
 After implementation:
-1. Build the project: `cd build && make -j$(nproc)`
+1. Build the project: `cd build && make -j8`
 2. Run viewer to verify level generation: `./build/viewer`
 3. Run training to ensure compatibility: `uv run python scripts/train.py --num-worlds 64 --num-updates 10`
 4. Check that physics and collision still work correctly

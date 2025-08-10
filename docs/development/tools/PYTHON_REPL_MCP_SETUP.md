@@ -12,7 +12,7 @@ This guide explains how to use the Madrona Python REPL through the Model Context
 
 ## Prerequisites
 
-- Madrona Escape Room project built (`make -C build -j$(nproc) -s`)
+- Madrona Escape Room project built (`make -C build -j8 -s`)
 - Python package installed (`uv pip install -e .`)
 - `uv` package manager installed
 
@@ -344,7 +344,7 @@ claude mcp add madrona_repl uv run python -- scripts/fastmcp_madrona_server.py
 ```bash
 # Rebuild project
 make -C build clean
-make -C build -j$(nproc) -s
+make -C build -j8 -s
 
 # Reinstall Python package
 uv pip install -e . --force-reinstall

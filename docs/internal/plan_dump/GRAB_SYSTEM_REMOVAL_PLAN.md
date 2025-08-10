@@ -71,7 +71,7 @@ The grab system allows agents to pick up and carry objects (like cubes) by casti
 ## Verification Steps
 1. Build project to ensure no compilation errors:
    ```bash
-   cd build && make -j$(nproc)
+   cd build && make -j8
    ```
 2. Run simulation to verify agents can still move:
    ```bash

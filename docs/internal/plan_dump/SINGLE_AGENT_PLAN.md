@@ -138,7 +138,7 @@ This plan reduces the number of agents in the escape room simulation from 2 to 1
 
 1. **Build the project**:
    ```bash
-   cd build && make -j$(nproc)
+   cd build && make -j8
    ```
 
 2. **Run the simulation**:

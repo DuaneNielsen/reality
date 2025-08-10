@@ -30,7 +30,7 @@ def capture_screenshot(num_worlds=1, exec_mode="cpu", gpu_id=0, output_path="lev
     viewer_path = Path(__file__).parent.parent / "build" / "viewer"
     if not viewer_path.exists():
         print(f"Error: Viewer not found at {viewer_path}")
-        print("Please build the project first: make -C build -j$(nproc)")
+        print("Please build the project first: make -C build -j8")
         return None
 
     # Set environment variable for automatic screenshot

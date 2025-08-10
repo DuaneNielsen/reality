@@ -21,7 +21,7 @@ try:
 except ImportError as e:
     raise ImportError(
         f"ctypes bindings failed to load library. "
-        f"Please ensure the C API library is built: make -C build -j$(nproc)\n"
+        f"Please ensure the C API library is built: make -C build -j8\n"
         f"Original error: {e}"
     )
 

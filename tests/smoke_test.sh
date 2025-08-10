@@ -18,7 +18,7 @@ cd build
 cd ..
 
 echo "3. Building project..."
-make -C build -j$(nproc) > /dev/null 2>&1
+make -C build -j8 > /dev/null 2>&1
 echo "   Build successful!"
 echo
 

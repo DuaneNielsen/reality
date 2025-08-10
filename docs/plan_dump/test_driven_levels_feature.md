@@ -102,22 +102,9 @@ def test_narrow_corridor():
 
 ### Phase 1: GPU-First Hardcoded Level
 
-Start with the simplest possible implementation: a hardcoded 16x16 empty room that generates directly on GPU.
+#### Next Steps
 
-#### Visual Verification During Development
-Use the screenshot capture tool to verify level generation:
-
-```bash
-# Capture a screenshot of the initial level state
-python scripts/capture_level_screenshot.py -n 1 -o level_test.bmp
-
-# View the screenshot using the Read tool to verify:
-# - Walls are placed correctly
-# - Agent spawn positions are correct  
-# - Room dimensions match expectations
-```
-
-#### 1.1 Add makeWall helper and modify generateLevel() with Hardcoded Room
+##### 1.1 Implement Hardcoded 16x16 Room in generateLevel()
 ```cpp
 // level_gen.cpp
 
@@ -234,15 +221,15 @@ static void resetPersistentEntities(Engine &ctx)
 }
 ```
 
-#### 1.2 Test Both CPU and GPU Execution
+##### 1.2 Test Both CPU and GPU Execution
 - Build and run on CPU mode
 - Build and run on GPU mode  
-- Use screenshot tool to verify visual output
+- Use screenshot tool (now supports PNG) to verify visual output
 - Ensure identical behavior between CPU and GPU
 
 ### Phase 2: Core Infrastructure
 
-#### 1.1 GPU Data Structure (C++)
+#### 2.1 GPU Data Structure (C++)
 ```cpp
 // types.hpp
 struct CompiledLevel {
@@ -276,7 +263,7 @@ enum TileType : int32_t {
 };
 ```
 
-#### 1.2 Python Compiler
+#### 2.2 Python Compiler
 ```python
 # madrona_escape_room/level_compiler.py
 class LevelCompiler:
@@ -326,7 +313,7 @@ class LevelCompiler:
         return pack_compiled_level(tiles, spawns, width, height, scale)
 ```
 
-#### 1.3 Manager Integration
+#### 2.3 Manager Integration
 ```cpp
 // mgr.hpp
 struct Config {
@@ -357,7 +344,7 @@ void Manager::Impl::init() {
 }
 ```
 
-#### 1.4 GPU Level Generation
+#### 2.4 GPU Level Generation
 ```cpp
 // level_gen.cpp
 void generateLevel(Engine &ctx) {
@@ -393,9 +380,9 @@ inline void generateFromCompiled(Engine &ctx, CompiledLevel* level) {
 }
 ```
 
-### Phase 2: Python Bindings
+### Phase 3: Python Bindings
 
-#### 2.1 Update SimManager
+#### 3.1 Update SimManager
 ```python
 # __init__.py
 class SimManager:
@@ -420,7 +407,7 @@ class SimManager:
         )
 ```
 
-#### 2.2 C API Updates
+#### 3.2 C API Updates
 ```cpp
 // madrona_escape_room_c_api.cpp
 mer_manager* mer_create_manager(
@@ -443,9 +430,9 @@ mer_manager* mer_create_manager(
 }
 ```
 
-### Phase 3: Test Migration
+### Phase 4: Test Migration
 
-#### 3.1 Test Fixtures
+#### 4.1 Test Fixtures
 ```python
 # conftest.py
 @pytest.fixture
@@ -471,7 +458,7 @@ def manager_with_level():
         del mgr
 ```
 
-#### 3.2 Example Test Conversions
+#### 4.2 Example Test Conversions
 ```python
 # test_movement_system.py
 def test_forward_movement_clear_path(manager_with_level):
@@ -571,17 +558,30 @@ def test_obstacle_collision(manager_with_level):
 
 ## Timeline
 
-### Week 1
+### Completed
+- [x] Screenshot capture tool with PNG support
+- [x] Hide-menu option for clean screenshots
+- [x] Visual verification infrastructure
+
+### Remaining Tasks
+
+#### Phase 1: GPU-First Hardcoded Level
+- [ ] Implement hardcoded 16x16 room in generateLevel()
+- [ ] Test on CPU mode
+- [ ] Test on GPU mode
+- [ ] Verify with screenshot tool
+
+#### Phase 2: Core Infrastructure  
 - [ ] Implement CompiledLevel struct
+- [ ] GPU generateFromCompiled function
+
+#### Phase 3: Python Integration
 - [ ] Basic LevelCompiler in Python
 - [ ] Manager integration
-
-### Week 2  
-- [ ] GPU generateFromCompiled function
 - [ ] Python bindings updates
-- [ ] First test using ASCII level
 
-### Week 3
+#### Phase 4: Test Migration
+- [ ] First test using ASCII level
 - [ ] Migrate key tests
 - [ ] Documentation
 - [ ] Performance validation
