@@ -15,6 +15,9 @@ uv.lock
 *.so
 imgui.ini
 
+# Image files
+*.png
+
 # IDE configuration
 .idea/
 .cache/
