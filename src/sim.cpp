@@ -424,9 +424,16 @@ Sim::Sim(Engine &ctx,
     // entities that will be stored in the BVH. We plan to fix this in
     // a future release.
     // [GAME_SPECIFIC] The calculation of max entities is game-specific
-    constexpr CountT max_total_entities = consts::numAgents +
-        consts::numRooms * (consts::maxEntitiesPerRoom + 2) +  // +2 for wall segments per room
-        4; // side walls + floor
+    // Phase 2: Updated for compiled level system
+    constexpr CountT persistent_entities = 
+        1 +                           // floor plane
+        consts::numAgents +           // agents  
+        3;                            // origin marker boxes (X, Y, Z)
+    
+    constexpr CountT level_entities = 
+        CompiledLevel::MAX_TILES;     // worst case: compiled level (256)
+    
+    constexpr CountT max_total_entities = persistent_entities + level_entities;
 
     // [BOILERPLATE] Initialize physics system
     // [GAME_SPECIFIC] Physics parameters (deltaT, substeps, gravity) are game-specific
