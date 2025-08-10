@@ -558,22 +558,28 @@ def test_obstacle_collision(manager_with_level):
 
 ## Timeline
 
+**IMPORTANT**: Always verify you are on the `feature/test-driven-levels` branch before making changes:
+```bash
+git branch  # Should show * feature/test-driven-levels
+```
+
 ### Completed
 - [x] Screenshot capture tool with PNG support
 - [x] Hide-menu option for clean screenshots
 - [x] Visual verification infrastructure
+- [x] Phase 1.1: Hardcoded 16x16 room in generateLevel()
+- [x] Test on CPU and GPU modes
+- [x] Visual verification with screenshot tool
+- [x] Phase 2: CompiledLevel struct and TileType enum
+- [x] Phase 2: generateFromCompiled function with GPU-friendly array iteration
+- [x] Phase 2: Conditional level generation (compiled vs hardcoded fallback)
+- [x] Phase 2: Singleton registration and initialization
 
 ### Remaining Tasks
 
-#### Phase 1: GPU-First Hardcoded Level
-- [ ] Implement hardcoded 16x16 room in generateLevel()
-- [ ] Test on CPU mode
-- [ ] Test on GPU mode
-- [ ] Verify with screenshot tool
-
-#### Phase 2: Core Infrastructure  
-- [ ] Implement CompiledLevel struct
-- [ ] GPU generateFromCompiled function
+#### Phase 2: Core Infrastructure (COMPLETED ✅)
+- [x] Implement CompiledLevel struct
+- [x] GPU generateFromCompiled function
 
 #### Phase 3: Python Integration
 - [ ] Basic LevelCompiler in Python
@@ -585,6 +591,20 @@ def test_obstacle_collision(manager_with_level):
 - [ ] Migrate key tests
 - [ ] Documentation
 - [ ] Performance validation
+
+## Branch Management
+
+**Critical Reminder**: This feature is being developed on the `feature/test-driven-levels` branch. 
+
+### Before Starting Any Work:
+1. **Always check current branch**: `git branch`
+2. **Switch to correct branch if needed**: `git checkout feature/test-driven-levels`
+3. **Verify you're on the right branch**: Look for `* feature/test-driven-levels` in output
+
+### Why This Matters:
+- Phase 1.1 camera positioning fixes are ONLY on `feature/test-driven-levels`
+- MCP viewer server changes belong on `feature/mcp-viewer-server`
+- Working on the wrong branch causes merge conflicts and regressions
 
 ## Appendix: ASCII Level Examples
 

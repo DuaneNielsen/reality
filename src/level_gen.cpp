@@ -216,15 +216,6 @@ static Entity makeCube(Engine &ctx,
     return cube;
 }
 
-// Helper function to create a wall entity for Phase 2 reuse
-static Entity makeWall(Engine &ctx, float wall_x, float wall_y, float wall_z, Diag3x3 wall_scale)
-{
-    Entity wall = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(ctx, wall, Vector3 { wall_x, wall_y, wall_z }, 
-        Quat { 1, 0, 0, 0 }, SimObject::Wall, EntityType::Wall, ResponseType::Static, wall_scale);
-    registerRigidBodyEntity(ctx, wall, SimObject::Wall);
-    return wall;
-}
 
 
 // A room with 3 cubes as fixed obstacles
