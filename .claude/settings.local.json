@@ -27,7 +27,6 @@
       "Bash(uv pip install -e .)",
       "Bash(find:*)",
       "Bash(/opt/cmake/bin/cmake -B build)",
-      "Bash(make -C build -j$(nproc) -s)",
       "Bash(source:*)",
       "WebFetch(domain:nanobind.readthedocs.io)",
       "Bash(./tests/quick_test.sh:*)",
@@ -40,7 +39,11 @@
       "mcp__python-debugger-mcp__restart_debug",
       "mcp__python-debugger-mcp__start_debug",
       "mcp__python-debugger-mcp__set_breakpoint",
-      "Bash(git -C external/madrona status)"
+      "Bash(git -C external/madrona status)",
+      "Bash(git submodule:*)",
+      "Bash(mkdir -p build)",
+      "Bash(cmake -B build)",
+      "Bash(uv run python -c:* )"
     ],
     "deny": []
   },
