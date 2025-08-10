@@ -53,6 +53,9 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     
     // [GAME_SPECIFIC] Level management singleton
     registry.registerSingleton<LevelState>();
+    
+    // [GAME_SPECIFIC] Phase 2: Test-driven level system singleton
+    registry.registerSingleton<CompiledLevel>();
 
     // [GAME_SPECIFIC] Escape room archetypes
     registry.registerArchetype<Agent>();
@@ -103,6 +106,9 @@ static inline void initWorld(Engine &ctx)
     // [BOILERPLATE] Assign a new episode ID and RNG
     ctx.data().rng = RNG(rand::split_i(ctx.data().initRandKey,
         ctx.data().curWorldEpisode++, (uint32_t)ctx.worldID().idx));
+
+    // [GAME_SPECIFIC] Phase 2: Initialize CompiledLevel singleton (empty by default)
+    ctx.singleton<CompiledLevel>().num_tiles = 0;
 
     // [GAME_SPECIFIC] Defined in src/level_gen.hpp / src/level_gen.cpp
     generateWorld(ctx);

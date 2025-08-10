@@ -147,6 +147,40 @@ namespace madEscape {
         Room rooms[consts::numRooms];
     };
 
+    // [GAME_SPECIFIC] Phase 2: Test-Driven Level System
+    // Tile types for compiled level system
+    enum TileType : int32_t {
+        TILE_EMPTY = 0,
+        TILE_WALL = 1,
+        TILE_CUBE = 2,
+        TILE_SPAWN = 3,
+        TILE_DOOR = 4,    // Future
+        TILE_BUTTON = 5,  // Future
+        TILE_GOAL = 6,    // Future
+    };
+
+    // GPU-compatible compiled level data structure
+    // Fixed-size arrays for GPU efficiency, no dynamic allocation
+    struct CompiledLevel {
+        static constexpr int32_t MAX_TILES = 256;  // 16x16 grid max
+        
+        // Tile data (packed for GPU efficiency)
+        int32_t tile_types[MAX_TILES];    // Type enum for each tile
+        float tile_x[MAX_TILES];          // World X position
+        float tile_y[MAX_TILES];          // World Y position
+        int32_t num_tiles;                // Actual tiles used
+        
+        // Agent spawn data
+        float spawn_x[consts::numAgents];
+        float spawn_y[consts::numAgents];
+        float spawn_rot[consts::numAgents];
+        
+        // Level metadata
+        int32_t width;                    // Grid width
+        int32_t height;                   // Grid height
+        float scale;                      // World scale factor
+    };
+
     /* ECS Archetypes for the game */
 
     // [GAME_SPECIFIC]

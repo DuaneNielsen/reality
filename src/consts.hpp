@@ -14,7 +14,7 @@ inline constexpr madrona::CountT numAgents = 1;
 
 // Maximum number of interactive objects per challenge room. This is needed
 // in order to setup the fixed-size learning tensors appropriately.
-// Increased to 70 for Phase 1.1 hardcoded 16x16 room (60 perimeter walls)
+// Updated to 70 for Phase 1.1: supports ~60 wall entities for 16x16 perimeter walls
 inline constexpr madrona::CountT maxEntitiesPerRoom = 70;
 
 // Various world / entity size parameters
