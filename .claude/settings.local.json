@@ -40,7 +40,8 @@
       "mcp__python-debugger-mcp__restart_debug",
       "mcp__python-debugger-mcp__start_debug",
       "mcp__python-debugger-mcp__set_breakpoint",
-      "Bash(git -C external/madrona status)"
+      "Bash(git -C external/madrona status)",
+      "Bash(git -C external/mcp-gdb status)"
     ],
     "deny": []
   },

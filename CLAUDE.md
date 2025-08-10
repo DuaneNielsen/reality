@@ -89,6 +89,8 @@ make -C build -j8 -s
 uv pip install -e .
 ```
 
+**IMPORTANT**: Use explicit values like `-j8` in make commands. DO NOT USE shell substitutions like `$(nproc)` as claude-code will prompt for user confirmation on command substitutions.
+
 ### Running the Simulation
 ```bash
 # For headless mode, see the Headless Mode Quick Reference above
