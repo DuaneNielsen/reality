@@ -3,4 +3,4 @@
 	url = git@github.com:DuaneNielsen/madrona.git
 [submodule "external/mcp-gdb"]
 	path = external/mcp-gdb
-	url = https://github.com/signal-slot/mcp-gdb.git
+	url = git@github.com:DuaneNielsen/mcp-gdb.git
