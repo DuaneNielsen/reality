@@ -292,11 +292,14 @@ int main(int argc, char *argv[])
 
     float camera_move_speed = 10.f;
 
-    math::Vector3 initial_camera_position = { 0, consts::worldLength / 2.f, 30 };
+    // Phase 1.1: Camera positioned for 16x16 room centered at origin
+    // Positioned above and slightly behind to see all walls
+    math::Vector3 initial_camera_position = { -12.0f, -0.0f, 30.f };
 
+    // Look down at the room to see all four walls
     math::Quat initial_camera_rotation =
         (math::Quat::angleAxis(-math::pi / 2.f, math::up) *
-        math::Quat::angleAxis(-math::pi / 2.f, math::right)).normalize();
+        math::Quat::angleAxis(-math::pi * 0.4f, math::right)).normalize();
 
 
     // Check if menu should be hidden
