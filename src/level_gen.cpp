@@ -74,86 +74,14 @@ void createPersistentEntities(Engine &ctx)
         EntityType::None, // Floor plane type should never be queried
         ResponseType::Static);
 
-    // Create the outer wall entities
-    // Behind
-    ctx.data().borders[0] = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        ctx.data().borders[0],
-        Vector3 {
-            0,
-            -5.f,  // Moved farther back to allow room for backward movement tests
-            0,
-        },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Wall,
-        EntityType::Wall,
-        ResponseType::Static,
-        Diag3x3 {
-            consts::worldWidth + consts::wallWidth * 2,
-            consts::wallWidth,
-            2.f,
-        });
-
-    // Right
-    ctx.data().borders[1] = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        ctx.data().borders[1],
-        Vector3 {
-            consts::worldWidth / 2.f + consts::wallWidth / 2.f,
-            consts::worldLength / 2.f - 2.5f,  // Adjusted to span from behind wall to front wall
-            0,
-        },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Wall,
-        EntityType::Wall,
-        ResponseType::Static,
-        Diag3x3 {
-            consts::wallWidth,
-            consts::worldLength + 5.f,  // Extended to cover the gap created by moving behind wall
-            2.f,
-        });
-
-    // Left
-    ctx.data().borders[2] = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        ctx.data().borders[2],
-        Vector3 {
-            -consts::worldWidth / 2.f - consts::wallWidth / 2.f,
-            consts::worldLength / 2.f - 2.5f,  // Adjusted to span from behind wall to front wall
-            0,
-        },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Wall,
-        EntityType::Wall,
-        ResponseType::Static,
-        Diag3x3 {
-            consts::wallWidth,
-            consts::worldLength + 5.f,  // Extended to cover the gap created by moving behind wall
-            2.f,
-        });
-
-    // Front (fully enclosed - no gap)
-    ctx.data().borders[3] = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        ctx.data().borders[3],
-        Vector3 {
-            0,
-            consts::worldLength - consts::wallWidth / 2.f,
-            0,
-        },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Wall,
-        EntityType::Wall,
-        ResponseType::Static,
-        Diag3x3 {
-            consts::worldWidth + consts::wallWidth * 2,
-            consts::wallWidth,
-            2.f,
-        });
+    // Phase 1.1: Don't create border walls - the hardcoded room provides its own walls
+    // In Phase 2, this will be conditional based on whether we have a CompiledLevel
+    // For now, commenting out border wall creation:
+    
+    // ctx.data().borders[0] = ctx.makeRenderableEntity<PhysicsEntity>();
+    // ctx.data().borders[1] = ctx.makeRenderableEntity<PhysicsEntity>();
+    // ctx.data().borders[2] = ctx.makeRenderableEntity<PhysicsEntity>();
+    // ctx.data().borders[3] = ctx.makeRenderableEntity<PhysicsEntity>();
 
     // Create agent entities. Note that this leaves a lot of components
     // uninitialized, these will be set during world generation, which is
@@ -206,25 +134,29 @@ static void resetPersistentEntities(Engine &ctx)
 {
     registerRigidBodyEntity(ctx, ctx.data().floorPlane, SimObject::Plane);
 
-     for (CountT i = 0; i < 4; i++) {
-         Entity wall_entity = ctx.data().borders[i];
-         registerRigidBodyEntity(ctx, wall_entity, SimObject::Wall);
-     }
+     // Phase 1.1: Skip border wall registration since we don't create them
+     // The hardcoded room provides all the walls we need
+     // for (CountT i = 0; i < 4; i++) {
+     //     Entity wall_entity = ctx.data().borders[i];
+     //     registerRigidBodyEntity(ctx, wall_entity, SimObject::Wall);
+     // }
 
      for (CountT i = 0; i < consts::numAgents; i++) {
          Entity agent_entity = ctx.data().agents[i];
          registerRigidBodyEntity(ctx, agent_entity, SimObject::Agent);
 
-         // Place the single agent near the starting wall (centered)
+         // Place agents in center of 16x16 room
+         // In Phase 2, spawn positions will come from CompiledLevel
          Vector3 pos {
-             0.f,  // Center of room
-             randBetween(ctx, consts::agentRadius * 1.1f,  2.f),
-             0.f,
+             i * 2.0f - 1.0f,  // Slight offset between agents
+             0.0f,              // Center of room  
+             1.0f,              // Above ground
          };
 
          ctx.get<Position>(agent_entity) = pos;
+         // Phase 1.1: Fixed rotation for hardcoded room
          ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
-             randInRangeCentered(ctx, math::pi / 4.f),
+             0.0f,  // Face forward
              math::up);
 
 
@@ -246,6 +178,27 @@ static void resetPersistentEntities(Engine &ctx)
      }
 }
 
+
+// Helper function to create a wall entity - will be reused in Phase 2
+static Entity makeWall(Engine &ctx,
+                      float wall_x,
+                      float wall_y,
+                      float wall_z,
+                      Diag3x3 wall_scale)
+{
+    Entity wall = ctx.makeRenderableEntity<PhysicsEntity>();
+    setupRigidBodyEntity(
+        ctx,
+        wall,
+        Vector3 { wall_x, wall_y, wall_z },
+        Quat { 1, 0, 0, 0 },
+        SimObject::Wall,
+        EntityType::Wall,
+        ResponseType::Static,
+        wall_scale);
+    registerRigidBodyEntity(ctx, wall, SimObject::Wall);
+    return wall;
+}
 
 static Entity makeCube(Engine &ctx,
                        float cube_x,
@@ -329,12 +282,74 @@ static void makeRoom(Engine &ctx,
     }
 }
 
-static void generateLevel(Engine &ctx)
+// Hardcoded 16x16 room generation - prototype for Phase 2's generateFromCompiled
+static void generateHardcodedRoom(Engine &ctx)
 {
     LevelState &level = ctx.singleton<LevelState>();
+    
+    // Room parameters that will come from CompiledLevel in Phase 2
+    static constexpr int32_t ROOM_SIZE = 16;
+    static constexpr float TILE_SIZE = 2.0f;
+    static constexpr float WALL_HEIGHT = 2.0f;
+    
+    CountT entity_count = 0;
+    
+    // Create walls around perimeter
+    // This loop structure mimics how we'll iterate through compiled tile data
+    for (int32_t x = 0; x < ROOM_SIZE; x++) {
+        for (int32_t y = 0; y < ROOM_SIZE; y++) {
+            // Only create walls on edges
+            if (x == 0 || x == ROOM_SIZE-1 || 
+                y == 0 || y == ROOM_SIZE-1) {
+                
+                // Convert grid coordinates to world coordinates
+                float world_x = (x - ROOM_SIZE/2.0f) * TILE_SIZE;
+                float world_y = (y - ROOM_SIZE/2.0f) * TILE_SIZE;
+                
+                // Create wall with proper size to avoid gaps
+                // Each wall needs to be at least TILE_SIZE to connect with neighbors
+                Entity wall = makeWall(
+                    ctx,
+                    world_x,
+                    world_y, 
+                    WALL_HEIGHT / 2.0f,  // Position at half height
+                    Diag3x3 {
+                        TILE_SIZE,  // Full tile size to ensure overlap
+                        TILE_SIZE,
+                        WALL_HEIGHT
+                    }
+                );
+                
+                // Store in level state
+                if (entity_count < consts::maxEntitiesPerRoom) {
+                    level.rooms[0].entities[entity_count++] = wall;
+                }
+            }
+        }
+    }
+    
+    // Fill remaining slots
+    for (CountT i = entity_count; i < consts::maxEntitiesPerRoom; i++) {
+        level.rooms[0].entities[i] = Entity::none();
+    }
+}
 
+// Original level generation with cube obstacles
+static void generateDefaultLevel(Engine &ctx)
+{
+    LevelState &level = ctx.singleton<LevelState>();
     // Generate single room with cube obstacles
     makeRoom(ctx, level, 0);
+}
+
+static void generateLevel(Engine &ctx)
+{
+    // For Phase 1.1, always use hardcoded room
+    // In Phase 2, this will check for CompiledLevel singleton
+    generateHardcodedRoom(ctx);
+    
+    // To switch back to original for testing:
+    // generateDefaultLevel(ctx);
 }
 
 // Randomly generate a new world for a training episode
