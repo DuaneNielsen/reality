@@ -84,7 +84,7 @@ cd build
 # Re-run CMake to detect newly installed libraries
 cmake ..
 # Rebuild
-make -j$(nproc)
+make -j8
 # Verify viewer was built
 ls -la viewer
 ```

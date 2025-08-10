@@ -11,7 +11,7 @@ The viewer is built automatically with the project:
 ```bash
 mkdir build
 /opt/cmake/bin/cmake -B build
-make -C build -j$(nproc)
+make -C build -j8
 ```
 
 This creates the `viewer` executable in the `build/` directory.

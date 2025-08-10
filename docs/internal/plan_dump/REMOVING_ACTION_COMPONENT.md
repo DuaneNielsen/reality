@@ -190,7 +190,7 @@ for move_amt, move_angle, rotate in action_sequence:
 
 1. Rebuild the project:
 ```bash
-cd build && make -j$(nproc)
+cd build && make -j8
 ```
 
 2. Run the unit tests:

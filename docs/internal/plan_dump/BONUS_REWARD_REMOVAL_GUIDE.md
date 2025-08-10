@@ -111,7 +111,7 @@ After completing all changes:
 
 1. **Build the project** to ensure no compilation errors:
    ```bash
-   cd build && make -j$(nproc)
+   cd build && make -j8
    ```
 
 2. **Run the simulation** to verify rewards are still calculated:

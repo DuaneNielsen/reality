@@ -37,7 +37,7 @@ The Python bindings provide a bridge between the C++ Madrona simulation engine a
 # Build the C++ components
 mkdir build
 cmake -B build
-make -C build -j$(nproc)
+make -C build -j8
 
 # Install Python package
 uv pip install -e .
@@ -468,7 +468,7 @@ This ensures that replays are **bit-for-bit identical** to the original recordin
 **Problem**: `ImportError` when importing the module
 
 **Solutions**:
-1. Ensure the C++ library is built: `make -C build -j$(nproc)`
+1. Ensure the C++ library is built: `make -C build -j8`
 2. Check library exists: `ls build/libmadrona_escape_room_c_api.so`
 3. Verify LD_LIBRARY_PATH includes the build directory
 

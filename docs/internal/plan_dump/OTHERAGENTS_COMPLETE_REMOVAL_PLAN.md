@@ -64,7 +64,7 @@ This plan will completely remove the OtherAgents component and all partner obser
 
 ## Build and Test
 After making all changes:
-1. Rebuild the C++ code: `cd build && make -j$(nproc)`
+1. Rebuild the C++ code: `cd build && make -j8`
 2. Run tests to ensure nothing is broken
 3. Test the viewer to ensure visualization still works
 4. Run training to verify the policy can still learn without partner observations

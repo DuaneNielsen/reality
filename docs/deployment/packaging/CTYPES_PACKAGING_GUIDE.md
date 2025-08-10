@@ -191,7 +191,7 @@ OSError: undefined symbol: __nvJitLinkCreate_12_5
 ## Recommended Build Process
 
 1. **Clean build**: `rm -rf build/ dist/ *.egg-info/`
-2. **Build C libraries**: `make -C build -j$(nproc)`
+2. **Build C libraries**: `make -C build -j8`
 3. **Build Python package**: `python -m build`
 4. **Test in clean environment**: See testing section above
 5. **Verify library inclusion**: Check wheel contents

@@ -79,7 +79,7 @@ except OSError as e:
     raise ImportError(
         f"Failed to load Madrona Escape Room C API library from '{_lib_path}'. "
         f"Make sure the library is built and in the correct location. "
-        f"You may need to run: make -C build -j$(nproc)\n"
+        f"You may need to run: make -C build -j8\n"
         f"Original error: {e}"
     )
 
