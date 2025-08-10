@@ -40,7 +40,12 @@ cd ../..  # Return to project root
 claude mcp add gdb node "$(pwd)/external/mcp-gdb/build/index.js"
 ```
 
-4. **Verify installation**:
+4. **Restart Claude Code**:
+```bash
+# Exit current session and restart Claude Code for MCP server to be loaded
+```
+
+5. **Verify installation**:
 ```bash
 claude mcp list
 # Should show: gdb: node /full/path/to/external/mcp-gdb/build/index.js - ✓ Connected

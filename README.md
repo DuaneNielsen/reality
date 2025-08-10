@@ -44,43 +44,13 @@ Overall the "full simulator" contains logic for three major concerns:
 
 Build Instructions
 --------
-First, make sure you have all the dependencies listed [here](https://github.com/shacklettbp/madrona#dependencies) (briefly, recent python and cmake, as well as Xcode or Visual Studio on MacOS or Windows respectively).
+For detailed installation instructions, see [.claude/commands/install.md](.claude/commands/install.md).
 
-To build the simulator with visualization support on Linux (`build/viewer`), you also need to install X11 and OpenGL development libraries. Equivalent dependencies should already be installed by Xcode on MacOS.
-For example, on Ubuntu:
-```bash
-sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev mesa-common-dev
-```
-
-The built-in training functionality requires [PyTorch 2.0](https://pytorch.org/get-started/locally/) or later as well.
-
-Now that you have the required dependencies, fetch the repo (don't forget `--recursive`!):
+Quick start:
 ```bash
 git clone --recursive https://github.com/shacklettbp/madrona_escape_room.git
 cd madrona_escape_room
-```
-
-Next, for Linux and MacOS: Run `cmake` and then `make` to build the simulator:
-```bash
-mkdir build
-cd build
-cmake ..
-make -j # cores to build with
-cd ..
-```
-
-**Note:** If you encounter compiler errors about `-nostdlib++` or `-march=x86-64-v3`, your system compiler may be too old. Use the bundled Madrona toolchain:
-```bash
-cmake -B build -DCMAKE_TOOLCHAIN_FILE=external/madrona/cmake/toolchain/madrona-toolchain.cmake
-```
-
-Or on Windows, open the cloned repository in Visual Studio and build
-the project using the integrated `cmake` functionality.
-
-
-Now, setup the python components of the repository with `pip`:
-```bash
-pip install -e . # Add -Cpackages.madrona_escape_room.ext-out-dir=PATH_TO_YOUR_BUILD_DIR on Windows
+# Follow the steps in .claude/commands/install.md
 ```
 
 #### IDE Support (Optional)

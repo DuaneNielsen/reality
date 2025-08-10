@@ -43,7 +43,9 @@
       "Bash(git submodule:*)",
       "Bash(mkdir -p build)",
       "Bash(cmake -B build)",
-      "Bash(uv run python -c:* )"
+      "Bash(uv run python -c:* )",
+      "Bash(git -C external/mcp-gdb status)",
+      "Bash(git -C external/mcp-gdb add .gitignore)"
     ],
     "deny": []
   },
