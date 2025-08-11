@@ -225,6 +225,19 @@ int main(int argc, char *argv[])
     // Only needed for random actions now
     HeapArray<int32_t> action_store(rand_actions ? (num_worlds * num_steps * 3) : 0);
 
+    // Create basic compiled levels for headless simulation
+    std::vector<std::optional<CompiledLevel>> headless_levels;
+    headless_levels.reserve(num_worlds);
+    for (uint32_t i = 0; i < num_worlds; i++) {
+        CompiledLevel level = {};
+        level.num_tiles = 0;  // Use hardcoded room generation
+        level.width = 16;
+        level.height = 16;
+        level.scale = 1.0f;
+        level.max_entities = 300;  // Adequate for headless
+        headless_levels.push_back(level);
+    }
+
     printf("Executing %lu Steps x %lu Worlds (%s)%s\n",
            num_steps, num_worlds,
            exec_mode == ExecMode::CPU ? "CPU" : "CUDA",
@@ -237,6 +250,7 @@ int main(int argc, char *argv[])
         .randSeed = replay_mode ? replay_seed : rand_seed,
         .autoReset = replay_mode,
         .enableBatchRenderer = false,
+        .perWorldCompiledLevels = headless_levels,
     });
     
     // Load replay if available

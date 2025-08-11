@@ -516,3 +516,261 @@ This approach gives you:
 - Near-zero additional computational cost
 
 The physics system has already done the hard work - just read its results!
+
+## BVH Entity Allocation and Management
+
+The Bounding Volume Hierarchy (BVH) is the core spatial acceleration structure that enables efficient collision detection. Understanding how it allocates and manages entities is crucial for proper `max_entities` configuration.
+
+### BVH Initialization and Entity Limits
+
+The BVH is initialized during physics system setup with a fixed maximum entity count:
+
+```cpp
+// In Sim::Sim() constructor
+CountT max_total_entities = compiled_level.max_entities;
+
+phys::PhysicsSystem::init(ctx, cfg.rigidBodyObjMgr,
+    consts::deltaT, consts::numPhysicsSubsteps, -9.8f * math::up,
+    max_total_entities);
+```
+
+The BVH constructor allocates fixed-size arrays based on this limit:
+
+```cpp
+BVH::BVH(const ObjectManager *obj_mgr,
+         CountT max_leaves,
+         float leaf_velocity_expansion,
+         float leaf_accel_expansion)
+    : leaf_entities_((Entity *)rawAlloc(sizeof(Entity) * max_leaves)),
+      leaf_obj_ids_((ObjectID *)rawAlloc(sizeof(ObjectID) * max_leaves)),
+      leaf_aabbs_((AABB *)rawAlloc(sizeof(AABB) * max_leaves)),
+      // ... other arrays allocated with max_leaves size
+      num_allocated_leaves_(max_leaves)
+```
+
+**Critical Constraint**: Once allocated, the BVH cannot grow beyond `max_leaves`. The assertion that failed in our tests:
+```cpp
+assert(leaf_idx < num_allocated_leaves_);  // In BVH::reserveLeaf()
+```
+
+### What Counts as a "Physics Entity" for BVH
+
+Not all Madrona entities require BVH leaves. Only entities with physics bodies that participate in collision detection consume BVH slots:
+
+#### **Entities that DO consume BVH leaves:**
+1. **Agents** (2 per world in escape room)
+   - Have physics bodies with Dynamic response
+   - Participate in collision detection
+   - Each agent = 1 BVH leaf
+
+2. **Physical Level Geometry** (variable per compiled level)
+   - **Walls**: Static physics bodies from compiled level tiles
+   - **Cubes**: Dynamic pushable blocks from compiled level tiles  
+   - **Floor**: Single static plane entity
+   - Each physical entity = 1 BVH leaf
+
+3. **Physics-Enabled Game Objects** (when implemented)
+   - Buttons, doors, movable objects with collision
+   - Only if they have physics bodies
+
+#### **Entities that do NOT consume BVH leaves:**
+1. **Render-Only Entities** 
+   - Origin marker boxes (3 per world) - visual debugging aids
+   - UI elements, particle effects, etc.
+   - These use `makeRenderableEntity<RenderOnlyEntity>()`
+
+2. **Pure Logic Entities**
+   - AI state machines, timers, score counters
+   - Game logic entities without spatial representation
+
+3. **Non-Physical Components**
+   - Observation data, action buffers, metadata
+   - These are components, not spatial entities
+
+### Entity Creation Breakdown in Escape Room
+
+Based on `createPersistentEntities()` and level generation:
+
+**Persistent Physics Entities (per world):**
+- 1 floor plane (physics body)
+- 2 agents (physics bodies)  
+- **Total persistent: 3 physics entities**
+
+**Persistent Render-Only Entities (per world):**
+- 3 origin marker boxes (render-only)
+- **Total render-only: 3 entities (DO NOT consume BVH leaves)**
+
+**Variable Level Entities (from compiled level):**
+- N walls (each tile with `TILE_WALL` type)
+- M cubes (each tile with `TILE_CUBE` type)
+- **Total level entities: N + M (varies by compiled level)**
+
+### Correct max_entities Calculation
+
+```cpp
+// In compiled level generation
+int32_t physics_entity_count = 0;
+
+// Count level tiles that create physics entities
+for (tile in compiled_level_tiles) {
+    if (tile.type == TILE_WALL || tile.type == TILE_CUBE) {
+        physics_entity_count++;
+    }
+    // TILE_SPAWN, TILE_EMPTY don't create physics entities
+}
+
+// Add persistent physics entities
+physics_entity_count += 3;  // 1 floor + 2 agents
+
+// Add safety buffer for temporary physics entities
+int32_t safety_buffer = 20-50;  // Collision contacts, constraints, etc.
+
+compiled_level.max_entities = physics_entity_count + safety_buffer;
+```
+
+### Performance Implications
+
+**BVH Size Impact:**
+- **Memory**: O(max_entities) arrays allocated upfront
+- **Rebuild Cost**: O(max_entities log max_entities) when geometry changes
+- **Query Cost**: O(log max_entities) for spatial queries
+
+**Best Practices:**
+1. **Minimize max_entities**: Only count actual physics bodies
+2. **Exclude render-only entities**: They don't need collision detection  
+3. **Add reasonable buffer**: 20-50 entities for contacts/constraints
+4. **Per-world optimization**: Use different max_entities per world type
+
+### Debugging BVH Allocation Issues
+
+When you get `leaf_idx < num_allocated_leaves_` assertion failures:
+
+1. **Count actual physics entities**: Check `createPersistentEntities()` and level generation
+2. **Verify max_entities calculation**: Ensure it matches actual entity creation
+3. **Check for entity leaks**: Old entities not properly cleaned up during resets
+4. **Monitor BVH usage**: Add debug output for `num_leaves_` vs `num_allocated_leaves_`
+
+```cpp
+// Debug BVH usage
+printf("BVH: %d/%d leaves allocated\n", 
+       bvh.num_leaves_.load(), bvh.num_allocated_leaves_);
+```
+
+The BVH is a high-performance spatial acceleration structure, but it requires accurate upfront sizing to prevent allocation failures during simulation.
+
+## ⚠️ Critical BVH Design Issues
+
+### Issue 1: ObjectID Auto-Registration Problem
+
+**Problem**: Any entity with an `ObjectID` component automatically consumes a BVH leaf slot, regardless of whether it actually needs collision detection.
+
+**Impact**: 
+- Render-only entities (like visual markers) waste BVH slots
+- Impossible to have entities with visual assets that don't participate in physics
+- Forces oversized BVH allocation for simple visual elements
+
+**Current Workaround**: Include ALL entities with `ObjectID` in max_entities calculation:
+
+```cpp
+// CURRENT REALITY (suboptimal)
+int32_t bvh_slot_count = 0;
+
+// Count ALL entities that will get ObjectID (not just physics entities)
+bvh_slot_count += physics_entities;      // Actual collision participants  
+bvh_slot_count += visual_marker_count;   // Render-only but have ObjectID
+bvh_slot_count += ui_elements_with_obj;  // UI that needs visual assets
+
+compiled_level.max_entities = bvh_slot_count + buffer;
+```
+
+**Root Cause**: The physics system calls `registerEntity(entity, obj_id)` for any entity with `ObjectID`, without checking if the entity actually needs collision detection.
+
+**Future Fix Needed**: 
+- Decouple visual asset IDs from physics registration
+- Add separate `RenderObjectID` component for render-only entities
+- Only register entities that have both `ObjectID` AND physics components
+
+### Issue 2: Fixed BVH Size Limitation
+
+**Problem**: BVH size cannot be changed after initialization, even when world geometry changes dramatically.
+
+**Impact**:
+- Must pre-allocate for worst-case scenario across all worlds
+- Memory waste when some worlds have simple geometry  
+- Difficult to support dynamic level generation
+
+**Current Workaround**: Allocate for maximum possible entities across all world types:
+
+```cpp
+// CURRENT REALITY (wasteful)
+int32_t max_across_all_worlds = 0;
+for (world_type in world_types) {
+    max_across_all_worlds = max(max_across_all_worlds, 
+                               world_type.entity_count);
+}
+compiled_level.max_entities = max_across_all_worlds + large_buffer;
+```
+
+**Future Fix Needed**:
+- Dynamic BVH resizing during world resets
+- Per-world BVH size optimization
+- Streaming BVH allocation for procedural content
+
+### Issue 3: Silent BVH Overflow
+
+**Problem**: BVH overflow causes assertion failures with cryptic error messages, making debugging difficult.
+
+**Manifestation**: 
+```
+Assertion failed: leaf_idx < num_allocated_leaves_
+```
+
+**Impact**: No clear indication of which entities caused overflow or how to fix sizing.
+
+**Current Workaround**: Add debug logging to track BVH usage:
+
+```cpp
+// DEBUG: Monitor BVH allocation
+printf("BVH Usage: %d/%d leaves (%.1f%% full)\n", 
+       bvh.num_leaves_.load(), 
+       bvh.num_allocated_leaves_,
+       100.0f * bvh.num_leaves_.load() / bvh.num_allocated_leaves_);
+
+// Add safety checks
+if (bvh.num_leaves_.load() > bvh.num_allocated_leaves_ * 0.9f) {
+    printf("WARNING: BVH approaching capacity limit!\n");
+}
+```
+
+**Future Fix Needed**:
+- Better error messages indicating entity types causing overflow
+- Automatic capacity warnings before hitting limits
+- Graceful degradation instead of assertion failures
+
+## Recommended Immediate Actions
+
+1. **Audit ObjectID Usage**: Review all entities receiving `ObjectID` components
+2. **Minimize Render-Only ObjectIDs**: Remove `ObjectID` from pure visual elements where possible
+3. **Conservative Sizing**: Always overestimate max_entities by 20-30%
+4. **Add Monitoring**: Include BVH usage logging in debug builds
+
+## Long-Term Architecture Improvements Needed
+
+1. **Separate Render and Physics IDs**: 
+   - `RenderObjectID` for visual assets only
+   - `PhysicsObjectID` for collision participants only
+
+2. **Dynamic BVH Sizing**:
+   - Resize BVH during world resets
+   - Per-world BVH optimization
+
+3. **Better Error Handling**:
+   - Graceful capacity warnings
+   - Detailed overflow diagnostics  
+   - Runtime capacity adjustment
+
+4. **Memory Optimization**:
+   - Optional BVH participation for entities
+   - Streaming allocation for large worlds
+
+This is a fundamental limitation that affects all Madrona applications using both rendering and physics systems.

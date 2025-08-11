@@ -9,6 +9,7 @@
 
 #include <madrona/render/render_mgr.hpp>
 #include "replay_metadata.hpp"
+#include "types.hpp"  // For CompiledLevel
 
 namespace madEscape {
 
@@ -32,6 +33,8 @@ public:
         madrona::render::APIBackend *extRenderAPI = nullptr;
         madrona::render::GPUDevice *extRenderDev = nullptr;
         bool enableTrajectoryTracking = false; // Print agent trajectories to stdout
+        std::optional<CompiledLevel> compiledLevel = std::nullopt;  // Phase 3: shared compiled level (backward compatibility)
+        std::vector<std::optional<CompiledLevel>> perWorldCompiledLevels;  // Phase 3: per-world compiled levels
     };
 
     Manager(const Config &cfg);

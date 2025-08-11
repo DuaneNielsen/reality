@@ -481,6 +481,18 @@ Manager::Impl * Manager::Impl::init(
     Sim::Config sim_cfg;
     sim_cfg.autoReset = mgr_cfg.autoReset;
     sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);
+    // Create default compiled level if none provided
+    if (mgr_cfg.compiledLevel.has_value()) {
+        sim_cfg.compiledLevel = mgr_cfg.compiledLevel.value();
+    } else {
+        CompiledLevel default_level = {};
+        default_level.num_tiles = 0;
+        default_level.width = 16;
+        default_level.height = 16;
+        default_level.scale = 1.0f;
+        default_level.max_entities = 300;
+        sim_cfg.compiledLevel = default_level;
+    }
 
     switch (mgr_cfg.execMode) {
     case ExecMode::CUDA: {
@@ -507,6 +519,25 @@ Manager::Impl * Manager::Impl::init(
         }
 
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
+        
+        // Phase 3: Populate per-world compiled levels
+        for (uint32_t i = 0; i < mgr_cfg.numWorlds; i++) {
+            if (i < mgr_cfg.perWorldCompiledLevels.size() && mgr_cfg.perWorldCompiledLevels[i].has_value()) {
+                world_inits[i].compiledLevel = mgr_cfg.perWorldCompiledLevels[i].value();
+            } else if (mgr_cfg.compiledLevel.has_value()) {
+                // Use shared compiled level
+                world_inits[i].compiledLevel = mgr_cfg.compiledLevel.value();
+            } else {
+                // Create basic default level
+                CompiledLevel default_level = {};
+                default_level.num_tiles = 0;  // Use hardcoded room generation
+                default_level.width = 16;
+                default_level.height = 16; 
+                default_level.scale = 1.0f;
+                default_level.max_entities = 300;
+                world_inits[i].compiledLevel = default_level;
+            }
+        }
 
         // [BOILERPLATE] Create GPU executor with configuration
         MWCudaExecutor gpu_exec({
@@ -569,6 +600,25 @@ Manager::Impl * Manager::Impl::init(
 
         // [BOILERPLATE] Allocate per-world initialization data
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
+        
+        // Phase 3: Populate per-world compiled levels
+        for (uint32_t i = 0; i < mgr_cfg.numWorlds; i++) {
+            if (i < mgr_cfg.perWorldCompiledLevels.size() && mgr_cfg.perWorldCompiledLevels[i].has_value()) {
+                world_inits[i].compiledLevel = mgr_cfg.perWorldCompiledLevels[i].value();
+            } else if (mgr_cfg.compiledLevel.has_value()) {
+                // Use shared compiled level
+                world_inits[i].compiledLevel = mgr_cfg.compiledLevel.value();
+            } else {
+                // Create basic default level
+                CompiledLevel default_level = {};
+                default_level.num_tiles = 0;  // Use hardcoded room generation
+                default_level.width = 16;
+                default_level.height = 16; 
+                default_level.scale = 1.0f;
+                default_level.max_entities = 300;
+                world_inits[i].compiledLevel = default_level;
+            }
+        }
 
         // [BOILERPLATE] Create CPU executor with configuration
         CPUImpl::TaskGraphT cpu_exec {

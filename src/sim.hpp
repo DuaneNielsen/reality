@@ -57,11 +57,13 @@ struct Sim : public madrona::WorldBase {
         RandKey initRandKey;
         madrona::phys::ObjectManager *rigidBodyObjMgr;
         const madrona::render::RenderECSBridge *renderBridge;
+        CompiledLevel compiledLevel;  // Compiled level data
     };
 
-    // This class would allow per-world custom data to be passed into
-    // simulator initialization, but that isn't necessary in this environment
-    struct WorldInit {};
+    // Per-world initialization data
+    struct WorldInit {
+        CompiledLevel compiledLevel;  // Per-world level data
+    };
 
     // Sim::registerTypes is called during initialization
     // to register all components & archetypes with the ECS.

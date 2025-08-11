@@ -42,7 +42,10 @@
       "mcp__python-debugger-mcp__set_breakpoint",
       "Bash(git -C external/madrona status)",
       "Bash(git -C external/mcp-gdb status)",
-      "mcp__madrona_viewer__capture_screenshot"
+      "mcp__madrona_viewer__capture_screenshot",
+      "mcp__serena__think_about_collected_information",
+      "Bash(./build/test_c_wrapper_cpu)",
+      "Bash(./build/test_c_wrapper_gpu)"
     ],
     "deny": []
   },

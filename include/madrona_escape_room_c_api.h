@@ -72,6 +72,18 @@ typedef struct {
     int32_t gpu_id;               // GPU ID (-1 for CPU tensors)
 } MER_Tensor;
 
+// Compiled level data structure
+typedef struct {
+    int32_t num_tiles;
+    int32_t max_entities; 
+    int32_t width;
+    int32_t height;
+    float scale;
+    int32_t tile_types[256];   // MAX_TILES from CompiledLevel::MAX_TILES
+    float tile_x[256];
+    float tile_y[256];
+} MER_CompiledLevel;
+
 // Manager configuration
 typedef struct {
     MER_ExecMode exec_mode;
@@ -122,10 +134,15 @@ typedef struct {
 // Manager lifecycle functions
 MER_EXPORT MER_Result mer_create_manager(
     MER_ManagerHandle* out_handle,
-    const MER_ManagerConfig* config
+    const MER_ManagerConfig* config,
+    const MER_CompiledLevel* compiled_levels,  // Array of levels (one per world), NULL for default
+    uint32_t num_compiled_levels               // Length of compiled_levels array
 );
 
 MER_EXPORT MER_Result mer_destroy_manager(MER_ManagerHandle handle);
+
+// Level validation functions
+MER_EXPORT MER_Result mer_validate_compiled_level(const MER_CompiledLevel* level);
 
 // Simulation functions
 MER_EXPORT MER_Result mer_step(MER_ManagerHandle handle);

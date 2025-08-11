@@ -13,9 +13,20 @@ int main() {
     config.auto_reset = true;
     config.enable_batch_renderer = false;
     
+    // Create basic compiled levels for all worlds
+    MER_CompiledLevel test_levels[4];
+    for (int i = 0; i < 4; i++) {
+        test_levels[i] = {};
+        test_levels[i].num_tiles = 0;  // Use hardcoded room generation
+        test_levels[i].width = 16;
+        test_levels[i].height = 16;
+        test_levels[i].scale = 1.0f;
+        test_levels[i].max_entities = 300;  // Adequate for test
+    }
+    
     MER_ManagerHandle handle = nullptr;
     printf("Creating GPU manager...\n");
-    MER_Result result = mer_create_manager(&handle, &config);
+    MER_Result result = mer_create_manager(&handle, &config, test_levels, 4);  // One level per world
     
     if (result != MER_SUCCESS) {
         fprintf(stderr, "Failed to create GPU manager: %s\n", mer_result_to_string(result));

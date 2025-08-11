@@ -310,13 +310,7 @@ static void generateHardcodedRoom(Engine &ctx)
         level.rooms[0].entities[i] = Entity::none();
     }
     
-    // Update CompiledLevel with actual entity count for future reference
-    CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
-    constexpr CountT persistent_entities = 
-        1 +                           // floor plane
-        consts::numAgents +           // agents  
-        3;                            // origin marker boxes (X, Y, Z)
-    compiled_level.max_entities = persistent_entities + entity_count;
+    // NOTE: max_entities should be set by compiler, not by level generator
 }
 
 // Original level generation with cube obstacles
@@ -326,14 +320,7 @@ static void generateDefaultLevel(Engine &ctx)
     // Generate single room with cube obstacles
     makeRoom(ctx, level, 0);
     
-    // Update CompiledLevel with actual entity count
-    CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
-    constexpr CountT persistent_entities = 
-        1 +                           // floor plane
-        consts::numAgents +           // agents  
-        3;                            // origin marker boxes (X, Y, Z)
-    // Default level creates 3 cube entities
-    compiled_level.max_entities = persistent_entities + 3;
+    // NOTE: max_entities should be set by compiler, not by level generator
 }
 
 // Phase 2: Generate level from compiled level data

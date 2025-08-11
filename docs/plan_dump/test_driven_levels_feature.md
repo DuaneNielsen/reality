@@ -380,54 +380,354 @@ inline void generateFromCompiled(Engine &ctx, CompiledLevel* level) {
 }
 ```
 
-### Phase 3: Python Bindings
+### Phase 3: Python Integration with ctypes/C API
 
-#### 3.1 Update SimManager
+#### 3.1 C API Enhancement - CompiledLevel Struct
+```c
+// include/madrona_escape_room_c_api.h
+
+// Add CompiledLevel struct to C API
+typedef struct {
+    int32_t num_tiles;
+    int32_t max_entities; 
+    int32_t width;
+    int32_t height;
+    float scale;
+    int32_t tile_types[256];   // MAX_TILES from CompiledLevel::MAX_TILES
+    float tile_x[256];
+    float tile_y[256];
+} MER_CompiledLevel;
+
+// Modify manager creation function signature
+MER_Result mer_create_manager(
+    const MER_ManagerConfig* config,
+    const MER_CompiledLevel* compiled_level,  // **NEW PARAMETER**
+    MER_ManagerHandle* out_handle
+);
+
+// Optional: Add validation function
+MER_Result mer_validate_compiled_level(const MER_CompiledLevel* level);
+```
+
+#### 3.2 C API Implementation
+```cpp
+// src/madrona_escape_room_c_api.cpp
+
+MER_Result mer_create_manager(
+    const MER_ManagerConfig* config,
+    const MER_CompiledLevel* c_level,  // **NEW**
+    MER_ManagerHandle* out_handle) 
+{
+    // Convert C struct to C++ struct
+    std::optional<CompiledLevel> compiled_level;
+    if (c_level != nullptr) {
+        compiled_level = CompiledLevel();
+        compiled_level->num_tiles = c_level->num_tiles;
+        compiled_level->max_entities = c_level->max_entities;
+        compiled_level->width = c_level->width;
+        compiled_level->height = c_level->height; 
+        compiled_level->scale = c_level->scale;
+        
+        // Copy arrays (only up to num_tiles for efficiency)
+        std::memcpy(compiled_level->tile_types, c_level->tile_types, 
+                   sizeof(int32_t) * c_level->num_tiles);
+        std::memcpy(compiled_level->tile_x, c_level->tile_x,
+                   sizeof(float) * c_level->num_tiles);
+        std::memcpy(compiled_level->tile_y, c_level->tile_y, 
+                   sizeof(float) * c_level->num_tiles);
+    }
+    
+    // Create Manager::Config from C struct
+    Manager::Config mgr_config = convertCConfig(*config);
+    mgr_config.compiledLevel = compiled_level;  // **NEW FIELD**
+    
+    // Create manager with compiled level
+    Manager* mgr = new Manager(mgr_config);
+    *out_handle = reinterpret_cast<MER_ManagerHandle>(mgr);
+    return MER_SUCCESS;
+}
+
+MER_Result mer_validate_compiled_level(const MER_CompiledLevel* level) {
+    if (!level) return MER_ERROR_NULL_POINTER;
+    if (level->num_tiles < 0 || level->num_tiles > 256) return MER_ERROR_INVALID_PARAMETER;
+    if (level->max_entities < 0) return MER_ERROR_INVALID_PARAMETER;
+    if (level->width <= 0 || level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
+    if (level->scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
+    return MER_SUCCESS;
+}
+```
+
+#### 3.3 Manager::Config Extension
+```cpp
+// src/mgr.hpp
+struct Config {
+    // ... existing fields ...
+    std::optional<CompiledLevel> compiledLevel = std::nullopt;  // **NEW**
+};
+
+// Sim::Config extension  
+struct Config {
+    // ... existing fields ...
+    std::optional<CompiledLevel> compiledLevel = std::nullopt;  // **NEW**
+};
+```
+
+#### 3.4 Manager Integration
+```cpp
+// src/mgr.cpp - Manager::Impl::init() enhancement
+Manager::Impl * Manager::Impl::init(const Manager::Config &mgr_cfg) {
+    // Create sim config
+    Sim::Config sim_cfg;
+    sim_cfg.autoReset = mgr_cfg.autoReset;
+    sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);
+    sim_cfg.compiledLevel = mgr_cfg.compiledLevel;  // **NEW: Pass compiled level**
+    
+    // ... rest of initialization unchanged ...
+}
+```
+
+#### 3.5 Sim Constructor Enhancement  
+```cpp
+// src/sim.cpp - Sim::Sim() constructor
+Sim::Sim(Engine &ctx, const Config &cfg, const WorldInit &) : WorldBase(ctx) {
+    CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
+    
+    // **NEW: Use config data if available**
+    if (cfg.compiledLevel.has_value()) {
+        compiled_level = cfg.compiledLevel.value();
+    } else {
+        // Phase 2 fallback - hardcoded values
+        compiled_level.num_tiles = 0;
+        compiled_level.width = 0; 
+        compiled_level.height = 0;
+        compiled_level.scale = 1.0f;
+        compiled_level.max_entities = 300;  // Compiler sets this value
+    }
+    
+    // Use dynamic BVH sizing from compiled level
+    CountT max_total_entities = compiled_level.max_entities;
+    
+    // ... rest unchanged ...
+}
+```
+
+#### 3.6 Python ctypes Bindings
 ```python
-# __init__.py
+# madrona_escape_room/ctypes_bindings.py (or similar)
+
+import ctypes
+from typing import Optional, Dict, List
+
+# Add CompiledLevel struct to ctypes
+class MER_CompiledLevel(ctypes.Structure):
+    _fields_ = [
+        ("num_tiles", ctypes.c_int32),
+        ("max_entities", ctypes.c_int32),
+        ("width", ctypes.c_int32),
+        ("height", ctypes.c_int32),
+        ("scale", ctypes.c_float),
+        ("tile_types", ctypes.c_int32 * 256),
+        ("tile_x", ctypes.c_float * 256),
+        ("tile_y", ctypes.c_float * 256),
+    ]
+
+# Update function signatures
+_lib.mer_create_manager.argtypes = [
+    ctypes.POINTER(MER_ManagerConfig),
+    ctypes.POINTER(MER_CompiledLevel),  # **NEW**
+    ctypes.POINTER(ctypes.c_void_p)
+]
+_lib.mer_create_manager.restype = MER_Result
+
+_lib.mer_validate_compiled_level.argtypes = [ctypes.POINTER(MER_CompiledLevel)]
+_lib.mer_validate_compiled_level.restype = MER_Result
+
+def create_manager(config_dict: dict, compiled_level_data: Optional[dict] = None):
+    """Create manager with optional compiled level data"""
+    config = MER_ManagerConfig()
+    # ... populate config from dict ...
+    
+    c_level = None
+    if compiled_level_data is not None:
+        c_level = MER_CompiledLevel()
+        c_level.num_tiles = compiled_level_data['num_tiles']
+        c_level.max_entities = compiled_level_data['max_entities']
+        c_level.width = compiled_level_data['width'] 
+        c_level.height = compiled_level_data['height']
+        c_level.scale = compiled_level_data['scale']
+        
+        # Copy arrays - pad with zeros
+        tile_types = compiled_level_data['tile_types']
+        tile_x = compiled_level_data['tile_x'] 
+        tile_y = compiled_level_data['tile_y']
+        
+        for i in range(256):
+            if i < len(tile_types):
+                c_level.tile_types[i] = tile_types[i]
+                c_level.tile_x[i] = tile_x[i] 
+                c_level.tile_y[i] = tile_y[i]
+            else:
+                c_level.tile_types[i] = 0
+                c_level.tile_x[i] = 0.0
+                c_level.tile_y[i] = 0.0
+        
+        # Validate before passing to C++
+        result = _lib.mer_validate_compiled_level(ctypes.byref(c_level))
+        if result != MER_SUCCESS:
+            raise ValueError(f"Invalid compiled level: {result}")
+    
+    handle = ctypes.c_void_p()
+    result = _lib.mer_create_manager(
+        ctypes.byref(config),
+        ctypes.byref(c_level) if c_level else None,  # **NEW**
+        ctypes.byref(handle)
+    )
+    
+    if result != MER_SUCCESS:
+        raise RuntimeError(f"Manager creation failed: {result}")
+    return handle
+```
+
+#### 3.7 Python Level Compiler
+```python
+# madrona_escape_room/level_compiler.py
+
+from typing import Dict, List, Tuple
+import math
+
+# Tile type constants (must match C++ TileType enum)
+TILE_EMPTY = 0
+TILE_WALL = 1  
+TILE_CUBE = 2
+TILE_SPAWN = 3
+TILE_DOOR = 4    # Future
+TILE_BUTTON = 5  # Future
+TILE_GOAL = 6    # Future
+
+CHAR_MAP = {
+    '.': TILE_EMPTY,
+    ' ': TILE_EMPTY,
+    '#': TILE_WALL,
+    'C': TILE_CUBE, 
+    'S': TILE_SPAWN,
+    # Future: 'D': TILE_DOOR, 'B': TILE_BUTTON, 'G': TILE_GOAL
+}
+
+def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
+    """
+    Compile ASCII level string to dict for ctypes.
+    
+    Args:
+        ascii_str: Multi-line ASCII level definition
+        scale: World units per ASCII character
+        
+    Returns:
+        Dict matching MER_CompiledLevel struct fields
+    """
+    lines = [line.rstrip() for line in ascii_str.strip().split('\n')]
+    if not lines:
+        raise ValueError("Empty level string")
+    
+    height = len(lines)
+    width = max(len(line) for line in lines) if lines else 0
+    
+    tiles = []
+    spawns = []
+    entity_count = 0  # Count entities that need physics bodies
+    
+    # Parse ASCII to tiles
+    for y, line in enumerate(lines):
+        for x, char in enumerate(line):
+            if char in CHAR_MAP:
+                tile_type = CHAR_MAP[char]
+                
+                # Convert grid coordinates to world coordinates (center at origin)
+                world_x = (x - width/2.0) * scale
+                world_y = (y - height/2.0) * scale
+                
+                if tile_type == TILE_SPAWN:
+                    spawns.append((world_x, world_y))
+                    # Don't add spawn tiles to tile array - handled by agent placement
+                elif tile_type != TILE_EMPTY:
+                    tiles.append((world_x, world_y, tile_type))
+                    
+                    # Count entities that need physics bodies
+                    if tile_type in [TILE_WALL, TILE_CUBE]:
+                        entity_count += 1
+            else:
+                raise ValueError(f"Unknown character '{char}' at ({x}, {y})")
+    
+    # Calculate max_entities needed (entities + buffer for agents, floor, etc.)  
+    max_entities = entity_count + 50  # Buffer for persistent entities
+    
+    # Validate constraints
+    if len(tiles) > 256:
+        raise ValueError(f"Too many tiles: {len(tiles)} > 256")
+    if len(spawns) == 0:
+        raise ValueError("No spawn points (S) found in level")
+    
+    # Return dict matching MER_CompiledLevel struct
+    return {
+        'num_tiles': len(tiles),
+        'max_entities': max_entities,
+        'width': width,
+        'height': height, 
+        'scale': scale,
+        'tile_types': [tile[2] for tile in tiles] + [0] * (256 - len(tiles)),
+        'tile_x': [tile[0] for tile in tiles] + [0.0] * (256 - len(tiles)),
+        'tile_y': [tile[1] for tile in tiles] + [0.0] * (256 - len(tiles)),
+        # Future: spawn point data for multi-agent support
+    }
+
+# Example usage
+if __name__ == "__main__":
+    test_level = """
+    ##########
+    #S.......#
+    #..####..#
+    #........#
+    ##########
+    """
+    
+    compiled = compile_level(test_level)
+    print(f"Compiled level: {compiled['num_tiles']} tiles, max_entities={compiled['max_entities']}")
+```
+
+#### 3.8 SimManager Integration
+```python
+# madrona_escape_room/__init__.py
+
+from .level_compiler import compile_level
+from .ctypes_bindings import create_manager
+
 class SimManager:
     def __init__(self, 
-                 exec_mode="CPU",
+                 exec_mode=ExecMode.CPU,
+                 gpu_id=0,
                  num_worlds=1,
-                 level_ascii=None,  # NEW
+                 rand_seed=42,
+                 auto_reset=True,
+                 level_ascii: Optional[str] = None,  # **NEW**
                  **kwargs):
         
         # Compile level if provided
-        level_buffer = None
-        if level_ascii:
-            compiler = LevelCompiler()
-            level_buffer = compiler.compile(level_ascii)
+        compiled_level = None
+        if level_ascii is not None:
+            compiled_level = compile_level(level_ascii)
         
-        # Pass to C API
-        self._handle = lib.mer_create_manager(
-            exec_mode=exec_mode,
-            num_worlds=num_worlds,
-            compiled_level=level_buffer,  # NEW
+        # Create manager config
+        config = {
+            'exec_mode': exec_mode,
+            'gpu_id': gpu_id,
+            'num_worlds': num_worlds,
+            'rand_seed': rand_seed,
+            'auto_reset': auto_reset,
             **kwargs
-        )
-```
-
-#### 3.2 C API Updates
-```cpp
-// madrona_escape_room_c_api.cpp
-mer_manager* mer_create_manager(
-    const char* exec_mode,
-    int32_t num_worlds,
-    const void* compiled_level,  // NEW
-    size_t level_size,           // NEW
-    // ... other params
-) {
-    Manager::Config cfg;
-    // ... existing config ...
-    
-    if (compiled_level != nullptr) {
-        cfg.use_compiled_level = true;
-        cfg.compiled_level_data = compiled_level;
-        cfg.compiled_level_size = level_size;
-    }
-    
-    return new Manager(cfg);
-}
+        }
+        
+        # Create manager with optional compiled level
+        self._handle = create_manager(config, compiled_level)
+        self._num_worlds = num_worlds
 ```
 
 ### Phase 4: Test Migration
@@ -581,10 +881,12 @@ git branch  # Should show * feature/test-driven-levels
 - [x] Implement CompiledLevel struct
 - [x] GPU generateFromCompiled function
 
-#### Phase 3: Python Integration
-- [ ] Basic LevelCompiler in Python
-- [ ] Manager integration
-- [ ] Python bindings updates
+#### Phase 3: Python Integration (ctypes/C API)
+- [ ] C API enhancement with MER_CompiledLevel struct
+- [ ] Manager::Config and Sim::Config extension  
+- [ ] Python ctypes bindings update
+- [ ] Python level compiler implementation
+- [ ] SimManager integration with level_ascii parameter
 
 #### Phase 4: Test Migration
 - [ ] First test using ASCII level

@@ -416,29 +416,15 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
 // [REQUIRED_INTERFACE] Constructor - every environment must implement this
 Sim::Sim(Engine &ctx,
          const Config &cfg,
-         const WorldInit &)
+         const WorldInit &world_init)
     : WorldBase(ctx)
 {
-    // [GAME_SPECIFIC] Phase 2+: Initialize CompiledLevel singleton early for BVH sizing
+    // Initialize CompiledLevel singleton for BVH sizing
     CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
     
-    // Set default values - will be overridden by actual compilation in Phase 3+
-    compiled_level.num_tiles = 0;
-    compiled_level.width = 0;
-    compiled_level.height = 0;
-    compiled_level.scale = 1.0f;
+    // Use per-world compiled level (highest priority), fallback to shared level
+    compiled_level = world_init.compiledLevel;
     
-    // Calculate persistent entities that exist in every world
-    constexpr CountT persistent_entities = 
-        1 +                           // floor plane
-        consts::numAgents +           // agents  
-        3;                            // origin marker boxes (X, Y, Z)
-    
-    // Set default max_entities for fallback case (empty CompiledLevel → hardcoded room)
-    // Phase 1.1 hardcoded room needs ~60 wall entities for 16x16 perimeter
-    compiled_level.max_entities = persistent_entities + 70;  // 70 allows room for growth
-    
-    // Use the dynamic value from CompiledLevel
     CountT max_total_entities = compiled_level.max_entities;
 
     // [BOILERPLATE] Initialize physics system

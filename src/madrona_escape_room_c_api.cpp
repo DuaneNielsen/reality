@@ -56,13 +56,52 @@ extern "C" {
 
 MER_Result mer_create_manager(
     MER_ManagerHandle* out_handle,
-    const MER_ManagerConfig* config
+    const MER_ManagerConfig* config,
+    const MER_CompiledLevel* compiled_levels,
+    uint32_t num_compiled_levels
 ) {
     if (!out_handle || !config) {
         return MER_ERROR_NULL_POINTER;
     }
     
     *out_handle = nullptr;
+    
+    // Convert array of C compiled levels to C++ vector (if provided)
+    std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;
+    if (compiled_levels != nullptr && num_compiled_levels > 0) {
+        // Validate array size doesn't exceed number of worlds
+        if (num_compiled_levels > config->num_worlds) {
+            return MER_ERROR_INVALID_PARAMETER;
+        }
+        
+        cpp_per_world_levels.reserve(config->num_worlds);
+        
+        for (uint32_t i = 0; i < num_compiled_levels; i++) {
+            const MER_CompiledLevel* c_level = &compiled_levels[i];
+            
+            CompiledLevel cpp_level;
+            cpp_level.num_tiles = c_level->num_tiles;
+            cpp_level.max_entities = c_level->max_entities;
+            cpp_level.width = c_level->width;
+            cpp_level.height = c_level->height;
+            cpp_level.scale = c_level->scale;
+            
+            // Copy arrays (only up to num_tiles for efficiency)
+            std::memcpy(cpp_level.tile_types, c_level->tile_types,
+                       sizeof(int32_t) * c_level->num_tiles);
+            std::memcpy(cpp_level.tile_x, c_level->tile_x,
+                       sizeof(float) * c_level->num_tiles);
+            std::memcpy(cpp_level.tile_y, c_level->tile_y,
+                       sizeof(float) * c_level->num_tiles);
+            
+            cpp_per_world_levels.push_back(cpp_level);
+        }
+        
+        // Fill remaining worlds with nullopt if array is smaller than num_worlds
+        while (cpp_per_world_levels.size() < config->num_worlds) {
+            cpp_per_world_levels.push_back(std::nullopt);
+        }
+    }
     
     // Convert C config to Manager::Config
     Manager::Config mgr_config {
@@ -77,6 +116,8 @@ MER_Result mer_create_manager(
             config->batch_render_view_width : 64,
         .batchRenderViewHeight = config->batch_render_view_height ? 
             config->batch_render_view_height : 64,
+        .compiledLevel = std::nullopt,  // Phase 3: backward compatibility (unused with per-world levels)
+        .perWorldCompiledLevels = std::move(cpp_per_world_levels),  // Phase 3: per-world compiled levels
     };
     
     // Allocate Manager - using placement new to avoid exceptions
@@ -89,6 +130,15 @@ MER_Result mer_create_manager(
     Manager* mgr = new (mgr_memory) Manager(mgr_config);
     
     *out_handle = reinterpret_cast<MER_ManagerHandle>(mgr);
+    return MER_SUCCESS;
+}
+
+MER_Result mer_validate_compiled_level(const MER_CompiledLevel* level) {
+    if (!level) return MER_ERROR_NULL_POINTER;
+    if (level->num_tiles < 0 || level->num_tiles > 256) return MER_ERROR_INVALID_PARAMETER;
+    if (level->max_entities < 0) return MER_ERROR_INVALID_PARAMETER;
+    if (level->width <= 0 || level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
+    if (level->scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
     return MER_SUCCESS;
 }
 

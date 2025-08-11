@@ -253,6 +253,17 @@ int main(int argc, char *argv[])
         std::cout << "Using seed " << sim_seed << " from replay file\n";
     }
 
+    // Create compiled level for all viewer worlds
+    CompiledLevel viewer_level = {};  // Zero-initialize entire structure
+    viewer_level.num_tiles = 0;  // Use hardcoded room generation
+    viewer_level.width = 16;
+    viewer_level.height = 16;
+    viewer_level.scale = 1.0f;
+    viewer_level.max_entities = 300;  // Enough for walls + persistent entities
+    
+    // Create per-world compiled levels (all worlds use same level)
+    std::vector<std::optional<CompiledLevel>> per_world_levels(num_worlds, viewer_level);
+    
     // Create the simulation manager
     Manager mgr({
         .execMode = exec_mode,
@@ -263,6 +274,7 @@ int main(int argc, char *argv[])
         .enableBatchRenderer = enable_batch_renderer,
         .extRenderAPI = wm.gpuAPIManager().backend(),
         .extRenderDev = render_gpu.device(),
+        .perWorldCompiledLevels = per_world_levels,
     });
     
     // Load replay if available
