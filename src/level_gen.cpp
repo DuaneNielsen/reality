@@ -266,7 +266,7 @@ static void makeRoom(Engine &ctx,
 
     // Need to set any extra entities to type none so random uninitialized data
     // from prior episodes isn't exported to pytorch as agent observations.
-    for (CountT i = num_room_entities; i < consts::maxEntitiesPerRoom; i++) {
+    for (CountT i = num_room_entities; i < CompiledLevel::MAX_TILES; i++) {
         room.entities[i] = Entity::none();
     }
 }
@@ -285,8 +285,8 @@ static void generateHardcodedRoom(Engine &ctx)
     
     // Create walls around perimeter
     // This loop structure mimics how we'll iterate through compiled tile data
-    for (int32_t x = 0; x < ROOM_SIZE && entity_count < consts::maxEntitiesPerRoom; x++) {
-        for (int32_t y = 0; y < ROOM_SIZE && entity_count < consts::maxEntitiesPerRoom; y++) {
+    for (int32_t x = 0; x < ROOM_SIZE && entity_count < CompiledLevel::MAX_TILES; x++) {
+        for (int32_t y = 0; y < ROOM_SIZE && entity_count < CompiledLevel::MAX_TILES; y++) {
             // Only create walls on edges
             if (x == 0 || x == ROOM_SIZE-1 || 
                 y == 0 || y == ROOM_SIZE-1) {
@@ -306,9 +306,17 @@ static void generateHardcodedRoom(Engine &ctx)
     }
     
     // Fill remaining slots with none
-    for (CountT i = entity_count; i < consts::maxEntitiesPerRoom; i++) {
+    for (CountT i = entity_count; i < CompiledLevel::MAX_TILES; i++) {
         level.rooms[0].entities[i] = Entity::none();
     }
+    
+    // Update CompiledLevel with actual entity count for future reference
+    CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
+    constexpr CountT persistent_entities = 
+        1 +                           // floor plane
+        consts::numAgents +           // agents  
+        3;                            // origin marker boxes (X, Y, Z)
+    compiled_level.max_entities = persistent_entities + entity_count;
 }
 
 // Original level generation with cube obstacles
@@ -317,6 +325,15 @@ static void generateDefaultLevel(Engine &ctx)
     LevelState &level = ctx.singleton<LevelState>();
     // Generate single room with cube obstacles
     makeRoom(ctx, level, 0);
+    
+    // Update CompiledLevel with actual entity count
+    CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
+    constexpr CountT persistent_entities = 
+        1 +                           // floor plane
+        consts::numAgents +           // agents  
+        3;                            // origin marker boxes (X, Y, Z)
+    // Default level creates 3 cube entities
+    compiled_level.max_entities = persistent_entities + 3;
 }
 
 // Phase 2: Generate level from compiled level data
@@ -327,7 +344,7 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
     CountT entity_count = 0;
     
     // Generate tiles from compiled data
-    for (int32_t i = 0; i < level->num_tiles && entity_count < consts::maxEntitiesPerRoom; i++) {
+    for (int32_t i = 0; i < level->num_tiles && entity_count < CompiledLevel::MAX_TILES; i++) {
         TileType type = (TileType)level->tile_types[i];
         float x = level->tile_x[i];
         float y = level->tile_y[i];
@@ -356,7 +373,7 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
     }
     
     // Fill remaining slots with none
-    for (CountT i = entity_count; i < consts::maxEntitiesPerRoom; i++) {
+    for (CountT i = entity_count; i < CompiledLevel::MAX_TILES; i++) {
         level_state.rooms[0].entities[i] = Entity::none();
     }
 }

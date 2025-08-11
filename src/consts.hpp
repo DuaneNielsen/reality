@@ -12,10 +12,7 @@ inline constexpr madrona::CountT numRooms = 1;
 // Generated levels assume 1 agent (reduced from 2)
 inline constexpr madrona::CountT numAgents = 1;
 
-// Maximum number of interactive objects per challenge room. This is needed
-// in order to setup the fixed-size learning tensors appropriately.
-// Updated to 70 for Phase 1.1: supports ~60 wall entities for 16x16 perimeter walls
-inline constexpr madrona::CountT maxEntitiesPerRoom = 70;
+// NOTE: maxEntitiesPerRoom removed - now dynamically calculated in CompiledLevel.max_entities
 
 // Various world / entity size parameters
 inline constexpr float worldLength = 40.f;

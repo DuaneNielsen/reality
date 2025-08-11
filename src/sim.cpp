@@ -90,7 +90,7 @@ static inline void cleanupWorld(Engine &ctx)
     LevelState &level = ctx.singleton<LevelState>();
     Room &room = level.rooms[0];
     
-    for (CountT j = 0; j < consts::maxEntitiesPerRoom; j++) {
+    for (CountT j = 0; j < CompiledLevel::MAX_TILES; j++) {
         if (room.entities[j] != Entity::none()) {
             ctx.destroyRenderableEntity(room.entities[j]);
         }
@@ -107,8 +107,7 @@ static inline void initWorld(Engine &ctx)
     ctx.data().rng = RNG(rand::split_i(ctx.data().initRandKey,
         ctx.data().curWorldEpisode++, (uint32_t)ctx.worldID().idx));
 
-    // [GAME_SPECIFIC] Phase 2: Initialize CompiledLevel singleton (empty by default)
-    ctx.singleton<CompiledLevel>().num_tiles = 0;
+    // [GAME_SPECIFIC] Phase 2: CompiledLevel singleton already initialized in Sim constructor
 
     // [GAME_SPECIFIC] Defined in src/level_gen.hpp / src/level_gen.cpp
     generateWorld(ctx);
@@ -420,20 +419,27 @@ Sim::Sim(Engine &ctx,
          const WorldInit &)
     : WorldBase(ctx)
 {
-    // [BOILERPLATE] Currently the physics system needs an upper bound on the number of
-    // entities that will be stored in the BVH. We plan to fix this in
-    // a future release.
-    // [GAME_SPECIFIC] The calculation of max entities is game-specific
-    // Phase 2: Updated for compiled level system
+    // [GAME_SPECIFIC] Phase 2+: Initialize CompiledLevel singleton early for BVH sizing
+    CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
+    
+    // Set default values - will be overridden by actual compilation in Phase 3+
+    compiled_level.num_tiles = 0;
+    compiled_level.width = 0;
+    compiled_level.height = 0;
+    compiled_level.scale = 1.0f;
+    
+    // Calculate persistent entities that exist in every world
     constexpr CountT persistent_entities = 
         1 +                           // floor plane
         consts::numAgents +           // agents  
         3;                            // origin marker boxes (X, Y, Z)
     
-    constexpr CountT level_entities = 
-        CompiledLevel::MAX_TILES;     // worst case: compiled level (256)
+    // Set default max_entities for fallback case (empty CompiledLevel → hardcoded room)
+    // Phase 1.1 hardcoded room needs ~60 wall entities for 16x16 perimeter
+    compiled_level.max_entities = persistent_entities + 70;  // 70 allows room for growth
     
-    constexpr CountT max_total_entities = persistent_entities + level_entities;
+    // Use the dynamic value from CompiledLevel
+    CountT max_total_entities = compiled_level.max_entities;
 
     // [BOILERPLATE] Initialize physics system
     // [GAME_SPECIFIC] Physics parameters (deltaT, substeps, gravity) are game-specific

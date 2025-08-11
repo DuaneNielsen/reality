@@ -132,21 +132,6 @@ namespace madEscape {
     > {};
 
 
-    // [GAME_SPECIFIC]
-    // Room itself is not a component but is used by the singleton
-    // component "LevelState" (below) to represent the state of the full level
-    struct Room {
-        // These are entities the agent will interact with
-        Entity entities[consts::maxEntitiesPerRoom];
-    };
-
-    //[GAME_SPECIFIC]
-    // A singleton component storing the state of all the rooms in the current
-    // randomly generated level
-    struct LevelState {
-        Room rooms[consts::numRooms];
-    };
-
     // [GAME_SPECIFIC] Phase 2: Test-Driven Level System
     // Tile types for compiled level system
     enum TileType : int32_t {
@@ -179,6 +164,25 @@ namespace madEscape {
         int32_t width;                    // Grid width
         int32_t height;                   // Grid height
         float scale;                      // World scale factor
+        
+        // BVH sizing - calculated during level compilation
+        int32_t max_entities;             // Total entities needed for this level
+    };
+
+    // [GAME_SPECIFIC]
+    // Room itself is not a component but is used by the singleton
+    // component "LevelState" (below) to represent the state of the full level
+    struct Room {
+        // These are entities the agent will interact with
+        // Using CompiledLevel::MAX_TILES as upper bound for entity storage
+        Entity entities[CompiledLevel::MAX_TILES];
+    };
+
+    //[GAME_SPECIFIC]
+    // A singleton component storing the state of all the rooms in the current
+    // randomly generated level
+    struct LevelState {
+        Room rooms[consts::numRooms];
     };
 
     /* ECS Archetypes for the game */
