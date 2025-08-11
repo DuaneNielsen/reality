@@ -45,7 +45,9 @@
       "mcp__madrona_viewer__capture_screenshot",
       "mcp__serena__think_about_collected_information",
       "Bash(./build/test_c_wrapper_cpu)",
-      "Bash(./build/test_c_wrapper_gpu)"
+      "Bash(./build/test_c_wrapper_gpu)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": []
   },
