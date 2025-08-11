@@ -135,22 +135,22 @@ make -C build -j8 -s
 
 # Run tests - ALWAYS run CPU tests first, then GPU tests
 # Run all CPU tests (default)
-uv run --extra test pytest tests/python/ -v --no-gpu
+uv run --group dev pytest tests/python/ -v --no-gpu
 
 # Only after CPU tests pass, run GPU tests
-uv run --extra test pytest tests/python/ -v -k "gpu"
+uv run --group dev pytest tests/python/ -v -k "gpu"
 
 # Run specific test file
-uv run --extra test pytest tests/python/test_bindings.py -v --tb=short
+uv run --group dev pytest tests/python/test_bindings.py -v --tb=short
 
 # Run reward system tests
-uv run --extra test pytest tests/python/test_reward_system.py -v
+uv run --group dev pytest tests/python/test_reward_system.py -v
 
 # Run tests with action recording (saves to test_recordings/)
-uv run --extra test pytest tests/python/test_reward_system.py -v --record-actions
+uv run --group dev pytest tests/python/test_reward_system.py -v --record-actions
 
 # Run tests with recording and automatic visualization
-uv run --extra test pytest tests/python/test_reward_system.py -v --record-actions --visualize
+uv run --group dev pytest tests/python/test_reward_system.py -v --record-actions --visualize
 
 # View recorded actions from tests in the interactive viewer
 # Tests record 4 worlds, so viewer must use 4 worlds to replay correctly
