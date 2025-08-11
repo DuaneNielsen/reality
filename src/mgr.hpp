@@ -33,8 +33,7 @@ public:
         madrona::render::APIBackend *extRenderAPI = nullptr;
         madrona::render::GPUDevice *extRenderDev = nullptr;
         bool enableTrajectoryTracking = false; // Print agent trajectories to stdout
-        std::optional<CompiledLevel> compiledLevel = std::nullopt;  // Phase 3: shared compiled level (backward compatibility)
-        std::vector<std::optional<CompiledLevel>> perWorldCompiledLevels;  // Phase 3: per-world compiled levels
+        std::vector<std::optional<CompiledLevel>> perWorldCompiledLevels;  // Per-world compiled levels
     };
 
     Manager(const Config &cfg);
@@ -90,6 +89,9 @@ public:
     
     // Static method to read replay metadata without creating a Manager
     static std::optional<madrona::escape_room::ReplayMetadata> readReplayMetadata(const std::string& filepath);
+    
+    // Static method to read embedded level from replay file
+    static std::optional<CompiledLevel> readEmbeddedLevel(const std::string& filepath);
 
 private:
     struct Impl;

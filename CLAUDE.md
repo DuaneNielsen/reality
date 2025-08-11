@@ -149,6 +149,10 @@ uv run python scripts/infer.py --num-worlds 1 --num-steps 1000 --fp16 --ckpt-pat
 IMPORTANT: when writing tests for python code ALWAYS use the pytest framework
 IMPORTANT: NEVER use sys.path.insert(..) ALWAYS place modules in the correct locations so they can be imported correctly by python
 
+#### C++ coding standards
+
+IMPORTANT: C++ exceptions and RTTI are disabled in this project.
+
 ```bash
 # Rebuild after C++ changes
 make -C build -j8 -s

@@ -271,47 +271,7 @@ static void makeRoom(Engine &ctx,
     }
 }
 
-// Phase 1.1: Hardcoded 16x16 room generation - prototype for Phase 2's generateFromCompiled
-static void generateHardcodedRoom(Engine &ctx)
-{
-    LevelState &level = ctx.singleton<LevelState>();
-    
-    // Room parameters that will come from CompiledLevel in Phase 2
-    static constexpr int32_t ROOM_SIZE = 16;
-    static constexpr float TILE_SIZE = 2.0f;  // World units per tile
-    static constexpr float WALL_HEIGHT = 2.0f;
-    
-    CountT entity_count = 0;
-    
-    // Create walls around perimeter
-    // This loop structure mimics how we'll iterate through compiled tile data
-    for (int32_t x = 0; x < ROOM_SIZE && entity_count < CompiledLevel::MAX_TILES; x++) {
-        for (int32_t y = 0; y < ROOM_SIZE && entity_count < CompiledLevel::MAX_TILES; y++) {
-            // Only create walls on edges
-            if (x == 0 || x == ROOM_SIZE-1 || 
-                y == 0 || y == ROOM_SIZE-1) {
-                
-                // Convert grid coordinates to world coordinates
-                float world_x = (x - ROOM_SIZE/2.0f) * TILE_SIZE;  // Center room at origin
-                float world_y = (y - ROOM_SIZE/2.0f) * TILE_SIZE;
-                
-                // Create wall with proper size to avoid gaps
-                Entity wall = makeWall(ctx, world_x, world_y, WALL_HEIGHT / 2.0f, 
-                    Diag3x3 { TILE_SIZE, TILE_SIZE, WALL_HEIGHT });
-                
-                // Store in level state
-                level.rooms[0].entities[entity_count++] = wall;
-            }
-        }
-    }
-    
-    // Fill remaining slots with none
-    for (CountT i = entity_count; i < CompiledLevel::MAX_TILES; i++) {
-        level.rooms[0].entities[i] = Entity::none();
-    }
-    
-    // NOTE: max_entities should be set by compiler, not by level generator
-}
+// REMOVED: Hardcoded room generation - now always use ASCII levels
 
 // Original level generation with cube obstacles
 static void generateDefaultLevel(Engine &ctx)
@@ -330,6 +290,9 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
     LevelState &level_state = ctx.singleton<LevelState>();
     CountT entity_count = 0;
     
+    // Use the scale from the compiled level to size tiles properly
+    float tile_scale = level->scale;
+    
     // Generate tiles from compiled data
     for (int32_t i = 0; i < level->num_tiles && entity_count < CompiledLevel::MAX_TILES; i++) {
         TileType type = (TileType)level->tile_types[i];
@@ -340,10 +303,12 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
         
         switch(type) {
             case TILE_WALL:
-                entity = makeWall(ctx, x, y, 1.0f, Diag3x3{1.0f, 1.0f, 2.0f});
+                // Scale walls to fill the entire tile (scale x scale x 2.0 height)
+                entity = makeWall(ctx, x, y, 1.0f, Diag3x3{tile_scale, tile_scale, 2.0f});
                 break;
             case TILE_CUBE:
-                entity = makeCube(ctx, x, y, 1.5f);
+                // Scale cubes proportionally to tile size
+                entity = makeCube(ctx, x, y, 1.5f * tile_scale / 2.0f);
                 break;
             case TILE_EMPTY:
             case TILE_SPAWN:
@@ -367,14 +332,23 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
 
 static void generateLevel(Engine &ctx)
 {
-    // Phase 2: Check if we have a compiled level singleton
-    if (ctx.singleton<CompiledLevel>().num_tiles > 0) {
-        // Generate from compiled level
-        generateFromCompiled(ctx, &ctx.singleton<CompiledLevel>());
-    } else {
-        // Fall back to hardcoded room (Phase 1.1)
-        generateHardcodedRoom(ctx);
+    // Always use compiled level - no fallback to hardcoded generation
+    CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    if (level.num_tiles == 0) {
+        // This should not happen - all managers should provide a level
+        printf("ERROR: No compiled level provided! All simulations must use ASCII levels.\n");
+        // Create a minimal emergency level to avoid crashes
+        level.num_tiles = 4;
+        level.width = 3; level.height = 3; level.scale = 2.0f;
+        // Emergency 3x3 room
+        level.tile_types[0] = TILE_WALL; level.tile_x[0] = -2.0f; level.tile_y[0] = -2.0f;
+        level.tile_types[1] = TILE_WALL; level.tile_x[1] =  2.0f; level.tile_y[1] = -2.0f;
+        level.tile_types[2] = TILE_WALL; level.tile_x[2] = -2.0f; level.tile_y[2] =  2.0f;
+        level.tile_types[3] = TILE_WALL; level.tile_x[3] =  2.0f; level.tile_y[3] =  2.0f;
     }
+    
+    // Generate from compiled level
+    generateFromCompiled(ctx, &level);
 }
 
 // Randomly generate a new world for a training episode

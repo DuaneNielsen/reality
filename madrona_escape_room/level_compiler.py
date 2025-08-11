@@ -7,7 +7,11 @@ Part of the test-driven level system that allows tests to define their
 environment layouts using visual ASCII art.
 """
 
+import argparse
 import math
+import struct
+import sys
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 # Tile type constants (must match C++ TileType enum in src/level_gen.cpp)
@@ -186,6 +190,134 @@ def validate_compiled_level(compiled: Dict) -> None:
             )
 
 
+def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
+    """
+    Save compiled level dictionary to binary .lvl file.
+
+    Args:
+        compiled: Output from compile_level()
+        filepath: Path to save .lvl file
+
+    Raises:
+        ValueError: If compiled level is invalid
+        IOError: If file cannot be written
+    """
+    # Validate first
+    validate_compiled_level(compiled)
+
+    try:
+        with open(filepath, "wb") as f:
+            # Write header fields (matching MER_CompiledLevel struct layout)
+            # int32_t num_tiles, max_entities, width, height
+            f.write(struct.pack("<i", compiled["num_tiles"]))
+            f.write(struct.pack("<i", compiled["max_entities"]))
+            f.write(struct.pack("<i", compiled["width"]))
+            f.write(struct.pack("<i", compiled["height"]))
+
+            # float scale
+            f.write(struct.pack("<f", compiled["scale"]))
+
+            # Arrays: int32_t tile_types[256], float tile_x[256], float tile_y[256]
+            for i in range(256):
+                f.write(struct.pack("<i", compiled["tile_types"][i]))
+
+            for i in range(256):
+                f.write(struct.pack("<f", compiled["tile_x"][i]))
+
+            for i in range(256):
+                f.write(struct.pack("<f", compiled["tile_y"][i]))
+
+    except IOError as e:
+        raise IOError(f"Failed to write level file '{filepath}': {e}")
+
+
+def load_compiled_level_binary(filepath: str) -> Dict:
+    """
+    Load compiled level dictionary from binary .lvl file.
+
+    Args:
+        filepath: Path to .lvl file
+
+    Returns:
+        Dict matching compile_level() output format
+
+    Raises:
+        IOError: If file cannot be read
+        ValueError: If file format is invalid
+    """
+    try:
+        with open(filepath, "rb") as f:
+            # Read header fields
+            num_tiles = struct.unpack("<i", f.read(4))[0]
+            max_entities = struct.unpack("<i", f.read(4))[0]
+            width = struct.unpack("<i", f.read(4))[0]
+            height = struct.unpack("<i", f.read(4))[0]
+            scale = struct.unpack("<f", f.read(4))[0]
+
+            # Read arrays
+            tile_types = []
+            for _ in range(256):
+                tile_types.append(struct.unpack("<i", f.read(4))[0])
+
+            tile_x = []
+            for _ in range(256):
+                tile_x.append(struct.unpack("<f", f.read(4))[0])
+
+            tile_y = []
+            for _ in range(256):
+                tile_y.append(struct.unpack("<f", f.read(4))[0])
+
+            # Construct dictionary matching compile_level() output
+            compiled = {
+                "num_tiles": num_tiles,
+                "max_entities": max_entities,
+                "width": width,
+                "height": height,
+                "scale": scale,
+                "tile_types": tile_types,
+                "tile_x": tile_x,
+                "tile_y": tile_y,
+            }
+
+            # Validate loaded data
+            validate_compiled_level(compiled)
+            return compiled
+
+    except IOError as e:
+        raise IOError(f"Failed to read level file '{filepath}': {e}")
+    except struct.error as e:
+        raise ValueError(f"Invalid level file format '{filepath}': {e}")
+
+
+def compile_level_to_binary(ascii_input: str, binary_output: str, scale: float = 2.0) -> None:
+    """
+    Compile ASCII level file to binary .lvl file.
+
+    Args:
+        ascii_input: Path to ASCII level file or ASCII string
+        binary_output: Path to output .lvl file
+        scale: World units per ASCII character
+
+    Raises:
+        IOError: If files cannot be read/written
+        ValueError: If level compilation fails
+    """
+    # Check if input is a file path or ASCII string
+    if Path(ascii_input).exists():
+        # Read from file
+        with open(ascii_input, "r") as f:
+            ascii_str = f.read()
+    else:
+        # Treat as ASCII string
+        ascii_str = ascii_input
+
+    # Compile to dictionary
+    compiled = compile_level(ascii_str, scale)
+
+    # Save to binary file
+    save_compiled_level_binary(compiled, binary_output)
+
+
 def print_level_info(compiled: Dict) -> None:
     """Print compiled level information for debugging."""
     print("Compiled Level Info:")
@@ -202,10 +334,70 @@ def print_level_info(compiled: Dict) -> None:
         print(f"  Physics entities: {compiled['_entity_count']}")
 
 
-# Example usage and test cases
-if __name__ == "__main__":
+def main():
+    """Command line interface for level compiler."""
+    parser = argparse.ArgumentParser(
+        description="Compile ASCII level files to binary .lvl format",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Compile ASCII file to binary level
+  python -m madrona_escape_room.level_compiler maze.txt maze.lvl
+
+  # Compile with custom scale
+  python -m madrona_escape_room.level_compiler maze.txt maze.lvl --scale 1.5
+
+  # Test mode - run built-in tests
+  python -m madrona_escape_room.level_compiler --test
+
+  # Load and display info about binary level
+  python -m madrona_escape_room.level_compiler --info maze.lvl
+        """,
+    )
+
+    parser.add_argument("input", nargs="?", help="Input ASCII level file")
+    parser.add_argument("output", nargs="?", help="Output binary .lvl file")
+    parser.add_argument(
+        "--scale", type=float, default=2.0, help="World units per ASCII character (default: 2.0)"
+    )
+    parser.add_argument("--test", action="store_true", help="Run built-in test suite")
+    parser.add_argument("--info", metavar="FILE", help="Display info about binary level file")
+
+    args = parser.parse_args()
+
+    try:
+        if args.test:
+            # Run built-in test suite
+            run_test_suite()
+        elif args.info:
+            # Display info about binary level file
+            print(f"Loading binary level: {args.info}")
+            compiled = load_compiled_level_binary(args.info)
+            print_level_info(compiled)
+        elif args.input and args.output:
+            # Compile ASCII to binary
+            print(f"Compiling '{args.input}' to '{args.output}' (scale: {args.scale})")
+            compile_level_to_binary(args.input, args.output, args.scale)
+            print("✓ Level compiled successfully")
+
+            # Load and display info
+            compiled = load_compiled_level_binary(args.output)
+            print_level_info(compiled)
+        else:
+            parser.print_help()
+            sys.exit(1)
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def run_test_suite():
+    """Run built-in test suite."""
+    print("=== Level Compiler Test Suite ===")
+
     # Test 1: Simple room
-    print("=== Test 1: Simple Room ===")
+    print("\n=== Test 1: Simple Room ===")
     simple_room = """
     ##########
     #S.......#
@@ -242,8 +434,44 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"✗ Obstacle course failed: {e}")
 
-    # Test 3: Error cases
-    print("\n=== Test 3: Error Cases ===")
+    # Test 3: Binary I/O test
+    print("\n=== Test 3: Binary I/O ===")
+    try:
+        # Compile to dict
+        compiled = compile_level(simple_room)
+
+        # Save to binary
+        test_file = "/tmp/test_level.lvl"
+        save_compiled_level_binary(compiled, test_file)
+        print(f"✓ Saved binary level to {test_file}")
+
+        # Load from binary
+        loaded = load_compiled_level_binary(test_file)
+        print("✓ Loaded binary level successfully")
+
+        # Verify data matches
+        for key in ["num_tiles", "max_entities", "width", "height", "scale"]:
+            if compiled[key] != loaded[key]:
+                raise ValueError(f"Mismatch in {key}: {compiled[key]} != {loaded[key]}")
+
+        for i in range(compiled["num_tiles"]):
+            if (
+                compiled["tile_types"][i] != loaded["tile_types"][i]
+                or abs(compiled["tile_x"][i] - loaded["tile_x"][i]) > 0.001
+                or abs(compiled["tile_y"][i] - loaded["tile_y"][i]) > 0.001
+            ):
+                raise ValueError(f"Mismatch in tile {i}")
+
+        print("✓ Binary I/O round-trip successful")
+
+        # Clean up
+        Path(test_file).unlink()
+
+    except Exception as e:
+        print(f"✗ Binary I/O test failed: {e}")
+
+    # Test 4: Error cases
+    print("\n=== Test 4: Error Cases ===")
 
     # Empty level
     try:
@@ -275,3 +503,8 @@ if __name__ == "__main__":
         print(f"✓ Unknown character correctly rejected: {e}")
 
     print("\n🎉 Level compiler tests completed!")
+
+
+# Example usage and test cases
+if __name__ == "__main__":
+    main()

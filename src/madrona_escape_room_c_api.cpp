@@ -116,8 +116,7 @@ MER_Result mer_create_manager(
             config->batch_render_view_width : 64,
         .batchRenderViewHeight = config->batch_render_view_height ? 
             config->batch_render_view_height : 64,
-        .compiledLevel = std::nullopt,  // Phase 3: backward compatibility (unused with per-world levels)
-        .perWorldCompiledLevels = std::move(cpp_per_world_levels),  // Phase 3: per-world compiled levels
+        .perWorldCompiledLevels = std::move(cpp_per_world_levels),  // Per-world compiled levels
     };
     
     // Allocate Manager - using placement new to avoid exceptions

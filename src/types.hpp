@@ -146,27 +146,25 @@ namespace madEscape {
 
     // GPU-compatible compiled level data structure
     // Fixed-size arrays for GPU efficiency, no dynamic allocation
+    // Unified CompiledLevel structure matching C API format
+    // This replaces both the C++ CompiledLevel and C API MER_CompiledLevel  
     struct CompiledLevel {
         static constexpr int32_t MAX_TILES = 256;  // 16x16 grid max
         
-        // Tile data (packed for GPU efficiency)
+        // Header fields (matching MER_CompiledLevel layout)
+        int32_t num_tiles;                // Actual tiles used
+        int32_t max_entities;             // BVH sizing - calculated during level compilation
+        int32_t width;                    // Grid width
+        int32_t height;                   // Grid height  
+        float scale;                      // World scale factor
+        
+        // Tile data arrays (packed for GPU efficiency)
         int32_t tile_types[MAX_TILES];    // Type enum for each tile
         float tile_x[MAX_TILES];          // World X position
         float tile_y[MAX_TILES];          // World Y position
-        int32_t num_tiles;                // Actual tiles used
         
-        // Agent spawn data
-        float spawn_x[consts::numAgents];
-        float spawn_y[consts::numAgents];
-        float spawn_rot[consts::numAgents];
-        
-        // Level metadata
-        int32_t width;                    // Grid width
-        int32_t height;                   // Grid height
-        float scale;                      // World scale factor
-        
-        // BVH sizing - calculated during level compilation
-        int32_t max_entities;             // Total entities needed for this level
+        // Note: Spawn points are handled via 'S' tiles in the level data
+        // No separate spawn arrays needed - spawn positions extracted from tile data
     };
 
     // [GAME_SPECIFIC]

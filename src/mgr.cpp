@@ -481,17 +481,21 @@ Manager::Impl * Manager::Impl::init(
     Sim::Config sim_cfg;
     sim_cfg.autoReset = mgr_cfg.autoReset;
     sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);
-    // Create default compiled level if none provided
-    if (mgr_cfg.compiledLevel.has_value()) {
-        sim_cfg.compiledLevel = mgr_cfg.compiledLevel.value();
-    } else {
-        CompiledLevel default_level = {};
-        default_level.num_tiles = 0;
-        default_level.width = 16;
-        default_level.height = 16;
-        default_level.scale = 1.0f;
-        default_level.max_entities = 300;
-        sim_cfg.compiledLevel = default_level;
+    // REQUIRE per-world compiled levels - no defaults allowed
+    if (mgr_cfg.perWorldCompiledLevels.empty() || 
+        !std::any_of(mgr_cfg.perWorldCompiledLevels.begin(), mgr_cfg.perWorldCompiledLevels.end(),
+                     [](const std::optional<CompiledLevel>& level) { return level.has_value(); })) {
+        std::cerr << "ERROR: No compiled level provided! All simulations must use ASCII levels.\n";
+        std::cerr << "Use level_ascii parameter in SimManager constructor.\n";
+        std::abort();
+    }
+    
+    // Use first valid per-world level as sim config default
+    for (const auto& level : mgr_cfg.perWorldCompiledLevels) {
+        if (level.has_value()) {
+            sim_cfg.compiledLevel = level.value();
+            break;
+        }
     }
 
     switch (mgr_cfg.execMode) {
@@ -520,22 +524,13 @@ Manager::Impl * Manager::Impl::init(
 
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
         
-        // Phase 3: Populate per-world compiled levels
+        // Populate per-world compiled levels
         for (uint32_t i = 0; i < mgr_cfg.numWorlds; i++) {
             if (i < mgr_cfg.perWorldCompiledLevels.size() && mgr_cfg.perWorldCompiledLevels[i].has_value()) {
                 world_inits[i].compiledLevel = mgr_cfg.perWorldCompiledLevels[i].value();
-            } else if (mgr_cfg.compiledLevel.has_value()) {
-                // Use shared compiled level
-                world_inits[i].compiledLevel = mgr_cfg.compiledLevel.value();
             } else {
-                // Create basic default level
-                CompiledLevel default_level = {};
-                default_level.num_tiles = 0;  // Use hardcoded room generation
-                default_level.width = 16;
-                default_level.height = 16; 
-                default_level.scale = 1.0f;
-                default_level.max_entities = 300;
-                world_inits[i].compiledLevel = default_level;
+                // Use sim_cfg.compiledLevel as fallback (first valid level from array)
+                world_inits[i].compiledLevel = sim_cfg.compiledLevel;
             }
         }
 
@@ -601,22 +596,13 @@ Manager::Impl * Manager::Impl::init(
         // [BOILERPLATE] Allocate per-world initialization data
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
         
-        // Phase 3: Populate per-world compiled levels
+        // Populate per-world compiled levels
         for (uint32_t i = 0; i < mgr_cfg.numWorlds; i++) {
             if (i < mgr_cfg.perWorldCompiledLevels.size() && mgr_cfg.perWorldCompiledLevels[i].has_value()) {
                 world_inits[i].compiledLevel = mgr_cfg.perWorldCompiledLevels[i].value();
-            } else if (mgr_cfg.compiledLevel.has_value()) {
-                // Use shared compiled level
-                world_inits[i].compiledLevel = mgr_cfg.compiledLevel.value();
             } else {
-                // Create basic default level
-                CompiledLevel default_level = {};
-                default_level.num_tiles = 0;  // Use hardcoded room generation
-                default_level.width = 16;
-                default_level.height = 16; 
-                default_level.scale = 1.0f;
-                default_level.max_entities = 300;
-                world_inits[i].compiledLevel = default_level;
+                // Use sim_cfg.compiledLevel as fallback (first valid level from array)
+                world_inits[i].compiledLevel = sim_cfg.compiledLevel;
             }
         }
 
@@ -1035,9 +1021,30 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
     impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
                               sizeof(impl_->recordingMetadata));
     
+    // Always embed compiled level data after metadata
+    // Format: [ReplayMetadata] [CompiledLevel] [ActionFrames...]
+    // Use first valid per-world level for embedding
+    CompiledLevel levelToEmbed;
+    bool foundLevel = false;
+    for (const auto& level : impl_->cfg.perWorldCompiledLevels) {
+        if (level.has_value()) {
+            levelToEmbed = level.value();
+            foundLevel = true;
+            break;
+        }
+    }
+    if (!foundLevel) {
+        std::cerr << "ERROR: Cannot start recording - no compiled level available\n";
+        return;
+    }
+    
+    // Write compiled level data
+    impl_->recordingFile.write(reinterpret_cast<const char*>(&levelToEmbed), 
+                              sizeof(CompiledLevel));
+    
     impl_->recordedFrames = 0;
     impl_->isRecordingActive = true;
-    std::cout << "Recording to: " << filepath << "\n";
+    std::cout << "Recording to: " << filepath << " (with embedded level data)\n";
 }
 
 void Manager::stopRecording()
@@ -1148,7 +1155,22 @@ bool Manager::loadReplay(const std::string& filepath)
         return false;
     }
     
-    // Read actions after metadata
+    // NEW: Read embedded level data after metadata
+    // Format: [ReplayMetadata] [CompiledLevel] [ActionFrames...]
+    CompiledLevel embeddedLevel;
+    replay_file.read(reinterpret_cast<char*>(&embeddedLevel), sizeof(CompiledLevel));
+    
+    if (replay_file.fail()) {
+        std::cerr << "Error: Failed to read embedded level data from replay file\n";
+        return false;
+    }
+    
+    // TODO: Apply the embedded level to the manager/simulation
+    // For now, just log that we read level data
+    std::cout << "Loaded embedded level: " << embeddedLevel.width << "x" << embeddedLevel.height 
+              << " with " << embeddedLevel.num_tiles << " tiles\n";
+    
+    // Read actions after embedded level data
     int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
     HeapArray<int32_t> actions(actions_size / sizeof(int32_t));
     replay_file.read((char *)actions.data(), actions_size);
@@ -1213,6 +1235,33 @@ const Manager::ReplayData* Manager::getReplayData() const
         return nullptr;
     }
     return &(*impl_->replayData);
+}
+
+std::optional<CompiledLevel> Manager::readEmbeddedLevel(const std::string& filepath)
+{
+    std::ifstream replay_file(filepath, std::ios::binary);
+    if (!replay_file.is_open()) {
+        return std::nullopt;
+    }
+    
+    // Read and skip metadata header
+    madrona::escape_room::ReplayMetadata metadata;
+    replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
+    
+    // Validate metadata
+    if (!metadata.isValid()) {
+        return std::nullopt;
+    }
+    
+    // Read embedded level data after metadata
+    CompiledLevel embeddedLevel;
+    replay_file.read(reinterpret_cast<char*>(&embeddedLevel), sizeof(CompiledLevel));
+    
+    if (replay_file.fail()) {
+        return std::nullopt;
+    }
+    
+    return embeddedLevel;
 }
 
 }

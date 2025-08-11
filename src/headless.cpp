@@ -50,7 +50,7 @@ namespace ArgChecker {
 }
 
 enum OptionIndex { 
-    UNKNOWN, HELP, CUDA, NUM_WORLDS, NUM_STEPS, RAND_ACTIONS, REPLAY, SEED, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE 
+    UNKNOWN, HELP, CUDA, NUM_WORLDS, NUM_STEPS, RAND_ACTIONS, LOAD, REPLAY, RECORD, SEED, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE 
 };
 
 const option::Descriptor usage[] = {
@@ -63,7 +63,9 @@ const option::Descriptor usage[] = {
     {NUM_WORLDS,   0, "n", "num-worlds", ArgChecker::Numeric, "  --num-worlds <value>, -n <value>  \tNumber of parallel worlds (required)"},
     {NUM_STEPS,    0, "s", "num-steps", ArgChecker::Numeric, "  --num-steps <value>, -s <value>  \tNumber of simulation steps (required)"},
     {RAND_ACTIONS, 0, "", "rand-actions", option::Arg::None, "  --rand-actions  \tGenerate random actions for benchmarking"},
-    {REPLAY,       0, "", "replay", ArgChecker::Required, "  --replay <file>  \tReplay actions from file"},
+    {LOAD,         0, "", "load", ArgChecker::Required, "  --load <file.lvl>  \tLoad binary level file"},
+    {REPLAY,       0, "", "replay", ArgChecker::Required, "  --replay <file.rec>  \tReplay recording file"},
+    {RECORD,       0, "", "record", ArgChecker::Required, "  --record <file.rec>  \tRecord actions to file"},
     {SEED,         0, "", "seed", ArgChecker::Numeric, "  --seed <value>  \tSet random seed (default: 5)"},
     {TRACK,        0, "t", "track", option::Arg::None, "  --track, -t  \tEnable trajectory tracking (default: world 0, agent 0)"},
     {TRACK_WORLD,  0, "", "track-world", ArgChecker::Numeric, "  --track-world <n>  \tSpecify world to track (default: 0)"},
@@ -133,9 +135,40 @@ int main(int argc, char *argv[])
         gpu_id = strtoul(options[CUDA].arg, nullptr, 10);
     }
 
+    // Parse three-flag interface
+    std::string load_path = options[LOAD] ? options[LOAD].arg : "";
+    std::string replay_file = options[REPLAY] ? options[REPLAY].arg : "";
+    std::string record_path = options[RECORD] ? options[RECORD].arg : "";
+    
+    // Validate three-flag interface (similar to viewer)
+    // Must have either replay OR (load with optional record)
+    if (!replay_file.empty() && !record_path.empty()) {
+        std::cerr << "Error: Cannot specify both --replay and --record\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+    
+    if (!replay_file.empty() && !load_path.empty()) {
+        std::cerr << "Error: --replay ignores --load (level comes from recording)\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+    
+    if (replay_file.empty() && load_path.empty()) {
+        std::cerr << "Error: Must provide either --replay <file.rec> OR --load <file.lvl>\n";
+        std::cerr << "Usage patterns:\n";
+        std::cerr << "  --load <file.lvl>                    # Load and run level\n";
+        std::cerr << "  --load <file.lvl> --record <file.rec> # Load level and record session\n";
+        std::cerr << "  --replay <file.rec>                  # Replay recording (level embedded)\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+    
     // Optional parameters
     bool rand_actions = options[RAND_ACTIONS];
-    std::string replay_file = options[REPLAY] ? options[REPLAY].arg : "";
     uint32_t rand_seed = options[SEED] ? strtoul(options[SEED].arg, nullptr, 10) : 5;
     std::string track_file = options[TRACK_FILE] ? options[TRACK_FILE].arg : "";
     
@@ -225,17 +258,50 @@ int main(int argc, char *argv[])
     // Only needed for random actions now
     HeapArray<int32_t> action_store(rand_actions ? (num_worlds * num_steps * 3) : 0);
 
-    // Create basic compiled levels for headless simulation
+    // Load level based on three-flag interface
+    CompiledLevel loaded_level = {};
     std::vector<std::optional<CompiledLevel>> headless_levels;
-    headless_levels.reserve(num_worlds);
-    for (uint32_t i = 0; i < num_worlds; i++) {
-        CompiledLevel level = {};
-        level.num_tiles = 0;  // Use hardcoded room generation
-        level.width = 16;
-        level.height = 16;
-        level.scale = 1.0f;
-        level.max_entities = 300;  // Adequate for headless
-        headless_levels.push_back(level);
+    
+    if (!load_path.empty()) {
+        // Load from .lvl file
+        std::ifstream lvl_file(load_path, std::ios::binary);
+        if (!lvl_file.is_open()) {
+            std::cerr << "Error: Cannot open level file: " << load_path << "\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
+        }
+        
+        lvl_file.read(reinterpret_cast<char*>(&loaded_level), sizeof(CompiledLevel));
+        if (!lvl_file.good()) {
+            std::cerr << "Error: Failed to read level from: " << load_path << "\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
+        }
+        
+        printf("Loaded level from %s: %dx%d grid, %d tiles\n", 
+               load_path.c_str(), loaded_level.width, loaded_level.height, loaded_level.num_tiles);
+        
+        // All worlds use the same loaded level
+        headless_levels.resize(num_worlds, loaded_level);
+        
+    } else if (!replay_file.empty()) {
+        // Replay mode - extract embedded level data from recording
+        auto embedded_level = Manager::readEmbeddedLevel(replay_file);
+        if (!embedded_level.has_value()) {
+            std::cerr << "Error: Failed to read embedded level from replay file: " << replay_file << "\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
+        }
+        
+        loaded_level = embedded_level.value();
+        printf("Extracted embedded level from %s: %dx%d grid, %d tiles\n", 
+               replay_file.c_str(), loaded_level.width, loaded_level.height, loaded_level.num_tiles);
+        
+        // All worlds use the embedded level
+        headless_levels.resize(num_worlds, loaded_level);
     }
 
     printf("Executing %lu Steps x %lu Worlds (%s)%s\n",
@@ -291,6 +357,13 @@ int main(int argc, char *argv[])
             printf("Trajectory will be saved to: %s\n", track_file.c_str());
         }
     }
+    
+    // Start recording if requested
+    bool is_recording = !record_path.empty();
+    if (is_recording) {
+        mgr.startRecording(record_path, rand_seed);
+        printf("Recording actions to: %s\n", record_path.c_str());
+    }
 
     auto start = std::chrono::system_clock::now();
     for (uint64_t i = 0; i < num_steps; i++) {
@@ -314,6 +387,11 @@ int main(int argc, char *argv[])
         mgr.step();
     }
     auto end = std::chrono::system_clock::now();
+
+    // Stop recording if it was started
+    if (is_recording) {
+        mgr.stopRecording();
+    }
 
     std::chrono::duration<double> elapsed = end - start;
 

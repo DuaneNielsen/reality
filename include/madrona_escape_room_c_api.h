@@ -72,16 +72,20 @@ typedef struct {
     int32_t gpu_id;               // GPU ID (-1 for CPU tensors)
 } MER_Tensor;
 
-// Compiled level data structure
+// Compiled level data structure  
+// NOTE: This layout MUST exactly match the C++ CompiledLevel struct in src/types.hpp
 typedef struct {
-    int32_t num_tiles;
-    int32_t max_entities; 
-    int32_t width;
-    int32_t height;
-    float scale;
-    int32_t tile_types[256];   // MAX_TILES from CompiledLevel::MAX_TILES
-    float tile_x[256];
-    float tile_y[256];
+    // Header fields (matching C++ CompiledLevel layout)
+    int32_t num_tiles;         // Actual tiles used
+    int32_t max_entities;      // BVH sizing - calculated during level compilation  
+    int32_t width;             // Grid width
+    int32_t height;            // Grid height
+    float scale;               // World scale factor
+    
+    // Tile data arrays (256 elements each for GPU efficiency)
+    int32_t tile_types[256];   // Type enum for each tile
+    float tile_x[256];         // World X position
+    float tile_y[256];         // World Y position
 } MER_CompiledLevel;
 
 // Manager configuration
