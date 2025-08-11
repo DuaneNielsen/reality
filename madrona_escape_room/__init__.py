@@ -304,10 +304,15 @@ class SimManager:
         rand_seed,
         auto_reset,
         enable_batch_renderer=False,
+        level_ascii=None,  # NEW: ASCII art level definition
     ):
         from ctypes import byref
 
-        from .ctypes_bindings import MER_ManagerConfig, MER_ManagerHandle
+        from .ctypes_bindings import (
+            MER_ManagerConfig,
+            MER_ManagerHandle,
+            create_compiled_levels_array,
+        )
 
         # Create config
         config = MER_ManagerConfig()
@@ -320,9 +325,28 @@ class SimManager:
         config.batch_render_view_width = 64
         config.batch_render_view_height = 64
 
+        # Compile level if provided
+        compiled_levels_array = None
+        num_compiled_levels = 0
+
+        if level_ascii is not None:
+            # Import level compiler from package
+            from .level_compiler import compile_level
+
+            # Compile the ASCII level
+            compiled_level_dict = compile_level(level_ascii)
+
+            # Create array for all worlds (same level for all worlds for now)
+            compiled_level_dicts = [compiled_level_dict for _ in range(num_worlds)]
+            compiled_levels_array, num_compiled_levels = create_compiled_levels_array(
+                compiled_level_dicts
+            )
+
         # Create handle
         self._handle = MER_ManagerHandle()
-        result = lib.mer_create_manager(byref(self._handle), byref(config))
+        result = lib.mer_create_manager(
+            byref(self._handle), byref(config), compiled_levels_array, num_compiled_levels
+        )
         _check_result(result)
 
     def __del__(self):

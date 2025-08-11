@@ -11,6 +11,7 @@ from ctypes import (
     c_bool,
     c_char,
     c_char_p,
+    c_float,
     c_int,
     c_int32,
     c_int64,
@@ -159,6 +160,20 @@ class MER_ReplayMetadata(Structure):
     ]
 
 
+# Compiled level structure
+class MER_CompiledLevel(Structure):
+    _fields_ = [
+        ("num_tiles", c_int32),
+        ("max_entities", c_int32),
+        ("width", c_int32),
+        ("height", c_int32),
+        ("scale", c_float),
+        ("tile_types", c_int32 * 256),
+        ("tile_x", c_float * 256),
+        ("tile_y", c_float * 256),
+    ]
+
+
 # Manager configuration structure
 class MER_ManagerConfig(Structure):
     _fields_ = [
@@ -190,8 +205,14 @@ class MER_Tensor(Structure):
 lib.mer_create_manager.argtypes = [
     POINTER(MER_ManagerHandle),
     POINTER(MER_ManagerConfig),
+    POINTER(MER_CompiledLevel),  # Array of compiled levels (one per world), NULL for default
+    c_uint32,  # Length of compiled_levels array
 ]
 lib.mer_create_manager.restype = c_int
+
+# Level validation functions
+lib.mer_validate_compiled_level.argtypes = [POINTER(MER_CompiledLevel)]
+lib.mer_validate_compiled_level.restype = c_int
 
 lib.mer_destroy_manager.argtypes = [MER_ManagerHandle]
 lib.mer_destroy_manager.restype = c_int
@@ -297,6 +318,8 @@ class CTypesLib:
             return POINTER(MER_ManagerHandle)(MER_ManagerHandle())
         elif type_name == "MER_Tensor*":
             return POINTER(MER_Tensor)(MER_Tensor())
+        elif type_name == "MER_CompiledLevel*":
+            return POINTER(MER_CompiledLevel)(MER_CompiledLevel())
         else:
             raise ValueError(f"Unknown type: {type_name}")
 
@@ -324,6 +347,80 @@ class CTypesLib:
     def NULL(self):
         """NULL pointer"""
         return None
+
+
+# Helper functions for compiled level integration
+def dict_to_compiled_level(compiled_dict):
+    """
+    Convert compiled level dictionary to MER_CompiledLevel ctypes structure.
+
+    Args:
+        compiled_dict: Output from level_compiler.compile_level()
+
+    Returns:
+        MER_CompiledLevel: ctypes structure ready for C API
+    """
+    level = MER_CompiledLevel()
+    level.num_tiles = compiled_dict["num_tiles"]
+    level.max_entities = compiled_dict["max_entities"]
+    level.width = compiled_dict["width"]
+    level.height = compiled_dict["height"]
+    level.scale = compiled_dict["scale"]
+
+    # Copy arrays - they should already be 256 elements each
+    for i in range(256):
+        level.tile_types[i] = compiled_dict["tile_types"][i]
+        level.tile_x[i] = compiled_dict["tile_x"][i]
+        level.tile_y[i] = compiled_dict["tile_y"][i]
+
+    return level
+
+
+def validate_compiled_level_ctypes(level):
+    """
+    Validate compiled level using C API validation function.
+
+    Args:
+        level: MER_CompiledLevel structure
+
+    Raises:
+        ValueError: If validation fails
+    """
+    result = lib.mer_validate_compiled_level(ctypes.byref(level))
+    if result != MER_SUCCESS:
+        error_msg = lib.mer_result_to_string(result)
+        if error_msg:
+            error_msg = error_msg.decode("utf-8")
+        else:
+            error_msg = f"Error code {result}"
+        raise ValueError(f"Compiled level validation failed: {error_msg}")
+
+
+def create_compiled_levels_array(compiled_level_dicts):
+    """
+    Create ctypes array of compiled levels from list of dictionaries.
+
+    Args:
+        compiled_level_dicts: List of compiled level dictionaries
+
+    Returns:
+        tuple: (ctypes array, array length)
+    """
+    if not compiled_level_dicts:
+        return None, 0
+
+    # Convert each dict to ctypes structure
+    levels = []
+    for compiled_dict in compiled_level_dicts:
+        level = dict_to_compiled_level(compiled_dict)
+        validate_compiled_level_ctypes(level)
+        levels.append(level)
+
+    # Create ctypes array
+    ArrayType = MER_CompiledLevel * len(levels)
+    levels_array = ArrayType(*levels)
+
+    return levels_array, len(levels)
 
 
 # Create instances for compatibility
