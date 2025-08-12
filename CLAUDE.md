@@ -75,19 +75,8 @@ Run simulation without graphics for benchmarking, testing, or server deployment.
 # Essential Commands
 
 ### Building the Project
-```bash
-# Initial setup (from repo root)
-mkdir build
-cmake -B build
-make -C build -j8 -s
 
-# Note: If build fails with compiler errors about -nostdlib++ or -march=x86-64-v3,
-# use the bundled Madrona toolchain:
-# cmake -B build -DCMAKE_TOOLCHAIN_FILE=external/madrona/cmake/toolchain/madrona-toolchain.cmake
-
-# Install Python package (ALWAYS use uv)
-uv pip install -e .
-```
+Use the project-builder agent to build the project
 
 ### Running the Simulation
 ```bash
