@@ -249,16 +249,30 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
             # float scale
             f.write(struct.pack("<f", compiled["scale"]))
 
-            # Arrays: Variable-size arrays based on actual level dimensions
+            # Arrays: Write fixed-size arrays for C++ compatibility
+            # Always write MAX_TILES elements regardless of actual array size
             array_size = compiled["array_size"]
-            for i in range(array_size):
-                f.write(struct.pack("<i", compiled["tile_types"][i]))
 
-            for i in range(array_size):
-                f.write(struct.pack("<f", compiled["tile_x"][i]))
+            # tile_types array - pad with zeros if needed
+            for i in range(1024):  # MAX_TILES = 1024
+                if i < array_size:
+                    f.write(struct.pack("<i", compiled["tile_types"][i]))
+                else:
+                    f.write(struct.pack("<i", 0))  # TILE_EMPTY
 
-            for i in range(array_size):
-                f.write(struct.pack("<f", compiled["tile_y"][i]))
+            # tile_x array - pad with zeros if needed
+            for i in range(1024):  # MAX_TILES = 1024
+                if i < array_size:
+                    f.write(struct.pack("<f", compiled["tile_x"][i]))
+                else:
+                    f.write(struct.pack("<f", 0.0))
+
+            # tile_y array - pad with zeros if needed
+            for i in range(1024):  # MAX_TILES = 1024
+                if i < array_size:
+                    f.write(struct.pack("<f", compiled["tile_y"][i]))
+                else:
+                    f.write(struct.pack("<f", 0.0))
 
     except IOError as e:
         raise IOError(f"Failed to write level file '{filepath}': {e}")
@@ -287,21 +301,21 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             height = struct.unpack("<i", f.read(4))[0]
             scale = struct.unpack("<f", f.read(4))[0]
 
-            # Calculate array size from dimensions
-            array_size = width * height
-
-            # Read arrays based on actual level dimensions
+            # Read fixed-size arrays (always MAX_TILES elements for C++ compatibility)
             tile_types = []
-            for _ in range(array_size):
+            for _ in range(1024):  # MAX_TILES = 1024
                 tile_types.append(struct.unpack("<i", f.read(4))[0])
 
             tile_x = []
-            for _ in range(array_size):
+            for _ in range(1024):  # MAX_TILES = 1024
                 tile_x.append(struct.unpack("<f", f.read(4))[0])
 
             tile_y = []
-            for _ in range(array_size):
+            for _ in range(1024):  # MAX_TILES = 1024
                 tile_y.append(struct.unpack("<f", f.read(4))[0])
+
+            # Calculate expected array size for this level's dimensions
+            array_size = width * height
 
             # Construct dictionary matching compile_level() output
             compiled = {

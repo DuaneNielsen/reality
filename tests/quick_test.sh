@@ -3,9 +3,9 @@
 
 echo "=== Quick CPU Test ==="
 
-# Test headless and capture output
-echo "Headless: 10 worlds, 100 steps"
-output=$(./build/headless --cpu --num-worlds 10 --num-steps 100 --rand-actions 2>&1)
+# Test headless with our new level format
+echo "Headless: 10 worlds, 100 steps with compiled level"
+output=$(./build/headless --load levels/quick_test.lvl -n 10 -s 100 --rand-actions 2>&1)
 
 # Display the output
 echo "$output"
@@ -34,9 +34,9 @@ fi
 
 echo ""
 
-# Test viewer (auto-closes after 3 seconds)
-echo "Viewer: 4 worlds (3 second test)"
-timeout 3s ./build/viewer --num-worlds 4 --cpu || true
+# Test viewer with compiled level (auto-closes after 3 seconds)
+echo "Viewer: 4 worlds (3 second test) with compiled level"
+timeout 3s ./build/viewer --load levels/simple_room.lvl -n 4 --cpu || true
 
 echo ""
 echo "=== Tests complete ==="
