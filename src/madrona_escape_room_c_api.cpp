@@ -86,13 +86,17 @@ MER_Result mer_create_manager(
             cpp_level.height = c_level->height;
             cpp_level.scale = c_level->scale;
             
-            // Copy arrays (only up to num_tiles for efficiency)
+            // Calculate actual array size for this level
+            int32_t array_size = c_level->width * c_level->height;
+            
+            // Copy arrays (full array size for proper GPU indexing)
+            // The arrays contain meaningful data up to num_tiles, rest is zero-filled
             std::memcpy(cpp_level.tile_types, c_level->tile_types,
-                       sizeof(int32_t) * c_level->num_tiles);
+                       sizeof(int32_t) * array_size);
             std::memcpy(cpp_level.tile_x, c_level->tile_x,
-                       sizeof(float) * c_level->num_tiles);
+                       sizeof(float) * array_size);
             std::memcpy(cpp_level.tile_y, c_level->tile_y,
-                       sizeof(float) * c_level->num_tiles);
+                       sizeof(float) * array_size);
             
             cpp_per_world_levels.push_back(cpp_level);
         }
@@ -134,10 +138,19 @@ MER_Result mer_create_manager(
 
 MER_Result mer_validate_compiled_level(const MER_CompiledLevel* level) {
     if (!level) return MER_ERROR_NULL_POINTER;
-    if (level->num_tiles < 0 || level->num_tiles > 256) return MER_ERROR_INVALID_PARAMETER;
+    
+    // Calculate expected array size from dimensions
+    int32_t expected_array_size = level->width * level->height;
+    
+    // Validate basic constraints
+    if (level->num_tiles < 0 || level->num_tiles > expected_array_size) return MER_ERROR_INVALID_PARAMETER;
     if (level->max_entities < 0) return MER_ERROR_INVALID_PARAMETER;
     if (level->width <= 0 || level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
     if (level->scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
+    
+    // Validate array size doesn't exceed our fixed buffer limits
+    if (expected_array_size > CompiledLevel::MAX_TILES) return MER_ERROR_INVALID_PARAMETER;
+    
     return MER_SUCCESS;
 }
 
@@ -446,6 +459,10 @@ MER_Result mer_read_replay_metadata(
     out_metadata->sim_name[sizeof(out_metadata->sim_name) - 1] = '\0';
     
     return MER_SUCCESS;
+}
+
+int32_t mer_get_max_tiles(void) {
+    return CompiledLevel::MAX_TILES;
 }
 
 const char* mer_result_to_string(MER_Result result) {

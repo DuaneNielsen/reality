@@ -82,10 +82,10 @@ typedef struct {
     int32_t height;            // Grid height
     float scale;               // World scale factor
     
-    // Tile data arrays (256 elements each for GPU efficiency)
-    int32_t tile_types[256];   // Type enum for each tile
-    float tile_x[256];         // World X position
-    float tile_y[256];         // World Y position
+    // Tile data arrays (oversized for flexibility, actual size determined by mer_get_max_tiles())
+    int32_t tile_types[2048];   // Type enum for each tile (oversized buffer)
+    float tile_x[2048];         // World X position (oversized buffer)
+    float tile_y[2048];         // World Y position (oversized buffer)
 } MER_CompiledLevel;
 
 // Manager configuration
@@ -210,6 +210,9 @@ MER_EXPORT MER_Result mer_get_replay_step_count(
 
 // Utility functions
 MER_EXPORT const char* mer_result_to_string(MER_Result result);
+
+// Get CompiledLevel constants
+MER_EXPORT int32_t mer_get_max_tiles(void);
 
 #ifdef __cplusplus
 }

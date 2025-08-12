@@ -23,6 +23,13 @@ TILE_DOOR = 4  # Future
 TILE_BUTTON = 5  # Future
 TILE_GOAL = 6  # Future
 
+# Level dimension limits for validation
+MAX_LEVEL_WIDTH = 64
+MAX_LEVEL_HEIGHT = 64
+MIN_LEVEL_WIDTH = 3
+MIN_LEVEL_HEIGHT = 3
+MAX_TOTAL_TILES = 2048  # Reasonable upper bound to prevent accidents
+
 # Character to tile type mapping
 CHAR_MAP = {
     ".": TILE_EMPTY,
@@ -51,7 +58,7 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         - max_entities: BVH size hint (includes persistent entities)
         - width, height: Grid dimensions
         - scale: World scale factor
-        - tile_types, tile_x, tile_y: Arrays of tile data (256 elements each)
+        - tile_types, tile_x, tile_y: Arrays of tile data ({MAX_TILES} elements each)
 
     Raises:
         ValueError: If level is invalid (empty, too large, no spawn points, unknown chars)
@@ -78,6 +85,23 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
 
     if width == 0 or height == 0:
         raise ValueError("Level has zero width or height")
+
+    # Validate dimensions
+    if width < MIN_LEVEL_WIDTH or width > MAX_LEVEL_WIDTH:
+        raise ValueError(
+            f"Level width {width} must be between {MIN_LEVEL_WIDTH} and {MAX_LEVEL_WIDTH}"
+        )
+    if height < MIN_LEVEL_HEIGHT or height > MAX_LEVEL_HEIGHT:
+        raise ValueError(
+            f"Level height {height} must be between {MIN_LEVEL_HEIGHT} and {MAX_LEVEL_HEIGHT}"
+        )
+
+    # Calculate total array size needed
+    array_size = width * height
+    if array_size > MAX_TOTAL_TILES:
+        raise ValueError(
+            f"Level too large: {width}×{height} = {array_size} tiles > {MAX_TOTAL_TILES} max"
+        )
 
     tiles = []
     spawns = []
@@ -114,15 +138,17 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
     max_entities = entity_count + 6 + 30  # tiles + persistent + buffer
 
     # Validate constraints
-    if len(tiles) > 256:
-        raise ValueError(f"Too many tiles: {len(tiles)} > 256 (CompiledLevel::MAX_TILES)")
+    if len(tiles) > array_size:
+        raise ValueError(
+            f"Too many non-empty tiles: {len(tiles)} > {array_size} (level dimensions)"
+        )
     if len(spawns) == 0:
         raise ValueError("No spawn points (S) found in level - at least one required")
 
-    # Build arrays matching C struct layout (256 elements each, zero-padded)
-    tile_types = [0] * 256
-    tile_x = [0.0] * 256
-    tile_y = [0.0] * 256
+    # Build arrays with exact size needed for this level (no wasted space)
+    tile_types = [0] * array_size
+    tile_x = [0.0] * array_size
+    tile_y = [0.0] * array_size
 
     # Fill arrays with actual tile data
     for i, (world_x, world_y, tile_type) in enumerate(tiles):
@@ -130,13 +156,14 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         tile_x[i] = world_x
         tile_y[i] = world_y
 
-    # Return dict matching MER_CompiledLevel struct layout
+    # Return dict with compiler-calculated array sizing
     return {
         "num_tiles": len(tiles),
         "max_entities": max_entities,
         "width": width,
         "height": height,
         "scale": scale,
+        "array_size": array_size,  # NEW: compiler-calculated array size (width × height)
         "tile_types": tile_types,
         "tile_x": tile_x,
         "tile_y": tile_y,
@@ -162,6 +189,7 @@ def validate_compiled_level(compiled: Dict) -> None:
         "width",
         "height",
         "scale",
+        "array_size",
         "tile_types",
         "tile_x",
         "tile_y",
@@ -170,8 +198,10 @@ def validate_compiled_level(compiled: Dict) -> None:
         if field not in compiled:
             raise ValueError(f"Missing required field: {field}")
 
-    if compiled["num_tiles"] < 0 or compiled["num_tiles"] > 256:
-        raise ValueError(f"Invalid num_tiles: {compiled['num_tiles']} (must be 0-256)")
+    # Validate against actual array size for this level
+    array_size = compiled["array_size"]
+    if compiled["num_tiles"] < 0 or compiled["num_tiles"] > array_size:
+        raise ValueError(f"Invalid num_tiles: {compiled['num_tiles']} (must be 0-{array_size})")
 
     if compiled["max_entities"] <= 0:
         raise ValueError(f"Invalid max_entities: {compiled['max_entities']} (must be > 0)")
@@ -182,11 +212,13 @@ def validate_compiled_level(compiled: Dict) -> None:
     if compiled["scale"] <= 0.0:
         raise ValueError(f"Invalid scale: {compiled['scale']} (must be > 0)")
 
-    # Check array lengths
+    # Check array lengths match calculated array size
+    expected_size = compiled["array_size"]
     for array_name in ["tile_types", "tile_x", "tile_y"]:
-        if len(compiled[array_name]) != 256:
+        if len(compiled[array_name]) != expected_size:
             raise ValueError(
-                f"Invalid {array_name} array length: {len(compiled[array_name])} (must be 256)"
+                f"Invalid {array_name} array length: {len(compiled[array_name])} "
+                f"(must be {expected_size})"
             )
 
 
@@ -217,14 +249,15 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
             # float scale
             f.write(struct.pack("<f", compiled["scale"]))
 
-            # Arrays: int32_t tile_types[256], float tile_x[256], float tile_y[256]
-            for i in range(256):
+            # Arrays: Variable-size arrays based on actual level dimensions
+            array_size = compiled["array_size"]
+            for i in range(array_size):
                 f.write(struct.pack("<i", compiled["tile_types"][i]))
 
-            for i in range(256):
+            for i in range(array_size):
                 f.write(struct.pack("<f", compiled["tile_x"][i]))
 
-            for i in range(256):
+            for i in range(array_size):
                 f.write(struct.pack("<f", compiled["tile_y"][i]))
 
     except IOError as e:
@@ -254,17 +287,20 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             height = struct.unpack("<i", f.read(4))[0]
             scale = struct.unpack("<f", f.read(4))[0]
 
-            # Read arrays
+            # Calculate array size from dimensions
+            array_size = width * height
+
+            # Read arrays based on actual level dimensions
             tile_types = []
-            for _ in range(256):
+            for _ in range(array_size):
                 tile_types.append(struct.unpack("<i", f.read(4))[0])
 
             tile_x = []
-            for _ in range(256):
+            for _ in range(array_size):
                 tile_x.append(struct.unpack("<f", f.read(4))[0])
 
             tile_y = []
-            for _ in range(256):
+            for _ in range(array_size):
                 tile_y.append(struct.unpack("<f", f.read(4))[0])
 
             # Construct dictionary matching compile_level() output
@@ -274,6 +310,7 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 "width": width,
                 "height": height,
                 "scale": scale,
+                "array_size": array_size,  # Add calculated array size
                 "tile_types": tile_types,
                 "tile_x": tile_x,
                 "tile_y": tile_y,

@@ -160,7 +160,23 @@ class MER_ReplayMetadata(Structure):
     ]
 
 
-# Compiled level structure
+# Get MAX_TILES from C API - now returns the current C++ constant
+def _get_max_tiles():
+    """Get MAX_TILES from C++ CompiledLevel::MAX_TILES via C API"""
+    try:
+        # Try to get it from the C API if library is loaded
+        if "lib" in globals() and hasattr(lib, "mer_get_max_tiles"):
+            lib.mer_get_max_tiles.restype = c_int32
+            return lib.mer_get_max_tiles()
+    except Exception:
+        pass
+    # Fallback to hardcoded value matching C++ CompiledLevel::MAX_TILES
+    return 1024
+
+
+MAX_TILES = _get_max_tiles()
+
+
 class MER_CompiledLevel(Structure):
     _fields_ = [
         ("num_tiles", c_int32),
@@ -168,9 +184,9 @@ class MER_CompiledLevel(Structure):
         ("width", c_int32),
         ("height", c_int32),
         ("scale", c_float),
-        ("tile_types", c_int32 * 256),
-        ("tile_x", c_float * 256),
-        ("tile_y", c_float * 256),
+        ("tile_types", c_int32 * MAX_TILES),
+        ("tile_x", c_float * MAX_TILES),
+        ("tile_y", c_float * MAX_TILES),
     ]
 
 
@@ -354,6 +370,10 @@ def dict_to_compiled_level(compiled_dict):
     """
     Convert compiled level dictionary to MER_CompiledLevel ctypes structure.
 
+    The compiled_dict contains arrays sized exactly for the level's dimensions
+    (width × height), but the ctypes structure uses fixed MAX_TILES arrays.
+    We copy the actual data and zero-fill the remaining slots.
+
     Args:
         compiled_dict: Output from level_compiler.compile_level()
 
@@ -367,11 +387,24 @@ def dict_to_compiled_level(compiled_dict):
     level.height = compiled_dict["height"]
     level.scale = compiled_dict["scale"]
 
-    # Copy arrays - they should already be 256 elements each
-    for i in range(256):
+    # Get the actual array size for this level
+    array_size = compiled_dict["array_size"]
+
+    # Validate that the compiled level data fits in our fixed-size arrays
+    if array_size > MAX_TILES:
+        raise ValueError(f"Level too large: needs {array_size} tiles but MAX_TILES is {MAX_TILES}")
+
+    # Copy actual data from compiler-calculated arrays
+    for i in range(array_size):
         level.tile_types[i] = compiled_dict["tile_types"][i]
         level.tile_x[i] = compiled_dict["tile_x"][i]
         level.tile_y[i] = compiled_dict["tile_y"][i]
+
+    # Zero-fill remaining slots (important for deterministic behavior)
+    for i in range(array_size, MAX_TILES):
+        level.tile_types[i] = 0  # TILE_EMPTY
+        level.tile_x[i] = 0.0
+        level.tile_y[i] = 0.0
 
     return level
 

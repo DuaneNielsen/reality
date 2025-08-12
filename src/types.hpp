@@ -149,7 +149,7 @@ namespace madEscape {
     // Unified CompiledLevel structure matching C API format
     // This replaces both the C++ CompiledLevel and C API MER_CompiledLevel  
     struct CompiledLevel {
-        static constexpr int32_t MAX_TILES = 256;  // 16x16 grid max
+        static constexpr int32_t MAX_TILES = 1024;  // 32x32 grid max
         
         // Header fields (matching MER_CompiledLevel layout)
         int32_t num_tiles;                // Actual tiles used
