@@ -1,0 +1,12 @@
+{
+  "cpu_1024": {
+    "min_fps": 450000,
+    "warn_fps": 500000,
+    "description": "CPU benchmark with 1024 worlds, 1000 steps"
+  },
+  "gpu_8192": {
+    "min_fps": 5000000,
+    "warn_fps": 5500000,
+    "description": "GPU benchmark with 8192 worlds, 1000 steps"
+  }
+}
