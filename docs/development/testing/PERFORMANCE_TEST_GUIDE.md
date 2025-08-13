@@ -7,13 +7,19 @@ This guide covers the performance testing framework for the Madrona Escape Room,
 ### Running Performance Tests
 
 ```bash
-# Quick CPU test
-uv run python scripts/sim_bench.py --check-baseline
+# Quick CPU test (manual mode)
+uv run python scripts/run_perf.py --worlds 1024 --steps 1000
 
-# Full test suite (CPU + GPU)
-./tests/run_perf_test.sh
+# GPU test with CUDA
+uv run python scripts/run_perf.py --worlds 1024 --steps 1000 --cuda 0
 
-# Custom configuration with profiling
+# Test specific commit
+uv run python scripts/run_perf.py --commit abc123 --worlds 2048 --steps 500
+
+# Nightly mode - test all untested commits
+uv run python scripts/run_perf.py --nightly
+
+# Legacy: Detailed profiling with sim_bench.py
 uv run python scripts/sim_bench.py \
     --num-worlds 2048 \
     --num-steps 500 \
@@ -26,25 +32,42 @@ uv run python scripts/sim_bench.py \
 
 ### Core Components
 
-1. **scripts/sim_bench.py** - Enhanced benchmark script
-   - Measures FPS (frames per second) for simulation steps
+1. **scripts/run_perf.py** - Main performance testing script
+   - **Manual mode**: Test specific commits with custom parameters
+   - **Nightly mode**: Automated testing of all untested commits
+   - Uses headless executable for cross-branch compatibility
+   - Saves comprehensive raw data for each test run
    - Compares against baseline thresholds
-   - Saves detailed profiling data
-   - Returns appropriate exit codes
 
-2. **scripts/performance_baselines.json** - Performance thresholds
+2. **scripts/sim_bench.py** - Advanced benchmark script
+   - Detailed Python-based profiling with pyinstrument
+   - PyTorch tensor operations timing
+   - Interactive profiling analysis
+   - Used for detailed performance investigation
+
+3. **scripts/performance_baselines.json** - Performance thresholds
    - Defines minimum and warning FPS levels
    - Separate baselines for CPU and GPU configurations
    - Easy to update when hardware or optimizations change
 
-3. **tests/run_perf_test.sh** - Automated test runner
-   - Runs standard CPU and GPU benchmarks
-   - Organizes results by timestamp
-   - Provides summary pass/fail status
+4. **perf_results/** - Performance data storage
+   - `runs/{commit_hash}/` - Individual test run data
+   - `history.csv` - Summary performance tracking
+   - `latest.txt` - Morning reports for nightly runs
 
 ## Command-Line Options
 
-### sim_bench.py Arguments
+### run_perf.py Arguments (Primary Tool)
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--nightly` | False | Nightly mode: test all untested commits |
+| `--commit` | HEAD | Test specific commit (default: current HEAD) |
+| `--worlds` | 1024 | Number of parallel worlds to simulate |
+| `--steps` | 1000 | Number of simulation steps to run |
+| `--cuda` | -1 | GPU device ID for CUDA mode (-1 for CPU) |
+
+### sim_bench.py Arguments (Advanced Profiling)
 
 | Argument | Default | Description |
 |----------|---------|-------------|
@@ -83,7 +106,21 @@ Baseline Check:
 
 ### Output Files
 
-When using `--save-profile`, the following files are created:
+#### run_perf.py Output Structure
+
+```
+perf_results/
+├── runs/{commit_hash}/
+│   ├── benchmark_output.txt    # Raw headless executable output
+│   ├── build_log.txt          # Compilation logs
+│   ├── metadata.json          # Structured test results
+│   └── profile_*.html         # Performance profiles (if available)
+├── history.csv                # Summary performance tracking
+├── latest.txt                 # Morning reports for nightly runs
+└── last_tested_commit.txt     # State tracking for nightly mode
+```
+
+#### sim_bench.py Output Structure (Advanced Profiling)
 
 ```
 build/perf_results/20250112_143022/
@@ -95,7 +132,26 @@ build/perf_results/20250112_143022/
     └── [same structure]
 ```
 
-#### results.json Structure
+#### metadata.json Structure (run_perf.py)
+
+```json
+{
+  "timestamp": "2025-01-12T14:30:22",
+  "commit": "eb3ab236482b0bcd6380b3b36e2357c133b68a84",
+  "message": "Enhance performance testing system",
+  "cpu_fps": 1101246,
+  "cpu_status": "PASS",
+  "command": "./build/headless -n 1024 -s 1000",
+  "configuration": {
+    "num_worlds": 1024,
+    "num_steps": 1000,
+    "device": "CPU",
+    "gpu_id": null
+  }
+}
+```
+
+#### results.json Structure (sim_bench.py)
 
 ```json
 {
@@ -160,6 +216,12 @@ Update baselines when:
 
 1. Run benchmarks multiple times to ensure consistency:
    ```bash
+   # Using run_perf.py (recommended)
+   for i in {1..5}; do
+     uv run python scripts/run_perf.py --worlds 1024 --steps 1000
+   done
+   
+   # Using sim_bench.py (for detailed profiling)
    for i in {1..5}; do
      uv run python scripts/sim_bench.py --num-worlds 1024 --num-steps 1000
    done
@@ -218,12 +280,12 @@ Add to `.git/hooks/pre-commit`:
 ```bash
 #!/bin/bash
 # Run quick CPU performance check
-uv run python scripts/sim_bench.py \
-    --num-worlds 100 \
-    --num-steps 100 \
-    --check-baseline
+uv run python scripts/run_perf.py \
+    --worlds 100 \
+    --steps 100
 
-if [ $? -ne 0 ]; then
+# Check if test passed by looking at output
+if echo "$result" | grep -q "Result: FAIL"; then
     echo "Performance regression detected! Check before committing."
     exit 1
 fi
@@ -235,7 +297,8 @@ fi
 
 1. **"No baseline for configuration"**
    - Add new baseline to `performance_baselines.json`
-   - Or use standard configurations (1024 CPU, 8192 GPU)
+   - Or use standard configurations (1024 worlds for CPU, 8192 for GPU)
+   - `run_perf.py` uses simplified baseline checking
 
 2. **Inconsistent Results**
    - Ensure no other heavy processes running
@@ -247,13 +310,22 @@ fi
    - Verify GPU memory available
    - Try smaller world count
 
-4. **Import Errors**
+4. **Build or Import Errors**
+   - `run_perf.py` handles build failures gracefully and reports them
+   - For `sim_bench.py` import errors: rebuild and reinstall
    - Rebuild: `make -C build -j8`
    - Reinstall package: `uv pip install -e .`
 
 ### Performance Debugging
 
 ```bash
+# Quick performance test
+uv run python scripts/run_perf.py --worlds 10 --steps 100
+
+# View saved raw data
+cat perf_results/runs/{commit_hash}/benchmark_output.txt
+cat perf_results/runs/{commit_hash}/metadata.json
+
 # Generate detailed profile for analysis
 uv run python scripts/sim_bench.py \
     --num-worlds 10 \
@@ -270,7 +342,10 @@ diff debug_profile/cpu/results.json baseline_profile/cpu/results.json
 
 ## Best Practices
 
-1. **Warm-up Runs**: The benchmark includes 10 warm-up steps to ensure stable timings
+1. **Choose the Right Tool**:
+   - Use `run_perf.py` for routine performance testing and monitoring
+   - Use `sim_bench.py` for detailed profiling and performance investigation
+   - Use nightly mode for automated regression detection
 
 2. **Consistent Environment**: 
    - Close unnecessary applications
@@ -283,7 +358,8 @@ diff debug_profile/cpu/results.json baseline_profile/cpu/results.json
    - Consider variance in results
 
 4. **Profile Regularly**:
-   - Profile after major changes
+   - Use `run_perf.py` for routine monitoring
+   - Use `sim_bench.py` after major changes for detailed analysis
    - Save profiles for historical comparison
    - Look for unexpected bottlenecks
 
@@ -314,7 +390,19 @@ results = run_benchmark(
 ### Comparative Analysis
 
 ```bash
-# Compare branches
+# Compare branches using run_perf.py
+git checkout main
+uv run python scripts/run_perf.py --worlds 1024 --steps 1000
+main_fps=$(grep "FPS:" perf_results/runs/*/metadata.json | tail -1)
+
+git checkout feature-branch  
+uv run python scripts/run_perf.py --worlds 1024 --steps 1000
+feature_fps=$(grep "FPS:" perf_results/runs/*/metadata.json | tail -1)
+
+echo "Main: $main_fps"
+echo "Feature: $feature_fps"
+
+# Compare using sim_bench.py for detailed analysis
 git checkout main
 ./tests/run_perf_test.sh
 mv build/perf_results build/perf_results_main
@@ -329,8 +417,40 @@ python scripts/compare_perf.py \
     build/perf_results_feature
 ```
 
+## Usage Examples
+
+### Manual Testing
+
+```bash
+# Test current commit with default settings
+uv run python scripts/run_perf.py
+
+# Test specific commit with custom parameters
+uv run python scripts/run_perf.py --commit abc123 --worlds 2048 --steps 500
+
+# GPU performance test
+uv run python scripts/run_perf.py --cuda 0 --worlds 8192 --steps 1000
+
+# Quick smoke test
+uv run python scripts/run_perf.py --worlds 10 --steps 50
+```
+
+### Nightly Testing
+
+```bash
+# Run nightly performance testing (tests all untested commits)
+uv run python scripts/run_perf.py --nightly
+
+# View morning report
+cat perf_results/latest.txt
+
+# Check performance history
+cat perf_results/history.csv
+```
+
 ## Related Documentation
 
 - [Testing Guide](TESTING_GUIDE.md) - General testing practices
-- [sim_bench.py](../../../scripts/sim_bench.py) - Benchmark script source
+- [run_perf.py](../../../scripts/run_perf.py) - Main performance testing script
+- [sim_bench.py](../../../scripts/sim_bench.py) - Advanced benchmark script
 - [Headless Mode](../../deployment/headless/HEADLESS_MODE.md) - Running without graphics
