@@ -39,3 +39,9 @@ dist/
 .venv/
 venv/
 env/
+
+# Performance testing data
+/perf_results/
+
+# Benchmark profile outputs
+/tmp/sim_bench_profile_*.html
