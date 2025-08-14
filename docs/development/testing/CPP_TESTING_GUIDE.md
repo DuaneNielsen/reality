@@ -4,7 +4,7 @@ This guide covers writing and running C++ unit tests for the Madrona Escape Room
 
 ## Overview
 
-The project uses GoogleTest (gtest) for C++ unit testing. Tests are located in `tests/cpp/` and are built separately from the main project to keep the build clean.
+The project uses GoogleTest (gtest) for C++ unit testing, leveraging Madrona's pre-configured GoogleTest build to ensure ABI compatibility with the custom toolchain. Tests are located in `tests/cpp/` and are built separately from the main project to keep the build clean.
 
 ## Project Constraints
 
@@ -19,13 +19,22 @@ These constraints are automatically applied to all test builds.
 
 ```
 tests/cpp/
-├── CMakeLists.txt          # Test build configuration
-├── fixtures/               # Shared test fixtures
-│   ├── test_base.hpp      # Base test fixture classes
-│   └── test_levels.hpp    # Test level data and helpers
-└── unit/                   # Unit test files
-    ├── test_c_api_cpu.cpp # CPU API tests
-    └── test_c_api_gpu.cpp # GPU API tests
+├── CMakeLists.txt               # Test build configuration
+├── fixtures/                    # Shared test fixtures and utilities
+│   ├── test_base.hpp           # C API test fixture classes
+│   ├── cpp_test_base.hpp       # Direct C++ test fixture classes
+│   ├── viewer_test_base.hpp    # ViewerCore test fixtures
+│   ├── mock_components.hpp     # Mock objects for testing
+│   └── test_levels.hpp         # Test level data and helpers
+├── unit/                        # Unit test files
+│   ├── test_c_api_cpu.cpp     # C API CPU tests
+│   ├── test_c_api_gpu.cpp     # C API GPU tests
+│   ├── test_direct_cpp.cpp    # Direct C++ Manager tests
+│   └── test_viewer_core.cpp   # ViewerCore tests
+├── integration/                 # Integration test files
+│   └── test_viewer_integration.cpp
+└── e2e/                        # End-to-end test files
+    └── test_viewer_workflows.cpp
 ```
 
 ## Building Tests
@@ -39,6 +48,8 @@ cmake -B build -DBUILD_TESTS=ON
 # Build the tests
 make -C build mad_escape_tests -j8
 ```
+
+**Note**: When `BUILD_TESTS=ON` is set, the build system automatically sets `MADRONA_ENABLE_TESTS=ON` to ensure GoogleTest is built with Madrona's custom toolchain, avoiding ABI compatibility issues.
 
 ## Running Tests
 
@@ -170,8 +181,9 @@ TEST_F(MyTest, TestName) {
 
 ### Available Test Fixtures
 
-#### MadronaTestBase
-Base fixture providing manager creation and cleanup:
+#### C API Test Fixtures (Legacy)
+
+**MadronaTestBase** - Base fixture for C API tests:
 ```cpp
 class MyTest : public MadronaTestBase {
     // Provides:
@@ -183,22 +195,49 @@ class MyTest : public MadronaTestBase {
 };
 ```
 
-#### MadronaGPUTest
-Fixture for GPU tests with automatic skip if CUDA unavailable:
+#### Direct C++ Test Fixtures (Recommended)
+
+**MadronaCppTestBase** - Base fixture for direct C++ tests:
 ```cpp
-class MyGPUTest : public MadronaGPUTest {
-    // Automatically skips test if CUDA not available
+class MyTest : public MadronaCppTestBase {
+protected:
+    std::unique_ptr<Manager> mgr;
+    Manager::Config config;
+    std::vector<std::optional<CompiledLevel>> testLevels;
+    
+    // Automatically creates test levels in SetUp()
+    // Provides CreateManager() helper that handles level creation
+    // Provides ValidateTensorShape() for tensor validation
 };
 ```
 
-#### MadronaWorldCountTest
-Parameterized test for testing with different world counts:
+**ViewerCoreTestBase** - Fixture for ViewerCore tests:
 ```cpp
-class MyWorldTest : public MadronaWorldCountTest {};
+class MyViewerTest : public ViewerCoreTestBase {
+protected:
+    std::unique_ptr<ViewerCore> viewer;
+    ViewerCore::Config viewerConfig;
+    
+    // Inherits from MadronaCppTestBase
+    // Provides CreateViewer() helper
+};
+```
+
+**MadronaCppGPUTest** - GPU test fixture with mutex for process safety:
+```cpp
+class MyGPUTest : public MadronaCppGPUTest {
+    // Automatically skips if ALLOW_GPU_TESTS_IN_SUITE != 1
+    // Uses mutex to ensure sequential GPU test execution
+};
+```
+
+**MadronaCppWorldCountTest** - Parameterized test for world counts:
+```cpp
+class MyWorldTest : public MadronaCppWorldCountTest {};
 
 TEST_P(MyWorldTest, TestName) {
     // GetParam() returns the world count
-    config.num_worlds = GetParam();
+    // config.numWorlds automatically set from parameter
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -296,38 +335,136 @@ This makes it easy to integrate with CI systems:
 ./tests/run_cpp_tests.sh --cpu-only || exit 1
 ```
 
+## Test Architecture
+
+### Design Philosophy
+
+The test architecture supports two approaches:
+1. **C API Testing**: Tests the C API wrapper (primarily for validation of the C API itself)
+2. **Direct C++ Testing**: Tests C++ classes directly without wrapper overhead (recommended for most tests)
+
+### Key Components
+
+#### GoogleTest Integration
+- Uses Madrona's pre-built GoogleTest from `external/madrona/external/googletest`
+- Automatically linked with Madrona's custom toolchain (`madrona_libcxx`)
+- Ensures ABI compatibility (avoids `std::__1` vs `std::__mad1` namespace conflicts)
+
+#### Test Level Management
+- All test fixtures automatically create simple 16x16 test levels
+- Levels use `std::optional<CompiledLevel>` for per-world configuration
+- Test levels are minimal (empty tiles) to reduce overhead
+
+#### Tensor Shape Expectations
+- Action tensor: 2D `[numWorlds * numAgents, actionDims]` where:
+  - numAgents = 1 (from `consts.hpp`)
+  - actionDims = 3 (moveAmount, moveAngle, rotate)
+- Observation tensors: 3D `[numWorlds, numAgents, features]`
+- Reward/Done tensors: 3D `[numWorlds, numAgents, 1]`
+
+### Migration from C API to Direct C++
+
+When migrating tests from C API to direct C++:
+
+1. **Change base class**:
+   ```cpp
+   // Before
+   class MyTest : public MadronaTestBase { ... };
+   
+   // After  
+   class MyTest : public MadronaCppTestBase { ... };
+   ```
+
+2. **Update setup**:
+   ```cpp
+   // Before (C API)
+   MER_ManagerHandle handle = MER_CreateManager(&config);
+   
+   // After (Direct C++)
+   ASSERT_TRUE(CreateManager());  // Uses RAII via unique_ptr
+   ```
+
+3. **Access members directly**:
+   ```cpp
+   // Before
+   MER_GetNumWorlds(handle);
+   
+   // After
+   mgr->numWorlds();
+   ```
+
 ## Common Issues
 
 ### Tests Not Building
 - Ensure `-DBUILD_TESTS=ON` is set when configuring CMake
+- This automatically sets `MADRONA_ENABLE_TESTS=ON` for GoogleTest
 - Check that GoogleTest is available in `external/madrona/external/googletest`
 
 ### GPU Tests Failing
 - GPU tests automatically skip if CUDA is not available
 - Check CUDA installation with `nvidia-smi`
 - Ensure CUDA libraries are in LD_LIBRARY_PATH
+- Set `ALLOW_GPU_TESTS_IN_SUITE=1` to run GPU tests in main suite
 
 ### Linking Errors
 - Tests must be compiled with same flags as main project (`-fno-rtti -fno-exceptions`)
-- This is handled automatically by the CMakeLists.txt
+- This is handled automatically by using Madrona's GoogleTest build
+- ABI compatibility is ensured by linking with `madrona_libcxx`
+
+### Namespace Conflicts
+- If you see errors about `std::__1` vs `std::__mad1`, ensure:
+  - You're not building GoogleTest separately
+  - `MADRONA_ENABLE_TESTS` is set before including external directories
+  - You're using the gtest_main target from Madrona's build
 
 ## Adding New Tests
 
-1. Create new test file in `tests/cpp/unit/`
-2. Include necessary headers and fixtures
-3. Write tests using GoogleTest macros
-4. Add the file to `TEST_SOURCES` in `tests/cpp/CMakeLists.txt`
-5. Rebuild and run tests
+### For Direct C++ Tests (Recommended)
 
-Example:
+1. Create new test file in appropriate directory:
+   - `tests/cpp/unit/` for unit tests
+   - `tests/cpp/integration/` for integration tests
+   - `tests/cpp/e2e/` for end-to-end tests
+
+2. Include the appropriate base fixture:
 ```cpp
 // tests/cpp/unit/test_new_feature.cpp
-#include <gtest/gtest.h>
-#include "test_base.hpp"
+#include "cpp_test_base.hpp"
+#include "mgr.hpp"  // Include C++ headers directly
 
-TEST_F(MadronaTestBase, NewFeature) {
+using namespace madEscape;
+
+class NewFeatureTest : public MadronaCppTestBase {};
+
+TEST_F(NewFeatureTest, BasicFunctionality) {
     ASSERT_TRUE(CreateManager());
+    
+    // Direct access to C++ objects
+    auto actionTensor = mgr->actionTensor();
+    EXPECT_EQ(actionTensor.numDims(), 2);
+    
     // Test implementation
+}
+```
+
+3. Add the file to `TEST_SOURCES` in `tests/cpp/CMakeLists.txt`
+
+4. Rebuild and run:
+```bash
+make -C build mad_escape_tests -j8
+./build/mad_escape_tests --gtest_filter="NewFeatureTest.*"
+```
+
+### For C API Tests (When Testing C API Itself)
+
+```cpp
+// tests/cpp/unit/test_c_api_feature.cpp
+#include "test_base.hpp"
+#include "madrona_escape_room_c_api.h"
+
+TEST_F(MadronaTestBase, CApiFeature) {
+    ASSERT_TRUE(CreateManager());
+    // Test C API functionality
 }
 ```
 

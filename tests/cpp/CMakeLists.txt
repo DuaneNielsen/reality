@@ -79,33 +79,6 @@ add_test(NAME mad_escape_tests
          COMMAND mad_escape_tests
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
-# Add simple test executable without GoogleTest
-add_executable(test_simple_direct
-    unit/test_simple_direct.cpp
-)
-
-target_include_directories(test_simple_direct PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/include
-)
-
-target_link_libraries(test_simple_direct
-    PRIVATE
-        mad_escape_mgr
-        viewer_core
-        madrona_mw_core
-)
-
-target_compile_options(test_simple_direct PRIVATE
-    -fno-rtti
-    -fno-exceptions
-)
-
-set_target_properties(test_simple_direct PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED ON
-)
-
 # Add custom target for running C++ tests only
 add_custom_target(run_cpp_tests
     COMMAND ${CMAKE_CTEST_COMMAND} --label-regex cpp --output-on-failure

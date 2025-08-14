@@ -3,9 +3,14 @@
 #include <gtest/gtest.h>
 #include "mgr.hpp"
 #include "viewer_core.hpp"
+#include "types.hpp"
 #include <memory>
 #include <vector>
 #include <string>
+#include <mutex>
+#include <cstdlib>
+#include <optional>
+#include <cmath>
 
 namespace madEscape {
 
@@ -14,8 +19,12 @@ class MadronaCppTestBase : public ::testing::Test {
 protected:
     std::unique_ptr<Manager> mgr;
     Manager::Config config;
+    std::vector<std::optional<CompiledLevel>> testLevels;
     
     void SetUp() override {
+        // Create simple test levels
+        CreateTestLevels();
+        
         // Default config - can be overridden in derived classes
         config.execMode = madrona::ExecMode::CPU;
         config.gpuID = 0;
@@ -23,14 +32,67 @@ protected:
         config.randSeed = 42;
         config.autoReset = true;
         config.enableBatchRenderer = false;
+        config.batchRenderViewWidth = 64;
+        config.batchRenderViewHeight = 64;
+        config.extRenderAPI = nullptr;
+        config.extRenderDev = nullptr;
+        config.enableTrajectoryTracking = false;
+        config.perWorldCompiledLevels = testLevels;
     }
     
     void TearDown() override {
         mgr.reset();
+        testLevels.clear();
+    }
+    
+    // Helper to create simple test levels
+    void CreateTestLevels() {
+        // Create a simple 16x16 level for testing
+        CompiledLevel level {};
+        level.width = 16;
+        level.height = 16;
+        level.scale = 1.0f;
+        level.num_tiles = 256;
+        level.max_entities = level.num_tiles + 6 + 30; // tiles + persistent + buffer
+        
+        // Fill with empty tiles
+        for (int i = 0; i < level.num_tiles; i++) {
+            level.tile_types[i] = 0;  // Empty
+            level.tile_x[i] = (i % 16) * level.scale;
+            level.tile_y[i] = (i / 16) * level.scale;
+        }
+        
+        // Create levels for all worlds (default 4)
+        testLevels.clear();
+        for (int i = 0; i < 4; i++) {
+            testLevels.push_back(std::make_optional(level));
+        }
     }
     
     // Helper to create manager
     ::testing::AssertionResult CreateManager() {
+        // Ensure we have the right number of levels for the configured worlds
+        if (testLevels.size() != static_cast<size_t>(config.numWorlds)) {
+            testLevels.clear();
+            for (int i = 0; i < config.numWorlds; i++) {
+                CompiledLevel level {};
+                level.width = 16;
+                level.height = 16;
+                level.scale = 1.0f;
+                level.num_tiles = 256;
+                level.max_entities = level.num_tiles + 6 + 30;
+                
+                for (int j = 0; j < level.num_tiles; j++) {
+                    level.tile_types[j] = 0;
+                    level.tile_x[j] = (j % 16) * level.scale;
+                    level.tile_y[j] = (j / 16) * level.scale;
+                }
+                testLevels.push_back(std::make_optional(level));
+            }
+            config.perWorldCompiledLevels = testLevels;
+        }
+        
+        // Note: exceptions are disabled in this project, so we can't use try/catch
         mgr = std::make_unique<Manager>(config);
         if (!mgr) {
             return ::testing::AssertionFailure() 
