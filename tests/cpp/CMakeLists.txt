@@ -22,6 +22,10 @@ set(TEST_SOURCES
     unit/test_option_parser.cpp
     unit/test_level_utilities.cpp
     unit/test_recording_utilities.cpp
+    integration/test_viewer_integration.cpp
+    integration/test_viewer_input.cpp
+    integration/test_viewer_errors.cpp
+    e2e/test_viewer_workflows.cpp
 )
 
 # Create test executable
