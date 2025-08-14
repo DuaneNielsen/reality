@@ -128,18 +128,32 @@ static void resetPersistentEntities(Engine &ctx)
     registerRigidBodyEntity(ctx, ctx.data().floorPlane, SimObject::Plane);
 
      // Phase 1.1: Border wall registration removed - using hardcoded 16x16 room instead
+     
+     // Get spawn positions from compiled level
+     CompiledLevel& level = ctx.singleton<CompiledLevel>();
+     
 
      for (CountT i = 0; i < consts::numAgents; i++) {
          Entity agent_entity = ctx.data().agents[i];
          registerRigidBodyEntity(ctx, agent_entity, SimObject::Agent);
 
-         // Place agents in center of 16x16 room
-         // In Phase 2, spawn positions will come from CompiledLevel
-         Vector3 pos {
-             i * 2.0f - 1.0f,  // Slight offset between agents
-             0.0f,              // Center of room  
-             1.0f,              // Above ground
-         };
+         // Use spawn positions from level if available, otherwise use defaults
+         Vector3 pos;
+         if (i < level.num_spawns) {
+             // Use spawn position from level data
+             pos = Vector3 {
+                 level.spawn_x[i],
+                 level.spawn_y[i],
+                 1.0f  // Above ground
+             };
+         } else {
+             // Fallback: place agents in center with slight offset
+             pos = Vector3 {
+                 i * 2.0f - 1.0f,  // Slight offset between agents
+                 0.0f,              // Center of room  
+                 1.0f,              // Above ground
+             };
+         }
 
          ctx.get<Position>(agent_entity) = pos;
          // Phase 1.1: Fixed rotation for hardcoded room

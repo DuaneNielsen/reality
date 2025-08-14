@@ -58,13 +58,18 @@ def cpu_manager(request):
     import madrona_escape_room
     from madrona_escape_room import SimManager
 
+    # Check if test has a custom_level marker
+    marker = request.node.get_closest_marker("custom_level")
+    level_ascii = marker.args[0] if marker else None
+
     mgr = SimManager(
         exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
-        auto_reset=True,
+        auto_reset=False,  # Manual control for reward tests
+        level_ascii=level_ascii,  # Use custom level if provided via marker
     )
 
     # Check for debug flags
@@ -305,8 +310,12 @@ def gpu_env(request):
 
 
 @pytest.fixture(scope="module")
-def test_manager(request):
-    """Create a test manager for reward system tests"""
+def _test_manager(request):
+    """Private fixture: Create a test manager for reward system tests (module-scoped)
+
+    Note: Use cpu_manager instead for individual tests that need custom levels.
+    This fixture is module-scoped and doesn't support per-test custom levels.
+    """
     import madrona_escape_room
     from madrona_escape_room import SimManager
 
@@ -331,8 +340,8 @@ def per_test_recording_handler(request):
 
     # Only run if we have either recording or tracing enabled
     if record_actions or trace_trajectories:
-        # Only get test_manager when we actually need it
-        test_manager = request.getfixturevalue("test_manager")
+        # Only get _test_manager when we actually need it
+        test_manager = request.getfixturevalue("_test_manager")
         # Create test-specific files
         test_name = request.node.nodeid.replace("::", "__")
         test_filename = test_name.split("/")[-1] if "/" in test_name else test_name

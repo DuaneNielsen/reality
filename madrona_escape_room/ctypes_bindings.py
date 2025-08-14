@@ -184,6 +184,9 @@ class MER_CompiledLevel(Structure):
         ("width", c_int32),
         ("height", c_int32),
         ("scale", c_float),
+        ("num_spawns", c_int32),
+        ("spawn_x", c_float * 8),  # MAX_SPAWNS = 8
+        ("spawn_y", c_float * 8),  # MAX_SPAWNS = 8
         ("tile_types", c_int32 * MAX_TILES),
         ("tile_x", c_float * MAX_TILES),
         ("tile_y", c_float * MAX_TILES),
@@ -386,6 +389,12 @@ def dict_to_compiled_level(compiled_dict):
     level.width = compiled_dict["width"]
     level.height = compiled_dict["height"]
     level.scale = compiled_dict["scale"]
+
+    # Copy spawn data
+    level.num_spawns = compiled_dict["num_spawns"]
+    for i in range(8):  # MAX_SPAWNS
+        level.spawn_x[i] = compiled_dict["spawn_x"][i]
+        level.spawn_y[i] = compiled_dict["spawn_y"][i]
 
     # Get the actual array size for this level
     array_size = compiled_dict["array_size"]

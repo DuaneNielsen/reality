@@ -130,8 +130,9 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
                 tile_type = CHAR_MAP[char]
 
                 # Convert grid coordinates to world coordinates (center at origin)
-                world_x = (x - width / 2.0) * scale
-                world_y = (y - height / 2.0) * scale
+                # Note: Y is inverted because ASCII Y=0 is at top, but world Y+ is up
+                world_x = (x - width / 2.0 + 0.5) * scale
+                world_y = -(y - height / 2.0 + 0.5) * scale
 
                 if tile_type == TILE_SPAWN:
                     spawns.append((world_x, world_y))
@@ -172,6 +173,16 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         tile_x[i] = world_x
         tile_y[i] = world_y
 
+    # Prepare spawn arrays (MAX_SPAWNS = 8)
+    MAX_SPAWNS = 8
+    spawn_x = [0.0] * MAX_SPAWNS
+    spawn_y = [0.0] * MAX_SPAWNS
+    num_spawns = min(len(spawns), MAX_SPAWNS)
+
+    for i in range(num_spawns):
+        spawn_x[i] = spawns[i][0]
+        spawn_y[i] = spawns[i][1]
+
     # Return dict with compiler-calculated array sizing
     return {
         "num_tiles": len(tiles),
@@ -179,6 +190,9 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         "width": width,
         "height": height,
         "scale": scale,
+        "num_spawns": num_spawns,
+        "spawn_x": spawn_x,
+        "spawn_y": spawn_y,
         "array_size": array_size,  # NEW: compiler-calculated array size (width × height)
         "tile_types": tile_types,
         "tile_x": tile_x,
@@ -205,6 +219,9 @@ def validate_compiled_level(compiled: Dict) -> None:
         "width",
         "height",
         "scale",
+        "num_spawns",
+        "spawn_x",
+        "spawn_y",
         "array_size",
         "tile_types",
         "tile_x",
@@ -263,6 +280,17 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
 
             # float scale
             f.write(struct.pack("<f", compiled["scale"]))
+
+            # Spawn data
+            f.write(struct.pack("<i", compiled["num_spawns"]))
+
+            # spawn_x array - always write 8 elements (MAX_SPAWNS)
+            for i in range(8):
+                f.write(struct.pack("<f", compiled["spawn_x"][i]))
+
+            # spawn_y array - always write 8 elements (MAX_SPAWNS)
+            for i in range(8):
+                f.write(struct.pack("<f", compiled["spawn_y"][i]))
 
             # Arrays: Write fixed-size arrays for C++ compatibility
             # Always write MAX_TILES_C_API elements regardless of actual array size

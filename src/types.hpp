@@ -150,6 +150,7 @@ namespace madEscape {
     // This replaces both the C++ CompiledLevel and C API MER_CompiledLevel  
     struct CompiledLevel {
         static constexpr int32_t MAX_TILES = 1024;  // 32x32 grid max
+        static constexpr int32_t MAX_SPAWNS = 8;    // Max spawn points
         
         // Header fields (matching MER_CompiledLevel layout)
         int32_t num_tiles;                // Actual tiles used
@@ -158,13 +159,15 @@ namespace madEscape {
         int32_t height;                   // Grid height  
         float scale;                      // World scale factor
         
+        // Spawn data
+        int32_t num_spawns;               // Number of spawn points
+        float spawn_x[MAX_SPAWNS];        // Spawn X positions
+        float spawn_y[MAX_SPAWNS];        // Spawn Y positions
+        
         // Tile data arrays (packed for GPU efficiency)
         int32_t tile_types[MAX_TILES];    // Type enum for each tile
         float tile_x[MAX_TILES];          // World X position
         float tile_y[MAX_TILES];          // World Y position
-        
-        // Note: Spawn points are handled via 'S' tiles in the level data
-        // No separate spawn arrays needed - spawn positions extracted from tile data
     };
 
     // [GAME_SPECIFIC]

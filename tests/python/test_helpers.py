@@ -109,9 +109,11 @@ class ObservationReader:
         self.mgr = manager
 
     def get_position(self, world_idx: int, agent_idx: int = 0) -> np.ndarray:
-        """Get agent's current position (x, y, z)"""
+        """Get agent's current position (x, y, z) - denormalized to world coordinates"""
         obs = self.mgr.self_observation_tensor().to_torch()
-        return obs[world_idx, agent_idx, :3].cpu().numpy()
+        # Observations are normalized by worldLength (40.0) - denormalize them
+        normalized_pos = obs[world_idx, agent_idx, :3].cpu().numpy()
+        return normalized_pos * 40.0  # worldLength = 40.0
 
     def get_normalized_position(self, world_idx: int, agent_idx: int = 0) -> tuple:
         """Get agent's normalized position (x_norm, y_norm, z_norm)"""
