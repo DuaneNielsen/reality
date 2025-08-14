@@ -263,13 +263,9 @@ void ViewerCore::stepSimulation() {
     }
     
     // Load actions from replay if replaying
+    bool replay_finished = false;
     if (state_machine_.isReplaying()) {
-        bool finished = loadReplayActions();
-        if (finished) {
-            state_machine_.finishReplay();
-            should_exit_ = true;
-            return;
-        }
+        replay_finished = loadReplayActions();
     }
     
     // Don't call recordActions here - Manager::step() handles recording internally
@@ -277,6 +273,12 @@ void ViewerCore::stepSimulation() {
     
     // Always step the simulation (unless paused or finished)
     mgr_->step();
+    
+    // After stepping, check if replay finished
+    if (replay_finished) {
+        state_machine_.finishReplay();
+        should_exit_ = true;
+    }
     
     // Reset frame actions for next frame
     if (state_machine_.isRecording()) {
