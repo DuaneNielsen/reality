@@ -1201,7 +1201,7 @@ bool Manager::replayStep()
     const auto& metadata = impl_->replayData->metadata;
     
     for (uint32_t i = 0; i < metadata.num_worlds; i++) {
-        uint32_t base_idx = 3 * (impl_->currentReplayStep * metadata.num_worlds + i);
+        uint32_t base_idx = (impl_->currentReplayStep * metadata.num_worlds * 3) + (i * 3);
         
         int32_t move_amount = actions[base_idx];
         int32_t move_angle = actions[base_idx + 1];

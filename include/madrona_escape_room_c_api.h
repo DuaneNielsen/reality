@@ -82,10 +82,10 @@ typedef struct {
     int32_t height;            // Grid height
     float scale;               // World scale factor
     
-    // Tile data arrays (oversized for flexibility, actual size determined by mer_get_max_tiles())
-    int32_t tile_types[2048];   // Type enum for each tile (oversized buffer)
-    float tile_x[2048];         // World X position (oversized buffer)
-    float tile_y[2048];         // World Y position (oversized buffer)
+    // Tile data arrays (size matches CompiledLevel::MAX_TILES, use mer_get_max_tiles() to get value)
+    int32_t tile_types[1024];   // Type enum for each tile (MAX_TILES buffer)
+    float tile_x[1024];         // World X position (MAX_TILES buffer)
+    float tile_y[1024];         // World Y position (MAX_TILES buffer)
 } MER_CompiledLevel;
 
 // Manager configuration

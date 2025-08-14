@@ -79,31 +79,8 @@ target_include_directories(headless PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../external/optionparser
 )
 
-# Test executables for C wrapper
-
-# Separate CPU test
-add_executable(test_c_wrapper_cpu test_c_wrapper_cpu.cpp)
-target_link_libraries(test_c_wrapper_cpu 
-    PRIVATE
-        madrona_escape_room_c_api
-        mad_escape_mgr
-)
-target_include_directories(test_c_wrapper_cpu PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-# Separate GPU test
-add_executable(test_c_wrapper_gpu test_c_wrapper_gpu.cpp)
-target_link_libraries(test_c_wrapper_gpu 
-    PRIVATE
-        madrona_escape_room_c_api
-        mad_escape_mgr
-)
-target_include_directories(test_c_wrapper_gpu PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
+# Test executables moved to tests/cpp/CMakeLists.txt
+# To build tests, use: cmake -DBUILD_TESTS=ON ..
 
 # C API wrapper library
 add_library(madrona_escape_room_c_api SHARED

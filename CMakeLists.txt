@@ -9,3 +9,9 @@ include(dependencies)
 
 add_subdirectory(external)
 add_subdirectory(src)
+
+# Option to build C++ tests
+option(BUILD_TESTS "Build C++ unit tests" OFF)
+if(BUILD_TESTS)
+    add_subdirectory(tests/cpp)
+endif()

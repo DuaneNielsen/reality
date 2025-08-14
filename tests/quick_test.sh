@@ -39,4 +39,14 @@ echo "Viewer: 4 worlds (3 second test) with compiled level"
 timeout 3s ./build/viewer --load levels/simple_room.lvl -n 4 --cpu || true
 
 echo ""
+
+# Run C++ unit tests if they're built
+if [ -f ./build/tests/cpp/mad_escape_tests ]; then
+    echo "=== Running C++ Unit Tests (CPU only) ==="
+    ./build/tests/cpp/mad_escape_tests --gtest_filter="*CPU*" --gtest_color=yes
+    echo ""
+else
+    echo "C++ tests not built. Run with: cmake -DBUILD_TESTS=ON && make mad_escape_tests"
+fi
+
 echo "=== Tests complete ==="
