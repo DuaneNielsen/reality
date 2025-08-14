@@ -98,7 +98,7 @@ public:
     void startRecording(const std::string& path);
     void stopRecording();
     void loadReplay(const std::string& path);
-    bool replayStep();
+    bool loadReplayActions();
     
     // Trajectory tracking control
     void toggleTrajectoryTracking(int world_idx);

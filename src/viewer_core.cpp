@@ -201,10 +201,10 @@ void ViewerCore::computeActionsFromInput(int world_idx) {
     if (input.keys_pressed[InputEvent::A]) x -= 1;
     
     if (input.keys_pressed[InputEvent::Q]) {
-        r += input.shift_pressed ? 2 : 1;
+        r -= input.shift_pressed ? 2 : 1;  // Q rotates left (decreases r)
     }
     if (input.keys_pressed[InputEvent::E]) {
-        r -= input.shift_pressed ? 2 : 1;
+        r += input.shift_pressed ? 2 : 1;  // E rotates right (increases r)
     }
     
     // Compute move amount
@@ -247,10 +247,8 @@ void ViewerCore::computeActionsFromInput(int world_idx) {
     // Set action in manager
     mgr_->setAction(world_idx, move_amount, move_angle, r);
     
-    // Update frame actions for recording
-    if (state_machine_.isRecording()) {
-        action_manager_.setAction(world_idx, move_amount, move_angle, r);
-    }
+    // Always update frame actions (needed for testing and monitoring)
+    action_manager_.setAction(world_idx, move_amount, move_angle, r);
 }
 
 void ViewerCore::updateFrameActions(int world_idx, int agent_idx) {
@@ -264,9 +262,9 @@ void ViewerCore::stepSimulation() {
         return;
     }
     
-    // Handle replay
+    // Load actions from replay if replaying
     if (state_machine_.isReplaying()) {
-        bool finished = replayStep();
+        bool finished = loadReplayActions();
         if (finished) {
             state_machine_.finishReplay();
             should_exit_ = true;
@@ -274,12 +272,10 @@ void ViewerCore::stepSimulation() {
         }
     }
     
-    // Record actions if recording
-    if (state_machine_.shouldRecordFrame()) {
-        mgr_->recordActions(action_manager_.getFrameActions());
-    }
+    // Don't call recordActions here - Manager::step() handles recording internally
+    // when recording is active
     
-    // Step the simulation
+    // Always step the simulation (unless paused or finished)
     mgr_->step();
     
     // Reset frame actions for next frame
@@ -313,11 +309,13 @@ void ViewerCore::loadReplay(const std::string& path) {
     state_machine_.startReplay();
 }
 
-bool ViewerCore::replayStep() {
+bool ViewerCore::loadReplayActions() {
     if (!mgr_->hasReplay()) {
         return true;  // Finished
     }
     
+    // Load actions from replay data and increment replay counter
+    // Does NOT step the simulation - that happens separately in stepSimulation()
     return mgr_->replayStep();
 }
 

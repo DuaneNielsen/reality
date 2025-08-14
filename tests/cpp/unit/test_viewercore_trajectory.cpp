@@ -328,7 +328,7 @@ TEST_F(ViewerCoreTrajectoryTest, StateMachineTransitions) {
     config.rand_seed = 42;
     config.auto_reset = true;
     config.load_path = "";
-    config.record_path = "test_state_recording.rec";
+    config.record_path = "";  // Don't set record_path initially to start in Idle
     config.replay_path = "";
     
     ViewerCore core(config, &mgr);
