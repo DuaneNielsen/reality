@@ -5,7 +5,6 @@
 #include "sim.hpp"
 #include "mgr.hpp"
 #include "types.hpp"
-#include "viewer_core.hpp"
 
 #include <optionparser.h>
 
@@ -20,6 +19,8 @@
 
 using namespace madrona;
 using namespace madrona::viz;
+
+// Replay functionality moved to Manager class
 
 namespace ArgChecker {
     static option::ArgStatus Required(const option::Option& option, bool msg)
@@ -70,6 +71,7 @@ const option::Descriptor usage[] = {
 int main(int argc, char *argv[])
 {
     using namespace madEscape;
+
 
     // Parse arguments
     argc-=(argc>0); argv+=(argc>0); // skip program name argv[0] if present
@@ -130,6 +132,7 @@ int main(int argc, char *argv[])
     int32_t track_agent_idx = 0;  // Default to agent 0
     bool track_trajectory = false;
     std::string track_file;
+    bool is_paused = false;  // Pause state
 
     // Process options
     if (options[CUDA]) {
@@ -231,6 +234,8 @@ int main(int argc, char *argv[])
     if (!record_path.empty() && !record_path.ends_with(".rec")) {
         std::cerr << "Warning: --record expects .rec file, got: " << record_path << "\n";
     }
+    
+    // No need to check if tracking is enabled for track_file since we auto-enable it now
 
     // Setup replay - read metadata from file
     bool has_replay = false;
@@ -254,6 +259,23 @@ int main(int argc, char *argv[])
             delete[] buffer;
             return 1;
         }
+    }
+    
+    // Setup recording
+    std::vector<int32_t> frame_actions;
+    bool is_recording = !record_path.empty();
+    
+    if (is_recording) {
+        frame_actions.resize(num_worlds * 3);
+        // Initialize with default actions
+        for (uint32_t i = 0; i < num_worlds; i++) {
+            frame_actions[i * 3] = 0;      // move_amount = 0 (stop)
+            frame_actions[i * 3 + 1] = 0;  // move_angle = 0 (forward)
+            frame_actions[i * 3 + 2] = 2;  // rotate = 2 (no rotation)
+        }
+        // Start paused in recording mode
+        is_paused = true;
+        printf("Recording mode: Starting PAUSED (press SPACE to start recording)\n");
     }
 
     bool enable_batch_renderer =
@@ -317,6 +339,7 @@ int main(int argc, char *argv[])
         
         // All worlds use the embedded level
         per_world_levels.resize(num_worlds, loaded_level);
+        
     }
     
     // Create the simulation manager
@@ -325,34 +348,21 @@ int main(int argc, char *argv[])
         .gpuID = 0,
         .numWorlds = num_worlds,
         .randSeed = sim_seed,
-        .autoReset = has_replay || !record_path.empty(),
+        .autoReset = has_replay || is_recording,
         .enableBatchRenderer = enable_batch_renderer,
         .extRenderAPI = wm.gpuAPIManager().backend(),
         .extRenderDev = render_gpu.device(),
         .perWorldCompiledLevels = per_world_levels,
     });
     
-    // Create ViewerCore config
-    ViewerCore::Config core_config {
-        .num_worlds = num_worlds,
-        .rand_seed = rand_seed,
-        .auto_reset = has_replay || !record_path.empty(),
-        .load_path = load_path,
-        .record_path = record_path,
-        .replay_path = replay_path,
-    };
-    
-    // Initialize ViewerCore
-    ViewerCore viewer_core(core_config, &mgr);
-    
     // Load replay if available
     if (has_replay) {
-        viewer_core.loadReplay(replay_path);
+        mgr.loadReplay(replay_path);
     }
     
     // Start recording if requested
-    if (!record_path.empty()) {
-        viewer_core.startRecording(record_path);
+    if (is_recording) {
+        mgr.startRecording(record_path, rand_seed);
     }
     
     // Enable trajectory tracking if requested
@@ -381,10 +391,11 @@ int main(int argc, char *argv[])
         (math::Quat::angleAxis(-math::pi / 2.f, math::up) *
         math::Quat::angleAxis(-math::pi * 0.4f, math::right)).normalize();
 
+
     // Check if menu should be hidden
     bool hide_menu = options[HIDE_MENU];
     
-    // Create the viewer
+    // Create the viewer viewer
     viz::Viewer viewer(mgr.getRenderManager(), window.get(), {
         .numWorlds = num_worlds,
         .simTickRate = 20,
@@ -393,15 +404,30 @@ int main(int argc, char *argv[])
         .cameraRotation = initial_camera_rotation,
         .hideMenu = hide_menu,
     });
+    
 
-    // Printers for debugging (kept from original)
+    // Replay step
+    auto replayStep = [&mgr]() {
+        if (!mgr.hasReplay()) {
+            return true;
+        }
+        
+        bool finished = mgr.replayStep();
+        return finished;
+    };
+
+    // Printers
     auto self_printer = mgr.selfObservationTensor().makePrinter();
+    // Room entity observations removed
     auto steps_remaining_printer = mgr.stepsRemainingTensor().makePrinter();
     auto reward_printer = mgr.rewardTensor().makePrinter();
 
     auto printObs = [&]() {
         printf("Self\n");
         self_printer.print();
+
+        // Room entity observations removed
+
 
         printf("Steps Remaining\n");
         steps_remaining_printer.print();
@@ -413,110 +439,143 @@ int main(int argc, char *argv[])
     };
     (void)printObs;
 
-    // Main loop for the viewer
+    // Main loop for the viewer viewer
     viewer.loop(
-    [&viewer_core](CountT world_idx, const Viewer::UserInput &input)
+    [&mgr, &track_trajectory, &track_world_idx, &track_agent_idx, &is_paused](CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
         
-        // Map Viewer keyboard input to ViewerCore events
         if (input.keyHit(Key::R)) {
-            ViewerCore::InputEvent event{
-                ViewerCore::InputEvent::KeyHit,
-                ViewerCore::InputEvent::R
-            };
-            viewer_core.handleInput(world_idx, event);
+            mgr.triggerReset(world_idx);
         }
         
         if (input.keyHit(Key::T)) {
-            ViewerCore::InputEvent event{
-                ViewerCore::InputEvent::KeyHit,
-                ViewerCore::InputEvent::T
-            };
-            viewer_core.handleInput(world_idx, event);
+            // Toggle trajectory tracking for current world
+            if (track_trajectory && track_world_idx == (int32_t)world_idx) {
+                mgr.disableTrajectoryLogging();
+                track_trajectory = false;
+                printf("Trajectory logging disabled\n");
+            } else {
+                mgr.enableTrajectoryLogging(world_idx, 0, std::nullopt); // Log agent 0 by default
+                track_trajectory = true;
+                track_world_idx = world_idx;
+                track_agent_idx = 0;
+                printf("Trajectory logging enabled for World %d, Agent 0\n", (int)world_idx);
+            }
         }
         
         if (input.keyHit(Key::Space)) {
-            ViewerCore::InputEvent event{
-                ViewerCore::InputEvent::KeyHit,
-                ViewerCore::InputEvent::Space
-            };
-            viewer_core.handleInput(world_idx, event);
+            // Toggle pause
+            is_paused = !is_paused;
+            printf("Simulation %s\n", is_paused ? "PAUSED" : "RESUMED");
         }
     },
-    [&viewer_core](CountT world_idx, CountT,
+    [&mgr, &is_recording, &frame_actions](CountT world_idx, CountT,
            const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
 
-        // Map key press/release events to ViewerCore
-        auto sendEvent = [&](Key key, ViewerCore::InputEvent::Key core_key, bool pressed) {
-            if (pressed) {
-                ViewerCore::InputEvent event{
-                    ViewerCore::InputEvent::KeyPress,
-                    core_key
-                };
-                viewer_core.handleInput(world_idx, event);
-            } else {
-                ViewerCore::InputEvent event{
-                    ViewerCore::InputEvent::KeyRelease,
-                    core_key
-                };
-                viewer_core.handleInput(world_idx, event);
-            }
-        };
+        int32_t x = 0;
+        int32_t y = 0;
+        int32_t r = 2;
 
-        // Track previous state to detect changes
-        static bool prev_w = false, prev_a = false, prev_s = false, prev_d = false;
-        static bool prev_q = false, prev_e = false, prev_shift = false;
-        
-        bool curr_w = input.keyPressed(Key::W);
-        bool curr_a = input.keyPressed(Key::A);
-        bool curr_s = input.keyPressed(Key::S);
-        bool curr_d = input.keyPressed(Key::D);
-        bool curr_q = input.keyPressed(Key::Q);
-        bool curr_e = input.keyPressed(Key::E);
-        bool curr_shift = input.keyPressed(Key::Shift);
-        
-        // Send events only on state change
-        if (curr_w != prev_w) sendEvent(Key::W, ViewerCore::InputEvent::W, curr_w);
-        if (curr_a != prev_a) sendEvent(Key::A, ViewerCore::InputEvent::A, curr_a);
-        if (curr_s != prev_s) sendEvent(Key::S, ViewerCore::InputEvent::S, curr_s);
-        if (curr_d != prev_d) sendEvent(Key::D, ViewerCore::InputEvent::D, curr_d);
-        if (curr_q != prev_q) sendEvent(Key::Q, ViewerCore::InputEvent::Q, curr_q);
-        if (curr_e != prev_e) sendEvent(Key::E, ViewerCore::InputEvent::E, curr_e);
-        if (curr_shift != prev_shift) sendEvent(Key::Shift, ViewerCore::InputEvent::Shift, curr_shift);
-        
-        // Update previous state
-        prev_w = curr_w;
-        prev_a = curr_a;
-        prev_s = curr_s;
-        prev_d = curr_d;
-        prev_q = curr_q;
-        prev_e = curr_e;
-        prev_shift = curr_shift;
-        
-        // Compute and apply actions
-        viewer_core.updateFrameActions(world_idx, 0);
-    }, [&viewer_core, &viewer]() {
-        // Step simulation
-        viewer_core.stepSimulation();
-        
-        // Check if we should exit
-        auto frame_state = viewer_core.getFrameState();
-        if (frame_state.should_exit) {
-            viewer.stopLoop();
+        bool shift_pressed = input.keyPressed(Key::Shift);
+
+        if (input.keyPressed(Key::W)) {
+            y += 1;
         }
+        if (input.keyPressed(Key::S)) {
+            y -= 1;
+        }
+
+        if (input.keyPressed(Key::D)) {
+            x += 1;
+        }
+        if (input.keyPressed(Key::A)) {
+            x -= 1;
+        }
+
+        if (input.keyPressed(Key::Q)) {
+            r += shift_pressed ? 2 : 1;
+        }
+        if (input.keyPressed(Key::E)) {
+            r -= shift_pressed ? 2 : 1;
+        }
+
+        int32_t move_amount;
+        if (x == 0 && y == 0) {
+            move_amount = 0;
+        } else if (shift_pressed) {
+            move_amount = consts::numMoveAmountBuckets - 1;
+        } else {
+            move_amount = 1;
+        }
+
+        int32_t move_angle;
+        if (x == 0 && y == 1) {
+            move_angle = 0;
+        } else if (x == 1 && y == 1) {
+            move_angle = 1;
+        } else if (x == 1 && y == 0) {
+            move_angle = 2;
+        } else if (x == 1 && y == -1) {
+            move_angle = 3;
+        } else if (x == 0 && y == -1) {
+            move_angle = 4;
+        } else if (x == -1 && y == -1) {
+            move_angle = 5;
+        } else if (x == -1 && y == 0) {
+            move_angle = 6;
+        } else if (x == -1 && y == 1) {
+            move_angle = 7;
+        } else {
+            move_angle = 0;
+        }
+
+        mgr.setAction(world_idx, move_amount, move_angle, r);
         
-        // If paused, sleep to avoid burning CPU
-        if (frame_state.is_paused) {
+        // Record the action if recording
+        if (is_recording) {
+            uint32_t base_idx = world_idx * 3;
+            frame_actions[base_idx] = move_amount;
+            frame_actions[base_idx + 1] = move_angle;
+            frame_actions[base_idx + 2] = r;
+        }
+    }, [&]() {
+        if (!is_paused) {
+            if (mgr.hasReplay()) {
+                bool replay_finished = replayStep();
+
+                if (replay_finished) {
+                    viewer.stopLoop();
+                }
+            }
+            
+            // Write frame actions if recording
+            if (is_recording) {
+                mgr.recordActions(frame_actions);
+                
+                // Reset actions to defaults for next frame
+                for (uint32_t i = 0; i < num_worlds; i++) {
+                    frame_actions[i * 3] = 0;      // move_amount
+                    frame_actions[i * 3 + 1] = 0;  // move_angle
+                    frame_actions[i * 3 + 2] = 2;  // rotate
+                }
+            }
+
+            mgr.step();
+        } else {
+            // Sleep for 16ms (roughly 60 FPS) when paused to avoid burning CPU
             std::this_thread::sleep_for(std::chrono::milliseconds(16));
         }
-        
+
         //printObs();
     }, []() {});
     
-    // Cleanup is handled by ViewerCore destructor
+    // Cleanup recording
+    if (is_recording) {
+        mgr.stopRecording();
+    }
     
     delete[] options;
     delete[] buffer;
