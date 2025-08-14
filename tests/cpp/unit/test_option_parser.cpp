@@ -47,8 +47,8 @@ const option::Descriptor usage[] = {
     {0,0,0,0,0,0}
 };
 
-// Test fixture for viewer argument parsing
-class ViewerArgsTest : public ViewerTestBase {
+// Test fixture for command-line option parsing
+class OptionParserTest : public ViewerTestBase {
 protected:
     option::Option* parseArgs(const std::vector<const char*>& args) {
         // Copy args to modifiable array since option parser modifies it
@@ -99,7 +99,7 @@ private:
 };
 
 // Test valid argument combinations
-TEST_F(ViewerArgsTest, ValidLoadArgument) {
+TEST_F(OptionParserTest, ValidLoadArgument) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl"});
     auto options = parseArgs(args);
     
@@ -108,7 +108,7 @@ TEST_F(ViewerArgsTest, ValidLoadArgument) {
     EXPECT_STREQ(options[LOAD].arg, "test.lvl");
 }
 
-TEST_F(ViewerArgsTest, ValidReplayArgument) {
+TEST_F(OptionParserTest, ValidReplayArgument) {
     auto args = buildViewerArgs({"viewer", "--replay", "test.rec"});
     auto options = parseArgs(args);
     
@@ -117,7 +117,7 @@ TEST_F(ViewerArgsTest, ValidReplayArgument) {
     EXPECT_STREQ(options[REPLAY].arg, "test.rec");
 }
 
-TEST_F(ViewerArgsTest, ValidLoadWithRecord) {
+TEST_F(OptionParserTest, ValidLoadWithRecord) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--record", "output.rec"});
     auto options = parseArgs(args);
     
@@ -129,7 +129,7 @@ TEST_F(ViewerArgsTest, ValidLoadWithRecord) {
 }
 
 // Test invalid combinations
-TEST_F(ViewerArgsTest, InvalidReplayWithRecord) {
+TEST_F(OptionParserTest, InvalidReplayWithRecord) {
     // This combination should be caught by the viewer logic, not the parser
     // The parser will accept it, but the viewer should reject it
     auto args = buildViewerArgs({"viewer", "--replay", "test.rec", "--record", "output.rec"});
@@ -141,7 +141,7 @@ TEST_F(ViewerArgsTest, InvalidReplayWithRecord) {
     // The viewer would check this and fail
 }
 
-TEST_F(ViewerArgsTest, InvalidReplayWithLoad) {
+TEST_F(OptionParserTest, InvalidReplayWithLoad) {
     // Replay should ignore load (level comes from recording)
     auto args = buildViewerArgs({"viewer", "--replay", "test.rec", "--load", "test.lvl"});
     auto options = parseArgs(args);
@@ -153,7 +153,7 @@ TEST_F(ViewerArgsTest, InvalidReplayWithLoad) {
 }
 
 // Test default values
-TEST_F(ViewerArgsTest, DefaultNumWorlds) {
+TEST_F(OptionParserTest, DefaultNumWorlds) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl"});
     auto options = parseArgs(args);
     
@@ -161,7 +161,7 @@ TEST_F(ViewerArgsTest, DefaultNumWorlds) {
     EXPECT_FALSE(options[NUM_WORLDS]); // Not specified, will use default
 }
 
-TEST_F(ViewerArgsTest, DefaultSeed) {
+TEST_F(OptionParserTest, DefaultSeed) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl"});
     auto options = parseArgs(args);
     
@@ -170,7 +170,7 @@ TEST_F(ViewerArgsTest, DefaultSeed) {
 }
 
 // Test tracking options
-TEST_F(ViewerArgsTest, TrackingOptions) {
+TEST_F(OptionParserTest, TrackingOptions) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--track"});
     auto options = parseArgs(args);
     
@@ -180,7 +180,7 @@ TEST_F(ViewerArgsTest, TrackingOptions) {
     EXPECT_FALSE(options[TRACK_AGENT]); // Will use default 0
 }
 
-TEST_F(ViewerArgsTest, TrackingWithFile) {
+TEST_F(OptionParserTest, TrackingWithFile) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--track", "--track-file", "trajectory.csv"});
     auto options = parseArgs(args);
     
@@ -190,7 +190,7 @@ TEST_F(ViewerArgsTest, TrackingWithFile) {
     EXPECT_STREQ(options[TRACK_FILE].arg, "trajectory.csv");
 }
 
-TEST_F(ViewerArgsTest, TrackingWorldAgent) {
+TEST_F(OptionParserTest, TrackingWorldAgent) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--track-world", "2", "--track-agent", "1"});
     auto options = parseArgs(args);
     
@@ -203,7 +203,7 @@ TEST_F(ViewerArgsTest, TrackingWorldAgent) {
 }
 
 // Test CUDA options
-TEST_F(ViewerArgsTest, CudaOption) {
+TEST_F(OptionParserTest, CudaOption) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--cuda", "0"});
     auto options = parseArgs(args);
     
@@ -213,7 +213,7 @@ TEST_F(ViewerArgsTest, CudaOption) {
 }
 
 // Test numeric validation
-TEST_F(ViewerArgsTest, NumericWorldCount) {
+TEST_F(OptionParserTest, NumericWorldCount) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--num-worlds", "64"});
     auto options = parseArgs(args);
     
@@ -222,7 +222,7 @@ TEST_F(ViewerArgsTest, NumericWorldCount) {
     EXPECT_STREQ(options[NUM_WORLDS].arg, "64");
 }
 
-TEST_F(ViewerArgsTest, InvalidNumericArgument) {
+TEST_F(OptionParserTest, InvalidNumericArgument) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--num-worlds", "abc"});
     auto options = parseArgs(args);
     
@@ -231,7 +231,7 @@ TEST_F(ViewerArgsTest, InvalidNumericArgument) {
 }
 
 // Test short options
-TEST_F(ViewerArgsTest, ShortOptions) {
+TEST_F(OptionParserTest, ShortOptions) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "-n", "4", "-t", "-s", "42"});
     auto options = parseArgs(args);
     
@@ -244,7 +244,7 @@ TEST_F(ViewerArgsTest, ShortOptions) {
 }
 
 // Test help option
-TEST_F(ViewerArgsTest, HelpOption) {
+TEST_F(OptionParserTest, HelpOption) {
     auto args = buildViewerArgs({"viewer", "--help"});
     auto options = parseArgs(args);
     
@@ -253,7 +253,7 @@ TEST_F(ViewerArgsTest, HelpOption) {
 }
 
 // Test hide menu option
-TEST_F(ViewerArgsTest, HideMenuOption) {
+TEST_F(OptionParserTest, HideMenuOption) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--hide-menu"});
     auto options = parseArgs(args);
     
@@ -262,7 +262,7 @@ TEST_F(ViewerArgsTest, HideMenuOption) {
 }
 
 // Test missing required arguments
-TEST_F(ViewerArgsTest, MissingLoadArgument) {
+TEST_F(OptionParserTest, MissingLoadArgument) {
     auto args = buildViewerArgs({"viewer", "--load"});
     auto options = parseArgs(args);
     
@@ -270,7 +270,7 @@ TEST_F(ViewerArgsTest, MissingLoadArgument) {
     ASSERT_EQ(options, nullptr);
 }
 
-TEST_F(ViewerArgsTest, MissingRecordArgument) {
+TEST_F(OptionParserTest, MissingRecordArgument) {
     auto args = buildViewerArgs({"viewer", "--record"});
     auto options = parseArgs(args);
     

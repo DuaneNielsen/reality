@@ -126,7 +126,8 @@ protected:
     
     void TearDown() override {
         // Clean up any test files created
-        cleanupTestFiles();
+        // DISABLED: Keep test files for inspection
+        // cleanupTestFiles();
         MadronaTestBase::TearDown();
     }
     

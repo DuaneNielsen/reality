@@ -5,8 +5,8 @@
 #include <cstring>
 #include <iomanip>
 
-// Test fixture for replay functionality
-class ViewerReplayTest : public ViewerTestBase {
+// Test fixture for recording and trajectory utilities
+class RecordingUtilitiesTest : public ViewerTestBase {
 protected:
     void SetUp() override {
         ViewerTestBase::SetUp();
@@ -61,8 +61,8 @@ protected:
     }
 };
 
-// Test reading metadata from replay file
-TEST_F(ViewerReplayTest, ReadReplayMetadata) {
+// Test that replay file metadata can be parsed correctly
+TEST_F(RecordingUtilitiesTest, CanParseReplayFileMetadata) {
     const std::string replay_file = "tests/cpp/test_data/recordings/simple.rec";
     createTestRecordingFile(replay_file, 2, 150, 42);
     
@@ -74,8 +74,8 @@ TEST_F(ViewerReplayTest, ReadReplayMetadata) {
     EXPECT_EQ(metadata.seed, 42u);
 }
 
-// Test extracting embedded level from recording
-TEST_F(ViewerReplayTest, ExtractEmbeddedLevel) {
+// Test that embedded level data can be extracted from recording file
+TEST_F(RecordingUtilitiesTest, CanExtractLevelFromRecordingFile) {
     const std::string replay_file = "tests/cpp/test_data/recordings/with_level.rec";
     createTestRecordingFile(replay_file);
     
@@ -87,8 +87,8 @@ TEST_F(ViewerReplayTest, ExtractEmbeddedLevel) {
     EXPECT_GT(embedded_level.num_tiles, 0);
 }
 
-// Test world count validation
-TEST_F(ViewerReplayTest, ValidateWorldCount) {
+// Test that world count from metadata updates viewer configuration
+TEST_F(RecordingUtilitiesTest, MetadataWorldCountUpdatesViewerConfig) {
     const std::string replay_file = "tests/cpp/test_data/recordings/world_count.rec";
     createTestRecordingFile(replay_file, 8, 100, 42);
     
@@ -106,8 +106,8 @@ TEST_F(ViewerReplayTest, ValidateWorldCount) {
     EXPECT_EQ(viewer_num_worlds, 8u);
 }
 
-// Test seed extraction from replay
-TEST_F(ViewerReplayTest, ExtractSeedFromReplay) {
+// Test that random seed can be extracted from replay metadata
+TEST_F(RecordingUtilitiesTest, CanExtractSeedFromMetadata) {
     const std::string replay_file = "tests/cpp/test_data/recordings/with_seed.rec";
     uint32_t replay_seed = 12345;
     createTestRecordingFile(replay_file, 1, 100, replay_seed);
@@ -118,8 +118,8 @@ TEST_F(ViewerReplayTest, ExtractSeedFromReplay) {
     EXPECT_EQ(metadata.seed, replay_seed);
 }
 
-// Test handling invalid replay file
-TEST_F(ViewerReplayTest, HandleInvalidReplayFile) {
+// Test that malformed replay files are detected as invalid
+TEST_F(RecordingUtilitiesTest, DetectsMalformedReplayFile) {
     const std::string replay_file = "tests/cpp/test_data/recordings/invalid.rec";
     
     // Create an invalid file (too small)
@@ -133,8 +133,8 @@ TEST_F(ViewerReplayTest, HandleInvalidReplayFile) {
     EXPECT_FALSE(metadata.valid);
 }
 
-// Test handling non-existent replay file
-TEST_F(ViewerReplayTest, HandleNonExistentReplayFile) {
+// Test that missing replay files return invalid metadata
+TEST_F(RecordingUtilitiesTest, ReturnsInvalidMetadataForMissingFile) {
     const std::string replay_file = "tests/cpp/test_data/recordings/nonexistent.rec";
     
     ASSERT_FALSE(fileExists(replay_file));
@@ -144,8 +144,8 @@ TEST_F(ViewerReplayTest, HandleNonExistentReplayFile) {
     EXPECT_FALSE(metadata.valid);
 }
 
-// Test round-trip with trajectory tracking
-TEST_F(ViewerReplayTest, RoundTripWithTrajectoryTracking) {
+// Test that trajectory comparison utility detects identical trajectories
+TEST_F(RecordingUtilitiesTest, TrajectoryComparerDetectsIdenticalFiles) {
     // Step 1: Create a recording with known actions
     const std::string record_file = "tests/cpp/test_data/recordings/roundtrip.rec";
     const std::string trajectory1_file = "tests/cpp/test_data/recordings/trajectory1.csv";
@@ -167,8 +167,8 @@ TEST_F(ViewerReplayTest, RoundTripWithTrajectoryTracking) {
     EXPECT_TRUE(trajectories_match);
 }
 
-// Test deterministic replay
-TEST_F(ViewerReplayTest, DeterministicReplay) {
+// Test that trajectory comparison can verify deterministic trajectories
+TEST_F(RecordingUtilitiesTest, TrajectoryComparerVerifiesDeterministicOutput) {
     const std::string record_file = "tests/cpp/test_data/recordings/deterministic.rec";
     
     // Create recording with specific seed
@@ -205,8 +205,8 @@ TEST_F(ViewerReplayTest, DeterministicReplay) {
     EXPECT_TRUE(identical);
 }
 
-// Test replay with multiple worlds
-TEST_F(ViewerReplayTest, ReplayMultipleWorlds) {
+// Test creating per-world trajectory files for multi-world recordings
+TEST_F(RecordingUtilitiesTest, CreatesPerWorldTrajectoryFiles) {
     const std::string replay_file = "tests/cpp/test_data/recordings/multi.rec";
     createTestRecordingFile(replay_file, 4, 100, 42);
     
@@ -225,8 +225,8 @@ TEST_F(ViewerReplayTest, ReplayMultipleWorlds) {
     }
 }
 
-// Test embedded level matches original
-TEST_F(ViewerReplayTest, EmbeddedLevelMatchesOriginal) {
+// Test that level comparer can verify embedded level matches source
+TEST_F(RecordingUtilitiesTest, LevelComparerVerifiesEmbeddedMatchesSource) {
     // Create original level
     const std::string level_file = "tests/cpp/test_data/levels/original.lvl";
     createTestLevelFile(level_file, 24, 24);
@@ -262,8 +262,8 @@ TEST_F(ViewerReplayTest, EmbeddedLevelMatchesOriginal) {
     EXPECT_TRUE(LevelComparer::compareLevels(original_level, embedded_level));
 }
 
-// Test replay file size validation
-TEST_F(ViewerReplayTest, ValidateReplayFileSize) {
+// Test that recording file size matches expected format
+TEST_F(RecordingUtilitiesTest, RecordingFileSizeMatchesExpectedFormat) {
     const std::string replay_file = "tests/cpp/test_data/recordings/size_test.rec";
     uint32_t num_worlds = 2;
     uint32_t num_steps = 50;
@@ -280,8 +280,8 @@ TEST_F(ViewerReplayTest, ValidateReplayFileSize) {
     EXPECT_EQ(file_size, expected_size);
 }
 
-// Test trajectory format parsing
-TEST_F(ViewerReplayTest, ParseTrajectoryFormat) {
+// Test that trajectory parser correctly extracts CSV data fields
+TEST_F(RecordingUtilitiesTest, TrajectoryParserExtractsCSVFields) {
     const std::string traj_file = "tests/cpp/test_data/recordings/format_test.csv";
     
     std::ofstream file(traj_file);

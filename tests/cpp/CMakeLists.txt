@@ -19,9 +19,9 @@ set(TEST_SOURCES
     fixtures/test_base.cpp
     unit/test_c_api_cpu.cpp
     unit/test_c_api_gpu.cpp
-    unit/test_viewer_args.cpp
-    unit/test_viewer_level_loading.cpp
-    unit/test_viewer_replay.cpp
+    unit/test_option_parser.cpp
+    unit/test_level_utilities.cpp
+    unit/test_recording_utilities.cpp
 )
 
 # Create test executable

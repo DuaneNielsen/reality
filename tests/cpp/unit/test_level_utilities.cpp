@@ -4,7 +4,7 @@
 #include <fstream>
 
 // Test fixture for level loading functionality
-class ViewerLevelLoadingTest : public ViewerTestBase {
+class LevelUtilitiesTest : public ViewerTestBase {
 protected:
     void SetUp() override {
         ViewerTestBase::SetUp();
@@ -14,8 +14,8 @@ protected:
     }
 };
 
-// Test loading a valid level file
-TEST_F(ViewerLevelLoadingTest, LoadValidLevelFile) {
+// Test that level loader reads binary file and returns valid dimensions
+TEST_F(LevelUtilitiesTest, LevelLoaderReadsBinaryFileCorrectly) {
     const std::string level_file = "tests/cpp/test_data/levels/simple.lvl";
     createTestLevelFile(level_file);
     
@@ -28,8 +28,8 @@ TEST_F(ViewerLevelLoadingTest, LoadValidLevelFile) {
     EXPECT_GT(level.num_tiles, 0);
 }
 
-// Test loading a complex level file
-TEST_F(ViewerLevelLoadingTest, LoadComplexLevelFile) {
+// Test that level loader handles larger dimension levels
+TEST_F(LevelUtilitiesTest, LevelLoaderHandlesLargeDimensions) {
     const std::string level_file = "tests/cpp/test_data/levels/complex.lvl";
     createTestLevelFile(level_file, 32, 32);
     
@@ -42,8 +42,8 @@ TEST_F(ViewerLevelLoadingTest, LoadComplexLevelFile) {
     EXPECT_GT(level.num_tiles, 0);
 }
 
-// Test handling of non-existent level file
-TEST_F(ViewerLevelLoadingTest, LoadNonExistentFile) {
+// Test that level loader returns empty struct for missing files
+TEST_F(LevelUtilitiesTest, LevelLoaderReturnsEmptyForMissingFile) {
     const std::string level_file = "tests/cpp/test_data/levels/nonexistent.lvl";
     
     ASSERT_FALSE(fileExists(level_file));
@@ -56,8 +56,8 @@ TEST_F(ViewerLevelLoadingTest, LoadNonExistentFile) {
     EXPECT_EQ(level.num_tiles, 0);
 }
 
-// Test loading corrupted level file
-TEST_F(ViewerLevelLoadingTest, LoadCorruptedFile) {
+// Test that level loader handles truncated files gracefully
+TEST_F(LevelUtilitiesTest, LevelLoaderHandlesTruncatedFile) {
     const std::string level_file = "tests/cpp/test_data/levels/corrupted.lvl";
     
     // Create a corrupted file (too small)
@@ -75,8 +75,8 @@ TEST_F(ViewerLevelLoadingTest, LoadCorruptedFile) {
     // The actual behavior depends on implementation
 }
 
-// Test that multiple worlds can use the same level
-TEST_F(ViewerLevelLoadingTest, MultipleWorldsSameLevel) {
+// Test that level comparer verifies identical level copies
+TEST_F(LevelUtilitiesTest, LevelComparerVerifiesIdenticalCopies) {
     const std::string level_file = "tests/cpp/test_data/levels/simple.lvl";
     createTestLevelFile(level_file);
     
@@ -93,8 +93,8 @@ TEST_F(ViewerLevelLoadingTest, MultipleWorldsSameLevel) {
     }
 }
 
-// Test level file size validation
-TEST_F(ViewerLevelLoadingTest, ValidateLevelFileSize) {
+// Test that level file size matches struct size
+TEST_F(LevelUtilitiesTest, LevelFileSizeMatchesStructSize) {
     const std::string level_file = "tests/cpp/test_data/levels/simple.lvl";
     createTestLevelFile(level_file);
     
@@ -104,8 +104,8 @@ TEST_F(ViewerLevelLoadingTest, ValidateLevelFileSize) {
     EXPECT_EQ(file_size, sizeof(MER_CompiledLevel));
 }
 
-// Test level dimensions validation
-TEST_F(ViewerLevelLoadingTest, ValidateLevelDimensions) {
+// Test that level dimensions are preserved through save/load
+TEST_F(LevelUtilitiesTest, LevelDimensionsPreservedThroughSaveLoad) {
     const std::string level_file = "tests/cpp/test_data/levels/test_dims.lvl";
     
     // Test various dimensions
@@ -129,8 +129,8 @@ TEST_F(ViewerLevelLoadingTest, ValidateLevelDimensions) {
     }
 }
 
-// Test tile data integrity
-TEST_F(ViewerLevelLoadingTest, ValidateTileData) {
+// Test that level data round-trips through binary write/read
+TEST_F(LevelUtilitiesTest, LevelDataRoundTripsThroughBinary) {
     const std::string level_file = "tests/cpp/test_data/levels/tiles.lvl";
     createTestLevelFile(level_file);
     
@@ -149,8 +149,8 @@ TEST_F(ViewerLevelLoadingTest, ValidateTileData) {
     std::remove(level_file2.c_str());
 }
 
-// Test loading level for use with Manager
-TEST_F(ViewerLevelLoadingTest, LoadLevelForManager) {
+// Test that loaded level can initialize Manager successfully
+TEST_F(LevelUtilitiesTest, LoadedLevelInitializesManager) {
     const std::string level_file = "tests/cpp/test_data/levels/manager_test.lvl";
     createTestLevelFile(level_file);
     
@@ -169,8 +169,8 @@ TEST_F(ViewerLevelLoadingTest, LoadLevelForManager) {
     EXPECT_NE(handle, nullptr);
 }
 
-// Test level comparison functionality
-TEST_F(ViewerLevelLoadingTest, CompareLevels) {
+// Test that level comparer detects same vs different dimensions
+TEST_F(LevelUtilitiesTest, LevelComparerDetectsDimensionDifferences) {
     const std::string level_file1 = "tests/cpp/test_data/levels/level1.lvl";
     const std::string level_file2 = "tests/cpp/test_data/levels/level2.lvl";
     const std::string level_file3 = "tests/cpp/test_data/levels/level3.lvl";
@@ -193,8 +193,8 @@ TEST_F(ViewerLevelLoadingTest, CompareLevels) {
     EXPECT_FALSE(LevelComparer::compareLevels(level1, level3));
 }
 
-// Test that viewer respects level precedence rules
-TEST_F(ViewerLevelLoadingTest, LevelPrecedenceRules) {
+// Test viewer option precedence logic (replay overrides load)
+TEST_F(LevelUtilitiesTest, ViewerOptionPrecedenceLogic) {
     // In the viewer:
     // 1. --replay ignores --load (level comes from recording)
     // 2. --load is required when not using --replay

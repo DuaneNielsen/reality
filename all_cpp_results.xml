@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="72" failures="0" disabled="0" errors="0" time="0.104" timestamp="2025-08-13T20:44:07.918" name="AllTests">
+  <testsuite name="CApiCPUTest" tests="11" failures="0" disabled="0" skipped="0" errors="0" time="0.053" timestamp="2025-08-13T20:44:07.918">
+    <testcase name="ManagerCreation" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="15" status="run" result="completed" time="0.005" timestamp="2025-08-13T20:44:07.918" classname="CApiCPUTest" />
+    <testcase name="ManagerCreationWithLoadedLevels" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="23" status="run" result="completed" time="0.005" timestamp="2025-08-13T20:44:07.923" classname="CApiCPUTest" />
+    <testcase name="ManagerCreationWithCustomLevels" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="39" status="run" result="completed" time="0.004" timestamp="2025-08-13T20:44:07.929" classname="CApiCPUTest" />
+    <testcase name="LevelLoading" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="46" status="run" result="completed" time="0.005" timestamp="2025-08-13T20:44:07.934" classname="CApiCPUTest" />
+    <testcase name="TensorAccess" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="63" status="run" result="completed" time="0.004" timestamp="2025-08-13T20:44:07.939" classname="CApiCPUTest" />
+    <testcase name="AllTensorGetters" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="81" status="run" result="completed" time="0.004" timestamp="2025-08-13T20:44:07.943" classname="CApiCPUTest" />
+    <testcase name="SimulationStep" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="119" status="run" result="completed" time="0.004" timestamp="2025-08-13T20:44:07.948" classname="CApiCPUTest" />
+    <testcase name="MultipleSteps" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="129" status="run" result="completed" time="0.005" timestamp="2025-08-13T20:44:07.952" classname="CApiCPUTest" />
+    <testcase name="NullHandleError" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="163" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.958" classname="CApiCPUTest" />
+    <testcase name="NullTensorError" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="169" status="run" result="completed" time="0.004" timestamp="2025-08-13T20:44:07.958" classname="CApiCPUTest" />
+    <testcase name="ManagerRecreation" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="177" status="run" result="completed" time="0.009" timestamp="2025-08-13T20:44:07.962" classname="CApiCPUTest" />
+  </testsuite>
+  <testsuite name="CApiGPUTest" tests="9" failures="0" disabled="0" skipped="9" errors="0" time="0." timestamp="2025-08-13T20:44:07.972">
+    <testcase name="ManagerCreation" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="9" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="ManagerCreationWithEmbeddedLevels" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="16" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="GPUTensorProperties" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="23" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="AllGPUTensorGetters" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="40" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="SimulationStep" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="78" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="MultipleSteps" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="88" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="LargeWorldCount" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="100" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="InvalidGPUDevice" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="152" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="GPUMemoryStress" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="164" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:07.972" classname="CApiGPUTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+  </testsuite>
+  <testsuite name="ViewerArgsTest" tests="18" failures="0" disabled="0" skipped="0" errors="0" time="0." timestamp="2025-08-13T20:44:07.972">
+    <testcase name="ValidLoadArgument" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="102" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="ValidReplayArgument" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="111" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="ValidLoadWithRecord" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="120" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="InvalidReplayWithRecord" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="132" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="InvalidReplayWithLoad" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="144" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="DefaultNumWorlds" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="156" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="DefaultSeed" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="164" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="TrackingOptions" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="173" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="TrackingWithFile" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="183" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="TrackingWorldAgent" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="193" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="CudaOption" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="206" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="NumericWorldCount" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="216" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="InvalidNumericArgument" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="225" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.972" classname="ViewerArgsTest" />
+    <testcase name="ShortOptions" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="234" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.973" classname="ViewerArgsTest" />
+    <testcase name="HelpOption" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="247" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.973" classname="ViewerArgsTest" />
+    <testcase name="HideMenuOption" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="256" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.973" classname="ViewerArgsTest" />
+    <testcase name="MissingLoadArgument" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="265" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.973" classname="ViewerArgsTest" />
+    <testcase name="MissingRecordArgument" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_args.cpp" line="273" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.973" classname="ViewerArgsTest" />
+  </testsuite>
+  <testsuite name="ViewerLevelLoadingTest" tests="11" failures="0" disabled="0" skipped="0" errors="0" time="0.01" timestamp="2025-08-13T20:44:07.973">
+    <testcase name="LoadValidLevelFile" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="18" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.973" classname="ViewerLevelLoadingTest" />
+    <testcase name="LoadComplexLevelFile" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="32" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.973" classname="ViewerLevelLoadingTest" />
+    <testcase name="LoadNonExistentFile" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="46" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.974" classname="ViewerLevelLoadingTest" />
+    <testcase name="LoadCorruptedFile" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="60" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.974" classname="ViewerLevelLoadingTest" />
+    <testcase name="MultipleWorldsSameLevel" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="79" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.974" classname="ViewerLevelLoadingTest" />
+    <testcase name="ValidateLevelFileSize" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="97" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.975" classname="ViewerLevelLoadingTest" />
+    <testcase name="ValidateLevelDimensions" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="108" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.975" classname="ViewerLevelLoadingTest" />
+    <testcase name="ValidateTileData" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="133" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.976" classname="ViewerLevelLoadingTest" />
+    <testcase name="LoadLevelForManager" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="153" status="run" result="completed" time="0.006" timestamp="2025-08-13T20:44:07.976" classname="ViewerLevelLoadingTest" />
+    <testcase name="CompareLevels" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="173" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.983" classname="ViewerLevelLoadingTest" />
+    <testcase name="LevelPrecedenceRules" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_level_loading.cpp" line="197" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.983" classname="ViewerLevelLoadingTest" />
+  </testsuite>
+  <testsuite name="ViewerReplayTest" tests="12" failures="0" disabled="0" skipped="0" errors="0" time="0.006" timestamp="2025-08-13T20:44:07.984">
+    <testcase name="ReadReplayMetadata" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="65" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.984" classname="ViewerReplayTest" />
+    <testcase name="ExtractEmbeddedLevel" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="78" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.984" classname="ViewerReplayTest" />
+    <testcase name="ValidateWorldCount" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="91" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.984" classname="ViewerReplayTest" />
+    <testcase name="ExtractSeedFromReplay" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="110" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.985" classname="ViewerReplayTest" />
+    <testcase name="HandleInvalidReplayFile" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="122" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.985" classname="ViewerReplayTest" />
+    <testcase name="HandleNonExistentReplayFile" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="137" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.986" classname="ViewerReplayTest" />
+    <testcase name="RoundTripWithTrajectoryTracking" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="148" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.986" classname="ViewerReplayTest" />
+    <testcase name="DeterministicReplay" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="171" status="run" result="completed" time="0.001" timestamp="2025-08-13T20:44:07.986" classname="ViewerReplayTest" />
+    <testcase name="ReplayMultipleWorlds" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="209" status="run" result="completed" time="0.001" timestamp="2025-08-13T20:44:07.988" classname="ViewerReplayTest" />
+    <testcase name="EmbeddedLevelMatchesOriginal" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="229" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.989" classname="ViewerReplayTest" />
+    <testcase name="ValidateReplayFileSize" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="266" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.990" classname="ViewerReplayTest" />
+    <testcase name="ParseTrajectoryFormat" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_viewer_replay.cpp" line="284" status="run" result="completed" time="0." timestamp="2025-08-13T20:44:07.990" classname="ViewerReplayTest" />
+  </testsuite>
+  <testsuite name="WorldCounts/CApiCPUWorldCountTest" tests="6" failures="0" disabled="0" skipped="0" errors="0" time="0.031" timestamp="2025-08-13T20:44:07.990">
+    <testcase name="VariousWorldCounts/0" value_param="1" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="143" status="run" result="completed" time="0.002" timestamp="2025-08-13T20:44:07.990" classname="WorldCounts/CApiCPUWorldCountTest" />
+    <testcase name="VariousWorldCounts/1" value_param="2" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="143" status="run" result="completed" time="0.003" timestamp="2025-08-13T20:44:07.993" classname="WorldCounts/CApiCPUWorldCountTest" />
+    <testcase name="VariousWorldCounts/2" value_param="4" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="143" status="run" result="completed" time="0.003" timestamp="2025-08-13T20:44:07.996" classname="WorldCounts/CApiCPUWorldCountTest" />
+    <testcase name="VariousWorldCounts/3" value_param="8" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="143" status="run" result="completed" time="0.005" timestamp="2025-08-13T20:44:08.000" classname="WorldCounts/CApiCPUWorldCountTest" />
+    <testcase name="VariousWorldCounts/4" value_param="16" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="143" status="run" result="completed" time="0.006" timestamp="2025-08-13T20:44:08.006" classname="WorldCounts/CApiCPUWorldCountTest" />
+    <testcase name="VariousWorldCounts/5" value_param="32" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_cpu.cpp" line="143" status="run" result="completed" time="0.009" timestamp="2025-08-13T20:44:08.012" classname="WorldCounts/CApiCPUWorldCountTest" />
+  </testsuite>
+  <testsuite name="GPUWorldCounts/CApiGPUWorldCountTest" tests="5" failures="0" disabled="0" skipped="5" errors="0" time="0." timestamp="2025-08-13T20:44:08.022">
+    <testcase name="VariousGPUWorldCounts/0" value_param="32" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="131" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:08.022" classname="GPUWorldCounts/CApiGPUWorldCountTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="VariousGPUWorldCounts/1" value_param="64" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="131" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:08.022" classname="GPUWorldCounts/CApiGPUWorldCountTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="VariousGPUWorldCounts/2" value_param="128" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="131" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:08.022" classname="GPUWorldCounts/CApiGPUWorldCountTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="VariousGPUWorldCounts/3" value_param="256" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="131" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:08.022" classname="GPUWorldCounts/CApiGPUWorldCountTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+    <testcase name="VariousGPUWorldCounts/4" value_param="512" file="/home/duane/madrona_escape_room/tests/cpp/unit/test_c_api_gpu.cpp" line="131" status="run" result="skipped" time="0." timestamp="2025-08-13T20:44:08.022" classname="GPUWorldCounts/CApiGPUWorldCountTest">
+      <skipped message="/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100&#x0A;GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.&#x0A;Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh&#x0A;"><![CDATA[/home/duane/madrona_escape_room/tests/cpp/fixtures/test_base.hpp:100
+GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.
+Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh
+]]></skipped>
+    </testcase>
+  </testsuite>
+</testsuites>
