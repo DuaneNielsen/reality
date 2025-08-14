@@ -3,13 +3,16 @@ cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 # Enable testing
 enable_testing()
 
-# Build GoogleTest without the custom toolchain to avoid libc++ issues
-# We need to build it with the system compiler to match the rest of the project
+# Build GoogleTest with the Madrona toolchain to ensure ABI compatibility
 set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-# Build GoogleTest in our build tree with system compiler
+# Disable RTTI and exceptions in GoogleTest to match our project
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions" CACHE STRING "" FORCE)
+set(gtest_disable_pthreads OFF CACHE BOOL "" FORCE)
+
+# Build GoogleTest in our build tree
 add_subdirectory(${CMAKE_SOURCE_DIR}/external/madrona/external/googletest 
                  ${CMAKE_CURRENT_BINARY_DIR}/googletest 
                  EXCLUDE_FROM_ALL)
@@ -22,6 +25,9 @@ set(TEST_SOURCES
     unit/test_option_parser.cpp
     unit/test_level_utilities.cpp
     unit/test_recording_utilities.cpp
+    unit/test_viewer_core.cpp
+    unit/test_viewercore_trajectory.cpp
+    unit/test_direct_cpp.cpp
     integration/test_viewer_integration.cpp
     integration/test_viewer_input.cpp
     integration/test_viewer_errors.cpp
@@ -46,9 +52,9 @@ target_link_libraries(mad_escape_tests
     PRIVATE
         madrona_escape_room_c_api
         mad_escape_mgr
+        viewer_core
         gtest_main
         gtest
-        c++  # Link libc++ since we're using the Madrona toolchain
 )
 
 # Match project compile options (no RTTI, no exceptions)
@@ -57,9 +63,9 @@ target_compile_options(mad_escape_tests PRIVATE
     -fno-exceptions
 )
 
-# Set C++ standard
+# Set C++ standard (need C++20 for Madrona headers)
 set_target_properties(mad_escape_tests PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
 )
 
@@ -82,6 +88,33 @@ set_target_properties(mad_escape_tests PROPERTIES
 add_test(NAME mad_escape_tests 
          COMMAND mad_escape_tests
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+# Add simple test executable without GoogleTest
+add_executable(test_simple_direct
+    unit/test_simple_direct.cpp
+)
+
+target_include_directories(test_simple_direct PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(test_simple_direct
+    PRIVATE
+        mad_escape_mgr
+        viewer_core
+        madrona_mw_core
+)
+
+target_compile_options(test_simple_direct PRIVATE
+    -fno-rtti
+    -fno-exceptions
+)
+
+set_target_properties(test_simple_direct PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+)
 
 # Add custom target for running C++ tests only
 add_custom_target(run_cpp_tests

@@ -59,8 +59,17 @@ target_compile_definitions(mad_escape_mgr PRIVATE
 # See include/madrona_escape_room_c_api.h and src/madrona_escape_room_c_api.cpp
 
 if (TARGET madrona_viz)
+    # ViewerCore library for testable viewer logic
+    add_library(viewer_core STATIC
+        viewer_core.hpp viewer_core.cpp)
+    
+    target_link_libraries(viewer_core PUBLIC
+        mad_escape_mgr
+        madrona_mw_core)
+    
     add_executable(viewer viewer.cpp)
     target_link_libraries(viewer PRIVATE
+        viewer_core
         madrona_mw_core mad_escape_mgr madrona_viz)
 
     target_compile_definitions(viewer PRIVATE

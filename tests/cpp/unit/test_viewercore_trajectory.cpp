@@ -1,0 +1,420 @@
+#include <gtest/gtest.h>
+#include "viewer_test_base.hpp"
+#include "mock_components.hpp"
+#include "mgr.hpp"
+#include "viewer_core.hpp"
+#include <fstream>
+#include <filesystem>
+#include <thread>
+#include <chrono>
+
+using namespace madEscape;
+
+// Test fixture for ViewerCore trajectory verification using C API
+class ViewerCoreTrajectoryTest : public ViewerTestBase {
+protected:
+    void SetUp() override {
+        ViewerTestBase::SetUp();
+        
+        // Clean up any previous test files
+        cleanupTestFiles();
+    }
+    
+    void TearDown() override {
+        cleanupTestFiles();
+        ViewerTestBase::TearDown();
+    }
+    
+    void cleanupTestFiles() {
+        // Remove test recording and trajectory files
+        std::vector<std::string> files_to_remove = {
+            "test_viewercore_recording.rec",
+            "trajectory_record.csv",
+            "trajectory_replay.csv"
+        };
+        
+        for (const auto& file : files_to_remove) {
+            if (std::filesystem::exists(file)) {
+                std::filesystem::remove(file);
+            }
+        }
+    }
+    
+    // Helper to load the test level
+    CompiledLevel loadTestLevel() {
+        CompiledLevel level = {};
+        std::string level_path = "./tests/cpp/test_levels/quick_test.lvl";
+        
+        std::ifstream file(level_path, std::ios::binary);
+        EXPECT_TRUE(file.is_open()) << "Failed to open test level: " << level_path;
+        
+        file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
+        EXPECT_TRUE(file.good()) << "Failed to read test level";
+        
+        return level;
+    }
+};
+
+TEST_F(ViewerCoreTrajectoryTest, DISABLED_DeterministicReplayWithTrajectory) {
+    // Phase 1: Setup and Recording
+    // =============================
+    
+    // 1. Load Level
+    CompiledLevel test_level = loadTestLevel();
+    std::vector<std::optional<CompiledLevel>> per_world_levels;
+    per_world_levels.push_back(test_level);
+    
+    // 2. Create Manager Instance for recording
+    Manager mgr_record({
+        .execMode = madrona::ExecMode::CPU,
+        .gpuID = 0,
+        .numWorlds = 1,
+        .randSeed = 42,
+        .autoReset = true,
+        .enableBatchRenderer = false,
+        .batchRenderViewWidth = 64,
+        .batchRenderViewHeight = 64,
+        .extRenderAPI = nullptr,
+        .extRenderDev = nullptr,
+        .enableTrajectoryTracking = false,
+        .perWorldCompiledLevels = per_world_levels
+    });
+    
+    // 3. Create ViewerCore in Recording Mode
+    ViewerCore::Config record_config;
+    record_config.num_worlds = 1;
+    record_config.rand_seed = 42;
+    record_config.auto_reset = true;
+    record_config.load_path = "";  // Level already loaded in Manager
+    record_config.record_path = "test_viewercore_recording.rec";
+    record_config.replay_path = "";
+    
+    ViewerCore core_record(record_config, &mgr_record);
+    
+    // 4. Start Recording with Trajectory Tracking
+    core_record.startRecording("test_viewercore_recording.rec");
+    
+    // Enable trajectory tracking to "trajectory_record.csv"
+    mgr_record.enableTrajectoryLogging(0, 0, "trajectory_record.csv");
+    
+    // Verify we're in paused recording state
+    auto state = core_record.getFrameState();
+    EXPECT_TRUE(state.is_paused) << "Recording should start paused";
+    EXPECT_TRUE(state.is_recording) << "Should be in recording mode";
+    
+    // 5. Unpause and Simulate Movement
+    // Send SPACE key to unpause
+    ViewerCore::InputEvent unpause_event;
+    unpause_event.type = ViewerCore::InputEvent::KeyHit;
+    unpause_event.key = ViewerCore::InputEvent::Space;
+    core_record.handleInput(0, unpause_event);
+    
+    // Verify unpaused
+    state = core_record.getFrameState();
+    EXPECT_FALSE(state.is_paused) << "Should be unpaused after SPACE";
+    
+    // Hold W key for forward movement for 100 frames
+    ViewerCore::InputEvent w_press;
+    w_press.type = ViewerCore::InputEvent::KeyPress;
+    w_press.key = ViewerCore::InputEvent::W;
+    
+    for (int frame = 0; frame < 100; frame++) {
+        // Send W key press event
+        core_record.handleInput(0, w_press);
+        
+        // Update frame actions for world 0, agent 0
+        core_record.updateFrameActions(0, 0);
+        
+        // Step the simulation
+        core_record.stepSimulation();
+    }
+    
+    // 6. Stop Recording
+    core_record.stopRecording();
+    
+    // Verify recording file was created
+    ASSERT_TRUE(std::filesystem::exists("test_viewercore_recording.rec")) 
+        << "Recording file should be created";
+    
+    // Verify trajectory file was created
+    ASSERT_TRUE(std::filesystem::exists("trajectory_record.csv")) 
+        << "Recording trajectory file should be created";
+    
+    // Small delay to ensure files are fully written
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    
+    // Phase 2: Replay with Trajectory Tracking
+    // =========================================
+    
+    // 1. Create New Manager Instance (no level needed - will use embedded)
+    Manager mgr_replay({
+        .execMode = madrona::ExecMode::CPU,
+        .gpuID = 0,
+        .numWorlds = 1,
+        .randSeed = 42,  // Same seed
+        .autoReset = true,
+        .enableBatchRenderer = false,
+        .batchRenderViewWidth = 64,
+        .batchRenderViewHeight = 64,
+        .extRenderAPI = nullptr,
+        .extRenderDev = nullptr,
+        .enableTrajectoryTracking = false,
+        .perWorldCompiledLevels = {}  // Empty - will load from recording
+    });
+    
+    // 2. Create ViewerCore in Replay Mode
+    ViewerCore::Config replay_config;
+    replay_config.num_worlds = 1;
+    replay_config.rand_seed = 42;
+    replay_config.auto_reset = true;
+    replay_config.load_path = "";
+    replay_config.record_path = "";
+    replay_config.replay_path = "test_viewercore_recording.rec";
+    
+    ViewerCore core_replay(replay_config, &mgr_replay);
+    
+    // 3. Load Replay and Enable Tracking
+    core_replay.loadReplay("test_viewercore_recording.rec");
+    
+    // Enable trajectory tracking to different file
+    mgr_replay.enableTrajectoryLogging(0, 0, "trajectory_replay.csv");
+    
+    // Verify replay state (should NOT be paused)
+    state = core_replay.getFrameState();
+    EXPECT_FALSE(state.is_paused) << "Replay should not start paused";
+    EXPECT_TRUE(state.has_replay) << "Should have replay loaded";
+    
+    // 4. Step Through Replay
+    for (int frame = 0; frame < 100; frame++) {
+        core_replay.stepSimulation();
+        
+        // Check if replay finished early
+        state = core_replay.getFrameState();
+        if (state.should_exit) {
+            break;
+        }
+    }
+    
+    // 5. Verify Replay Completion
+    state = core_replay.getFrameState();
+    // Note: should_exit might not be set if we don't replay all frames
+    // The important thing is that we replayed the same number of frames
+    
+    // Verify replay trajectory file was created
+    ASSERT_TRUE(std::filesystem::exists("trajectory_replay.csv")) 
+        << "Replay trajectory file should be created";
+    
+    // Small delay to ensure files are fully written
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    
+    // Phase 3: Trajectory Verification
+    // =================================
+    
+    // 1. Load Both CSV Files
+    auto record_trajectory = TrajectoryComparer::parseTrajectoryFile("trajectory_record.csv");
+    auto replay_trajectory = TrajectoryComparer::parseTrajectoryFile("trajectory_replay.csv");
+    
+    // 2. Compare Trajectories
+    // Both should have 100 points (one per frame)
+    EXPECT_EQ(record_trajectory.size(), 100) 
+        << "Recording trajectory should have 100 points";
+    EXPECT_EQ(replay_trajectory.size(), 100) 
+        << "Replay trajectory should have 100 points";
+    
+    // Verify trajectories match
+    bool trajectories_match = TrajectoryComparer::compareTrajectories(
+        "trajectory_record.csv", 
+        "trajectory_replay.csv", 
+        0.001f  // Small epsilon for floating point comparison
+    );
+    
+    EXPECT_TRUE(trajectories_match) 
+        << "Recording and replay trajectories should be identical (deterministic replay)";
+    
+    // 3. Verify Movement Characteristics
+    if (!record_trajectory.empty()) {
+        // Get first and last points
+        const auto& first_point = record_trajectory.front();
+        const auto& last_point = record_trajectory.back();
+        
+        // Agent should have moved forward (Y should increase when moving forward)
+        // Note: Coordinate system may vary, adjust as needed
+        EXPECT_GT(last_point.y, first_point.y) 
+            << "Agent should have moved forward (Y increased)";
+        
+        // Rotation should stay relatively constant (no rotation input given)
+        float rotation_change = std::abs(last_point.rotation - first_point.rotation);
+        EXPECT_LT(rotation_change, 1.0f) 
+            << "Rotation should remain nearly constant";
+        
+        // Progress should increase
+        EXPECT_GT(last_point.progress, first_point.progress) 
+            << "Progress should increase during movement";
+        
+        // Verify monotonic progress increase
+        float prev_progress = -1.0f;
+        for (const auto& point : record_trajectory) {
+            EXPECT_GE(point.progress, prev_progress) 
+                << "Progress should increase monotonically";
+            prev_progress = point.progress;
+        }
+    }
+    
+    // Additional verification: Check that replay matches recording exactly
+    if (record_trajectory.size() == replay_trajectory.size()) {
+        for (size_t i = 0; i < record_trajectory.size(); i++) {
+            const auto& rec_point = record_trajectory[i];
+            const auto& rep_point = replay_trajectory[i];
+            
+            EXPECT_EQ(rec_point.step, rep_point.step) 
+                << "Step numbers should match at index " << i;
+            EXPECT_EQ(rec_point.world, rep_point.world) 
+                << "World indices should match at index " << i;
+            EXPECT_EQ(rec_point.agent, rep_point.agent) 
+                << "Agent indices should match at index " << i;
+            
+            // Use NEAR for floating point comparison
+            EXPECT_NEAR(rec_point.x, rep_point.x, 0.001f) 
+                << "X positions should match at step " << i;
+            EXPECT_NEAR(rec_point.y, rep_point.y, 0.001f) 
+                << "Y positions should match at step " << i;
+            EXPECT_NEAR(rec_point.z, rep_point.z, 0.001f) 
+                << "Z positions should match at step " << i;
+            EXPECT_NEAR(rec_point.rotation, rep_point.rotation, 0.001f) 
+                << "Rotations should match at step " << i;
+            EXPECT_NEAR(rec_point.progress, rep_point.progress, 0.001f) 
+                << "Progress should match at step " << i;
+        }
+    }
+}
+
+// Test ViewerCore state machine transitions
+TEST_F(ViewerCoreTrajectoryTest, DISABLED_StateMachineTransitions) {
+    // Create minimal manager for testing state transitions
+    CompiledLevel test_level = loadTestLevel();
+    std::vector<std::optional<CompiledLevel>> per_world_levels;
+    per_world_levels.push_back(test_level);
+    
+    Manager mgr({
+        .execMode = madrona::ExecMode::CPU,
+        .gpuID = 0,
+        .numWorlds = 1,
+        .randSeed = 42,
+        .autoReset = true,
+        .enableBatchRenderer = false,
+        .batchRenderViewWidth = 64,
+        .batchRenderViewHeight = 64,
+        .extRenderAPI = nullptr,
+        .extRenderDev = nullptr,
+        .enableTrajectoryTracking = false,
+        .perWorldCompiledLevels = per_world_levels
+    });
+    
+    ViewerCore::Config config;
+    config.num_worlds = 1;
+    config.rand_seed = 42;
+    config.auto_reset = true;
+    config.record_path = "test_state_recording.rec";
+    
+    ViewerCore core(config, &mgr);
+    
+    // Test recording state transitions
+    auto& state_machine = core.getStateMachine();
+    
+    // Initial state should be Idle
+    EXPECT_EQ(state_machine.getState(), RecordReplayStateMachine::Idle);
+    
+    // Start recording - should be paused
+    core.startRecording("test_state_recording.rec");
+    EXPECT_EQ(state_machine.getState(), RecordReplayStateMachine::RecordingPaused);
+    EXPECT_TRUE(state_machine.isPaused());
+    EXPECT_TRUE(state_machine.isRecording());
+    
+    // Unpause with SPACE key
+    ViewerCore::InputEvent space_event;
+    space_event.type = ViewerCore::InputEvent::KeyHit;
+    space_event.key = ViewerCore::InputEvent::Space;
+    core.handleInput(0, space_event);
+    
+    auto frame_state = core.getFrameState();
+    EXPECT_FALSE(frame_state.is_paused);
+    
+    // Stop recording
+    core.stopRecording();
+    EXPECT_EQ(state_machine.getState(), RecordReplayStateMachine::Idle);
+    
+    // Clean up test file
+    if (std::filesystem::exists("test_state_recording.rec")) {
+        std::filesystem::remove("test_state_recording.rec");
+    }
+}
+
+// Test action computation from input
+TEST_F(ViewerCoreTrajectoryTest, DISABLED_ActionComputationFromInput) {
+    // Create minimal manager
+    CompiledLevel test_level = loadTestLevel();
+    std::vector<std::optional<CompiledLevel>> per_world_levels;
+    per_world_levels.push_back(test_level);
+    
+    Manager mgr({
+        .execMode = madrona::ExecMode::CPU,
+        .gpuID = 0,
+        .numWorlds = 2,  // Test with 2 worlds
+        .randSeed = 42,
+        .autoReset = true,
+        .enableBatchRenderer = false,
+        .batchRenderViewWidth = 64,
+        .batchRenderViewHeight = 64,
+        .extRenderAPI = nullptr,
+        .extRenderDev = nullptr,
+        .enableTrajectoryTracking = false,
+        .perWorldCompiledLevels = {test_level, test_level}
+    });
+    
+    ViewerCore::Config config;
+    config.num_worlds = 2;
+    config.rand_seed = 42;
+    config.auto_reset = true;
+    
+    ViewerCore core(config, &mgr);
+    
+    // Test W key -> forward movement
+    ViewerCore::InputEvent w_press;
+    w_press.type = ViewerCore::InputEvent::KeyPress;
+    w_press.key = ViewerCore::InputEvent::W;
+    
+    core.handleInput(0, w_press);
+    core.updateFrameActions(0, 0);
+    
+    auto frame_state = core.getFrameState();
+    // Actions for world 0 should show forward movement
+    // move_amount > 0, move_angle = 0 (forward)
+    EXPECT_GT(frame_state.frame_actions[0], 0) << "Move amount should be > 0 when W pressed";
+    EXPECT_EQ(frame_state.frame_actions[1], 0) << "Move angle should be 0 (forward)";
+    
+    // Test A+W -> diagonal movement
+    ViewerCore::InputEvent a_press;
+    a_press.type = ViewerCore::InputEvent::KeyPress;
+    a_press.key = ViewerCore::InputEvent::A;
+    
+    core.handleInput(0, a_press);
+    core.updateFrameActions(0, 0);
+    
+    frame_state = core.getFrameState();
+    EXPECT_GT(frame_state.frame_actions[0], 0) << "Move amount should be > 0 when moving diagonally";
+    EXPECT_EQ(frame_state.frame_actions[1], 7) << "Move angle should be 7 (forward-left)";
+    
+    // Test Q key -> rotation left
+    ViewerCore::InputEvent q_press;
+    q_press.type = ViewerCore::InputEvent::KeyPress;
+    q_press.key = ViewerCore::InputEvent::Q;
+    
+    core.handleInput(1, q_press);  // Test on world 1
+    core.updateFrameActions(1, 0);
+    
+    frame_state = core.getFrameState();
+    // Actions for world 1 (index 3,4,5)
+    EXPECT_LT(frame_state.frame_actions[5], 2) << "Rotate should be < 2 (left rotation)";
+}
