@@ -3,19 +3,9 @@ cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 # Enable testing
 enable_testing()
 
-# Build GoogleTest with the Madrona toolchain to ensure ABI compatibility
-set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
-set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-# Disable RTTI and exceptions in GoogleTest to match our project
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions" CACHE STRING "" FORCE)
-set(gtest_disable_pthreads OFF CACHE BOOL "" FORCE)
-
-# Build GoogleTest in our build tree
-add_subdirectory(${CMAKE_SOURCE_DIR}/external/madrona/external/googletest 
-                 ${CMAKE_CURRENT_BINARY_DIR}/googletest 
-                 EXCLUDE_FROM_ALL)
+# Note: GoogleTest is already built and configured by Madrona's build system
+# in external/madrona/external/CMakeLists.txt with proper toolchain linking.
+# We just need to use the gtest_main target that Madrona provides.
 
 # Collect test source files
 set(TEST_SOURCES

@@ -7,11 +7,16 @@ project(Madrona3DExample LANGUAGES C CXX)
 include(setup)
 include(dependencies)
 
+# Option to build C++ tests
+option(BUILD_TESTS "Build C++ unit tests" OFF)
+if(BUILD_TESTS)
+    # Enable Madrona's tests to get GoogleTest built with the correct toolchain
+    set(MADRONA_ENABLE_TESTS ON CACHE BOOL "" FORCE)
+endif()
+
 add_subdirectory(external)
 add_subdirectory(src)
 
-# Option to build C++ tests
-option(BUILD_TESTS "Build C++ unit tests" OFF)
 if(BUILD_TESTS)
     add_subdirectory(tests/cpp)
 endif()
