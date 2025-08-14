@@ -61,7 +61,7 @@ If the server shows as "Failed to connect":
 ```bash
 # Build with debug symbols (CPU mode recommended for debugging)
 mkdir build
-/opt/cmake/bin/cmake -B build -DCMAKE_BUILD_TYPE=Debug -DMADRONA_CUDA_SUPPORT=OFF
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DMADRONA_CUDA_SUPPORT=OFF
 make -C build -j8
 
 # Note: Ubuntu 20.04's default GDB (9.2) doesn't support DWARF 5 used by modern compilers

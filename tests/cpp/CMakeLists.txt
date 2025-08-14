@@ -19,6 +19,9 @@ set(TEST_SOURCES
     fixtures/test_base.cpp
     unit/test_c_api_cpu.cpp
     unit/test_c_api_gpu.cpp
+    unit/test_viewer_args.cpp
+    unit/test_viewer_level_loading.cpp
+    unit/test_viewer_replay.cpp
 )
 
 # Create test executable
@@ -31,6 +34,7 @@ target_include_directories(mad_escape_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external/optionparser
 )
 
 # Link libraries

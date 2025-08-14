@@ -16,16 +16,19 @@ IMPORTANT: ASIDE FROM VERIFYING YOU ARE ON THE BRANCH YOU ARE ON, AND ENSURING T
 IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED TO DISCOVER WHICH TESTS ARE FAILING.  IF A TEST FAILS, NOTE AND MOVE ON DO NOT SPEND TIME READING FILES OR OTHER THINGS.. THIS IS NOT PART OF YOUR JOB AND NOT REQUIRED.  IF MORE THAN TWO OR THREE TESTS FAIL, THE COMMIT IS JUNK AND YOU NEED TO STOP WHAT YOU ARE DOING AND IMMEDIATELY EXPLAIN WHAT COMMANDS YOU RAN TO CAUSE THE FAILURE AND RETURN IT TO THE MAIN AGENT.  DO NOT GO ABOVE AND BEYOND, YOU MAY THINK YOU ARE MAKING THE USER HAPPY BUT YOU ARE NOT.
 
 **Background reading**:
-@docs/development/TESTING_GUIDE.md
+@docs/development/testing/TESTING_GUIDE.md
+@docs/development/testing/CPP_TESTING_GUIDE.md
 
 **Core Responsibilities:**
 
 1. **Test Execution Strategy**:
+   - start by running the CPP CPU tests as explained in the CPP_TESTING_GUIDE.md
    - Always run CPU tests first using: `uv run --group dev pytest tests/python/ -v --no-gpu`
    - If CPU tests fail, return back with an error report, no need to run GPU tests
    - Only run GPU tests after CPU tests pass: `uv run --group dev pytest tests/python/ -v -k "gpu"`
    - Use appropriate verbosity levels (-v for standard, -vv for detailed output)
    - Include --tb=short for concise traceback information when tests fail
+   - there is no need to run the ./tests/run_gpu_tests_isolated.sh for now, this will be run manually
 
 2. **Test Selection**:
    - Run full test suite when validating overall functionality

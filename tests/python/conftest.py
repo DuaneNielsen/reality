@@ -323,7 +323,7 @@ def test_manager(request):
 
 
 @pytest.fixture(autouse=True)
-def per_test_recording_handler(request, test_manager):
+def per_test_recording_handler(request):
     """Autouse fixture that handles per-test recording and tracing for module-scoped test_manager"""
     # Check for debug flags
     record_actions = request.config.getoption("--record-actions")
@@ -331,6 +331,8 @@ def per_test_recording_handler(request, test_manager):
 
     # Only run if we have either recording or tracing enabled
     if record_actions or trace_trajectories:
+        # Only get test_manager when we actually need it
+        test_manager = request.getfixturevalue("test_manager")
         # Create test-specific files
         test_name = request.node.nodeid.replace("::", "__")
         test_filename = test_name.split("/")[-1] if "/" in test_name else test_name

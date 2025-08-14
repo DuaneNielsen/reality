@@ -6,7 +6,11 @@ Tests the complete pipeline from ASCII art to C API struct population.
 
 import pytest
 
-from madrona_escape_room.level_compiler import compile_level, validate_compiled_level
+from madrona_escape_room.level_compiler import (
+    MAX_TILES_C_API,
+    compile_level,
+    validate_compiled_level,
+)
 
 
 class TestLevelCompiler:
@@ -26,9 +30,9 @@ class TestLevelCompiler:
         assert compiled["scale"] == 2.0
         assert compiled["num_tiles"] > 0
         assert compiled["max_entities"] > compiled["num_tiles"]
-        assert len(compiled["tile_types"]) == 256
-        assert len(compiled["tile_x"]) == 256
-        assert len(compiled["tile_y"]) == 256
+        assert len(compiled["tile_types"]) == MAX_TILES_C_API
+        assert len(compiled["tile_x"]) == MAX_TILES_C_API
+        assert len(compiled["tile_y"]) == MAX_TILES_C_API
 
         # Verify spawn point was found
         assert "_spawn_points" in compiled
@@ -109,7 +113,7 @@ class TestCTypesIntegration:
             assert abs(struct.tile_y[i] - compiled["tile_y"][i]) < 0.001
 
         # Verify zero padding
-        for i in range(compiled["num_tiles"], 256):
+        for i in range(compiled["num_tiles"], MAX_TILES_C_API):
             assert struct.tile_types[i] == 0
             assert abs(struct.tile_x[i]) < 0.001
             assert abs(struct.tile_y[i]) < 0.001

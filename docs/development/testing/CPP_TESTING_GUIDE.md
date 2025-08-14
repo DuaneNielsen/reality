@@ -63,14 +63,14 @@ The easiest way to run tests:
 ### Direct Execution
 
 ```bash
-# Run all tests
+# Run all tests (GPU tests will be skipped by default)
 ./build/mad_escape_tests
 
 # Run CPU tests only (fast - recommended for development)
 ./build/mad_escape_tests --gtest_filter="*CPU*"
 
-# Run GPU tests only (slow - ~45 seconds per test due to NVRTC compilation)
-./build/mad_escape_tests --gtest_filter="*GPU*"
+# Run GPU tests in main suite (requires environment variable)
+ALLOW_GPU_TESTS_IN_SUITE=1 ./build/mad_escape_tests --gtest_filter="*GPU*"
 
 # List available tests
 ./build/mad_escape_tests --gtest_list_tests
@@ -79,19 +79,53 @@ The easiest way to run tests:
 ./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
 ```
 
-### ⚠️ GPU Test Performance Warning
+### ⚠️ GPU Test Limitations
 
+#### Performance Warning
 **Each GPU test creates its own manager, triggering NVRTC compilation of GPU kernels. This compilation takes approximately 40-45 seconds per test.** With 9 GPU tests plus parameterized variants, the full GPU test suite can take **10+ minutes** to complete.
 
-This is expected behavior due to the runtime compilation nature of the Madrona engine. The compilation happens for each manager creation because:
+#### Critical Limitation: One GPU Manager Per Process
+**Only one GPU manager can be created per process lifetime.** After destroying a GPU manager, attempting to create a second one in the same process will fail with:
+```
+Error at external/madrona/src/mw/cuda_exec.cpp:283 in void madrona::setCudaHeapSize()
+invalid argument
+```
+
+This is a Madrona framework limitation where CUDA device state is not properly reset when a manager is destroyed. As a result:
+- **GPU tests are skipped by default** in the main test suite
+- They will show as `[SKIPPED]` when running `./build/mad_escape_tests`
+- Use the isolation script or environment variable to run GPU tests
+
+#### Workarounds
+
+1. **Use the provided isolation script** (recommended):
+```bash
+# Automatically runs each GPU test in a separate process
+./tests/run_gpu_tests_isolated.sh
+```
+
+2. **Run GPU tests individually**:
+```bash
+# Run a single GPU test
+./build/mad_escape_tests --gtest_filter="CApiGPUTest.ManagerCreation"
+```
+
+3. **Skip GPU tests during development**:
+```bash
+# Run only CPU tests for quick iteration
+./build/mad_escape_tests --gtest_filter="*CPU*"
+```
+
+#### Why This Happens
 - GPU code is compiled at runtime using NVRTC
-- Compiled kernels are not cached between manager instances
-- Each test needs a fresh manager for proper test isolation
+- CUDA heap size can only be set once per process
+- The Madrona engine doesn't reset CUDA state on manager destruction
+- Python tests have the same limitation but typically avoid it through process isolation
 
 For faster iteration during development:
 - Run CPU tests for quick feedback (< 1 second per test)
-- Run specific GPU tests when testing GPU-specific functionality
-- Consider running full GPU test suite only in CI/nightly builds
+- Run specific GPU tests individually when testing GPU-specific functionality
+- Consider running full GPU test suite only in CI/nightly builds with process isolation
 
 ### Using CMake/CTest
 

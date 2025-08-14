@@ -14,6 +14,21 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+
+def _get_max_tiles_from_c_api():
+    """Get MAX_TILES from C API - returns the actual CompiledLevel::MAX_TILES value"""
+    try:
+        from .ctypes_bindings import _get_max_tiles
+
+        return _get_max_tiles()
+    except ImportError:
+        # Fallback if ctypes bindings not available
+        return 1024
+
+
+# Get the authoritative MAX_TILES value from C++
+MAX_TILES_C_API = _get_max_tiles_from_c_api()
+
 # Tile type constants (must match C++ TileType enum in src/level_gen.cpp)
 TILE_EMPTY = 0
 TILE_WALL = 1
@@ -28,7 +43,7 @@ MAX_LEVEL_WIDTH = 64
 MAX_LEVEL_HEIGHT = 64
 MIN_LEVEL_WIDTH = 3
 MIN_LEVEL_HEIGHT = 3
-MAX_TOTAL_TILES = 2048  # Reasonable upper bound to prevent accidents
+# MAX_TOTAL_TILES now comes from C API (MAX_TILES_C_API)
 
 # Character to tile type mapping
 CHAR_MAP = {
@@ -58,7 +73,7 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         - max_entities: BVH size hint (includes persistent entities)
         - width, height: Grid dimensions
         - scale: World scale factor
-        - tile_types, tile_x, tile_y: Arrays of tile data ({MAX_TILES} elements each)
+        - tile_types, tile_x, tile_y: Arrays of tile data (MAX_TILES_C_API elements each)
 
     Raises:
         ValueError: If level is invalid (empty, too large, no spawn points, unknown chars)
@@ -98,9 +113,10 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
 
     # Calculate total array size needed
     array_size = width * height
-    if array_size > MAX_TOTAL_TILES:
+    if array_size > MAX_TILES_C_API:
         raise ValueError(
-            f"Level too large: {width}×{height} = {array_size} tiles > {MAX_TOTAL_TILES} max"
+            f"Level too large: {width}×{height} = {array_size} tiles > "
+            f"{MAX_TILES_C_API} max (from C API)"
         )
 
     tiles = []
@@ -145,10 +161,10 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
     if len(spawns) == 0:
         raise ValueError("No spawn points (S) found in level - at least one required")
 
-    # Build arrays with exact size needed for this level (no wasted space)
-    tile_types = [0] * array_size
-    tile_x = [0.0] * array_size
-    tile_y = [0.0] * array_size
+    # Build arrays with MAX_TILES_C_API size for C++ compatibility
+    tile_types = [0] * MAX_TILES_C_API
+    tile_x = [0.0] * MAX_TILES_C_API
+    tile_y = [0.0] * MAX_TILES_C_API
 
     # Fill arrays with actual tile data
     for i, (world_x, world_y, tile_type) in enumerate(tiles):
@@ -212,13 +228,12 @@ def validate_compiled_level(compiled: Dict) -> None:
     if compiled["scale"] <= 0.0:
         raise ValueError(f"Invalid scale: {compiled['scale']} (must be > 0)")
 
-    # Check array lengths match calculated array size
-    expected_size = compiled["array_size"]
+    # Check array lengths match MAX_TILES_C_API (fixed size for C++ compatibility)
     for array_name in ["tile_types", "tile_x", "tile_y"]:
-        if len(compiled[array_name]) != expected_size:
+        if len(compiled[array_name]) != MAX_TILES_C_API:
             raise ValueError(
                 f"Invalid {array_name} array length: {len(compiled[array_name])} "
-                f"(must be {expected_size})"
+                f"(must be {MAX_TILES_C_API} for C++ compatibility)"
             )
 
 
@@ -250,25 +265,25 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
             f.write(struct.pack("<f", compiled["scale"]))
 
             # Arrays: Write fixed-size arrays for C++ compatibility
-            # Always write MAX_TILES elements regardless of actual array size
+            # Always write MAX_TILES_C_API elements regardless of actual array size
             array_size = compiled["array_size"]
 
             # tile_types array - pad with zeros if needed
-            for i in range(1024):  # MAX_TILES = 1024
+            for i in range(MAX_TILES_C_API):
                 if i < array_size:
                     f.write(struct.pack("<i", compiled["tile_types"][i]))
                 else:
                     f.write(struct.pack("<i", 0))  # TILE_EMPTY
 
             # tile_x array - pad with zeros if needed
-            for i in range(1024):  # MAX_TILES = 1024
+            for i in range(MAX_TILES_C_API):
                 if i < array_size:
                     f.write(struct.pack("<f", compiled["tile_x"][i]))
                 else:
                     f.write(struct.pack("<f", 0.0))
 
             # tile_y array - pad with zeros if needed
-            for i in range(1024):  # MAX_TILES = 1024
+            for i in range(MAX_TILES_C_API):
                 if i < array_size:
                     f.write(struct.pack("<f", compiled["tile_y"][i]))
                 else:
@@ -301,17 +316,17 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             height = struct.unpack("<i", f.read(4))[0]
             scale = struct.unpack("<f", f.read(4))[0]
 
-            # Read fixed-size arrays (always MAX_TILES elements for C++ compatibility)
+            # Read fixed-size arrays (always MAX_TILES_C_API elements for C++ compatibility)
             tile_types = []
-            for _ in range(1024):  # MAX_TILES = 1024
+            for _ in range(MAX_TILES_C_API):
                 tile_types.append(struct.unpack("<i", f.read(4))[0])
 
             tile_x = []
-            for _ in range(1024):  # MAX_TILES = 1024
+            for _ in range(MAX_TILES_C_API):
                 tile_x.append(struct.unpack("<f", f.read(4))[0])
 
             tile_y = []
-            for _ in range(1024):  # MAX_TILES = 1024
+            for _ in range(MAX_TILES_C_API):
                 tile_y.append(struct.unpack("<f", f.read(4))[0])
 
             # Calculate expected array size for this level's dimensions
