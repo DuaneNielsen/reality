@@ -3,6 +3,7 @@
 #include "mock_components.hpp"
 #include "mgr.hpp"
 #include "viewer_core.hpp"
+#include "replay_metadata.hpp"
 #include <fstream>
 #include <filesystem>
 #include <thread>
@@ -10,19 +11,16 @@
 
 using namespace madEscape;
 
-// Test fixture for ViewerCore trajectory verification using C API
-class ViewerCoreTrajectoryTest : public ViewerTestBase {
+// Test fixture for ViewerCore trajectory verification
+class ViewerCoreTrajectoryTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        ViewerTestBase::SetUp();
-        
         // Clean up any previous test files
         cleanupTestFiles();
     }
     
     void TearDown() override {
         cleanupTestFiles();
-        ViewerTestBase::TearDown();
     }
     
     void cleanupTestFiles() {
@@ -30,7 +28,8 @@ protected:
         std::vector<std::string> files_to_remove = {
             "test_viewercore_recording.rec",
             "trajectory_record.csv",
-            "trajectory_replay.csv"
+            "trajectory_replay.csv",
+            "test_state_recording.rec"
         };
         
         for (const auto& file : files_to_remove) {
@@ -48,14 +47,16 @@ protected:
         std::ifstream file(level_path, std::ios::binary);
         EXPECT_TRUE(file.is_open()) << "Failed to open test level: " << level_path;
         
-        file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
-        EXPECT_TRUE(file.good()) << "Failed to read test level";
+        if (file.is_open()) {
+            file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
+            file.close();
+        }
         
         return level;
     }
 };
 
-TEST_F(ViewerCoreTrajectoryTest, DISABLED_DeterministicReplayWithTrajectory) {
+TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
     // Phase 1: Setup and Recording
     // =============================
     
@@ -65,20 +66,21 @@ TEST_F(ViewerCoreTrajectoryTest, DISABLED_DeterministicReplayWithTrajectory) {
     per_world_levels.push_back(test_level);
     
     // 2. Create Manager Instance for recording
-    Manager mgr_record({
-        .execMode = madrona::ExecMode::CPU,
-        .gpuID = 0,
-        .numWorlds = 1,
-        .randSeed = 42,
-        .autoReset = true,
-        .enableBatchRenderer = false,
-        .batchRenderViewWidth = 64,
-        .batchRenderViewHeight = 64,
-        .extRenderAPI = nullptr,
-        .extRenderDev = nullptr,
-        .enableTrajectoryTracking = false,
-        .perWorldCompiledLevels = per_world_levels
-    });
+    Manager::Config mgr_config_record;
+    mgr_config_record.execMode = madrona::ExecMode::CPU;
+    mgr_config_record.gpuID = 0;
+    mgr_config_record.numWorlds = 1;
+    mgr_config_record.randSeed = 42;
+    mgr_config_record.autoReset = true;
+    mgr_config_record.enableBatchRenderer = false;
+    mgr_config_record.batchRenderViewWidth = 64;
+    mgr_config_record.batchRenderViewHeight = 64;
+    mgr_config_record.extRenderAPI = nullptr;
+    mgr_config_record.extRenderDev = nullptr;
+    mgr_config_record.enableTrajectoryTracking = false;
+    mgr_config_record.perWorldCompiledLevels = per_world_levels;
+    
+    Manager mgr_record(mgr_config_record);
     
     // 3. Create ViewerCore in Recording Mode
     ViewerCore::Config record_config;
@@ -147,21 +149,29 @@ TEST_F(ViewerCoreTrajectoryTest, DISABLED_DeterministicReplayWithTrajectory) {
     // Phase 2: Replay with Trajectory Tracking
     // =========================================
     
-    // 1. Create New Manager Instance (no level needed - will use embedded)
-    Manager mgr_replay({
-        .execMode = madrona::ExecMode::CPU,
-        .gpuID = 0,
-        .numWorlds = 1,
-        .randSeed = 42,  // Same seed
-        .autoReset = true,
-        .enableBatchRenderer = false,
-        .batchRenderViewWidth = 64,
-        .batchRenderViewHeight = 64,
-        .extRenderAPI = nullptr,
-        .extRenderDev = nullptr,
-        .enableTrajectoryTracking = false,
-        .perWorldCompiledLevels = {}  // Empty - will load from recording
-    });
+    // 1. Extract the embedded level from the replay file
+    auto embedded_level = madrona::escape_room::ReplayLoader::loadEmbeddedLevel("test_viewercore_recording.rec");
+    ASSERT_TRUE(embedded_level.has_value()) << "Failed to load embedded level from replay file";
+    
+    // 2. Create Manager with the extracted level
+    std::vector<std::optional<CompiledLevel>> replay_levels;
+    replay_levels.push_back(embedded_level.value());
+    
+    Manager::Config mgr_config_replay;
+    mgr_config_replay.execMode = madrona::ExecMode::CPU;
+    mgr_config_replay.gpuID = 0;
+    mgr_config_replay.numWorlds = 1;
+    mgr_config_replay.randSeed = 42;  // Same seed
+    mgr_config_replay.autoReset = true;
+    mgr_config_replay.enableBatchRenderer = false;
+    mgr_config_replay.batchRenderViewWidth = 64;
+    mgr_config_replay.batchRenderViewHeight = 64;
+    mgr_config_replay.extRenderAPI = nullptr;
+    mgr_config_replay.extRenderDev = nullptr;
+    mgr_config_replay.enableTrajectoryTracking = false;
+    mgr_config_replay.perWorldCompiledLevels = replay_levels;
+    
+    Manager mgr_replay(mgr_config_replay);
     
     // 2. Create ViewerCore in Replay Mode
     ViewerCore::Config replay_config;
@@ -291,37 +301,40 @@ TEST_F(ViewerCoreTrajectoryTest, DISABLED_DeterministicReplayWithTrajectory) {
 }
 
 // Test ViewerCore state machine transitions
-TEST_F(ViewerCoreTrajectoryTest, DISABLED_StateMachineTransitions) {
+TEST_F(ViewerCoreTrajectoryTest, StateMachineTransitions) {
     // Create minimal manager for testing state transitions
     CompiledLevel test_level = loadTestLevel();
     std::vector<std::optional<CompiledLevel>> per_world_levels;
     per_world_levels.push_back(test_level);
     
-    Manager mgr({
-        .execMode = madrona::ExecMode::CPU,
-        .gpuID = 0,
-        .numWorlds = 1,
-        .randSeed = 42,
-        .autoReset = true,
-        .enableBatchRenderer = false,
-        .batchRenderViewWidth = 64,
-        .batchRenderViewHeight = 64,
-        .extRenderAPI = nullptr,
-        .extRenderDev = nullptr,
-        .enableTrajectoryTracking = false,
-        .perWorldCompiledLevels = per_world_levels
-    });
+    Manager::Config mgr_config;
+    mgr_config.execMode = madrona::ExecMode::CPU;
+    mgr_config.gpuID = 0;
+    mgr_config.numWorlds = 1;
+    mgr_config.randSeed = 42;
+    mgr_config.autoReset = true;
+    mgr_config.enableBatchRenderer = false;
+    mgr_config.batchRenderViewWidth = 64;
+    mgr_config.batchRenderViewHeight = 64;
+    mgr_config.extRenderAPI = nullptr;
+    mgr_config.extRenderDev = nullptr;
+    mgr_config.enableTrajectoryTracking = false;
+    mgr_config.perWorldCompiledLevels = per_world_levels;
+    
+    Manager mgr(mgr_config);
     
     ViewerCore::Config config;
     config.num_worlds = 1;
     config.rand_seed = 42;
     config.auto_reset = true;
+    config.load_path = "";
     config.record_path = "test_state_recording.rec";
+    config.replay_path = "";
     
     ViewerCore core(config, &mgr);
     
     // Test recording state transitions
-    auto& state_machine = core.getStateMachine();
+    const auto& state_machine = core.getStateMachine();
     
     // Initial state should be Idle
     EXPECT_EQ(state_machine.getState(), RecordReplayStateMachine::Idle);
@@ -338,45 +351,53 @@ TEST_F(ViewerCoreTrajectoryTest, DISABLED_StateMachineTransitions) {
     space_event.key = ViewerCore::InputEvent::Space;
     core.handleInput(0, space_event);
     
+    // Check state after unpause
+    EXPECT_EQ(state_machine.getState(), RecordReplayStateMachine::Recording);
+    EXPECT_FALSE(state_machine.isPaused());
+    EXPECT_TRUE(state_machine.isRecording());
+    
     auto frame_state = core.getFrameState();
     EXPECT_FALSE(frame_state.is_paused);
+    EXPECT_TRUE(frame_state.is_recording);
     
     // Stop recording
     core.stopRecording();
     EXPECT_EQ(state_machine.getState(), RecordReplayStateMachine::Idle);
-    
-    // Clean up test file
-    if (std::filesystem::exists("test_state_recording.rec")) {
-        std::filesystem::remove("test_state_recording.rec");
-    }
+    EXPECT_FALSE(state_machine.isRecording());
+    EXPECT_FALSE(state_machine.isPaused());
 }
 
 // Test action computation from input
-TEST_F(ViewerCoreTrajectoryTest, DISABLED_ActionComputationFromInput) {
+TEST_F(ViewerCoreTrajectoryTest, ActionComputationFromInput) {
     // Create minimal manager
     CompiledLevel test_level = loadTestLevel();
     std::vector<std::optional<CompiledLevel>> per_world_levels;
     per_world_levels.push_back(test_level);
+    per_world_levels.push_back(test_level);
     
-    Manager mgr({
-        .execMode = madrona::ExecMode::CPU,
-        .gpuID = 0,
-        .numWorlds = 2,  // Test with 2 worlds
-        .randSeed = 42,
-        .autoReset = true,
-        .enableBatchRenderer = false,
-        .batchRenderViewWidth = 64,
-        .batchRenderViewHeight = 64,
-        .extRenderAPI = nullptr,
-        .extRenderDev = nullptr,
-        .enableTrajectoryTracking = false,
-        .perWorldCompiledLevels = {test_level, test_level}
-    });
+    Manager::Config mgr_config;
+    mgr_config.execMode = madrona::ExecMode::CPU;
+    mgr_config.gpuID = 0;
+    mgr_config.numWorlds = 2;  // Test with 2 worlds
+    mgr_config.randSeed = 42;
+    mgr_config.autoReset = true;
+    mgr_config.enableBatchRenderer = false;
+    mgr_config.batchRenderViewWidth = 64;
+    mgr_config.batchRenderViewHeight = 64;
+    mgr_config.extRenderAPI = nullptr;
+    mgr_config.extRenderDev = nullptr;
+    mgr_config.enableTrajectoryTracking = false;
+    mgr_config.perWorldCompiledLevels = per_world_levels;
+    
+    Manager mgr(mgr_config);
     
     ViewerCore::Config config;
     config.num_worlds = 2;
     config.rand_seed = 42;
     config.auto_reset = true;
+    config.load_path = "";
+    config.record_path = "";
+    config.replay_path = "";
     
     ViewerCore core(config, &mgr);
     
@@ -411,10 +432,83 @@ TEST_F(ViewerCoreTrajectoryTest, DISABLED_ActionComputationFromInput) {
     q_press.type = ViewerCore::InputEvent::KeyPress;
     q_press.key = ViewerCore::InputEvent::Q;
     
+    // Release W and A first
+    ViewerCore::InputEvent w_release;
+    w_release.type = ViewerCore::InputEvent::KeyRelease;
+    w_release.key = ViewerCore::InputEvent::W;
+    core.handleInput(1, w_release);
+    
+    ViewerCore::InputEvent a_release;
+    a_release.type = ViewerCore::InputEvent::KeyRelease;
+    a_release.key = ViewerCore::InputEvent::A;
+    core.handleInput(1, a_release);
+    
     core.handleInput(1, q_press);  // Test on world 1
     core.updateFrameActions(1, 0);
     
     frame_state = core.getFrameState();
-    // Actions for world 1 (index 3,4,5)
+    // Actions for world 1 (index 3,4,5 since each world has 3 action dims)
+    EXPECT_EQ(frame_state.frame_actions[3], 0) << "Move amount should be 0 when only rotating";
     EXPECT_LT(frame_state.frame_actions[5], 2) << "Rotate should be < 2 (left rotation)";
+    
+    // Test E key -> rotation right
+    ViewerCore::InputEvent q_release;
+    q_release.type = ViewerCore::InputEvent::KeyRelease;
+    q_release.key = ViewerCore::InputEvent::Q;
+    core.handleInput(1, q_release);
+    
+    ViewerCore::InputEvent e_press;
+    e_press.type = ViewerCore::InputEvent::KeyPress;
+    e_press.key = ViewerCore::InputEvent::E;
+    
+    core.handleInput(1, e_press);
+    core.updateFrameActions(1, 0);
+    
+    frame_state = core.getFrameState();
+    EXPECT_GT(frame_state.frame_actions[5], 2) << "Rotate should be > 2 (right rotation)";
+}
+
+// Test trajectory tracking toggle
+TEST_F(ViewerCoreTrajectoryTest, TrajectoryTrackingToggle) {
+    // Create minimal manager
+    CompiledLevel test_level = loadTestLevel();
+    std::vector<std::optional<CompiledLevel>> per_world_levels;
+    per_world_levels.push_back(test_level);
+    
+    Manager::Config mgr_config;
+    mgr_config.execMode = madrona::ExecMode::CPU;
+    mgr_config.gpuID = 0;
+    mgr_config.numWorlds = 1;
+    mgr_config.randSeed = 42;
+    mgr_config.autoReset = true;
+    mgr_config.enableBatchRenderer = false;
+    mgr_config.batchRenderViewWidth = 64;
+    mgr_config.batchRenderViewHeight = 64;
+    mgr_config.extRenderAPI = nullptr;
+    mgr_config.extRenderDev = nullptr;
+    mgr_config.enableTrajectoryTracking = false;
+    mgr_config.perWorldCompiledLevels = per_world_levels;
+    
+    Manager mgr(mgr_config);
+    
+    ViewerCore::Config config;
+    config.num_worlds = 1;
+    config.rand_seed = 42;
+    config.auto_reset = true;
+    config.load_path = "";
+    config.record_path = "";
+    config.replay_path = "";
+    
+    ViewerCore core(config, &mgr);
+    
+    // Initially should not be tracking
+    EXPECT_FALSE(core.isTrackingTrajectory(0));
+    
+    // Toggle on
+    core.toggleTrajectoryTracking(0);
+    EXPECT_TRUE(core.isTrackingTrajectory(0));
+    
+    // Toggle off
+    core.toggleTrajectoryTracking(0);
+    EXPECT_FALSE(core.isTrackingTrajectory(0));
 }
