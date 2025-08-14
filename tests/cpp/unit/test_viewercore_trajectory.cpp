@@ -512,3 +512,377 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryTrackingToggle) {
     core.toggleTrajectoryTracking(0);
     EXPECT_FALSE(core.isTrackingTrajectory(0));
 }
+
+// Test that trajectory points match the number of recorded frames
+TEST_F(ViewerCoreTrajectoryTest, TrajectoryPointsMatchRecordedFrames) {
+    // This test verifies that the number of trajectory points written
+    // matches the number of frames recorded in the action file.
+    // This addresses the bug where 150 frames are saved but only 75 trajectory points.
+    
+    const int NUM_FRAMES_TO_RECORD = 150;  // Test with 150 frames specifically
+    
+    // Clean up any previous test files
+    std::vector<std::string> files_to_clean = {
+        "test_frame_count.rec",
+        "trajectory_frame_count.csv"
+    };
+    for (const auto& file : files_to_clean) {
+        if (std::filesystem::exists(file)) {
+            std::filesystem::remove(file);
+        }
+    }
+    
+    // Load test level
+    CompiledLevel test_level = loadTestLevel();
+    std::vector<std::optional<CompiledLevel>> per_world_levels;
+    per_world_levels.push_back(test_level);
+    
+    // Create Manager for recording
+    Manager::Config mgr_config;
+    mgr_config.execMode = madrona::ExecMode::CPU;
+    mgr_config.gpuID = 0;
+    mgr_config.numWorlds = 1;
+    mgr_config.randSeed = 12345;  // Different seed for variety
+    mgr_config.autoReset = true;
+    mgr_config.enableBatchRenderer = false;
+    mgr_config.batchRenderViewWidth = 64;
+    mgr_config.batchRenderViewHeight = 64;
+    mgr_config.extRenderAPI = nullptr;
+    mgr_config.extRenderDev = nullptr;
+    mgr_config.enableTrajectoryTracking = false;
+    mgr_config.perWorldCompiledLevels = per_world_levels;
+    
+    Manager mgr(mgr_config);
+    
+    // Create ViewerCore in recording mode
+    ViewerCore::Config record_config;
+    record_config.num_worlds = 1;
+    record_config.rand_seed = 12345;
+    record_config.auto_reset = true;
+    record_config.load_path = "";
+    record_config.record_path = "test_frame_count.rec";
+    record_config.replay_path = "";
+    
+    ViewerCore core(record_config, &mgr);
+    
+    // Start recording with trajectory tracking
+    core.startRecording("test_frame_count.rec");
+    mgr.enableTrajectoryLogging(0, 0, "trajectory_frame_count.csv");
+    
+    // Unpause recording
+    ViewerCore::InputEvent unpause_event;
+    unpause_event.type = ViewerCore::InputEvent::KeyHit;
+    unpause_event.key = ViewerCore::InputEvent::Space;
+    core.handleInput(0, unpause_event);
+    
+    // Verify unpaused
+    auto state = core.getFrameState();
+    ASSERT_FALSE(state.is_paused) << "Should be unpaused after SPACE";
+    
+    // Record exactly NUM_FRAMES_TO_RECORD frames with varied movement
+    ViewerCore::InputEvent w_press;
+    w_press.type = ViewerCore::InputEvent::KeyPress;
+    w_press.key = ViewerCore::InputEvent::W;
+    
+    ViewerCore::InputEvent d_press;
+    d_press.type = ViewerCore::InputEvent::KeyPress;
+    d_press.key = ViewerCore::InputEvent::D;
+    
+    for (int frame = 0; frame < NUM_FRAMES_TO_RECORD; frame++) {
+        // Alternate between W and D every 30 frames for variety
+        if ((frame / 30) % 2 == 0) {
+            core.handleInput(0, w_press);
+        } else {
+            core.handleInput(0, d_press);
+        }
+        
+        core.updateFrameActions(0, 0);
+        core.stepSimulation();
+    }
+    
+    // Stop recording
+    core.stopRecording();
+    
+    // Ensure files are fully written
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
+    // Verify both files exist
+    ASSERT_TRUE(std::filesystem::exists("test_frame_count.rec")) 
+        << "Recording file should exist";
+    ASSERT_TRUE(std::filesystem::exists("trajectory_frame_count.csv")) 
+        << "Trajectory file should exist";
+    
+    // Parse the trajectory file and count points
+    auto trajectory_points = TrajectoryComparer::parseTrajectoryFile("trajectory_frame_count.csv");
+    
+    // Count the number of frames in the recording file
+    // We can infer this from the replay metadata or by replaying and counting
+    auto metadata_opt = Manager::readReplayMetadata("test_frame_count.rec");
+    ASSERT_TRUE(metadata_opt.has_value()) << "Should be able to read replay metadata";
+    
+    // Debug output to understand the discrepancy
+    std::cout << "DEBUG: Requested frames: " << NUM_FRAMES_TO_RECORD << std::endl;
+    std::cout << "DEBUG: Trajectory points in recording: " << trajectory_points.size() << std::endl;
+    
+    // The critical assertion: trajectory points should match recorded frames
+    EXPECT_EQ(trajectory_points.size(), NUM_FRAMES_TO_RECORD) 
+        << "Number of trajectory points (" << trajectory_points.size() 
+        << ") should match number of recorded frames (" << NUM_FRAMES_TO_RECORD << ")";
+    
+    // Additional verification: Check trajectory points have sequential step numbers
+    if (!trajectory_points.empty()) {
+        for (size_t i = 0; i < trajectory_points.size(); i++) {
+            EXPECT_EQ(trajectory_points[i].step, static_cast<int>(i)) 
+                << "Trajectory step number should be sequential at index " << i;
+        }
+        
+        // Verify we have exactly the expected range
+        EXPECT_EQ(trajectory_points.front().step, 0) 
+            << "First trajectory point should be step 0";
+        EXPECT_EQ(trajectory_points.back().step, NUM_FRAMES_TO_RECORD - 1) 
+            << "Last trajectory point should be step " << (NUM_FRAMES_TO_RECORD - 1);
+    }
+    
+    // Now replay the recording and verify trajectory during replay also matches
+    // Extract embedded level for replay
+    auto embedded_level = madrona::escape_room::ReplayLoader::loadEmbeddedLevel("test_frame_count.rec");
+    ASSERT_TRUE(embedded_level.has_value()) << "Failed to load embedded level from replay";
+    
+    std::vector<std::optional<CompiledLevel>> replay_levels;
+    replay_levels.push_back(embedded_level.value());
+    
+    // Create new Manager for replay
+    Manager::Config replay_mgr_config = mgr_config;
+    replay_mgr_config.perWorldCompiledLevels = replay_levels;
+    
+    Manager mgr_replay(replay_mgr_config);
+    
+    // Create ViewerCore in replay mode
+    ViewerCore::Config replay_config;
+    replay_config.num_worlds = 1;
+    replay_config.rand_seed = 12345;
+    replay_config.auto_reset = true;
+    replay_config.load_path = "";
+    replay_config.record_path = "";
+    replay_config.replay_path = "test_frame_count.rec";
+    
+    ViewerCore core_replay(replay_config, &mgr_replay);
+    
+    // Load replay and enable trajectory tracking
+    core_replay.loadReplay("test_frame_count.rec");
+    mgr_replay.enableTrajectoryLogging(0, 0, "trajectory_replay_count.csv");
+    
+    // Step through ALL frames in the replay
+    int replay_frame_count = 0;
+    while (true) {
+        core_replay.stepSimulation();
+        replay_frame_count++;
+        
+        auto replay_state = core_replay.getFrameState();
+        if (replay_state.should_exit || replay_frame_count >= NUM_FRAMES_TO_RECORD + 10) {
+            // Add safety limit to prevent infinite loop
+            break;
+        }
+    }
+    
+    // Ensure replay trajectory is written
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    
+    // Check replay trajectory also has correct number of points
+    if (std::filesystem::exists("trajectory_replay_count.csv")) {
+        auto replay_trajectory = TrajectoryComparer::parseTrajectoryFile("trajectory_replay_count.csv");
+        
+        std::cout << "DEBUG: Replay frame count: " << replay_frame_count << std::endl;
+        std::cout << "DEBUG: Replay trajectory points: " << replay_trajectory.size() << std::endl;
+        
+        EXPECT_EQ(replay_trajectory.size(), trajectory_points.size())
+            << "Replay trajectory should have same number of points as recording";
+        
+        // Clean up replay trajectory file
+        std::filesystem::remove("trajectory_replay_count.csv");
+    }
+    
+    // Clean up test files
+    for (const auto& file : files_to_clean) {
+        if (std::filesystem::exists(file)) {
+            std::filesystem::remove(file);
+        }
+    }
+}
+
+// Test to diagnose frame count mismatch between recording and replay
+TEST_F(ViewerCoreTrajectoryTest, DiagnoseFrameCountMismatch) {
+    // This test helps diagnose why replay might run more frames than recording
+    
+    const int NUM_FRAMES = 75;  // Use smaller number for easier debugging
+    
+    // Clean up test files
+    std::vector<std::string> files_to_clean = {
+        "diagnose_frames.rec",
+        "diagnose_trajectory.csv"
+    };
+    for (const auto& file : files_to_clean) {
+        if (std::filesystem::exists(file)) {
+            std::filesystem::remove(file);
+        }
+    }
+    
+    // Setup
+    CompiledLevel test_level = loadTestLevel();
+    std::vector<std::optional<CompiledLevel>> per_world_levels;
+    per_world_levels.push_back(test_level);
+    
+    Manager::Config mgr_config;
+    mgr_config.execMode = madrona::ExecMode::CPU;
+    mgr_config.gpuID = 0;
+    mgr_config.numWorlds = 1;
+    mgr_config.randSeed = 999;
+    mgr_config.autoReset = true;
+    mgr_config.enableBatchRenderer = false;
+    mgr_config.batchRenderViewWidth = 64;
+    mgr_config.batchRenderViewHeight = 64;
+    mgr_config.extRenderAPI = nullptr;
+    mgr_config.extRenderDev = nullptr;
+    mgr_config.enableTrajectoryTracking = false;
+    mgr_config.perWorldCompiledLevels = per_world_levels;
+    
+    Manager mgr(mgr_config);
+    
+    ViewerCore::Config config;
+    config.num_worlds = 1;
+    config.rand_seed = 999;
+    config.auto_reset = true;
+    config.load_path = "";
+    config.record_path = "diagnose_frames.rec";
+    config.replay_path = "";
+    
+    ViewerCore core(config, &mgr);
+    
+    // Start recording with trajectory
+    core.startRecording("diagnose_frames.rec");
+    mgr.enableTrajectoryLogging(0, 0, "diagnose_trajectory.csv");
+    
+    // Unpause
+    ViewerCore::InputEvent unpause;
+    unpause.type = ViewerCore::InputEvent::KeyHit;
+    unpause.key = ViewerCore::InputEvent::Space;
+    core.handleInput(0, unpause);
+    
+    // Record exactly NUM_FRAMES
+    std::cout << "\n=== RECORDING PHASE ===" << std::endl;
+    for (int i = 0; i < NUM_FRAMES; i++) {
+        if (i % 25 == 0) {
+            std::cout << "Recording frame " << i << std::endl;
+        }
+        core.updateFrameActions(0, 0);
+        core.stepSimulation();
+    }
+    std::cout << "Requested " << NUM_FRAMES << " frames to be recorded" << std::endl;
+    
+    // Stop recording
+    core.stopRecording();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // Parse trajectory
+    auto record_trajectory = TrajectoryComparer::parseTrajectoryFile("diagnose_trajectory.csv");
+    std::cout << "Trajectory points saved: " << record_trajectory.size() << std::endl;
+    
+    // Check metadata
+    auto metadata = Manager::readReplayMetadata("diagnose_frames.rec");
+    if (metadata.has_value()) {
+        std::cout << "Replay metadata reports: " << metadata->num_steps << " steps" << std::endl;
+    }
+    
+    // Now replay
+    std::cout << "\n=== REPLAY PHASE ===" << std::endl;
+    
+    auto embedded_level = madrona::escape_room::ReplayLoader::loadEmbeddedLevel("diagnose_frames.rec");
+    ASSERT_TRUE(embedded_level.has_value());
+    
+    std::vector<std::optional<CompiledLevel>> replay_levels;
+    replay_levels.push_back(embedded_level.value());
+    
+    Manager::Config replay_config = mgr_config;
+    replay_config.perWorldCompiledLevels = replay_levels;
+    Manager mgr_replay(replay_config);
+    
+    ViewerCore::Config core_replay_config;
+    core_replay_config.num_worlds = 1;
+    core_replay_config.rand_seed = 999;
+    core_replay_config.auto_reset = true;
+    core_replay_config.load_path = "";
+    core_replay_config.record_path = "";
+    core_replay_config.replay_path = "diagnose_frames.rec";
+    
+    ViewerCore core_replay(core_replay_config, &mgr_replay);
+    core_replay.loadReplay("diagnose_frames.rec");
+    mgr_replay.enableTrajectoryLogging(0, 0, "diagnose_replay_trajectory.csv");
+    
+    // Step through replay and count frames
+    int replay_frames = 0;
+    while (true) {
+        if (replay_frames % 25 == 0) {
+            std::cout << "Replaying frame " << replay_frames << std::endl;
+        }
+        
+        core_replay.stepSimulation();
+        replay_frames++;
+        
+        auto state = core_replay.getFrameState();
+        if (state.should_exit) {
+            std::cout << "Replay finished at frame " << replay_frames << std::endl;
+            break;
+        }
+        
+        // Safety limit
+        if (replay_frames > NUM_FRAMES + 20) {
+            std::cout << "Safety limit reached at frame " << replay_frames << std::endl;
+            break;
+        }
+    }
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // Parse replay trajectory
+    if (std::filesystem::exists("diagnose_replay_trajectory.csv")) {
+        auto replay_trajectory = TrajectoryComparer::parseTrajectoryFile("diagnose_replay_trajectory.csv");
+        std::cout << "Replay trajectory points: " << replay_trajectory.size() << std::endl;
+        
+        // Print first and last few step numbers to understand the pattern
+        if (replay_trajectory.size() > 0) {
+            std::cout << "First 5 replay steps: ";
+            for (size_t i = 0; i < std::min(size_t(5), replay_trajectory.size()); i++) {
+                std::cout << replay_trajectory[i].step << " ";
+            }
+            std::cout << std::endl;
+            
+            if (replay_trajectory.size() > 5) {
+                std::cout << "Last 5 replay steps: ";
+                for (size_t i = replay_trajectory.size() - 5; i < replay_trajectory.size(); i++) {
+                    std::cout << replay_trajectory[i].step << " ";
+                }
+                std::cout << std::endl;
+            }
+        }
+        
+        std::filesystem::remove("diagnose_replay_trajectory.csv");
+    }
+    
+    std::cout << "\n=== SUMMARY ===" << std::endl;
+    std::cout << "Frames requested to record: " << NUM_FRAMES << std::endl;
+    std::cout << "Trajectory points in recording: " << record_trajectory.size() << std::endl;
+    std::cout << "Frames replayed: " << replay_frames << std::endl;
+    
+    // The assertion we want to pass
+    EXPECT_EQ(record_trajectory.size(), NUM_FRAMES) 
+        << "Recording should have exactly the requested number of trajectory points";
+    EXPECT_EQ(replay_frames, NUM_FRAMES) 
+        << "Replay should run exactly the same number of frames as recorded";
+    
+    // Cleanup
+    for (const auto& file : files_to_clean) {
+        if (std::filesystem::exists(file)) {
+            std::filesystem::remove(file);
+        }
+    }
+}
