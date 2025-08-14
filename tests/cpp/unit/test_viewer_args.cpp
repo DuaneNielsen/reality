@@ -51,25 +51,34 @@ const option::Descriptor usage[] = {
 class ViewerArgsTest : public ViewerTestBase {
 protected:
     option::Option* parseArgs(const std::vector<const char*>& args) {
-        int argc = args.size();
-        const char** argv = const_cast<const char**>(args.data());
+        // Copy args to modifiable array since option parser modifies it
+        std::vector<char*> argv_copy;
+        for (const auto& arg : args) {
+            argv_copy.push_back(const_cast<char*>(arg));
+        }
+        
+        int argc = argv_copy.size();
+        char** argv = argv_copy.data();
+        
+        // Skip program name like viewer.cpp does
+        argc -= (argc > 0);
+        argv += (argc > 0);
         
         option::Stats stats(usage, argc, argv);
-        option::Option* options = new option::Option[stats.options_max];
-        option::Option* buffer = new option::Option[stats.buffer_max];
-        option::Parser parse(usage, argc, argv, options, buffer);
+        options_ = new option::Option[stats.options_max];
+        buffer_ = new option::Option[stats.buffer_max];
+        
+        option::Parser parse(usage, argc, argv, options_, buffer_);
         
         if (parse.error()) {
-            delete[] options;
-            delete[] buffer;
+            delete[] options_;
+            delete[] buffer_;
+            options_ = nullptr;
+            buffer_ = nullptr;
             return nullptr;
         }
         
-        // Store for cleanup
-        options_ = options;
-        buffer_ = buffer;
-        
-        return options;
+        return options_;
     }
     
     void TearDown() override {
@@ -217,8 +226,8 @@ TEST_F(ViewerArgsTest, InvalidNumericArgument) {
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--num-worlds", "abc"});
     auto options = parseArgs(args);
     
-    // Parser should catch this as invalid
-    ASSERT_NE(options, nullptr); // Parser creates options but marks error
+    // Parser should catch this as invalid and return nullptr (error state)
+    ASSERT_EQ(options, nullptr);
 }
 
 // Test short options
@@ -257,14 +266,14 @@ TEST_F(ViewerArgsTest, MissingLoadArgument) {
     auto args = buildViewerArgs({"viewer", "--load"});
     auto options = parseArgs(args);
     
-    // Parser should mark this as error (missing required argument)
-    ASSERT_NE(options, nullptr);
+    // Parser should catch missing required argument and return nullptr
+    ASSERT_EQ(options, nullptr);
 }
 
 TEST_F(ViewerArgsTest, MissingRecordArgument) {
     auto args = buildViewerArgs({"viewer", "--record"});
     auto options = parseArgs(args);
     
-    // Parser should mark this as error (missing required argument)
-    ASSERT_NE(options, nullptr);
+    // Parser should catch missing required argument and return nullptr
+    ASSERT_EQ(options, nullptr);
 }

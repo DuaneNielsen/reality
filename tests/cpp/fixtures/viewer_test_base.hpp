@@ -153,7 +153,10 @@ protected:
         level.height = height;
         level.scale = 1.0f;
         level.num_tiles = width * height;
-        level.max_entities = 100;
+        // Calculate max_entities using same formula as level_compiler.py:
+        // entity_count (tiles that need physics bodies) + 6 persistent + 30 buffer
+        // For test levels, all tiles are entities (walls/cubes)
+        level.max_entities = level.num_tiles + 6 + 30;
         
         // Fill with simple tile pattern
         for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
@@ -190,7 +193,8 @@ protected:
             level.height = 16;
             level.scale = 1.0f;
             level.num_tiles = 256;
-            level.max_entities = 100;
+            // Calculate max_entities using same formula as level_compiler.py
+            level.max_entities = level.num_tiles + 6 + 30;
             // Initialize tile data
             for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
                 level.tile_types[i] = 0;
