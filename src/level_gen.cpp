@@ -156,9 +156,15 @@ static void resetPersistentEntities(Engine &ctx)
          }
 
          ctx.get<Position>(agent_entity) = pos;
-         // Phase 1.1: Fixed rotation for hardcoded room
+         
+         // Use spawn facing from level data if available
+         float facing_angle = 0.0f;
+         if (i < level.num_spawns) {
+             facing_angle = level.spawn_facing[i];
+         }
+         
          ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
-             0.0f,  // Face forward
+             facing_angle,  // Use facing angle from level data
              math::up);
 
 
@@ -318,7 +324,8 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
         switch(type) {
             case TILE_WALL:
                 // Scale walls to fill the entire tile (scale x scale x 2.0 height)
-                entity = makeWall(ctx, x, y, 1.0f, Diag3x3{tile_scale, tile_scale, 2.0f});
+                // Wall model has base at z=0, so position at z=0 to rest on ground
+                entity = makeWall(ctx, x, y, 0.0f, Diag3x3{tile_scale, tile_scale, 2.0f});
                 break;
             case TILE_CUBE:
                 // Scale cubes proportionally to tile size

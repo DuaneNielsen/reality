@@ -86,6 +86,7 @@ typedef struct {
     int32_t num_spawns;        // Number of spawn points
     float spawn_x[8];          // Spawn X positions (MAX_SPAWNS buffer)
     float spawn_y[8];          // Spawn Y positions (MAX_SPAWNS buffer)
+    float spawn_facing[8];     // Spawn facing angles in radians (MAX_SPAWNS buffer)
     
     // Tile data arrays (size matches CompiledLevel::MAX_TILES, use mer_get_max_tiles() to get value)
     int32_t tile_types[1024];   // Type enum for each tile (MAX_TILES buffer)

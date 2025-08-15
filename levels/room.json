@@ -1,0 +1,6 @@
+{
+    "ascii": "##########\n#S.......#\n#........#\n#........#\n#........#\n#........#\n##########",
+    "scale": 2.5,
+    "agent_facing": [0.0],
+    "_comment": "Simple 10x7 room with agent facing north (forward)"
+}

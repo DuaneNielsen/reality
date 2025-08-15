@@ -1,0 +1,6 @@
+{
+    "ascii": "############\n#S.........#\n#..###.....#\n#..#.#..CC.#\n#..#.#.....#\n#..#.......#\n############",
+    "scale": 2.5,
+    "agent_facing": [1.5708],
+    "_comment": "Maze with cube obstacles, agent starts facing east (90°) toward the maze"
+}

@@ -201,6 +201,7 @@ class MER_CompiledLevel(Structure):
         ("num_spawns", c_int32),
         ("spawn_x", c_float * 8),  # MAX_SPAWNS = 8
         ("spawn_y", c_float * 8),  # MAX_SPAWNS = 8
+        ("spawn_facing", c_float * 8),  # MAX_SPAWNS = 8, agent facing angles in radians
         ("tile_types", c_int32 * MAX_TILES),
         ("tile_x", c_float * MAX_TILES),
         ("tile_y", c_float * MAX_TILES),
@@ -409,6 +410,7 @@ def dict_to_compiled_level(compiled_dict):
     for i in range(8):  # MAX_SPAWNS
         level.spawn_x[i] = compiled_dict["spawn_x"][i]
         level.spawn_y[i] = compiled_dict["spawn_y"][i]
+        level.spawn_facing[i] = compiled_dict.get("spawn_facing", [0.0] * 8)[i]
 
     # Get the actual array size for this level
     array_size = compiled_dict["array_size"]

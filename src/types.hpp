@@ -163,6 +163,7 @@ namespace madEscape {
         int32_t num_spawns;               // Number of spawn points
         float spawn_x[MAX_SPAWNS];        // Spawn X positions
         float spawn_y[MAX_SPAWNS];        // Spawn Y positions
+        float spawn_facing[MAX_SPAWNS];   // Spawn facing angles in radians
         
         // Tile data arrays (packed for GPU efficiency)
         int32_t tile_types[MAX_TILES];    // Type enum for each tile

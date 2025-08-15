@@ -1,0 +1,6 @@
+{
+    "ascii": "################\n#S............S#\n#..............#\n#..............#\n#..............#\n#S............S#\n################",
+    "scale": 1.5,
+    "agent_facing": [1.5708, 3.14159, 0.0, 4.71239],
+    "_comment": "Four agents positioned for patrol pattern - facing east, south, north, west respectively to form a clockwise patrol"
+}

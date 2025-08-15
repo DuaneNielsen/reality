@@ -237,6 +237,91 @@ class TestManagerIntegration:
         mgr.step()
 
 
+class TestJSONLevelFormat:
+    """Test JSON level format with parameters"""
+
+    def test_json_level_with_agent_facing(self):
+        """Test JSON level with agent facing angles"""
+        import math
+
+        from madrona_escape_room.level_compiler import compile_level_from_json
+
+        json_level = {
+            "ascii": """######
+#S..S#
+######""",
+            "scale": 1.5,
+            "agent_facing": [0.0, math.pi / 2],  # First faces forward, second faces right
+        }
+
+        compiled = compile_level_from_json(json_level)
+
+        # Verify structure
+        assert compiled["scale"] == 1.5
+        assert compiled["num_spawns"] == 2
+
+        # Check agent facing was set correctly
+        assert compiled["spawn_facing"][0] == 0.0
+        assert abs(compiled["spawn_facing"][1] - math.pi / 2) < 0.001
+
+        # Remaining spawn slots should be 0
+        for i in range(2, 8):
+            assert compiled["spawn_facing"][i] == 0.0
+
+    def test_json_level_without_facing(self):
+        """Test JSON level without agent_facing defaults to 0"""
+        from madrona_escape_room.level_compiler import compile_level_from_json
+
+        json_level = {
+            "ascii": """####
+#S.#
+####""",
+            "scale": 2.0,
+        }
+
+        compiled = compile_level_from_json(json_level)
+
+        # Should default to facing forward (0.0)
+        assert compiled["spawn_facing"][0] == 0.0
+
+    def test_json_level_in_sim_manager(self):
+        """Test using JSON level with SimManager"""
+        import math
+
+        from madrona_escape_room import SimManager, madrona
+        from madrona_escape_room.level_compiler import compile_level_from_json
+
+        json_level = {
+            "ascii": """########
+#S.....#
+#......#
+########""",
+            "scale": 2.0,
+            "agent_facing": [math.pi / 4],  # Face 45 degrees
+        }
+
+        # For now, we just compile and validate the level
+        # SimManager doesn't yet support pre-compiled levels directly
+        compiled = compile_level_from_json(json_level)
+
+        # Verify the compiled level has the correct facing
+        assert abs(compiled["spawn_facing"][0] - math.pi / 4) < 0.001
+
+        # Test that we can use the ASCII part with SimManager
+        mgr = SimManager(
+            exec_mode=madrona.ExecMode.CPU,
+            gpu_id=0,
+            num_worlds=1,
+            rand_seed=42,
+            auto_reset=True,
+            level_ascii=json_level["ascii"],  # Just use the ASCII for now
+        )
+
+        # Test simulation runs
+        for _ in range(3):
+            mgr.step()
+
+
 class TestEndToEndIntegration:
     """Test the complete end-to-end system"""
 

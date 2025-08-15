@@ -5,14 +5,19 @@ Python Level Compiler for Madrona Escape Room
 Compiles ASCII level strings to CompiledLevel format for GPU processing.
 Part of the test-driven level system that allows tests to define their
 environment layouts using visual ASCII art.
+
+Supports two input formats:
+1. Plain ASCII strings for simple levels
+2. JSON format for levels with parameters (agent facing, scale, etc.)
 """
 
 import argparse
+import json
 import math
 import struct
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 
 def _get_max_tiles_from_c_api():
@@ -71,13 +76,17 @@ CHAR_MAP = {
 }
 
 
-def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
+def compile_level(
+    ascii_str: str, scale: float = 2.5, agent_facing: Optional[List[float]] = None
+) -> Dict:
     """
     Compile ASCII level string to dict matching MER_CompiledLevel struct.
 
     Args:
         ascii_str: Multi-line ASCII level definition using the character map above
-        scale: World units per ASCII character (default 2.0 units per cell)
+        scale: World units per ASCII character (default 2.5 units per cell)
+        agent_facing: List of initial facing angles in radians for each agent (optional)
+                     Default is 0.0 (facing forward/north) for all agents
 
     Returns:
         Dict with fields matching MER_CompiledLevel C struct:
@@ -86,6 +95,7 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         - width, height: Grid dimensions
         - scale: World scale factor
         - tile_types, tile_x, tile_y: Arrays of tile data (MAX_TILES_C_API elements each)
+        - spawn_facing: Array of agent facing angles (MAX_SPAWNS elements)
 
     Raises:
         ValueError: If level is invalid (empty, too large, no spawn points, unknown chars)
@@ -98,7 +108,7 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         #........#
         ##########
         '''
-        compiled = compile_level(level)
+        compiled = compile_level(level, agent_facing=[math.pi/2])  # Face right
         # compiled['num_tiles'] = 38 (wall tiles)
         # compiled['max_entities'] = 88 (walls + buffer for agents/floor/etc)
     """
@@ -188,11 +198,18 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
     # Prepare spawn arrays (MAX_SPAWNS from C API)
     spawn_x = [0.0] * MAX_SPAWNS_C_API
     spawn_y = [0.0] * MAX_SPAWNS_C_API
+    spawn_facing = [0.0] * MAX_SPAWNS_C_API  # Default facing forward (0 radians)
     num_spawns = min(len(spawns), MAX_SPAWNS_C_API)
 
     for i in range(num_spawns):
         spawn_x[i] = spawns[i][0]
         spawn_y[i] = spawns[i][1]
+
+        # Set agent facing angles if provided
+        if agent_facing and i < len(agent_facing):
+            spawn_facing[i] = agent_facing[i]
+        else:
+            spawn_facing[i] = 0.0  # Default: face forward
 
     # Return dict with compiler-calculated array sizing
     return {
@@ -204,6 +221,7 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         "num_spawns": num_spawns,
         "spawn_x": spawn_x,
         "spawn_y": spawn_y,
+        "spawn_facing": spawn_facing,  # Agent facing angles in radians
         "array_size": array_size,  # NEW: compiler-calculated array size (width × height)
         "tile_types": tile_types,
         "tile_x": tile_x,
@@ -233,6 +251,7 @@ def validate_compiled_level(compiled: Dict) -> None:
         "num_spawns",
         "spawn_x",
         "spawn_y",
+        "spawn_facing",
         "array_size",
         "tile_types",
         "tile_x",
@@ -303,6 +322,10 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
             for i in range(MAX_SPAWNS_C_API):
                 f.write(struct.pack("<f", compiled["spawn_y"][i]))
 
+            # spawn_facing array - always write MAX_SPAWNS_C_API elements
+            for i in range(MAX_SPAWNS_C_API):
+                f.write(struct.pack("<f", compiled["spawn_facing"][i]))
+
             # Arrays: Write fixed-size arrays for C++ compatibility
             # Always write MAX_TILES_C_API elements regardless of actual array size
             array_size = compiled["array_size"]
@@ -366,6 +389,10 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             for _ in range(MAX_SPAWNS_C_API):
                 spawn_y.append(struct.unpack("<f", f.read(4))[0])
 
+            spawn_facing = []
+            for _ in range(MAX_SPAWNS_C_API):
+                spawn_facing.append(struct.unpack("<f", f.read(4))[0])
+
             # Read fixed-size arrays (always MAX_TILES_C_API elements for C++ compatibility)
             tile_types = []
             for _ in range(MAX_TILES_C_API):
@@ -392,6 +419,7 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 "num_spawns": num_spawns,
                 "spawn_x": spawn_x,
                 "spawn_y": spawn_y,
+                "spawn_facing": spawn_facing,
                 "array_size": array_size,  # Add calculated array size
                 "tile_types": tile_types,
                 "tile_x": tile_x,
@@ -408,30 +436,100 @@ def load_compiled_level_binary(filepath: str) -> Dict:
         raise ValueError(f"Invalid level file format '{filepath}': {e}")
 
 
-def compile_level_to_binary(ascii_input: str, binary_output: str, scale: float = 2.0) -> None:
+def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
     """
-    Compile ASCII level file to binary .lvl file.
+    Compile level from JSON format with parameters.
+
+    JSON format:
+    {
+        "ascii": "Multi-line ASCII level string",
+        "scale": 2.5,  // Optional, default 2.5
+        "agent_facing": [0.0, 1.57],  // Optional, radians for each agent
+        // Future parameters can be added here
+    }
 
     Args:
-        ascii_input: Path to ASCII level file or ASCII string
+        json_data: JSON string or dict containing level data
+
+    Returns:
+        Dict matching compile_level() output format
+
+    Raises:
+        ValueError: If JSON is invalid or missing required fields
+
+    Example:
+        json_level = {
+            "ascii": "###\\n#S#\\n###",
+            "scale": 1.5,
+            "agent_facing": [math.pi/2]  # Face right
+        }
+        compiled = compile_level_from_json(json_level)
+    """
+    # Parse JSON if string
+    if isinstance(json_data, str):
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format: {e}")
+    else:
+        data = json_data
+
+    # Validate required fields
+    if "ascii" not in data:
+        raise ValueError("JSON level must contain 'ascii' field with level layout")
+
+    # Extract parameters with defaults
+    ascii_str = data["ascii"]
+    scale = data.get("scale", 2.5)
+    agent_facing = data.get("agent_facing", None)
+
+    # Validate parameters
+    if not isinstance(scale, (int, float)) or scale <= 0:
+        raise ValueError(f"Invalid scale: {scale} (must be positive number)")
+
+    if agent_facing is not None:
+        if not isinstance(agent_facing, list):
+            raise ValueError("agent_facing must be a list of angles in radians")
+        for i, angle in enumerate(agent_facing):
+            if not isinstance(angle, (int, float)):
+                raise ValueError(f"Invalid agent_facing[{i}]: {angle} (must be number)")
+
+    # Compile with parameters
+    return compile_level(ascii_str, scale, agent_facing)
+
+
+def compile_level_to_binary(ascii_input: str, binary_output: str, scale: float = 2.5) -> None:
+    """
+    Compile ASCII or JSON level file to binary .lvl file.
+
+    Args:
+        ascii_input: Path to ASCII/JSON level file or level string
         binary_output: Path to output .lvl file
-        scale: World units per ASCII character
+        scale: World units per ASCII character (ignored if JSON file)
 
     Raises:
         IOError: If files cannot be read/written
         ValueError: If level compilation fails
     """
-    # Check if input is a file path or ASCII string
+    # Check if input is a file path or level string
     if Path(ascii_input).exists():
         # Read from file
         with open(ascii_input, "r") as f:
-            ascii_str = f.read()
-    else:
-        # Treat as ASCII string
-        ascii_str = ascii_input
+            content = f.read()
 
-    # Compile to dictionary
-    compiled = compile_level(ascii_str, scale)
+        # Check if it's JSON format (file extension or content)
+        if ascii_input.endswith(".json") or content.strip().startswith("{"):
+            # Compile from JSON
+            compiled = compile_level_from_json(content)
+        else:
+            # Compile from ASCII
+            compiled = compile_level(content, scale)
+    else:
+        # Treat as level string - check if JSON
+        if ascii_input.strip().startswith("{"):
+            compiled = compile_level_from_json(ascii_input)
+        else:
+            compiled = compile_level(ascii_input, scale)
 
     # Save to binary file
     save_compiled_level_binary(compiled, binary_output)
@@ -447,7 +545,9 @@ def print_level_info(compiled: Dict) -> None:
     if "_spawn_points" in compiled:
         print(f"  Spawn points: {len(compiled['_spawn_points'])}")
         for i, (x, y) in enumerate(compiled["_spawn_points"]):
-            print(f"    Spawn {i}: ({x:.1f}, {y:.1f})")
+            facing_rad = compiled.get("spawn_facing", [0.0] * 8)[i]
+            facing_deg = facing_rad * 180.0 / math.pi
+            print(f"    Spawn {i}: ({x:.1f}, {y:.1f}) facing {facing_deg:.1f}°")
 
     if "_entity_count" in compiled:
         print(f"  Physics entities: {compiled['_entity_count']}")
@@ -477,7 +577,7 @@ Examples:
     parser.add_argument("input", nargs="?", help="Input ASCII level file")
     parser.add_argument("output", nargs="?", help="Output binary .lvl file")
     parser.add_argument(
-        "--scale", type=float, default=2.0, help="World units per ASCII character (default: 2.0)"
+        "--scale", type=float, default=2.5, help="World units per ASCII character (default: 2.5)"
     )
     parser.add_argument("--test", action="store_true", help="Run built-in test suite")
     parser.add_argument("--info", metavar="FILE", help="Display info about binary level file")
@@ -589,8 +689,35 @@ def run_test_suite():
     except Exception as e:
         print(f"✗ Binary I/O test failed: {e}")
 
-    # Test 4: Error cases
-    print("\n=== Test 4: Error Cases ===")
+    # Test 4: JSON format test
+    print("\n=== Test 4: JSON Format ===")
+    json_level = {
+        "ascii": """#####
+#S.S#
+#####""",
+        "scale": 1.5,
+        "agent_facing": [0.0, math.pi / 2],  # First agent faces forward, second faces right
+    }
+
+    try:
+        compiled = compile_level_from_json(json_level)
+        print_level_info(compiled)
+        validate_compiled_level(compiled)
+        print("✓ JSON level compiled and validated successfully")
+
+        # Verify agent facing was set
+        if (
+            compiled["spawn_facing"][0] == 0.0
+            and abs(compiled["spawn_facing"][1] - math.pi / 2) < 0.001
+        ):
+            print("✓ Agent facing angles correctly set")
+        else:
+            print("✗ Agent facing angles incorrect")
+    except Exception as e:
+        print(f"✗ JSON format test failed: {e}")
+
+    # Test 5: Error cases
+    print("\n=== Test 5: Error Cases ===")
 
     # Empty level
     try:

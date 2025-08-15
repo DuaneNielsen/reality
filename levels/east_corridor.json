@@ -1,0 +1,6 @@
+{
+    "ascii": "#######################\n#....................S#\n#.....................#\n#######################",
+    "scale": 2.5,
+    "agent_facing": [3.14159],
+    "_comment": "Long east corridor with agent facing west (π radians, looking back toward the corridor)"
+}

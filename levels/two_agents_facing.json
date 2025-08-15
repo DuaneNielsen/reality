@@ -1,0 +1,6 @@
+{
+    "ascii": "##########\n#S......S#\n#........#\n#........#\n##########",
+    "scale": 2.5,
+    "agent_facing": [0.0, 3.14159],
+    "_comment": "Two agents facing each other - first faces south (0°), second faces north (180°)"
+}

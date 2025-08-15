@@ -90,6 +90,7 @@ MER_Result mer_create_manager(
             cpp_level.num_spawns = c_level->num_spawns;
             std::memcpy(cpp_level.spawn_x, c_level->spawn_x, sizeof(float) * CompiledLevel::MAX_SPAWNS);
             std::memcpy(cpp_level.spawn_y, c_level->spawn_y, sizeof(float) * CompiledLevel::MAX_SPAWNS);
+            std::memcpy(cpp_level.spawn_facing, c_level->spawn_facing, sizeof(float) * CompiledLevel::MAX_SPAWNS);
             
             // Calculate actual array size for this level
             int32_t array_size = c_level->width * c_level->height;
