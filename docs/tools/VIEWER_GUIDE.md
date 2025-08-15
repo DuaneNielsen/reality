@@ -2,7 +2,7 @@
 
 ## Overview
 
-The viewer provides an interactive 3D visualization of the Madrona Escape Room environment. It supports real-time simulation viewing, agent control, trajectory tracking, action recording, and replay functionality.
+The viewer provides an interactive 3D visualization of the Madrona Escape Room environment. It supports real-time simulation viewing, agent control, trajectory tracking, action recording with embedded levels, and replay functionality.
 
 ## Building the Viewer
 
@@ -10,7 +10,7 @@ The viewer is built automatically with the project:
 
 ```bash
 mkdir build
-/opt/cmake/bin/cmake -B build
+cmake -B build
 make -C build -j8
 ```
 
@@ -21,57 +21,76 @@ This creates the `viewer` executable in the `build/` directory.
 ### Basic Syntax
 
 ```bash
-./build/viewer [num_worlds] [--cpu|--cuda] [options]
+./build/viewer --load <level.lvl> [options]          # Load and run level
+./build/viewer --load <level.lvl> --record <rec.rec> # Load level and record
+./build/viewer --replay <recording.rec> [options]    # Replay recording
 ```
 
-### Arguments
+### Required Arguments
 
-1. **num_worlds** (optional): Number of parallel worlds to simulate
-   - Default: 1
-   - Example: `./build/viewer 4` runs 4 worlds
+The viewer requires either a level file or a replay file:
 
-2. **Execution mode** (optional): 
-   - `--cpu`: Use CPU execution (default)
-   - `--cuda`: Use GPU execution
+- **`--load <file.lvl>`**: Load a binary level file
+- **`--replay <file.rec>`**: Replay a recording (contains embedded level)
+
+You cannot specify both `--replay` and `--record` together.
 
 ### Options
 
-- **`--track <world_id> <agent_id>`**: Enable trajectory tracking for a specific agent
-  - Prints agent position, rotation, and progress at each step
-  - `world_id`: Zero-based world index (0 to num_worlds-1)
-  - `agent_id`: Zero-based agent index (0 to numAgents-1)
-  - If indices omitted, defaults to world 0, agent 0
+#### Execution Mode
+- **`--cuda <device_id>`**: Use GPU execution on specified device (default: CPU)
+- **`--num-worlds <n>`, `-n <n>`**: Number of parallel worlds (default: 1)
 
-- **`--record <path>`**: Record actions to file
-  - Creates a binary file with agent actions
-  - Press SPACE during simulation to start recording
-  - Useful for creating demonstrations or debugging
+#### Tracking & Logging
+- **`--track`, `-t`**: Enable trajectory tracking (default: world 0, agent 0)
+- **`--track-world <n>`**: Specify world to track (default: 0)
+- **`--track-agent <n>`**: Specify agent to track (default: 0)
+- **`--track-file <file>`**: Save trajectory to CSV file
 
-- **`<replay_file>`**: Path to action file for replay
-  - Replays previously recorded actions
-  - Must use same number of worlds as when recorded
+#### Recording & Replay
+- **`--record <file.rec>`, `-r <file.rec>`**: Record session to file
+  - Recording starts PAUSED - press SPACE to begin
+  - Level data is embedded in the recording
+- **`--replay <file.rec>`**: Replay a recording
+  - Automatically extracts embedded level
+  - Must use same number of worlds as recording
+
+#### Other Options
+- **`--seed <value>`, `-s <value>`**: Set random seed (default: 5)
+- **`--hide-menu`**: Hide ImGui menu (useful for screenshots)
+- **`--help`, `-h`**: Print usage information
+
+### File Formats
+
+- **`.lvl` files**: Binary compiled level data
+- **`.rec` files**: Recordings with metadata, embedded level, and action frames
 
 ### Examples
 
 ```bash
-# Basic usage - 1 world on CPU
-./build/viewer
+# Load and run a level
+./build/viewer --load levels/tutorial.lvl
 
-# Multiple worlds on CPU
-./build/viewer 4 --cpu
-
-# GPU execution with 8 worlds
-./build/viewer 8 --cuda
+# Load level with 4 worlds on GPU
+./build/viewer --load levels/main.lvl --cuda 0 -n 4
 
 # Track specific agent's trajectory
-./build/viewer 1 --cuda --track 0 0        # Track agent 0 in world 0
-./build/viewer 4 --cpu --track 2 1         # Track agent 1 in world 2
+./build/viewer --load level.lvl --track --track-world 2 --track-agent 1
 
-# Record actions to file
-./build/viewer 2 --cpu --record demo.bin   # Press SPACE to start recording
+# Track and save trajectory to file
+./build/viewer --load level.lvl --track --track-file trajectory.csv
 
-# Replay recorded actions
-./build/viewer 2 --cpu demo.bin            # Must match world count from recording
+# Record a session (starts paused, press SPACE to begin)
+./build/viewer --load level.lvl --record demo.rec -n 2
+
+# Replay a recording (level embedded, worlds auto-matched)
+./build/viewer --replay demo.rec
+
+# Set custom seed for deterministic behavior
+./build/viewer --load level.lvl --seed 42 -n 4
+
+# Hide menu for clean screenshots
+./build/viewer --load level.lvl --hide-menu
 ```
 
 ## Keyboard Controls
@@ -90,7 +109,7 @@ This creates the `viewer` executable in the `build/` directory.
 ### Simulation Controls
 - **R**: Reset current world
 - **T**: Toggle trajectory tracking for current world
-- **SPACE**: Start recording (when using `--record` flag)
+- **SPACE**: Pause/Resume simulation (or start recording when in record mode)
 - **TAB**: Switch between worlds (in multi-world mode)
 - **ESC**: Exit viewer (stops recording and saves if recording)
 
@@ -114,48 +133,56 @@ This is useful for:
 ### Action Recording and Replay
 
 #### Recording Mode
-Record agent actions for later analysis:
+Record agent actions and level data for later analysis:
 
-1. Start viewer with `--record <output_file>`
-2. Set up your scene as desired
-3. Press SPACE to begin recording (automatically resets world for clean start)
+1. Start viewer with `--load <level.lvl> --record <output.rec>`
+2. Simulation starts PAUSED
+3. Press SPACE to begin recording (world automatically resets)
 4. Control agents using WASD/QE keys
-5. ESC to stop recording and save
+5. Press SPACE to pause/resume during recording
+6. ESC to stop recording and save
 
 Example:
 ```bash
-# Record single world on CPU
-./build/viewer 1 --cpu --record my_recording.bin
+# Record single world
+./build/viewer --load level.lvl --record demo.rec
 # Press SPACE to start recording
 
 # Record 4 worlds on GPU
-./build/viewer 4 --cuda --record multi_world_recording.bin
+./build/viewer --load level.lvl --cuda 0 -n 4 --record multi.rec
 # Press SPACE to start recording
 ```
 
-**Recording Benefits:**
-- Delayed start: Set up scene before recording begins
-- Clean episodes: World automatically resets when recording starts
-- Demonstration capture: Create expert trajectories for imitation learning
+**Recording Features:**
+- **Embedded Levels**: Level data is stored in the recording file
+- **Metadata Storage**: Seed and world count preserved for exact replay
+- **Pause Control**: Can pause/resume during recording with SPACE
+- **Clean Start**: World automatically resets when recording begins
 
 #### Replay Mode
-Replay previously recorded actions:
+Replay previously recorded sessions:
 
 ```bash
-# Replay single world recording
-./build/viewer 1 --cpu my_recording.bin
+# Replay a recording (level automatically extracted)
+./build/viewer --replay demo.rec
 
-# Replay multi-world recording
-./build/viewer 4 --cuda multi_world_recording.bin
+# Replay with tracking enabled
+./build/viewer --replay demo.rec --track
 ```
 
-**Important**: Replay requires the same number of worlds as the original recording.
+**Replay Features:**
+- **Automatic Level Loading**: Embedded level is extracted and used
+- **World Count Matching**: Automatically uses the recorded world count
+- **Seed Preservation**: Uses the same seed as the original recording
+- **Pause Control**: Can pause/resume replay with SPACE
 
-#### File Format
-Recordings are stored as binary files containing sequential int32_t values:
-- 3 values per world per timestep: [move_amount, move_angle, rotate]
-- Actions are interleaved by world: world0_actions, world1_actions, ..., worldN_actions
-- Compatible with training pipeline action format
+#### File Format (.rec files)
+Recording files contain:
+1. **Metadata Header**: Version, seed, world count, timesteps
+2. **Embedded Level**: Complete CompiledLevel structure
+3. **Action Frames**: Sequential int32_t values
+   - 3 values per agent per timestep: [move_amount, move_angle, rotate]
+   - Actions interleaved by world: world0_actions, world1_actions, ..., worldN_actions
 
 ### Visual Indicators
 - **Origin Markers**: XYZ axis gizmos mark agent spawn positions
@@ -184,37 +211,56 @@ The viewer targets 60 FPS. If performance drops:
 
 ### Common Issues
 
-**"Unknown option" error**
-- Check command spelling (e.g., use `--track`, not `--trajectory`)
-- Ensure flags start with exactly two dashes (`--`)
+**"Must provide either --replay OR --load" error**
+- The viewer now requires explicit level loading
+- Use `--load <level.lvl>` to load a level file
+- Use `--replay <recording.rec>` to replay a recording
 
-**Replay file errors**
-- Verify replay file exists and is readable
-- Ensure world count matches recording
-- Check file wasn't corrupted during transfer
+**"Cannot specify both --replay and --record" error**
+- These modes are mutually exclusive
+- For recording: use `--load <level.lvl> --record <output.rec>`
+- For replay: use `--replay <recording.rec>`
+
+**File extension warnings**
+- Use `.lvl` extension for level files
+- Use `.rec` extension for recording files
+- Viewer will warn if extensions don't match expected format
+
+**Replay world count mismatch**
+- Viewer automatically adjusts to match recording's world count
+- You'll see a warning but replay will proceed with correct count
 
 **Black screen or crashes**
 - Verify GPU drivers are up to date
 - Try CPU mode instead of CUDA
 - Check available GPU memory
+- Ensure level file is valid
 
 **Trajectory not printing**
 - Ensure `--track` indices are valid
 - World index must be < num_worlds
 - Agent index must be < numAgents (currently 2)
+- Use `--track-file` to save to CSV if console output is missing
 
 ### Debug Output
 
 The viewer prints diagnostic information on startup:
 ```
+Loaded level from levels/main.lvl: 16x16 grid, 256 tiles
 Viewer Controls:
   R: Reset current world
   T: Toggle trajectory tracking for current world
 ```
 
-When recording is enabled:
+When recording:
 ```
-Recording mode enabled. Press SPACE to start recording to: demo.bin
+Recording mode: Starting PAUSED (press SPACE to start recording)
+```
+
+When replaying:
+```
+Extracted embedded level from demo.rec: 16x16 grid, 256 tiles
+Using seed 42 from replay file
 ```
 
 ## Integration with Training
@@ -224,44 +270,92 @@ The viewer uses the same `Manager` class as training scripts, ensuring consisten
 1. Record expert demonstrations for imitation learning
 2. Visualize trained policy behavior
 3. Debug environment dynamics
-4. Create test scenarios
+4. Create test scenarios with specific levels
 
 Example workflow:
 ```bash
+# Create a level using Python
+uv run python scripts/create_level.py --output levels/custom.lvl
+
+# Record expert demonstration
+./build/viewer --load levels/custom.lvl --record expert_demo.rec -n 1
+# Control agent to demonstrate optimal behavior
+
 # Train a policy
 uv run python scripts/train.py --num-worlds 1024 --num-updates 1000
 
-# Visualize trained behavior
-uv run python scripts/infer.py --ckpt-path checkpoints/1000.pth --action-dump-path actions.bin
+# Visualize trained behavior on same level
+uv run python scripts/infer.py --level levels/custom.lvl --ckpt-path checkpoints/1000.pth --action-dump-path actions.rec
 
-# Replay in viewer
-./build/viewer 1 --cpu actions.bin
+# Compare expert vs trained policy
+./build/viewer --replay expert_demo.rec    # Expert demonstration
+./build/viewer --replay actions.rec         # Trained policy
 ```
 
 ## Advanced Usage
 
+### Architecture Overview
+
+The viewer consists of several key components:
+
+1. **ViewerCore**: Handles simulation logic, input processing, and state management
+   - Manages recording/replay state machine
+   - Processes keyboard input into agent actions
+   - Coordinates with Manager for simulation stepping
+
+2. **RecordReplayStateMachine**: Controls recording and replay states
+   - Recording starts paused, requiring SPACE to begin
+   - Replay starts immediately (not paused)
+   - Handles pause/resume during both modes
+
+3. **FrameActionManager**: Batches actions for all worlds per frame
+   - Maintains action buffer for all worlds
+   - Resets to defaults between frames
+   - Provides consistent action format for recording
+
 ### Custom Scenarios
-Create specific test cases by:
-1. Recording a sequence of actions
-2. Modifying the binary action file
-3. Replaying to test edge cases
+Create specific test cases:
+```bash
+# Create a challenging level
+uv run python scripts/create_level.py --difficulty hard --output levels/test.lvl
+
+# Record specific behavior patterns
+./build/viewer --load levels/test.lvl --record pattern1.rec --seed 100
+
+# Test with different seeds for variation
+./build/viewer --load levels/test.lvl --seed 200
+```
 
 ### Benchmarking
 Compare different execution modes:
 ```bash
-# Benchmark CPU rendering
-time ./build/viewer 100 --cpu --record bench_cpu.bin
+# Benchmark CPU performance
+./build/viewer --load level.lvl -n 100 --seed 42 --track-file cpu_bench.csv
 
-# Benchmark GPU rendering  
-time ./build/viewer 100 --cuda --record bench_gpu.bin
+# Benchmark GPU performance
+./build/viewer --load level.lvl -n 100 --cuda 0 --seed 42 --track-file gpu_bench.csv
+
+# Compare trajectory files to verify determinism
+diff cpu_bench.csv gpu_bench.csv
 ```
 
 ### Multi-Agent Coordination
-Track multiple agents simultaneously by running multiple terminals:
+Track different agents in the same world:
 ```bash
-# Terminal 1
-./build/viewer 4 --cpu --track 0 0 > agent0.log
+# Save trajectories for both agents
+./build/viewer --load level.lvl --track --track-agent 0 --track-file agent0.csv
+./build/viewer --load level.lvl --track --track-agent 1 --track-file agent1.csv
 
-# Terminal 2  
-./build/viewer 4 --cpu --track 0 1 > agent1.log
+# Analyze coordination patterns
+uv run python scripts/analyze_trajectories.py agent0.csv agent1.csv
+```
+
+### Deterministic Replay
+Ensure exact reproducibility:
+```bash
+# Record with specific seed
+./build/viewer --load level.lvl --seed 12345 --record demo.rec
+
+# Replay maintains exact behavior
+./build/viewer --replay demo.rec  # Uses seed 12345 from recording
 ```

@@ -41,7 +41,8 @@ TEST_F(ManagerIntegrationTest, ManagerCreationWithLevelFile) {
     // Verify tensors are accessible
     MER_Tensor self_obs;
     ASSERT_TRUE(GetTensor(self_obs, mer_get_self_observation_tensor));
-    EXPECT_TRUE(ValidateTensorShape(self_obs, {4 * MER_NUM_AGENTS, MER_SELF_OBSERVATION_SIZE}));
+    // Self observation is 3D: [num_worlds, num_agents, features]
+    EXPECT_TRUE(ValidateTensorShape(self_obs, {4, MER_NUM_AGENTS, MER_SELF_OBSERVATION_SIZE}));
 }
 
 // Test recording workflow

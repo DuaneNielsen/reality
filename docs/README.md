@@ -31,9 +31,11 @@ Guides for developers working on the codebase.
 
 #### Testing
 - [**Testing Guide**](development/testing/TESTING_GUIDE.md) - Learn testing patterns and understand GPU manager constraints for reliable tests
+- [**C++ Testing Guide**](development/testing/CPP_TESTING_GUIDE.md) - Write and run C++ unit tests using GoogleTest framework
+- [**Performance Test Guide**](development/testing/PERFORMANCE_TEST_GUIDE.md) - Run performance benchmarks and maintain baseline thresholds
 
 #### Debugging
-- [**GDB Guide**](development/debugging/GDB_GUIDE.md) - Step-through debugging with GDB
+- [**GDB Guide**](development/debugging/GDB_GUIDE.md) - Debug C++ code step-by-step using the MCP GDB server
 - [**C Stdout Capture**](development/debugging/C_STDOUT_CAPTURE.md) - Capture C-level stdout output in Python environments for debugging
 
 #### Tools
@@ -53,8 +55,8 @@ Production deployment, packaging, and platform-specific guides.
 #### CUDA
 - [**CUDA Setup Guide**](deployment/cuda/CUDA_SETUP_GUIDE.md) - CUDA 12.5 setup and common library issues
 - [**CUDA Linking Issues**](deployment/cuda/DEBUGGING_CUDA_LINKING_ISSUES.md) - Troubleshooting CUDA problems
-- [**CUDA Deadlock Analysis**](deployment/cuda/CUDA_DEADLOCK_SOLUTION_ANALYSIS.md) - Deadlock solutions
-- [**CFFI CUDA Research**](deployment/cuda/CFFI_CUDA_SEGFAULT_RESEARCH.md) - Segfault investigation
+- [**CUDA Deadlock Analysis**](deployment/cuda/CUDA_DEADLOCK_SOLUTION_ANALYSIS.md) - Diagnose and resolve CUDA initialization deadlocks in Python bindings
+- [**CFFI CUDA Research**](deployment/cuda/CFFI_CUDA_SEGFAULT_RESEARCH.md) - Debug and understand CUDA/Python CFFI segmentation faults
 
 #### Headless
 - [**Headless Mode**](deployment/headless/HEADLESS_MODE.md) - Run simulations without graphics for server deployment and batch processing

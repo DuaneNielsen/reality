@@ -32,7 +32,61 @@ uv run --group dev pytest tests/python/ -v -k "gpu"
 
 - `gpu_manager`: Session-scoped GPU SimManager (shared across all GPU tests)
 - `gpu_env`: Session-scoped GPU TorchRL environment  
-- `cpu_manager`: Function-scoped CPU manager (new per test)
+- `cpu_manager`: Function-scoped CPU manager (new per test, supports custom levels)
+
+## Custom Level Testing
+
+The `cpu_manager` fixture supports custom ASCII levels using the `@pytest.mark.custom_level()` decorator:
+
+### Basic Usage
+```python
+# Define ASCII level with walls and spawn points
+TEST_LEVEL = """
+##########
+#S.......#
+#........#
+#...#....#
+#...#....#
+#........#
+##########
+"""
+
+@pytest.mark.custom_level(TEST_LEVEL)
+def test_with_custom_level(cpu_manager):
+    """Test uses the custom level instead of default"""
+    mgr = cpu_manager  # Manager initialized with TEST_LEVEL
+    # Test your custom level behavior
+```
+
+### Key Features
+- **Spawn Points**: Mark agent spawn locations with 'S' 
+- **Walls**: Use '#' for walls and obstacles
+- **Empty Space**: Use '.' for walkable areas
+- **Auto-compilation**: Levels are automatically compiled with scale=2.0
+
+### Example: Testing Movement Constraints
+```python
+# Level with narrow corridor
+CORRIDOR_LEVEL = """
+################################
+#S.............................#
+#..............................#
+#############........###########
+#..............................#
+################################
+"""
+
+@pytest.mark.custom_level(CORRIDOR_LEVEL)
+def test_corridor_navigation(cpu_manager):
+    """Test agent navigation through narrow passage"""
+    mgr = cpu_manager
+    # Agent must navigate through the gap in the wall
+```
+
+### Notes
+- Only works with `cpu_manager` fixture (function-scoped)
+- Module-scoped fixtures don't support per-test custom levels
+- GPU tests should not use custom levels (violates single GPU manager constraint)
 
 ## Writing GPU Tests
 

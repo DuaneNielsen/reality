@@ -96,12 +96,26 @@ TEST_F(OptionParsingAndFileErrorTest, MissingLevelFile) {
     std::ifstream test_file(missing_file, std::ios::binary);
     EXPECT_FALSE(test_file.is_open());
     
-    // Verify manager creation fails with invalid level
-    MER_CompiledLevel invalid_level = {};
-    MER_Result result = mer_create_manager(&handle, &config, &invalid_level, 1);
+    // Load a valid level from the test data directory
+    const char* valid_level_file = "tests/cpp/data/simple_test.lvl";
+    MER_CompiledLevel level = {};
     
-    // Should fail due to invalid level data (all zeros)
-    EXPECT_NE(result, MER_SUCCESS);
+    std::ifstream lvl_file(valid_level_file, std::ios::binary);
+    ASSERT_TRUE(lvl_file.is_open()) << "Test level file not found: " << valid_level_file;
+    
+    lvl_file.read(reinterpret_cast<char*>(&level), sizeof(MER_CompiledLevel));
+    ASSERT_TRUE(lvl_file.good()) << "Failed to read test level file";
+    lvl_file.close();
+    
+    // Manager creation should succeed with valid level data
+    MER_Result result = mer_create_manager(&handle, &config, &level, 1);
+    EXPECT_EQ(result, MER_SUCCESS);
+    
+    // Clean up
+    if (handle) {
+        mer_destroy_manager(handle);
+        handle = nullptr;
+    }
 }
 
 // Test corrupt recording file

@@ -26,8 +26,20 @@ def _get_max_tiles_from_c_api():
         return 1024
 
 
-# Get the authoritative MAX_TILES value from C++
+def _get_max_spawns_from_c_api():
+    """Get MAX_SPAWNS from C API - returns the actual CompiledLevel::MAX_SPAWNS value"""
+    try:
+        from .ctypes_bindings import _get_max_spawns
+
+        return _get_max_spawns()
+    except ImportError:
+        # Fallback if ctypes bindings not available
+        return 8
+
+
+# Get the authoritative values from C++
 MAX_TILES_C_API = _get_max_tiles_from_c_api()
+MAX_SPAWNS_C_API = _get_max_spawns_from_c_api()
 
 # Tile type constants (must match C++ TileType enum in src/level_gen.cpp)
 TILE_EMPTY = 0
@@ -173,11 +185,10 @@ def compile_level(ascii_str: str, scale: float = 2.0) -> Dict:
         tile_x[i] = world_x
         tile_y[i] = world_y
 
-    # Prepare spawn arrays (MAX_SPAWNS = 8)
-    MAX_SPAWNS = 8
-    spawn_x = [0.0] * MAX_SPAWNS
-    spawn_y = [0.0] * MAX_SPAWNS
-    num_spawns = min(len(spawns), MAX_SPAWNS)
+    # Prepare spawn arrays (MAX_SPAWNS from C API)
+    spawn_x = [0.0] * MAX_SPAWNS_C_API
+    spawn_y = [0.0] * MAX_SPAWNS_C_API
+    num_spawns = min(len(spawns), MAX_SPAWNS_C_API)
 
     for i in range(num_spawns):
         spawn_x[i] = spawns[i][0]
@@ -284,12 +295,12 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
             # Spawn data
             f.write(struct.pack("<i", compiled["num_spawns"]))
 
-            # spawn_x array - always write 8 elements (MAX_SPAWNS)
-            for i in range(8):
+            # spawn_x array - always write MAX_SPAWNS_C_API elements
+            for i in range(MAX_SPAWNS_C_API):
                 f.write(struct.pack("<f", compiled["spawn_x"][i]))
 
-            # spawn_y array - always write 8 elements (MAX_SPAWNS)
-            for i in range(8):
+            # spawn_y array - always write MAX_SPAWNS_C_API elements
+            for i in range(MAX_SPAWNS_C_API):
                 f.write(struct.pack("<f", compiled["spawn_y"][i]))
 
             # Arrays: Write fixed-size arrays for C++ compatibility
@@ -344,6 +355,17 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             height = struct.unpack("<i", f.read(4))[0]
             scale = struct.unpack("<f", f.read(4))[0]
 
+            # Read spawn data
+            num_spawns = struct.unpack("<i", f.read(4))[0]
+
+            spawn_x = []
+            for _ in range(MAX_SPAWNS_C_API):
+                spawn_x.append(struct.unpack("<f", f.read(4))[0])
+
+            spawn_y = []
+            for _ in range(MAX_SPAWNS_C_API):
+                spawn_y.append(struct.unpack("<f", f.read(4))[0])
+
             # Read fixed-size arrays (always MAX_TILES_C_API elements for C++ compatibility)
             tile_types = []
             for _ in range(MAX_TILES_C_API):
@@ -367,6 +389,9 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 "width": width,
                 "height": height,
                 "scale": scale,
+                "num_spawns": num_spawns,
+                "spawn_x": spawn_x,
+                "spawn_y": spawn_y,
                 "array_size": array_size,  # Add calculated array size
                 "tile_types": tile_types,
                 "tile_x": tile_x,

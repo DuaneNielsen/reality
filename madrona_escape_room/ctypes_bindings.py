@@ -174,7 +174,21 @@ def _get_max_tiles():
     return 1024
 
 
+def _get_max_spawns():
+    """Get MAX_SPAWNS from C++ CompiledLevel::MAX_SPAWNS via C API"""
+    try:
+        # Try to get it from the C API if library is loaded
+        if "lib" in globals() and hasattr(lib, "mer_get_max_spawns"):
+            lib.mer_get_max_spawns.restype = c_int32
+            return lib.mer_get_max_spawns()
+    except Exception:
+        pass
+    # Fallback to hardcoded value matching C++ CompiledLevel::MAX_SPAWNS
+    return 8
+
+
 MAX_TILES = _get_max_tiles()
+MAX_SPAWNS = _get_max_spawns()
 
 
 class MER_CompiledLevel(Structure):

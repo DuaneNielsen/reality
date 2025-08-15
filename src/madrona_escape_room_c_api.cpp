@@ -470,6 +470,10 @@ int32_t mer_get_max_tiles(void) {
     return CompiledLevel::MAX_TILES;
 }
 
+int32_t mer_get_max_spawns(void) {
+    return CompiledLevel::MAX_SPAWNS;
+}
+
 const char* mer_result_to_string(MER_Result result) {
     switch (result) {
         case MER_SUCCESS:

@@ -218,6 +218,7 @@ MER_EXPORT const char* mer_result_to_string(MER_Result result);
 
 // Get CompiledLevel constants
 MER_EXPORT int32_t mer_get_max_tiles(void);
+MER_EXPORT int32_t mer_get_max_spawns(void);
 
 #ifdef __cplusplus
 }
