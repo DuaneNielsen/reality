@@ -54,7 +54,8 @@
       "Bash(cmake:*)",
       "Bash(./build/tests/cpp/mad_escape_tests:*)",
       "Bash(./build/mad_escape_tests:*)",
-      "Bash(git -C external/madrona status --porcelain)"
+      "Bash(git -C external/madrona status --porcelain)",
+      "Bash(./tests/run_cpp_tests.sh:*)"
     ],
     "deny": []
   },

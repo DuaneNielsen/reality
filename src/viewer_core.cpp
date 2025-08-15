@@ -201,10 +201,10 @@ void ViewerCore::computeActionsFromInput(int world_idx) {
     if (input.keys_pressed[InputEvent::A]) x -= 1;
     
     if (input.keys_pressed[InputEvent::Q]) {
-        r -= input.shift_pressed ? 2 : 1;  // Q rotates left (decreases r)
+        r += input.shift_pressed ? 2 : 1;  // Q rotates left (increases r)
     }
     if (input.keys_pressed[InputEvent::E]) {
-        r += input.shift_pressed ? 2 : 1;  // E rotates right (increases r)
+        r -= input.shift_pressed ? 2 : 1;  // E rotates right (decreases r)
     }
     
     // Compute move amount
