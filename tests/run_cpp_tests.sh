@@ -93,7 +93,7 @@ echo -e "\n${GREEN}Running C++ tests...${NC}"
 cd "${REPO_ROOT}"
 
 # Set test executable path
-TEST_EXEC="${BUILD_DIR}/tests/cpp/mad_escape_tests"
+TEST_EXEC="${BUILD_DIR}/mad_escape_tests"
 
 if [ ! -f "${TEST_EXEC}" ]; then
     echo -e "${RED}Error: Test executable not found at ${TEST_EXEC}${NC}"

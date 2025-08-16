@@ -24,44 +24,17 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
   1. Build and Run CPU Tests
 
   # Configure, build, and run CPU tests
-  cmake -B build -DBUILD_TESTS=ON && make -C build mad_escape_tests -j8 && ./tests/run_cpp_tests.sh --cpu-only
-
-  Alternative Methods
-
-  Using the script only:
-
+  ```
   ./tests/run_cpp_tests.sh --cpu-only
-
-  Direct execution:
-
-  ./build/mad_escape_tests --gtest_filter="*CPU*"
-
-  Run specific CPU test:
-
-  ./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
-
-  Note: CPU tests are fast (< 1 second per test) and provide quick feedback during development.
-
+  ```
 
 ● Python CPU Test Execution Instructions
 
   1. Run CPU Tests Only
 
+  ```
   uv run --group dev pytest tests/python/ -v --no-gpu
-
-  Alternative Methods
-
-  Run specific test file:
-
-  uv run --group dev pytest tests/python/test_bindings.py -v --no-gpu
-
-  Run specific test:
-
-  uv run --group dev pytest tests/python/test_bindings.py::test_cpu_manager_exists -v --no-gpu
-
-  With debugging options:
-
-  uv run --group dev pytest tests/python/ -v --no-gpu --record-actions --trace-trajectories
+  ```
 
    - If CPU tests fail, return back with an error report, no need to run GPU tests
    - Only run python GPU tests after CPU tests pass: `uv run --group dev pytest tests/python/ -v -k "gpu"`

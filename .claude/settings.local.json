@@ -58,7 +58,8 @@
       "Bash(./tests/run_cpp_tests.sh:*)",
       "WebSearch",
       "Bash(ctest:*)",
-      "Bash(nvidia-smi:*)"
+      "Bash(nvidia-smi:*)",
+      "Bash(git -C external/mcp-gdb diff --stat)"
     ],
     "deny": []
   },
