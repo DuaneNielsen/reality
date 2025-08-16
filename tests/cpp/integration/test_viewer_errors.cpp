@@ -289,7 +289,7 @@ TEST_F(OptionParsingAndFileErrorTest, ReplayMetadataMismatch) {
     // Create a valid recording with specific metadata
     createTestLevelFile("test.lvl", 16, 16);
     file_manager_->addFile("test.lvl");
-    file_manager_->addFile("test.rec");
+    // Note: Don't add test.rec to cleanup yet - we need it after TearDown()
     
     auto level = LevelComparer::loadLevelFromFile("test.lvl");
     
@@ -322,6 +322,9 @@ TEST_F(OptionParsingAndFileErrorTest, ReplayMetadataMismatch) {
         // Here we just verify the metadata mismatch exists
         EXPECT_NE(config.num_worlds, metadata.num_worlds);
     }
+    
+    // Now we can safely clean up the recording file
+    file_manager_->addFile("test.rec");
 }
 
 // Test GPU initialization failure handling

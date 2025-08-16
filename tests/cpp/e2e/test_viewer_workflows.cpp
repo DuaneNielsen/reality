@@ -189,7 +189,7 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
     // Phase 1: Record a session
     createTestLevelFile("original.lvl", 8, 8);
     file_manager_->addFile("original.lvl");
-    file_manager_->addFile("demo.rec");
+    // Note: Don't add demo.rec to cleanup yet - we need it after TearDown()
     file_manager_->addFile("trajectory_record.csv");
     file_manager_->addFile("trajectory_replay.csv");
     
@@ -287,6 +287,9 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
             EXPECT_NEAR(original_trajectory[i].rotation, replay_trajectory[i].rotation, 0.1f);
         }
     }
+    
+    // Now we can safely clean up the recording file
+    file_manager_->addFile("demo.rec");
 }
 
 // Live simulation with tracking workflow
