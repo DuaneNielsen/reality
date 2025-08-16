@@ -304,23 +304,23 @@ TEST(ErrorTest, NullPointer) {
 
 ### Run Single Test
 ```bash
-./build/tests/cpp/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
+./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
 ```
 
 ### Verbose Output
 ```bash
-./build/tests/cpp/mad_escape_tests --gtest_print_time=1
+./build/mad_escape_tests --gtest_print_time=1
 ```
 
 ### Debug with GDB
 ```bash
-gdb ./build/tests/cpp/mad_escape_tests
+gdb ./build/mad_escape_tests
 (gdb) run --gtest_filter="CApiCPUTest.ManagerCreation"
 ```
 
 ### List Tests Without Running
 ```bash
-./build/tests/cpp/mad_escape_tests --gtest_list_tests
+./build/mad_escape_tests --gtest_list_tests
 ```
 
 ## CI Integration

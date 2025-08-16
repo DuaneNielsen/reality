@@ -49,7 +49,7 @@ use the project-builder subagent to build the project
 
 ### Running the Simulation
 to visualize the simulation for the user, run the viewer, it will create a playable simulation that the user can use to interact eith the simulation
-read the viewer guide in docs/tools/VIEWER_GUIDE.md for commands on how to run the viewer
+read the viewer guide in [VIEWER_GUIDE.md](docs/tools/VIEWER_GUIDE.md) for commands on how to run the viewer
 
 ### Development
 
@@ -67,14 +67,14 @@ IMPORTANT: C++ exceptions and RTTI are disabled in this project.
 ###  Unit tests
 
 This project uses pytest for python tests and GoogleTest for C++ tests
-The pytests are documented in docs/development/testing/TESTING_GUIDE.md
-c++ unit tests are documented in docs/development/testing/CPP_TESTING_GUIDE.md
+The pytests are documented in [TESTING_GUIDE.md](docs/development/testing/TESTING_GUIDE.md)
+c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/testing/CPP_TESTING_GUIDE.md)
 
 ### Debugging using GDB
 
 If the user asks to "debug the code", or "debug it" or generally references "debugging" then interpret this as a request to use the GDB tool to gather information about the behaviour of the program, and follow the following procedure
 
-1. read the file docs/GDB_GUIDE.md
+1. read the file [GDB_GUIDE.md](docs/development/debugging/GDB_GUIDE.md)
 2. use the debug tool in your MCP library to gather information on the problem at hand, or study the code
 
 # Documentation
@@ -123,7 +123,7 @@ When creating a new environment:
 
 # ECS Architecture
 
-If you need to make modifications to the ECS system, read the documentation in docs/architecture/ECS_ARCHITECTURE.md
+If you need to make modifications to the ECS system, read the documentation in [ECS_ARCHITECTURE.md](docs/architecture/ECS_ARCHITECTURE.md)
 
 # Source Code File Descriptions
 

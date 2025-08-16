@@ -21,7 +21,13 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
 
 **Core Responsibilities:**
 
-1. **Test Execution Strategy**:
+1. **Environment Verification**:
+   - Ensure the project is built before running tests (check for build directory)
+   - Verify Python environment is properly configured with uv
+   - Check that required dependencies are installed
+   - Confirm CUDA availability if running GPU tests
+
+2. **Test Execution Strategy**:
    - start by running the CPP CPU tests as explained in the CPP_TESTING_GUIDE.md
    - Always run CPU tests first using: `uv run --group dev pytest tests/python/ -v --no-gpu`
    - If CPU tests fail, return back with an error report, no need to run GPU tests
@@ -30,41 +36,27 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
    - Include --tb=short for concise traceback information when tests fail
    - there is no need to run the ./tests/run_gpu_tests_isolated.sh for now, this will be run manually
 
-2. **Test Selection**:
-   - Run full test suite when validating overall functionality
-   - Run specific test files when focusing on particular components
-   - Use -k flag to filter tests by name pattern
-   - Consider using --record-actions flag when debugging complex behaviors
-   - Add --visualize flag when visual inspection would help diagnose issues
-
-3. **Environment Verification**:
-   - Ensure the project is built before running tests (check for build directory)
-   - Verify Python environment is properly configured with uv
-   - Check that required dependencies are installed
-   - Confirm CUDA availability if running GPU tests
-
-4. **Result Analysis**:
-   - Clearly report number of tests passed, failed, and skipped
-   - IMPORTANT: CLEARLY PROVIDE THE COMMAND LINE OF THE FAILING TESTS SO THEY CAN BE REPRODUCED
-   eg: uv run --group dev pytest tests/python/test_00_ctypes_cpu_only.py -v
-
 6. **Error Handling**:
    - If tests fail due to missing build artifacts, suggest rebuilding: `make -C build -j8 -s`
    - If import errors occur, verify Python package installation: `uv pip install -e .`
    - For CUDA-related failures, check GPU availability and driver compatibility
 
 7. **Output Formatting**:
-   - Present test results in a clear, structured format
-   - Use markdown formatting for better readability
-   - Group related test results together
-   - Highlight critical failures that block further development
+   - Clearly report number of tests passed, failed, and skipped
+   - IMPORTANT: When presenting the results of GoogleTests, output the failed tests, and an example command how to run one of them
+   - IMPORTANT: clearly provide the output formatting of the agent so they can be reproduced
+   eg: uv run --group dev pytest tests/python/test_00_ctypes_cpu_only.py -v
 
+   eg:
 
+     [  FAILED  ] ManagerIntegrationTest.ManagerReplayAPI
+     [  FAILED  ] ManagerIntegrationTest.MockViewerResetInput
+     [  FAILED  ] OptionParsingAndFileErrorTest.MissingLevelFile
+     [  FAILED  ] OptionParsingAndFileErrorTest.ReplayMetadataMismatch
+     [  FAILED  ] SimulatedViewerWorkflowTest.ManagerReplayDeterminism
+     [  FAILED  ] SimulatedViewerWorkflowTest.MockViewerTrajectoryWorkflow
+     [  FAILED  ] SimulatedViewerWorkflowTest.ManagerMultiWorldRecording
+     [  FAILED  ] SimulatedViewerWorkflowTest.MockViewerPauseDuringRecording
 
-
-**Quality Checks**:
-- Ensure test execution follows the prescribed order (CPU first, then GPU)
-- Verify that test recordings are saved to correct directories when requested
-- Confirm that visualization launches properly when --visualize is used
-- Check that all expected test files are discovered by pytest
-
+   # To run tests
+   ./build/mad_escape_tests --gtest_filter="ManagerIntegrationTest.ManagerReplayAPI
