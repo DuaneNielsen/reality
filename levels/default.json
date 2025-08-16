@@ -1,4 +1,5 @@
 {
+    "name": "default_room",
     "ascii": "########\n#S.....#\n#......#\n#......#\n########",
     "scale": 2.5,
     "agent_facing": [0.0],

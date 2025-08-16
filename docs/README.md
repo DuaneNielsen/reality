@@ -49,6 +49,7 @@ Production deployment, packaging, and platform-specific guides.
 Documentation for development and visualization tools.
 
 - [**Viewer Guide**](tools/VIEWER_GUIDE.md) - Use the 3D viewer for visualization, manual agent control, and recording/replaying sessions
+- [**File Inspector Guide**](tools/FILE_INSPECTOR_GUIDE.md) - Unified tool for examining and validating recording files (.rec) and level files (.lvl)
 
 ## Quick Links
 

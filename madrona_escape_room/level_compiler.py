@@ -77,7 +77,10 @@ CHAR_MAP = {
 
 
 def compile_level(
-    ascii_str: str, scale: float = 2.5, agent_facing: Optional[List[float]] = None
+    ascii_str: str,
+    scale: float = 2.5,
+    agent_facing: Optional[List[float]] = None,
+    level_name: str = "unknown_level",
 ) -> Dict:
     """
     Compile ASCII level string to dict matching MER_CompiledLevel struct.
@@ -87,6 +90,7 @@ def compile_level(
         scale: World units per ASCII character (default 2.5 units per cell)
         agent_facing: List of initial facing angles in radians for each agent (optional)
                      Default is 0.0 (facing forward/north) for all agents
+        level_name: Name of the level for identification (default "unknown_level")
 
     Returns:
         Dict with fields matching MER_CompiledLevel C struct:
@@ -218,6 +222,7 @@ def compile_level(
         "width": width,
         "height": height,
         "scale": scale,
+        "level_name": level_name,
         "num_spawns": num_spawns,
         "spawn_x": spawn_x,
         "spawn_y": spawn_y,
@@ -248,6 +253,7 @@ def validate_compiled_level(compiled: Dict) -> None:
         "width",
         "height",
         "scale",
+        "level_name",
         "num_spawns",
         "spawn_x",
         "spawn_y",
@@ -310,6 +316,11 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
 
             # float scale
             f.write(struct.pack("<f", compiled["scale"]))
+
+            # char level_name[64] - truncate or pad to 64 bytes
+            level_name = compiled["level_name"][:63]  # Ensure null termination
+            level_name_bytes = level_name.encode("utf-8").ljust(64, b"\0")[:64]
+            f.write(level_name_bytes)
 
             # Spawn data
             f.write(struct.pack("<i", compiled["num_spawns"]))
@@ -378,6 +389,10 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             height = struct.unpack("<i", f.read(4))[0]
             scale = struct.unpack("<f", f.read(4))[0]
 
+            # Read level_name (64 bytes, null-terminated)
+            level_name_bytes = f.read(64)
+            level_name = level_name_bytes.rstrip(b"\0").decode("utf-8")
+
             # Read spawn data
             num_spawns = struct.unpack("<i", f.read(4))[0]
 
@@ -416,6 +431,7 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 "width": width,
                 "height": height,
                 "scale": scale,
+                "level_name": level_name,
                 "num_spawns": num_spawns,
                 "spawn_x": spawn_x,
                 "spawn_y": spawn_y,
@@ -443,6 +459,7 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
     JSON format:
     {
         "ascii": "Multi-line ASCII level string",
+        "name": "level_name",  // Optional, default "unknown_level"
         "scale": 2.5,  // Optional, default 2.5
         "agent_facing": [0.0, 1.57],  // Optional, radians for each agent
         // Future parameters can be added here
@@ -482,6 +499,7 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
     ascii_str = data["ascii"]
     scale = data.get("scale", 2.5)
     agent_facing = data.get("agent_facing", None)
+    level_name = data.get("name", "unknown_level")
 
     # Validate parameters
     if not isinstance(scale, (int, float)) or scale <= 0:
@@ -495,7 +513,7 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
                 raise ValueError(f"Invalid agent_facing[{i}]: {angle} (must be number)")
 
     # Compile with parameters
-    return compile_level(ascii_str, scale, agent_facing)
+    return compile_level(ascii_str, scale, agent_facing, level_name)
 
 
 def compile_level_to_binary(ascii_input: str, binary_output: str, scale: float = 2.5) -> None:

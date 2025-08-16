@@ -152,6 +152,7 @@ namespace madEscape {
     struct CompiledLevel {
         static constexpr int32_t MAX_TILES = 1024;  // 32x32 grid max
         static constexpr int32_t MAX_SPAWNS = 8;    // Max spawn points
+        static constexpr int32_t MAX_LEVEL_NAME_LENGTH = 64;  // Max level name length
         
         // Header fields (matching MER_CompiledLevel layout)
         int32_t num_tiles;                // Actual tiles used
@@ -159,6 +160,7 @@ namespace madEscape {
         int32_t width;                    // Grid width
         int32_t height;                   // Grid height  
         float scale;                      // World scale factor
+        char level_name[MAX_LEVEL_NAME_LENGTH];  // Level name for identification
         
         // Spawn data
         int32_t num_spawns;               // Number of spawn points

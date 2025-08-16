@@ -15,6 +15,7 @@ set(TEST_SOURCES
     unit/test_option_parser.cpp
     unit/test_level_utilities.cpp
     unit/test_recording_utilities.cpp
+    unit/test_file_inspector.cpp
     unit/test_viewer_core.cpp
     unit/test_viewercore_trajectory.cpp
     unit/test_direct_cpp.cpp

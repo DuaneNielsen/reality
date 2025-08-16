@@ -71,7 +71,9 @@
       "Bash(ping:*)",
       "WebFetch(domain:nanobind.readthedocs.io)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(./build/file_inspector:*)",
+      "Bash(./build/mad_escape_tests:*)"
     ],
     "deny": []
   },

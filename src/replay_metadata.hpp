@@ -14,7 +14,7 @@ namespace escape_room {
 constexpr uint32_t REPLAY_MAGIC = 0x4D455352;  // "MESR" (Madrona Escape Room)
 
 // Version of the replay format
-constexpr uint32_t REPLAY_VERSION = 1;
+constexpr uint32_t REPLAY_VERSION = 2;
 
 // Maximum length for sim name string
 constexpr uint32_t MAX_SIM_NAME_LENGTH = 64;
@@ -23,19 +23,21 @@ struct ReplayMetadata {
     uint32_t magic;                         // Magic number for file identification
     uint32_t version;                       // Format version
     char sim_name[MAX_SIM_NAME_LENGTH];     // Name of the simulation
+    char level_name[MAX_SIM_NAME_LENGTH];   // Name of the level being played
     uint32_t num_worlds;                    // Number of worlds recorded
     uint32_t num_agents_per_world;          // Number of agents per world
     uint32_t num_steps;                     // Total number of steps recorded
     uint32_t actions_per_step;              // Number of action components (3: move_amount, move_angle, rotate)
     uint64_t timestamp;                     // Unix timestamp when recording started
     uint32_t seed;                          // Random seed used for simulation
-    uint32_t reserved[8];                   // Reserved for future use
+    uint32_t reserved[7];                   // Reserved for future use (reduced by 1 for level_name)
     
     static ReplayMetadata createDefault() {
         ReplayMetadata meta;
         meta.magic = REPLAY_MAGIC;
         meta.version = REPLAY_VERSION;
         std::strcpy(meta.sim_name, "madrona_escape_room");
+        std::strcpy(meta.level_name, "unknown_level");
         meta.num_worlds = 1;
         meta.num_agents_per_world = 1;
         meta.num_steps = 0;
@@ -47,7 +49,7 @@ struct ReplayMetadata {
     }
     
     bool isValid() const {
-        return magic == REPLAY_MAGIC && version == REPLAY_VERSION;
+        return magic == REPLAY_MAGIC && (version == 1 || version == 2);
     }
 };
 
