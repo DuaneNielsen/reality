@@ -31,6 +31,15 @@ protected:
         MockViewer viewer(1);
         viewer.setFrameLimit(1);
         
+        // Copy input state to the viewer's input simulator
+        InputSimulator& viewer_input = viewer.getInputSimulator();
+        viewer_input.releaseAll();
+        for (int i = 0; i < InputSimulator::Key_Count; i++) {
+            if (input.getInput().keyPressed(static_cast<InputSimulator::Key>(i))) {
+                viewer_input.pressKey(static_cast<InputSimulator::Key>(i));
+            }
+        }
+        
         ActionRecorder::RecordedAction result = {};
         
         viewer.loop(
@@ -44,8 +53,8 @@ protected:
                 if (user_input.keyPressed(MockViewer::KeyboardKey::S)) y -= 1;
                 if (user_input.keyPressed(MockViewer::KeyboardKey::D)) x += 1;
                 if (user_input.keyPressed(MockViewer::KeyboardKey::A)) x -= 1;
-                if (user_input.keyPressed(MockViewer::KeyboardKey::Q)) r += shift_pressed ? 2 : 1;
-                if (user_input.keyPressed(MockViewer::KeyboardKey::E)) r -= shift_pressed ? 2 : 1;
+                if (user_input.keyPressed(MockViewer::KeyboardKey::Q)) r -= shift_pressed ? 2 : 1;  // Q left: r=2-1=1 (SLOW_LEFT)
+                if (user_input.keyPressed(MockViewer::KeyboardKey::E)) r += shift_pressed ? 2 : 1;  // E right: r=2+1=3 (SLOW_RIGHT)
                 
                 // Calculate move_amount
                 int32_t move_amount;
@@ -156,15 +165,17 @@ TEST_F(ViewerInputMappingTest, DiagonalInputMapping) {
 TEST_F(ViewerInputMappingTest, QERotationMapping) {
     InputSimulator input;
     
-    // Test rotate left (Q)
-    input.simulateRotation(-1);
+    // Test Q key rotation (left, counter-clockwise, following right-hand rule)
+    input.releaseAll();
+    input.pressKey(InputSimulator::Key::Q);
     auto action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_LEFT);
+    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_LEFT);  // Q rotates left (r -= 1 = 1)
     
-    // Test rotate right (E)
-    input.simulateRotation(1);
+    // Test E key rotation (right, clockwise, following right-hand rule)
+    input.releaseAll();
+    input.pressKey(InputSimulator::Key::E);
     action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_RIGHT);
+    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_RIGHT);   // E rotates right (r += 1 = 3)
     
     // Test no rotation (default)
     input.releaseAll();
@@ -323,8 +334,8 @@ TEST_F(ViewerInputMappingTest, MultiFrameInputSequence) {
             if (user_input.keyPressed(MockViewer::KeyboardKey::S)) y -= 1;
             if (user_input.keyPressed(MockViewer::KeyboardKey::D)) x += 1;
             if (user_input.keyPressed(MockViewer::KeyboardKey::A)) x -= 1;
-            if (user_input.keyPressed(MockViewer::KeyboardKey::Q)) r += 1;
-            if (user_input.keyPressed(MockViewer::KeyboardKey::E)) r -= 1;
+            if (user_input.keyPressed(MockViewer::KeyboardKey::Q)) r -= 1;  // Q rotates left: r=2-1=1 (SLOW_LEFT)
+            if (user_input.keyPressed(MockViewer::KeyboardKey::E)) r += 1;  // E rotates right: r=2+1=3 (SLOW_RIGHT)
             
             int32_t move_amount = (x == 0 && y == 0) ? 0 : 1;
             int32_t move_angle = 0;

@@ -167,7 +167,7 @@ inline void movementSystem(Engine &,
     constexpr float turn_delta_per_bucket = 
         turn_max / (consts::numTurnBuckets / 2);
     float t_z =
-        turn_delta_per_bucket * (action.rotate - consts::numTurnBuckets / 2);
+        -turn_delta_per_bucket * (action.rotate - consts::numTurnBuckets / 2);
 
     external_force = cur_rot.rotateVec({ f_x, f_y, 0 });
     external_torque = Vector3 { 0, 0, t_z };

@@ -56,7 +56,8 @@
       "Bash(./build/mad_escape_tests:*)",
       "Bash(git -C external/madrona status --porcelain)",
       "Bash(./tests/run_cpp_tests.sh:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(ctest:*)"
     ],
     "deny": []
   },
