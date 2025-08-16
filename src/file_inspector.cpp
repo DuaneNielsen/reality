@@ -1,6 +1,6 @@
-#include "src/mgr.hpp"
-#include "src/replay_metadata.hpp"
-#include "src/types.hpp"
+#include "mgr.hpp"
+#include "replay_metadata.hpp"
+#include "types.hpp"
 #include <iostream>
 #include <fstream>
 #include <string>

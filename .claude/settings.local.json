@@ -73,7 +73,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebSearch",
       "Bash(./build/file_inspector:*)",
-      "Bash(./build/mad_escape_tests:*)"
+      "Bash(./build/mad_escape_tests:*)",
+      "Bash(./build/headless:*)"
     ],
     "deny": []
   },

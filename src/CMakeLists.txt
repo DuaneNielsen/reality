@@ -88,7 +88,7 @@ target_include_directories(headless PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../external/optionparser
 )
 
-add_executable(file_inspector ../file_inspector.cpp)
+add_executable(file_inspector file_inspector.cpp)
 target_link_libraries(file_inspector madrona_mw_core mad_escape_mgr)
 
 # Test executables moved to tests/cpp/CMakeLists.txt
