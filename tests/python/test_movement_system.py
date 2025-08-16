@@ -5,9 +5,31 @@ Test agent movement system including forward movement, strafing, and rotation.
 
 import math
 
+import pytest
 from test_helpers import AgentController, ObservationReader
 
 import madrona_escape_room
+
+# Large open level for movement testing - 32x16 room with agent in center facing south
+LARGE_OPEN_LEVEL = {
+    "ascii": """################################
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............S...............#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+################################""",
+    "scale": 2.5,
+    "agent_facing": [3.14159],  # Face south (180 degrees) to move away from north wall
+}
 
 
 def test_forward_movement(cpu_manager):
@@ -246,6 +268,7 @@ def test_backward_movement(cpu_manager):
     assert delta_y < -0.1, f"Agent should have moved backward, but delta_y = {delta_y}"
 
 
+@pytest.mark.custom_level(LARGE_OPEN_LEVEL)
 def test_rotation_in_place(cpu_manager):
     """Test agent rotating in place without movement"""
     mgr = cpu_manager
@@ -289,6 +312,7 @@ def test_rotation_in_place(cpu_manager):
     ), f"Agent should have rotated, but theta only changed by {theta_delta:.3f}"
 
 
+@pytest.mark.custom_level(LARGE_OPEN_LEVEL)
 def test_movement_speed_differences(cpu_manager):
     """Test that different movement speeds produce different distances"""
     mgr = cpu_manager
@@ -317,8 +341,12 @@ def test_movement_speed_differences(cpu_manager):
         controller.reset_actions()
         controller.move_forward(speed=speed_value)
 
-        # Run for 30 steps
-        for _ in range(30):
+        # Debug: print action values
+        actions = mgr.action_tensor().to_torch()
+        print(f"{speed_name} (value={speed_value}): action tensor = {actions[0].tolist()}")
+
+        # Run for fewer steps to avoid hitting walls at higher speeds
+        for _ in range(5):
             mgr.step()
 
         # Measure distance
@@ -327,8 +355,8 @@ def test_movement_speed_differences(cpu_manager):
         distances[speed_name] = distance
         print(f"{speed_name} speed: moved {distance:.3f} units")
 
-    # Verify speed ordering
-    assert distances["STOP"] < 0.01, "STOP should produce no movement"
-    assert distances["SLOW"] > distances["STOP"], "SLOW should move more than STOP"
-    assert distances["MEDIUM"] > distances["SLOW"], "MEDIUM should move more than SLOW"
-    assert distances["FAST"] > distances["MEDIUM"], "FAST should move more than MEDIUM"
+    # Verify speed ordering (movement is in negative Y direction)
+    assert abs(distances["STOP"]) < 0.01, "STOP should produce no movement"
+    assert abs(distances["SLOW"]) > abs(distances["STOP"]), "SLOW should move more than STOP"
+    assert abs(distances["MEDIUM"]) > abs(distances["SLOW"]), "MEDIUM should move more than SLOW"
+    assert abs(distances["FAST"]) > abs(distances["MEDIUM"]), "FAST should move more than MEDIUM"
