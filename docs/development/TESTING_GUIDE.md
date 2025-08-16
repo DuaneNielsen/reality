@@ -62,7 +62,7 @@ def test_with_custom_level(cpu_manager):
 - **Spawn Points**: Mark agent spawn locations with 'S' 
 - **Walls**: Use '#' for walls and obstacles
 - **Empty Space**: Use '.' for walkable areas
-- **Auto-compilation**: Levels are automatically compiled with scale=2.0
+- **Auto-compilation**: Levels are automatically compiled with scale=2.5
 
 ### Example: Testing Movement Constraints
 ```python
