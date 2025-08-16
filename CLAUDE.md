@@ -67,8 +67,8 @@ IMPORTANT: C++ exceptions and RTTI are disabled in this project.
 ###  Unit tests
 
 This project uses pytest for python tests and GoogleTest for C++ tests
-The pytests are documented in [TESTING_GUIDE.md](docs/development/testing/TESTING_GUIDE.md)
-c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/testing/CPP_TESTING_GUIDE.md)
+The pytests are documented in [TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)
+c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/CPP_TESTING_GUIDE.md)
 
 ### Rules when fixing CPP tests
 
@@ -78,7 +78,7 @@ c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/testing
 
 If the user asks to "debug the code", or "debug it" or generally references "debugging" then interpret this as a request to use the GDB tool to gather information about the behaviour of the program, and follow the following procedure
 
-1. read the file [GDB_GUIDE.md](docs/development/debugging/GDB_GUIDE.md)
+1. read the file [GDB_GUIDE.md](docs/development/GDB_GUIDE.md)
 2. use the debug tool in your MCP library to gather information on the problem at hand, or study the code
 
 # Documentation
