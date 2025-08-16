@@ -94,5 +94,9 @@
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "uv run python .claude/scripts/claude-code-status-line.py"
   }
 }
