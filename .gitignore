@@ -15,8 +15,15 @@ uv.lock
 *.so
 imgui.ini
 
-# Image files
-*.png
+# Root-level media and result files
+/*.png
+/*.rec
+/*.csv
+/*.xml
+/*.bin
+
+# Binary files
+*.bin
 
 # IDE configuration
 .idea/

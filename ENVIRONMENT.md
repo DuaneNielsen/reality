@@ -41,7 +41,7 @@ The environment uses discrete actions with 3 components per agent:
 
 ## Observation Space
 
-Each agent receives the following observations:
+The agent receives the following observations:
 
 ### Self Observation (5 values)
 - **Position** (3 values): `[x, y, z]` - Agent's position in world coordinates
@@ -80,18 +80,18 @@ mgr = madrona_escape_room.SimManager(
 )
 
 # Get tensor references (zero-copy views)
-action_tensor = mgr.action_tensor().to_torch()        # Shape: [num_worlds, num_agents, 3]
-obs_tensor = mgr.self_observation_tensor().to_torch() # Shape: [num_worlds, num_agents, 5]
-reward_tensor = mgr.reward_tensor().to_torch()        # Shape: [num_worlds, num_agents]
-done_tensor = mgr.done_tensor().to_torch()            # Shape: [num_worlds, num_agents]
+action_tensor = mgr.action_tensor().to_torch()        # Shape: [num_worlds, 3]
+obs_tensor = mgr.self_observation_tensor().to_torch() # Shape: [num_worlds, 5]
+reward_tensor = mgr.reward_tensor().to_torch()        # Shape: [num_worlds]
+done_tensor = mgr.done_tensor().to_torch()            # Shape: [num_worlds]
 
 # Main training loop
 for step in range(10000):
-    # Set actions for all agents
+    # Set actions for all worlds
     # Example: Move all agents forward at medium speed
-    action_tensor[:, :, 0] = 2  # moveAmount = MEDIUM
-    action_tensor[:, :, 1] = 0  # moveAngle = FORWARD
-    action_tensor[:, :, 2] = 2  # rotate = NONE
+    action_tensor[:, 0] = 2  # moveAmount = MEDIUM
+    action_tensor[:, 1] = 0  # moveAngle = FORWARD
+    action_tensor[:, 2] = 2  # rotate = NONE
     
     # Step the simulation
     mgr.step()
@@ -102,33 +102,31 @@ for step in range(10000):
     dones = done_tensor.clone()
     
     # Process observations
-    positions = observations[:, :, :3]  # x, y, z positions
-    max_y_progress = observations[:, :, 3]  # Progress indicator
-    rotations = observations[:, :, 4]  # Agent rotations
+    positions = observations[:, :3]  # x, y, z positions
+    max_y_progress = observations[:, 3]  # Progress indicator
+    rotations = observations[:, 4]  # Agent rotations
     
     # Your training logic here
     # ...
 ```
 
-## Advanced Example: Agent-Specific Actions
+## Advanced Example: World-Specific Actions
 
 ```python
-# Control specific agents differently
+# Control agents in different worlds differently
 num_worlds = action_tensor.shape[0]
-num_agents = action_tensor.shape[1]
 
 for world_idx in range(num_worlds):
-    for agent_idx in range(num_agents):
-        if agent_idx == 0:
-            # Agent 0: Move forward fast
-            action_tensor[world_idx, agent_idx, 0] = 3  # FAST
-            action_tensor[world_idx, agent_idx, 1] = 0  # FORWARD
-            action_tensor[world_idx, agent_idx, 2] = 2  # NO ROTATION
-        else:
-            # Agent 1: Strafe left slowly while rotating right
-            action_tensor[world_idx, agent_idx, 0] = 1  # SLOW
-            action_tensor[world_idx, agent_idx, 1] = 6  # LEFT
-            action_tensor[world_idx, agent_idx, 2] = 3  # SLOW_RIGHT
+    if world_idx % 2 == 0:
+        # Even worlds: Move forward fast
+        action_tensor[world_idx, 0] = 3  # FAST
+        action_tensor[world_idx, 1] = 0  # FORWARD
+        action_tensor[world_idx, 2] = 2  # NO ROTATION
+    else:
+        # Odd worlds: Strafe left slowly while rotating right
+        action_tensor[world_idx, 0] = 1  # SLOW
+        action_tensor[world_idx, 1] = 6  # LEFT
+        action_tensor[world_idx, 2] = 3  # SLOW_RIGHT
 
 mgr.step()
 ```
@@ -140,14 +138,14 @@ mgr.step()
 from madrona_escape_room import action
 
 # Set actions using named constants
-action_tensor[:, :, 0] = action.move_amount.MEDIUM
-action_tensor[:, :, 1] = action.move_angle.FORWARD
-action_tensor[:, :, 2] = action.rotate.NONE
+action_tensor[:, 0] = action.move_amount.MEDIUM
+action_tensor[:, 1] = action.move_angle.FORWARD
+action_tensor[:, 2] = action.rotate.NONE
 
-# Example: Make agent strafe right
-action_tensor[0, 0, 0] = action.move_amount.FAST
-action_tensor[0, 0, 1] = action.move_angle.RIGHT
-action_tensor[0, 0, 2] = action.rotate.NONE
+# Example: Make agent in world 0 strafe right
+action_tensor[0, 0] = action.move_amount.FAST
+action_tensor[0, 1] = action.move_angle.RIGHT
+action_tensor[0, 2] = action.rotate.NONE
 ```
 
 ## Zero-Copy Tensor Access
@@ -167,8 +165,8 @@ obs_dlpack = torch.from_dlpack(mgr.self_observation_tensor())
 
 ## Key Environment Parameters
 
-- **World Dimensions**: 18 x 10 units (width x length)
-- **Number of Agents**: 2 per world
+- **World Dimensions**: 20 x 40 units (width x length)
+- **Number of Agents**: 1 per world
 - **Physics Timestep**: 0.04 seconds
 - **Physics Substeps**: 4 per frame
 - **Agent Speed**: 8 units/second (at FAST setting)
@@ -176,13 +174,13 @@ obs_dlpack = torch.from_dlpack(mgr.self_observation_tensor())
 
 ## Tips for Using the Environment
 
-1. **Strafing**: To make an agent strafe (move sideways), use moveAngle=2 (RIGHT) or moveAngle=6 (LEFT) while keeping rotation constant.
+1. **Strafing**: To make the agent strafe (move sideways), use moveAngle=2 (RIGHT) or moveAngle=6 (LEFT) while keeping rotation constant.
 
 2. **Smooth Turning**: Combine forward movement with rotation for car-like motion:
    ```python
-   action_tensor[:, :, 0] = 2  # MEDIUM speed
-   action_tensor[:, :, 1] = 0  # FORWARD
-   action_tensor[:, :, 2] = 3  # SLOW_RIGHT rotation
+   action_tensor[:, 0] = 2  # MEDIUM speed
+   action_tensor[:, 1] = 0  # FORWARD
+   action_tensor[:, 2] = 3  # SLOW_RIGHT rotation
    ```
 
 3. **Diagonal Movement**: Use the diagonal moveAngle values (1, 3, 5, 7) for 45° movement.

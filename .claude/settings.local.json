@@ -59,7 +59,8 @@
       "WebSearch",
       "Bash(ctest:*)",
       "Bash(nvidia-smi:*)",
-      "Bash(git -C external/mcp-gdb diff --stat)"
+      "Bash(git -C external/mcp-gdb diff --stat)",
+      "Bash(git -C /home/duane/madrona_escape_room ls-files)"
     ],
     "deny": []
   },

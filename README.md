@@ -5,7 +5,7 @@ A high-performance 3D multi-agent reinforcement learning environment built on th
 ## Key Features
 
 - **High-Performance Simulation**: Batch simulation supporting thousands of parallel worlds
-- **Multi-Agent Environment**: 2 agents per world with configurable interaction patterns  
+- **Single-Agent Navigation**: 1 agent per world focused on forward progress  
 - **Multiple Execution Modes**: CPU and GPU backends for different deployment scenarios
 - **Comprehensive Python Integration**: ctypes-based bindings with zero-copy tensor access
 - **Advanced Tooling**: 3D viewer, recording/replay, performance profiling, and debugging support
@@ -13,37 +13,32 @@ A high-performance 3D multi-agent reinforcement learning environment built on th
 
 If you're building a new Madrona environment, fork this repository rather than starting from scratch to ensure proper build system and backend configuration.
 
-The Environment and Learning Task
---------------
+## The Environment and Learning Task
 
-https://github.com/shacklettbp/madrona_escape_room/assets/1111429/ec6231c8-a74b-4f0a-8a1a-b1bcdc7111cd
+![Environment Example](resources/environment_example.png)
 
-As shown above, the simulator implements a 3D environment consisting of two agents and a row of three rooms. All agents start in the first room, and must navigate to as many new rooms as possible. The agents must step on buttons or push movable blocks over buttons to trigger the opening of doors that lead to new rooms. Agents are rewarded based on their progress along the length of the level.
+The simulator implements a 3D navigation environment with a single agent that must maximize forward progress through the world. The agent is rewarded based on the maximum distance achieved along the Y-axis (forward direction). This creates a simple but effective navigation challenge for reinforcement learning.
 
-The codebase trains a shared policy that controls agents individually with direct engine inputs rather than pixel observations. Agents interact with the simulator as follows:
+The codebase trains a policy using direct engine inputs rather than pixel observations. The agent interacts with the simulator as follows:
 
 **Action Space:**
- * Movement amount: Egocentric polar coordinates for the direction and amount to move, translated to XY forces in the physics engine.
- * Rotation amount: Torque applied to the agent to turn.
- * Grab: Boolean, true to grab if possible or release if already holding an object.
+ * Movement amount: Speed level (stop, slow, medium, fast)
+ * Movement angle: Direction relative to agent (8 compass directions)
+ * Rotation: Turn speed and direction (left/right with slow/fast options)
 
 **Observation Space:**
- * Global position.
- * Position within the current room.
- * Distance and direction to all the buttons and cubes in the current room (egocentric polar coordinates).
- * 30 Lidar samples arrayed in a circle around the agent, giving distance to the nearest object along a direction.
- * Whether the current room's door is open (boolean).
- * Whether an object is currently grabbed (boolean).
- * The max distance achieved so far in the level.
- * The number of steps remaining in the episode.
+ * Global position (x, y, z coordinates)
+ * Agent rotation (facing direction)
+ * Maximum Y distance achieved (progress indicator)
+ * Steps remaining in episode
 
 **Rewards:**
-  Agents are rewarded for the max distance achieved along the Y axis (the length of the level). Each step, new reward is assigned if the agents have progressed further in the level, or a small penalty reward is assigned if not.
+  The agent is rewarded for the maximum distance achieved along the Y axis (forward progress). Each step provides reward if the agent has progressed further, or a small penalty if not.
  
 For specific details about the format of observations, refer to exported ECS components introduced in the [code walkthrough section](#simulator-code-walkthrough-learning-the-madrona-ecs-apis). 
 
 Overall the "full simulator" contains logic for three major concerns:
-* Procedurally generating a new random level for each episode.
+* Loading level layouts from compiled level data for each episode.
 * Time stepping the environment, which includes executing rigid body physics and evaluating game logic in response to agent actions.
 * Generating agent observations from the state of the environment, which are communicated as PyTorch tensors to external policy evaluation or learning code.
 
@@ -102,14 +97,14 @@ mgr = madrona_escape_room.SimManager(
 )
 
 # Get tensor references (zero-copy views)
-actions = mgr.action_tensor().to_torch()
-obs = mgr.self_observation_tensor().to_torch()
-rewards = mgr.reward_tensor().to_torch()
+actions = mgr.action_tensor().to_torch()      # Shape: [num_worlds, 3]
+obs = mgr.self_observation_tensor().to_torch() # Shape: [num_worlds, 5]
+rewards = mgr.reward_tensor().to_torch()       # Shape: [num_worlds]
 
 # Training loop
 for step in range(1000):
-    actions[:, :] = policy(obs)  # Set actions
-    mgr.step()                   # Step simulation
+    actions[:] = policy(obs)  # Set actions for all worlds
+    mgr.step()                # Step simulation
     # Process rewards and observations
 ```
 
@@ -124,7 +119,7 @@ We assume the reader is familiar with the key concepts of the entity component s
 
 #### Defining the Simulation's State: Components and Archetypes ####
 
-The first step to understanding the simulator's implementation is to understand the ECS components that make up the data in the simulation. All the custom logic in the simulation (as well as logic for built-in systems like physics) is written in terms of these data types. Take a look at [`src/types.hpp`](src/types.hpp). This file first defines all the ECS components as simple C++ structs and next declares the ECS archetypes in terms of the components they are composed of. For integration with learning, many of the components of the `Agent` archetype are directly exported as PyTorch tensors. For example, the `Action` component directly corresponds to the action space described above.
+The first step to understanding the simulator's implementation is to understand the ECS components that make up the data in the simulation. All the custom logic in the simulation (as well as logic for built-in systems like physics) is written in terms of these data types. Take a look at [`src/types.hpp`](src/types.hpp). This file first defines all the ECS components as simple C++ structs and next declares the ECS archetypes in terms of the components they are composed of. For integration with learning, many of the components of the `Agent` archetype are directly exported as PyTorch tensors. For example, the `Action` component directly corresponds to the 3-component action space described above, and `SelfObservation` contains the agent's position and progress data.
 
 #### Defining the Simulation's Logic: Systems and the Task Graph ####
 

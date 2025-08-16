@@ -151,17 +151,17 @@ depth_tensor = sim.depth_tensor()  # [num_worlds, height, width, 1] - depth maps
 
 ### Action Space
 
-Actions are 4-dimensional integer arrays:
+Actions are 3-dimensional integer arrays:
 
 ```python
-# Action tensor shape: [num_worlds, num_agents, 4]
+# Action tensor shape: [num_worlds, 3]
 actions = sim.action_tensor().to_torch()
 
-# Action components
+# Action components (3 components per agent)
 actions[..., 0] = move_amount    # 0-3: STOP, SLOW, MEDIUM, FAST
 actions[..., 1] = move_angle     # 0-7: 8 directions (FORWARD, FORWARD_RIGHT, etc.)
 actions[..., 2] = rotate         # 0-4: rotation (FAST_LEFT, SLOW_LEFT, NONE, SLOW_RIGHT, FAST_RIGHT)
-actions[..., 3] = grab           # 0-1: grab action (not used in current version)
+# Note: grab action has been removed from current version
 ```
 
 ### Constants
