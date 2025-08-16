@@ -153,6 +153,7 @@ This repository includes comprehensive documentation covering all aspects of dev
 - [**Performance Testing**](docs/development/PERFORMANCE_TEST_GUIDE.md) - Benchmarking and baselines
 - [**GDB Guide**](docs/development/GDB_GUIDE.md) - Debugging with GDB MCP server
 - [**Level Format**](docs/development/LEVEL_FORMAT.md) - Test-driven level creation
+- [**JSON Level Format**](docs/development/JSON_LEVEL_FORMAT_SUMMARY.md) - JSON-based levels with parameters
 - [**Component Development**](docs/development/ADD_COMPONENT.md) - Adding new ECS components
 
 ### 🚀 Deployment
