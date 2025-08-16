@@ -57,7 +57,8 @@
       "Bash(git -C external/madrona status --porcelain)",
       "Bash(./tests/run_cpp_tests.sh:*)",
       "WebSearch",
-      "Bash(ctest:*)"
+      "Bash(ctest:*)",
+      "Bash(nvidia-smi:*)"
     ],
     "deny": []
   },

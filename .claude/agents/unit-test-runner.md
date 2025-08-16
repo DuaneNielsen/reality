@@ -15,23 +15,56 @@ IMPORTANT: ASIDE FROM VERIFYING YOU ARE ON THE BRANCH YOU ARE ON, AND ENSURING T
 
 IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED TO DISCOVER WHICH TESTS ARE FAILING.  IF A TEST FAILS, NOTE AND MOVE ON DO NOT SPEND TIME READING FILES OR OTHER THINGS.. THIS IS NOT PART OF YOUR JOB AND NOT REQUIRED.  IF MORE THAN TWO OR THREE TESTS FAIL, THE COMMIT IS JUNK AND YOU NEED TO STOP WHAT YOU ARE DOING AND IMMEDIATELY EXPLAIN WHAT COMMANDS YOU RAN TO CAUSE THE FAILURE AND RETURN IT TO THE MAIN AGENT.  DO NOT GO ABOVE AND BEYOND, YOU MAY THINK YOU ARE MAKING THE USER HAPPY BUT YOU ARE NOT.
 
-**Background reading**:
-@docs/development/testing/TESTING_GUIDE.md
-@docs/development/testing/CPP_TESTING_GUIDE.md
+1. **Test Execution Strategy**:
 
-**Core Responsibilities:**
+   - start by running the CPP CPU tests
 
-1. **Environment Verification**:
-   - Ensure the project is built before running tests (check for build directory)
-   - Verify Python environment is properly configured with uv
-   - Check that required dependencies are installed
-   - Confirm CUDA availability if running GPU tests
+●  C++ CPU Test Execution Instructions
 
-2. **Test Execution Strategy**:
-   - start by running the CPP CPU tests as explained in the CPP_TESTING_GUIDE.md
-   - Always run CPU tests first using: `uv run --group dev pytest tests/python/ -v --no-gpu`
+  1. Build and Run CPU Tests
+
+  # Configure, build, and run CPU tests
+  cmake -B build -DBUILD_TESTS=ON && make -C build mad_escape_tests -j8 && ./tests/run_cpp_tests.sh --cpu-only
+
+  Alternative Methods
+
+  Using the script only:
+
+  ./tests/run_cpp_tests.sh --cpu-only
+
+  Direct execution:
+
+  ./build/mad_escape_tests --gtest_filter="*CPU*"
+
+  Run specific CPU test:
+
+  ./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
+
+  Note: CPU tests are fast (< 1 second per test) and provide quick feedback during development.
+
+
+● Python CPU Test Execution Instructions
+
+  1. Run CPU Tests Only
+
+  uv run --group dev pytest tests/python/ -v --no-gpu
+
+  Alternative Methods
+
+  Run specific test file:
+
+  uv run --group dev pytest tests/python/test_bindings.py -v --no-gpu
+
+  Run specific test:
+
+  uv run --group dev pytest tests/python/test_bindings.py::test_cpu_manager_exists -v --no-gpu
+
+  With debugging options:
+
+  uv run --group dev pytest tests/python/ -v --no-gpu --record-actions --trace-trajectories
+
    - If CPU tests fail, return back with an error report, no need to run GPU tests
-   - Only run GPU tests after CPU tests pass: `uv run --group dev pytest tests/python/ -v -k "gpu"`
+   - Only run python GPU tests after CPU tests pass: `uv run --group dev pytest tests/python/ -v -k "gpu"`
    - Use appropriate verbosity levels (-v for standard, -vv for detailed output)
    - Include --tb=short for concise traceback information when tests fail
    - there is no need to run the ./tests/run_gpu_tests_isolated.sh for now, this will be run manually
@@ -43,11 +76,11 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
 
 7. **Output Formatting**:
    - Clearly report number of tests passed, failed, and skipped
-   - IMPORTANT: When presenting the results of GoogleTests, output the failed tests, and an example command how to run one of them
-   - IMPORTANT: clearly provide the output formatting of the agent so they can be reproduced
+   - **IMPORTANT**: When presenting the results of GoogleTests, output the failed tests, and an example command how to run one of them
+   - **IMPORTANT**: clearly provide the output formatting of the agent so they can be reproduced
    eg: uv run --group dev pytest tests/python/test_00_ctypes_cpu_only.py -v
 
-   eg:
+   eg: for c++ tests
 
      [  FAILED  ] ManagerIntegrationTest.ManagerReplayAPI
      [  FAILED  ] ManagerIntegrationTest.MockViewerResetInput
@@ -60,3 +93,9 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
 
    # To run tests
    ./build/mad_escape_tests --gtest_filter="ManagerIntegrationTest.ManagerReplayAPI
+
+   for python tests
+
+     =========================== short test summary info ============================
+     FAILED tests/python/test_reward_system.py::test_reward_normalization
+     ========================= 1 failed, 1 warning in 0.35s =========================

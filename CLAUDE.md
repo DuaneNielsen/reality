@@ -70,6 +70,10 @@ This project uses pytest for python tests and GoogleTest for C++ tests
 The pytests are documented in [TESTING_GUIDE.md](docs/development/testing/TESTING_GUIDE.md)
 c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/testing/CPP_TESTING_GUIDE.md)
 
+### Rules when fixing CPP tests
+
+**IMPORTANT**:  After you make code changes, you must call the build agent to build the project!
+
 ### Debugging using GDB
 
 If the user asks to "debug the code", or "debug it" or generally references "debugging" then interpret this as a request to use the GDB tool to gather information about the behaviour of the program, and follow the following procedure

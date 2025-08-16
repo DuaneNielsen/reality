@@ -281,7 +281,6 @@ TEST_F(ManagerIntegrationTest, MockViewerResetInput) {
     // Trigger reset for world 0
     viewer.setCurrentWorld(0);
     input.hitKey(MockViewer::KeyboardKey::R);
-    input.nextFrame();
     
     viewer.setFrameLimit(1);
     viewer.loop(
