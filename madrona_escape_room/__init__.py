@@ -370,8 +370,15 @@ class SimManager:
 ################################
 """
 
-        # Compile the ASCII level
-        compiled_level_dict = compile_level(level_ascii)
+        # Compile the level (handle both ASCII string and JSON format)
+        if isinstance(level_ascii, dict):
+            # JSON format with parameters
+            from .level_compiler import compile_level_from_json
+
+            compiled_level_dict = compile_level_from_json(level_ascii)
+        else:
+            # ASCII string format
+            compiled_level_dict = compile_level(level_ascii)
 
         # Create array for all worlds (same level for all worlds for now)
         compiled_level_dicts = [compiled_level_dict for _ in range(num_worlds)]

@@ -10,9 +10,9 @@ from test_helpers import AgentController, ObservationReader
 import madrona_escape_room
 
 
-def test_forward_movement(test_manager):
+def test_forward_movement(cpu_manager):
     """Test agent moving forward for entire episode"""
-    mgr = test_manager
+    mgr = cpu_manager
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
 
@@ -54,9 +54,9 @@ def test_forward_movement(test_manager):
     assert max_y > 0.1, f"Agent should have moved forward, but max_y = {max_y}"
 
 
-def test_strafe_left(test_manager):
+def test_strafe_left(cpu_manager):
     """Test agent strafing left (moving left while maintaining forward orientation)"""
-    mgr = test_manager
+    mgr = cpu_manager
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
 
@@ -172,9 +172,9 @@ def test_strafe_left(test_manager):
     assert actual_length > 0.1, f"Agent should have moved, but only moved {actual_length:.3f} units"
 
 
-def test_strafe_right(test_manager):
+def test_strafe_right(cpu_manager):
     """Test agent strafing right"""
-    mgr = test_manager
+    mgr = cpu_manager
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
 
@@ -246,9 +246,9 @@ def test_backward_movement(cpu_manager):
     assert delta_y < -0.1, f"Agent should have moved backward, but delta_y = {delta_y}"
 
 
-def test_rotation_in_place(test_manager):
+def test_rotation_in_place(cpu_manager):
     """Test agent rotating in place without movement"""
-    mgr = test_manager
+    mgr = cpu_manager
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
 
@@ -289,9 +289,9 @@ def test_rotation_in_place(test_manager):
     ), f"Agent should have rotated, but theta only changed by {theta_delta:.3f}"
 
 
-def test_movement_speed_differences(test_manager):
+def test_movement_speed_differences(cpu_manager):
     """Test that different movement speeds produce different distances"""
-    mgr = test_manager
+    mgr = cpu_manager
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
 

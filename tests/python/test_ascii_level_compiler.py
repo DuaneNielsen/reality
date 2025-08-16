@@ -27,7 +27,7 @@ class TestLevelCompiler:
 
         assert compiled["width"] == 6
         assert compiled["height"] == 4
-        assert compiled["scale"] == 2.0
+        assert compiled["scale"] == 2.5
         assert compiled["num_tiles"] > 0
         assert compiled["max_entities"] > compiled["num_tiles"]
         assert len(compiled["tile_types"]) == MAX_TILES_C_API

@@ -11,46 +11,50 @@ import numpy as np
 import pytest
 from test_helpers import AgentController, ObservationReader, reset_world
 
-# Test levels with specific spawn configurations
-SINGLE_SPAWN_CENTER = """
-##########
+# Test levels with specific spawn configurations using JSON format with explicit scale
+SINGLE_SPAWN_CENTER = {
+    "ascii": """##########
 #........#
 #........#
 #...S....#
 #........#
 #........#
-##########
-"""
+##########""",
+    "scale": 2.5,
+}
 
-SINGLE_SPAWN_CORNER = """
-##########
+SINGLE_SPAWN_CORNER = {
+    "ascii": """##########
 #S.......#
 #........#
 #........#
 #........#
 #........#
-##########
-"""
+##########""",
+    "scale": 2.5,
+}
 
-MULTIPLE_SPAWNS = """
-##########
+MULTIPLE_SPAWNS = {
+    "ascii": """##########
 #S.......#
 #........#
 #........#
 #........#
 #.......S#
-##########
-"""
+##########""",
+    "scale": 2.5,
+}
 
-SPAWN_NEAR_WALL = """
-##########
+SPAWN_NEAR_WALL = {
+    "ascii": """##########
 #.S......#
 #........#
 #........#
 #........#
 #........#
-##########
-"""
+##########""",
+    "scale": 2.5,
+}
 
 
 @pytest.mark.custom_level(SINGLE_SPAWN_CENTER)
@@ -68,8 +72,8 @@ def test_single_spawn_center(cpu_manager):
     # Expected position: S is at grid (4, 3) in a 10x7 grid
     # With fixed coordinate transformation:
     # Grid (4, 3) -> World ((4 - 5 + 0.5) * 2, -(3 - 3.5 + 0.5) * 2) = (-1, 0)
-    expected_x = (4 - 10 / 2.0 + 0.5) * 2.0  # -1
-    expected_y = -(3 - 7 / 2.0 + 0.5) * 2.0  # 0
+    expected_x = (4 - 10 / 2.0 + 0.5) * 2.5  # -1.25
+    expected_y = -(3 - 7 / 2.0 + 0.5) * 2.5  # 0
 
     print(f"Agent spawned at: X={pos[0]:.2f}, Y={pos[1]:.2f}")
     print(f"Expected spawn: X={expected_x:.2f}, Y={expected_y:.2f}")
@@ -92,8 +96,8 @@ def test_single_spawn_corner(cpu_manager):
     # S is at grid (1, 1) in a 10x7 grid
     # With fixed coordinate transformation:
     # Grid (1, 1) -> World ((1 - 5 + 0.5) * 2, -(1 - 3.5 + 0.5) * 2) = (-7, 4)
-    expected_x = (1 - 10 / 2.0 + 0.5) * 2.0  # -7
-    expected_y = -(1 - 7 / 2.0 + 0.5) * 2.0  # 4
+    expected_x = (1 - 10 / 2.0 + 0.5) * 2.5  # -8.75
+    expected_y = -(1 - 7 / 2.0 + 0.5) * 2.5  # 5
 
     print(f"Agent spawned at: X={pos[0]:.2f}, Y={pos[1]:.2f}")
     print(f"Expected spawn: X={expected_x:.2f}, Y={expected_y:.2f}")
@@ -116,8 +120,8 @@ def test_multiple_spawn_locations(cpu_manager):
     # First S at (1, 1), second S at (8, 5)
     # With the fixed coordinate transformation:
     # Grid (1, 1) -> World ((1 - 5 + 0.5) * 2, -(1 - 3.5 + 0.5) * 2) = (-7, 4)
-    expected_x0 = (1 - 10 / 2.0 + 0.5) * 2.0  # -7
-    expected_y0 = -(1 - 7 / 2.0 + 0.5) * 2.0  # 4
+    expected_x0 = (1 - 10 / 2.0 + 0.5) * 2.5  # -8.75
+    expected_y0 = -(1 - 7 / 2.0 + 0.5) * 2.5  # 5
 
     print(f"Agent 0 spawned at: X={pos0[0]:.2f}, Y={pos0[1]:.2f}")
     print(f"Expected spawn 0: X={expected_x0:.2f}, Y={expected_y0:.2f}")
@@ -147,8 +151,8 @@ def test_spawn_near_wall(cpu_manager):
     # S is at grid (2, 1) - one tile from left wall
     # With fixed coordinate transformation:
     # Grid (2, 1) -> World ((2 - 5 + 0.5) * 2, -(1 - 3.5 + 0.5) * 2) = (-5, 4)
-    expected_x = (2 - 10 / 2.0 + 0.5) * 2.0  # -5
-    expected_y = -(1 - 7 / 2.0 + 0.5) * 2.0  # 4
+    expected_x = (2 - 10 / 2.0 + 0.5) * 2.5  # -6.25
+    expected_y = -(1 - 7 / 2.0 + 0.5) * 2.5  # 5
 
     print(f"Agent spawned at: X={pos[0]:.2f}, Y={pos[1]:.2f}")
     print(f"Expected spawn near wall: X={expected_x:.2f}, Y={expected_y:.2f}")
@@ -158,7 +162,7 @@ def test_spawn_near_wall(cpu_manager):
     assert abs(pos[1] - expected_y) < 0.1, f"Y position {pos[1]} should be near {expected_y}"
 
     # Verify it's close to wall (wall at x=-9, agent at x=-5, so 4 units away)
-    wall_x = (0 - 10 / 2.0 + 0.5) * 2.0  # Left wall position at x=-9
+    wall_x = (0 - 10 / 2.0 + 0.5) * 2.5  # Left wall position at x=-11.25
     distance_to_wall = abs(pos[0] - wall_x)
     assert distance_to_wall < 3.0, "Agent should be close to wall"
 
@@ -176,13 +180,13 @@ def test_spawn_coordinate_transformation():
     #####
     """
 
-    compiled = compile_level(level, scale=2.0)
+    compiled = compile_level(level, scale=2.5)
 
     # S is at grid position (2, 2) in a 5x5 grid
     # With fixed coordinate transformation:
-    # Grid (2, 2) -> World ((2 - 2.5 + 0.5) * 2, -(2 - 2.5 + 0.5) * 2) = (0, 0)
-    expected_x = (2 - 5 / 2.0 + 0.5) * 2.0  # 0
-    expected_y = -(2 - 5 / 2.0 + 0.5) * 2.0  # 0
+    # Grid (2, 2) -> World ((2 - 2.5 + 0.5) * 2.5, -(2 - 2.5 + 0.5) * 2.5) = (0, 0)
+    expected_x = (2 - 5 / 2.0 + 0.5) * 2.5  # 0
+    expected_y = -(2 - 5 / 2.0 + 0.5) * 2.5  # 0
 
     # Check spawn points were parsed
     assert "_spawn_points" in compiled
