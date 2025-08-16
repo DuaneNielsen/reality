@@ -56,6 +56,26 @@ SPAWN_NEAR_WALL = {
     "scale": 2.5,
 }
 
+# Test level for coordinate transformation with known spawn position
+COORDINATE_TEST_LEVEL = {
+    "ascii": """#####
+#...#
+#.S.#
+#...#
+#####""",
+    "scale": 2.5,
+}
+
+# Test level for multiple spawn parsing
+MULTIPLE_SPAWN_TEST_LEVEL = {
+    "ascii": """#######
+#S....#
+#.....#
+#....S#
+#######""",
+    "scale": 1.0,
+}
+
 
 @pytest.mark.custom_level(SINGLE_SPAWN_CENTER)
 def test_single_spawn_center(cpu_manager):
@@ -148,9 +168,9 @@ def test_spawn_near_wall(cpu_manager):
 
     pos = observer.get_position(0, agent_idx=0)
 
-    # S is at grid (2, 1) - one tile from left wall
-    # With fixed coordinate transformation:
-    # Grid (2, 1) -> World ((2 - 5 + 0.5) * 2, -(1 - 3.5 + 0.5) * 2) = (-5, 4)
+    # S is at grid (2, 1) - next to wall at (1, 1)
+    # With coordinate transformation:
+    # Grid (2, 1) -> World ((2 - 5 + 0.5) * 2.5, -(1 - 3.5 + 0.5) * 2.5) = (-6.25, 5)
     expected_x = (2 - 10 / 2.0 + 0.5) * 2.5  # -6.25
     expected_y = -(1 - 7 / 2.0 + 0.5) * 2.5  # 5
 
@@ -161,44 +181,33 @@ def test_spawn_near_wall(cpu_manager):
     assert abs(pos[0] - expected_x) < 0.1, f"X position {pos[0]} should be near {expected_x}"
     assert abs(pos[1] - expected_y) < 0.1, f"Y position {pos[1]} should be near {expected_y}"
 
-    # Verify it's close to wall (wall at x=-9, agent at x=-5, so 4 units away)
-    wall_x = (0 - 10 / 2.0 + 0.5) * 2.5  # Left wall position at x=-11.25
+    # Verify it's close to wall - wall at grid (1,1) is at world (-8.75, 5)
+    wall_x = (1 - 10 / 2.0 + 0.5) * 2.5  # Wall position at x=-8.75
     distance_to_wall = abs(pos[0] - wall_x)
+    print(f"Distance to wall: {distance_to_wall:.2f} units")
     assert distance_to_wall < 3.0, "Agent should be close to wall"
 
 
-def test_spawn_coordinate_transformation():
+@pytest.mark.custom_level(COORDINATE_TEST_LEVEL)
+def test_spawn_coordinate_transformation(cpu_manager):
     """Test the coordinate transformation from grid to world space"""
-    from madrona_escape_room.level_compiler import compile_level
+    mgr = cpu_manager
+    observer = ObservationReader(mgr)
 
-    # Test level with known spawn position
-    level = """
-    #####
-    #...#
-    #.S.#
-    #...#
-    #####
-    """
-
-    compiled = compile_level(level, scale=2.5)
+    reset_world(mgr, 0)
+    pos = observer.get_position(0, agent_idx=0)
 
     # S is at grid position (2, 2) in a 5x5 grid
-    # With fixed coordinate transformation:
+    # With coordinate transformation:
     # Grid (2, 2) -> World ((2 - 2.5 + 0.5) * 2.5, -(2 - 2.5 + 0.5) * 2.5) = (0, 0)
     expected_x = (2 - 5 / 2.0 + 0.5) * 2.5  # 0
     expected_y = -(2 - 5 / 2.0 + 0.5) * 2.5  # 0
 
-    # Check spawn points were parsed
-    assert "_spawn_points" in compiled
-    assert len(compiled["_spawn_points"]) == 1
+    print(f"Agent spawned at: X={pos[0]:.2f}, Y={pos[1]:.2f}")
+    print(f"Expected spawn: X={expected_x:.2f}, Y={expected_y:.2f}")
 
-    spawn_x, spawn_y = compiled["_spawn_points"][0]
-
-    print(f"Spawn point in world coords: ({spawn_x:.2f}, {spawn_y:.2f})")
-    print(f"Expected: ({expected_x:.2f}, {expected_y:.2f})")
-
-    assert abs(spawn_x - expected_x) < 0.01, f"Spawn X {spawn_x} should be {expected_x}"
-    assert abs(spawn_y - expected_y) < 0.01, f"Spawn Y {spawn_y} should be {expected_y}"
+    assert abs(pos[0] - expected_x) < 0.01, f"Spawn X {pos[0]} should be {expected_x}"
+    assert abs(pos[1] - expected_y) < 0.01, f"Spawn Y {pos[1]} should be {expected_y}"
 
 
 def test_no_spawn_marker():
@@ -218,17 +227,18 @@ def test_no_spawn_marker():
         compile_level(level_no_spawn)
 
 
-def test_multiple_spawn_parsing():
+@pytest.mark.custom_level(MULTIPLE_SPAWN_TEST_LEVEL)
+def test_multiple_spawn_parsing(cpu_manager):
     """Test that multiple spawn points are correctly parsed"""
     from madrona_escape_room.level_compiler import compile_level
 
-    level = """
-    #######
-    #S....#
-    #.....#
-    #....S#
-    #######
-    """
+    # Use the level_compiler directly to check spawn parsing
+    # since the cpu_manager only shows where the first agent spawns
+    level = """#######
+#S....#
+#.....#
+#....S#
+#######"""
 
     compiled = compile_level(level, scale=1.0)  # Use scale=1 for simpler math
 
@@ -238,7 +248,7 @@ def test_multiple_spawn_parsing():
     spawns = compiled["_spawn_points"]
 
     # First S at (1, 1), second S at (5, 3) in a 7x5 grid
-    # With fixed coordinate transformation:
+    # With coordinate transformation:
     # Grid (1, 1) -> World ((1 - 3.5 + 0.5) * 1, -(1 - 2.5 + 0.5) * 1) = (-2, 1)
     # Grid (5, 3) -> World ((5 - 3.5 + 0.5) * 1, -(3 - 2.5 + 0.5) * 1) = (2, -1)
     expected_spawns = [

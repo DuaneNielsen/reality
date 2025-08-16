@@ -16,32 +16,6 @@ int main() {
     config.auto_reset = true;
     config.enable_batch_renderer = false;
     
-    // Load test level from file
-    MER_CompiledLevel test_level;
-    FILE* level_file = fopen("levels/quick_test.lvl", "rb");
-    if (!level_file) {
-        fprintf(stderr, "Error: Cannot open level file: levels/quick_test.lvl\n");
-        return 1;
-    }
-    
-    size_t bytes_read = fread(&test_level, 1, sizeof(MER_CompiledLevel), level_file);
-    fclose(level_file);
-    
-    if (bytes_read != sizeof(MER_CompiledLevel)) {
-        fprintf(stderr, "Error: Failed to read level file. Expected %zu bytes, got %zu\n", 
-                sizeof(MER_CompiledLevel), bytes_read);
-        return 1;
-    }
-    
-    printf("Loaded test level: %dx%d grid, %d tiles\n", 
-           test_level.width, test_level.height, test_level.num_tiles);
-    
-    // Create array with same level for all worlds
-    MER_CompiledLevel test_levels[4];
-    for (int i = 0; i < 4; i++) {
-        test_levels[i] = test_level;
-    }
-    
     MER_ManagerHandle handle = nullptr;
     printf("Creating CPU manager...\n");
     MER_Result result = mer_create_manager(&handle, &config, NULL, 0);  // Use default levels
