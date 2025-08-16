@@ -6,8 +6,19 @@ Tests the replay methods added to SimManager class.
 
 import os
 import tempfile
+import warnings
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def suppress_replay_warnings():
+    """Suppress UserWarnings about replay loading for these legacy tests"""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="Loading replay into existing manager.*", category=UserWarning
+        )
+        yield
 
 
 def create_test_recording(mgr, num_steps=5, seed=42):

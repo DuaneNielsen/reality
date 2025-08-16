@@ -21,6 +21,9 @@ norecursedirs = ["external", "build", ".venv", "*.egg", "dist"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "custom_level: mark test to use a custom level (dict or string)",
+]
 
 [dependency-groups]
 dev = [
