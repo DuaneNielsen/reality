@@ -1,5 +1,0 @@
-21f6749 Remove warnings as errors (main)
-c439a05 Update madrona (main)
-250d233 Fix pre-commit formatting in git-repo-committer agent (minimal)
-1d98927 Merge .claude directory changes from minimal branch (test-driven-levels)
-64f72c1 Fix GPU compilation error in madrona BVH debug output (test-driven-levels)
