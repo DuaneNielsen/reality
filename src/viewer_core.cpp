@@ -200,11 +200,12 @@ void ViewerCore::computeActionsFromInput(int world_idx) {
     if (input.keys_pressed[InputEvent::D]) x += 1;
     if (input.keys_pressed[InputEvent::A]) x -= 1;
     
+    // NOTE: Non-standard rotation encoding - lower values = left turn
     if (input.keys_pressed[InputEvent::Q]) {
-        r -= input.shift_pressed ? 2 : 1;  // Q rotates left: r=2-1=1 (SLOW_LEFT)
+        r -= input.shift_pressed ? 2 : 1;  // Q left: decrease value (non-standard)
     }
     if (input.keys_pressed[InputEvent::E]) {
-        r += input.shift_pressed ? 2 : 1;  // E rotates right: r=2+1=3 (SLOW_RIGHT)
+        r += input.shift_pressed ? 2 : 1;  // E right: increase value (non-standard)
     }
     
     // Compute move amount

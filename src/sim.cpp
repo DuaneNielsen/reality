@@ -166,6 +166,8 @@ inline void movementSystem(Engine &,
 
     constexpr float turn_delta_per_bucket = 
         turn_max / (consts::numTurnBuckets / 2);
+    // NOTE: Negative sign compensates for non-standard rotation encoding
+    // where lower values = left turn, higher values = right turn
     float t_z =
         -turn_delta_per_bucket * (action.rotate - consts::numTurnBuckets / 2);
 

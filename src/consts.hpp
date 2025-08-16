@@ -60,12 +60,15 @@ namespace action {
     }
     
     // Rotation values (0-4)
+    // NOTE: Uses NON-STANDARD encoding (opposite of geometric convention)
+    // Lower values = left/counterclockwise, Higher values = right/clockwise
+    // This works with the physics formula: t_z = -160 * (action.rotate - 2)
     namespace rotate {
-        inline constexpr int32_t FAST_LEFT = 0;
-        inline constexpr int32_t SLOW_LEFT = 1;
-        inline constexpr int32_t NONE = 2;  // Center value - no rotation
-        inline constexpr int32_t SLOW_RIGHT = 3;
-        inline constexpr int32_t FAST_RIGHT = 4;
+        inline constexpr int32_t FAST_LEFT = 0;   // Counterclockwise (non-standard: low value)
+        inline constexpr int32_t SLOW_LEFT = 1;   // Counterclockwise (non-standard: low value)
+        inline constexpr int32_t NONE = 2;        // Center value - no rotation
+        inline constexpr int32_t SLOW_RIGHT = 3;  // Clockwise (non-standard: high value)
+        inline constexpr int32_t FAST_RIGHT = 4;  // Clockwise (non-standard: high value)
     }
 }
 

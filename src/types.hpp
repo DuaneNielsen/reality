@@ -42,8 +42,9 @@ namespace madEscape {
         int32_t moveAmount; // [0, 3] - 0=stop, 1=slow, 2=medium, 3=fast
         int32_t moveAngle;  // [0, 7] - 8 directions: 0=forward, 2=right, 4=back, 6=left
                            //          Intermediate values are diagonals (1=forward-right, etc.)
-        int32_t rotate;     // [0, 4] - 0=fast left, 1=slow left, 2=none, 3=slow right, 4=fast right
-                           //          Note: 2 is the center/default (no rotation)
+        int32_t rotate;     // [0, 4] - NON-STANDARD: 0=fast left, 1=slow left, 2=none, 3=slow right, 4=fast right
+                           //          NOTE: Lower values = left turn (opposite of geometric convention)
+                           //          2 is the center/default (no rotation)
     };
 
     //[BOILERPLATE]
