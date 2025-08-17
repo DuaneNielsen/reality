@@ -74,7 +74,12 @@
       "WebSearch",
       "Bash(./build/file_inspector:*)",
       "Bash(./build/mad_escape_tests:*)",
-      "Bash(./build/headless:*)"
+      "Bash(./build/headless:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(./mad_escape_tests:*)",
+      "Bash(export ALLOW_GPU_TESTS_IN_SUITE=1)",
+      "Bash(cp:*)"
     ],
     "deny": []
   },

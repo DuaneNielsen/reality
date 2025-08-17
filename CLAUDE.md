@@ -51,16 +51,33 @@ use the project-builder subagent to build the project
 to visualize the simulation for the user, run the viewer, it will create a playable simulation that the user can use to interact eith the simulation
 read the viewer guide in [VIEWER_GUIDE.md](docs/tools/VIEWER_GUIDE.md) for commands on how to run the viewer
 
+### Running python code
+
+ALWAYS use uv when running python code or manageing packages
+
+```
+uv run python ...
+```
+
 ### Development
 
 #### Python coding standards
 
-IMPORTANT: when writing tests for python code ALWAYS use the pytest framework
+IMPORTANT: when writing tests for python code ALWAYS use the pytest framework by writing the test in the tests/python directory, and following pytest conventions
+
+GOOD:
+
+test/python/test_my_code.py
+
+BAD:
+
+test_my_code.py <---- DO NOT DO THIS
+
 IMPORTANT: NEVER use sys.path.insert(..) ALWAYS place modules in the correct locations so they can be imported correctly by python
 
 #### C++ coding standards
 
-IMPORTANT: C++ exceptions and RTTI are disabled in this project.
+@docs/development/CPP_CODING_STANDARDS.md
 
 # Testing
 
@@ -69,6 +86,11 @@ IMPORTANT: C++ exceptions and RTTI are disabled in this project.
 This project uses pytest for python tests and GoogleTest for C++ tests
 The pytests are documented in [TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)
 c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/CPP_TESTING_GUIDE.md)
+
+### Unit test best practice
+
+**IMPORTANT**: when writing unit tests use the cpu_manger fixtures in conftest.py, DO NOT call the SimManager directly, unless you are specfically testing the SimManager initialization itself
+**IMPORTANT**: when creating plans to implement new features, the plan must ALWAYS include tests in the appropriate unit test framework
 
 ### Rules when fixing CPP tests
 
