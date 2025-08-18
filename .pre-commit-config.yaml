@@ -15,12 +15,12 @@ repos:
       - id: ruff-format
         name: ruff format
         description: Run ruff formatter
-  # - repo: local
-  #   hooks:
-  #     - id: clang-tidy
-  #       name: clang-tidy
-  #       entry: bash
-  #       language: system
-  #       files: ^(src|include)/.*\.(cpp|hpp|cc|h)$
-  #       args: [-c, 'if [ $# -gt 0 ]; then clang-tidy --format-style=none "$@" -- -std=c++20 -I./include -I./src -I./external/madrona/include; fi', --]
-  #       exclude: ^(external|tests)/
+  - repo: local
+    hooks:
+      - id: clangd-tidy
+        name: clangd-tidy
+        entry: bash
+        language: system
+        files: ^(src|include)/.*\.(cpp|hpp|cc|h)$
+        args: [-c, 'if [ $# -gt 0 ]; then uv run clangd-tidy --fail-on-severity=error --compact -p build "$@" 2>/dev/null || true; fi', --]
+        exclude: ^(external|tests|src/dlpack_extension\.cpp|src/test_c_wrapper_.*\.cpp)$

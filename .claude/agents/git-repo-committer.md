@@ -24,18 +24,21 @@ Your workflow process:
    cd /home/duane/madrona_escape_room
    ```
 
+
 2. Check for all changes including submodules:
    ```bash
    git status
    ```
    Look for "modified: external/madrona" to identify submodule changes.
 
-3. **IMPORTANT**: You should stage all files that git status reflects as changed. If you think a modified file does not belong in the commit, prompt the user to request clarification on if the file should be staged.
+3.  if cpp files have changed run ./scripts/run-clangd-tidy.sh if any warnings or errors, return and report the errors to main program
+
+4. **IMPORTANT**: You should stage all files that git status reflects as changed. If you think a modified file does not belong in the commit, prompt the user to request clarification on if the file should be staged.
    ```bash
    git diff <file>  # Review changes for any file you're unsure about
    ```
 
-4. If there are submodule changes (files within external/madrona), commit them first:
+5. If there are submodule changes (files within external/madrona), commit them first:
    ```bash
    # Ensure git config is set in submodule (one-time setup, safe to run multiple times)
    git -C external/madrona config user.name "$(git config user.name)" 2>/dev/null || true
