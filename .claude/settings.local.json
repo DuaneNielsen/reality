@@ -82,7 +82,8 @@
       "Bash(cp:*)",
       "mcp__madrona_repl__execute_python",
       "Bash(./tests/run_cpp_tests.sh:*)",
-      "Bash(./scripts/run-clang-tidy.sh:*)"
+      "Bash(./scripts/run-clang-tidy.sh:*)",
+      "Bash(./scripts/run-clangd-tidy.sh:*)"
     ],
     "deny": []
   },

@@ -87,6 +87,26 @@ inline constexpr madrona::CountT numPhysicsSubsteps = 4.f;
 namespace physics {
     // Standard Earth gravity acceleration (m/s²)
     inline constexpr float gravityAcceleration = 9.8f;
+    
+    // Physics object properties
+    inline constexpr float cubeInverseMass = 0.075f;     // Pushable cube with ~13kg mass
+    inline constexpr float wallInverseMass = 0.f;        // Static walls (infinite mass)
+    inline constexpr float agentInverseMass = 1.f;       // Agent unit mass for direct control
+    inline constexpr float planeInverseMass = 0.f;       // Static plane (infinite mass)
+    
+    // Friction coefficients
+    inline constexpr float standardStaticFriction = 0.5f;     // Standard static friction
+    inline constexpr float standardDynamicFriction = 0.5f;    // Standard dynamic friction
+    inline constexpr float cubeStaticFriction = 0.5f;         // Cube static friction
+    inline constexpr float cubeDynamicFriction = 0.75f;       // Cube dynamic friction
+    
+    // Physics object indices
+    namespace objectIndex {
+        inline constexpr int32_t cube = 0;                     // Cube physics index
+        inline constexpr int32_t wall = 1;                     // Wall physics index
+        inline constexpr int32_t agent = 2;                    // Agent physics index
+        inline constexpr int32_t plane = 3;                    // Plane physics index
+    }
 }
 
 // Rendering and color constants  
@@ -97,6 +117,20 @@ namespace rendering {
         inline constexpr float defaultMetallic = 0.2f;
         inline constexpr float agentBodyMetallic = 1.0f;
         inline constexpr float floorAlpha = 0.0f;
+        inline constexpr float agentBodyRoughness = 0.5f;   // Agent body material roughness
+    }
+    
+    // Material indices for object rendering
+    namespace materialIndex {
+        inline constexpr int32_t cube = 0;                  // Brown cube material
+        inline constexpr int32_t wall = 1;                  // Gray wall material  
+        inline constexpr int32_t agentBody = 2;             // White agent body material
+        inline constexpr int32_t agentParts = 3;            // Light gray agent parts material
+        inline constexpr int32_t floor = 4;                 // Brown floor material
+        inline constexpr int32_t axisX = 5;                 // Red X-axis material
+        inline constexpr int32_t button = 6;                // Yellow button material
+        inline constexpr int32_t axisY = 7;                 // Green Y-axis material
+        inline constexpr int32_t axisZ = 8;                 // Blue Z-axis material
     }
     
     // RGB color values (0-255)
@@ -146,6 +180,32 @@ namespace rendering {
     inline constexpr float cameraDistance = 100.f;
     inline constexpr float cameraOffsetZ = 0.001f;
     inline constexpr float agentHeightMultiplier = 1.5f;
+    
+    // Geometric constants for visual markers and scaling
+    inline constexpr float axisMarkerOffset = 0.75f;           // Offset along axis for visual markers
+    inline constexpr float axisMarkerLength = 1.5f;            // Length of axis markers
+    inline constexpr float axisMarkerThickness = 0.3f;         // Thickness of axis markers
+    inline constexpr float wallHeight = 2.0f;                  // Standard wall height
+    inline constexpr float agentSpacing = 2.0f;                // Space between agents
+    inline constexpr float emergencyLevelSize = 3;             // Emergency level grid size
+    inline constexpr float emergencyLevelScale = 2.0f;         // Emergency level world scale
+    inline constexpr float emergencyLevelCoord = 2.0f;         // Emergency level wall coordinates
+    inline constexpr float cubeHeightRatio = 1.5f;             // Cube height ratio relative to tile scale
+    inline constexpr float cubeScaleFactor = 2.0f;             // Cube scale division factor
+    
+    // Emergency level tile indices
+    namespace emergencyLevel {
+        inline constexpr int32_t tile0 = 0;                     // First emergency tile index
+        inline constexpr int32_t tile1 = 1;                     // Second emergency tile index
+        inline constexpr int32_t tile2 = 2;                     // Third emergency tile index
+        inline constexpr int32_t tile3 = 3;                     // Fourth emergency tile index
+    }
+    
+    // Scene lighting configuration
+    inline constexpr float lightPositionZ = -2.0f;             // Light Z position for scene lighting
+    
+    // Origin marker constants
+    inline constexpr int32_t numOriginMarkerBoxes = 3;          // Number of origin marker boxes (X, Y, Z axes)
 }
 
 // Display and UI constants
@@ -153,6 +213,9 @@ namespace display {
     // Default window resolution
     inline constexpr int32_t defaultWindowWidth = 1920;
     inline constexpr int32_t defaultWindowHeight = 1080;
+    
+    // Default batch render dimensions
+    inline constexpr uint32_t defaultBatchRenderSize = 64;
     
     // Timing constants  
     inline constexpr int32_t defaultSimTickRate = 20;
@@ -171,6 +234,7 @@ namespace performance {
     // Buffer sizes
     inline constexpr int32_t defaultBufferSize = 4096;
     inline constexpr int32_t maxProgressEntries = 1000;
+    inline constexpr int32_t importErrorBufferSize = 1024;  // Asset import error buffer size
     
     // Logging intervals
     inline constexpr int32_t frameLoggingInterval = 100;
@@ -189,11 +253,43 @@ namespace fileFormat {
     inline constexpr int32_t defaultSeed = 5;
 }
 
+// Viewer and interaction constants
+namespace viewer {
+    // Action array sizing - each agent has 3 action components
+    inline constexpr int32_t actionComponentsPerAgent = 3;
+    
+    // DLPack constants
+    inline constexpr int32_t dlpackInt64Bits = 64;
+    inline constexpr int32_t dlpackVersionMinor = 5;
+}
+
+// C API buffer sizes and limits
+namespace capi {
+    // String buffer sizes for C API structs
+    inline constexpr int32_t maxNameLength = 64;        // sim_name, level_name buffers
+    inline constexpr int32_t maxTiles = 1024;           // tile_types, tile_x, tile_y arrays
+    
+    // Validation limits for file inspector
+    inline constexpr int32_t maxWorlds = 10000;         // Upper limit for num_worlds
+    inline constexpr int32_t maxAgentsPerWorld = 100;   // Upper limit for agents per world
+    inline constexpr int32_t maxGridSize = 64;          // Upper limit for level width/height
+    inline constexpr float maxScale = 100.0f;           // Upper limit for level scale
+    inline constexpr float maxCoordinate = 1000.0f;     // Upper limit for spawn positions
+}
+
 
 // Math constants
 namespace math {
+    // Mathematical constants
+    inline constexpr float pi = 3.14159265359f;
+    
     // Degrees to radians conversion
     inline constexpr float degreesInHalfCircle = 180.0f;
+    inline constexpr float radiansToDegrees = 180.0f / pi;
+    inline constexpr float degreesToRadians = pi / 180.0f;
+    
+    // Quaternion to angle conversion constants
+    inline constexpr float quaternionConversionFactor = 2.f;   // Factor for quaternion conversion calculations
     
     // Camera and view constants
     inline constexpr float cameraFovYDegrees = 0.075f;

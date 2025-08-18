@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include "consts.hpp"
 
 extern "C" {
 
@@ -58,7 +59,7 @@ DLDataType madrona_to_dlpack_dtype(int madrona_type) {
         case MER_TENSOR_TYPE_INT32:
             return {0, 32, 1};  // Int32
         case MER_TENSOR_TYPE_INT64:
-            return {0, 64, 1};  // Int64
+            return {0, consts::viewer::dlpackInt64Bits, 1};  // Int64
         case MER_TENSOR_TYPE_FLOAT16:
             return {2, 16, 1};  // Float16
         case MER_TENSOR_TYPE_FLOAT32:
@@ -214,7 +215,7 @@ PyMODINIT_FUNC PyInit__madrona_escape_room_dlpack(void) {
     
     // Add module constants
     PyModule_AddIntConstant(module, "DLPACK_VERSION_MAJOR", 0);
-    PyModule_AddIntConstant(module, "DLPACK_VERSION_MINOR", 5);
+    PyModule_AddIntConstant(module, "DLPACK_VERSION_MINOR", consts::viewer::dlpackVersionMinor);
     
     // Device type constants
     PyModule_AddIntConstant(module, "kDLCPU", 1);

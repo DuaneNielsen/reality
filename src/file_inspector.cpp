@@ -94,16 +94,16 @@ bool validateReplayFile(const FileInfo& info) {
     
     // Validate metadata ranges
     bool ranges_valid = true;
-    if (metadata.num_worlds == 0 || metadata.num_worlds > 10000) {
+    if (metadata.num_worlds == 0 || metadata.num_worlds > consts::capi::maxWorlds) {
         std::cout << "✗ Invalid num_worlds: " << metadata.num_worlds << "\n";
         ranges_valid = false;
     }
-    if (metadata.num_agents_per_world == 0 || metadata.num_agents_per_world > 100) {
+    if (metadata.num_agents_per_world == 0 || metadata.num_agents_per_world > consts::capi::maxAgentsPerWorld) {
         std::cout << "✗ Invalid num_agents_per_world: " << metadata.num_agents_per_world << "\n";
         ranges_valid = false;
     }
-    if (metadata.actions_per_step != 3) {
-        std::cout << "✗ Invalid actions_per_step: " << metadata.actions_per_step << " (expected 3)\n";
+    if (metadata.actions_per_step != consts::numActionComponents) {
+        std::cout << "✗ Invalid actions_per_step: " << metadata.actions_per_step << " (expected " << consts::numActionComponents << ")\n";
         ranges_valid = false;
     }
     
@@ -170,15 +170,15 @@ bool validateLevelFile(const FileInfo& info) {
     // Validate level data ranges
     bool ranges_valid = true;
     
-    if (level.width <= 0 || level.width > 64) {
+    if (level.width <= 0 || level.width > consts::capi::maxGridSize) {
         std::cout << "✗ Invalid width: " << level.width << "\n";
         ranges_valid = false;
     }
-    if (level.height <= 0 || level.height > 64) {
+    if (level.height <= 0 || level.height > consts::capi::maxGridSize) {
         std::cout << "✗ Invalid height: " << level.height << "\n";
         ranges_valid = false;
     }
-    if (level.scale <= 0.0f || level.scale > 100.0f) {
+    if (level.scale <= 0.0f || level.scale > consts::capi::maxScale) {
         std::cout << "✗ Invalid scale: " << level.scale << "\n";
         ranges_valid = false;
     }
@@ -200,7 +200,8 @@ bool validateLevelFile(const FileInfo& info) {
     for (int i = 0; i < level.num_spawns; i++) {
         float x = level.spawn_x[i];
         float y = level.spawn_y[i];
-        if (x < -1000.0f || x > 1000.0f || y < -1000.0f || y > 1000.0f) {
+        if (x < -consts::capi::maxCoordinate || x > consts::capi::maxCoordinate || 
+            y < -consts::capi::maxCoordinate || y > consts::capi::maxCoordinate) {
             std::cout << "✗ Invalid spawn " << i << " position: (" << x << ", " << y << ")\n";
             spawns_valid = false;
         }
@@ -217,7 +218,7 @@ bool validateLevelFile(const FileInfo& info) {
     
     // Show spawn information
     for (int i = 0; i < level.num_spawns; i++) {
-        float facing_deg = level.spawn_facing[i] * 180.0f / 3.14159f;
+        float facing_deg = level.spawn_facing[i] * consts::math::radiansToDegrees;
         std::cout << "  Spawn " << i << ": (" << level.spawn_x[i] << ", " << level.spawn_y[i] 
                   << ") facing " << facing_deg << "°\n";
     }

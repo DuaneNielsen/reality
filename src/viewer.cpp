@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
     std::string load_path;
     std::string record_path;
     std::string replay_path;
-    uint32_t rand_seed = 5;
+    uint32_t rand_seed = consts::fileFormat::defaultSeed;
     int32_t track_world_idx = 0;  // Default to world 0
     int32_t track_agent_idx = 0;  // Default to agent 0
     bool track_trajectory = false;

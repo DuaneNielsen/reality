@@ -73,7 +73,7 @@ bool RecordReplayStateMachine::isReplaying() const {
 // FrameActionManager implementation
 FrameActionManager::FrameActionManager(uint32_t num_worlds)
     : num_worlds_(num_worlds),
-      frame_actions_(num_worlds * 3) {
+      frame_actions_(num_worlds * consts::viewer::actionComponentsPerAgent) {
     resetToDefaults();
 }
 
@@ -81,7 +81,7 @@ void FrameActionManager::setAction(uint32_t world, int32_t move_amount,
                                    int32_t move_angle, int32_t rotate) {
     if (world >= num_worlds_) return;
     
-    uint32_t base = world * 3;
+    uint32_t base = world * consts::viewer::actionComponentsPerAgent;
     frame_actions_[base] = move_amount;
     frame_actions_[base + 1] = move_angle;
     frame_actions_[base + 2] = rotate;
@@ -90,9 +90,9 @@ void FrameActionManager::setAction(uint32_t world, int32_t move_amount,
 
 void FrameActionManager::resetToDefaults() {
     for (uint32_t i = 0; i < num_worlds_; i++) {
-        frame_actions_[i * 3] = 0;      // move_amount = 0 (stop)
-        frame_actions_[i * 3 + 1] = 0;  // move_angle = 0 (forward)
-        frame_actions_[i * 3 + 2] = 2;  // rotate = 2 (no rotation)
+        frame_actions_[i * consts::viewer::actionComponentsPerAgent] = consts::action::move_amount::STOP;      // move_amount = 0 (stop)
+        frame_actions_[i * consts::viewer::actionComponentsPerAgent + 1] = consts::action::move_angle::FORWARD;  // move_angle = 0 (forward)
+        frame_actions_[i * consts::viewer::actionComponentsPerAgent + 2] = consts::action::rotate::NONE;  // rotate = 2 (no rotation)
     }
     has_changes_ = false;
 }
@@ -220,23 +220,23 @@ void ViewerCore::computeActionsFromInput(int world_idx) {
     // Compute move angle
     int32_t move_angle;
     if (x == 0 && y == 1) {
-        move_angle = 0;
+        move_angle = consts::action::move_angle::FORWARD;
     } else if (x == 1 && y == 1) {
-        move_angle = 1;
+        move_angle = consts::action::move_angle::FORWARD_RIGHT;
     } else if (x == 1 && y == 0) {
-        move_angle = 2;
+        move_angle = consts::action::move_angle::RIGHT;
     } else if (x == 1 && y == -1) {
-        move_angle = 3;
+        move_angle = consts::action::move_angle::BACKWARD_RIGHT;
     } else if (x == 0 && y == -1) {
-        move_angle = 4;
+        move_angle = consts::action::move_angle::BACKWARD;
     } else if (x == -1 && y == -1) {
-        move_angle = 5;
+        move_angle = consts::action::move_angle::BACKWARD_LEFT;
     } else if (x == -1 && y == 0) {
-        move_angle = 6;
+        move_angle = consts::action::move_angle::LEFT;
     } else if (x == -1 && y == 1) {
-        move_angle = 7;
+        move_angle = consts::action::move_angle::FORWARD_LEFT;
     } else {
-        move_angle = 0;
+        move_angle = consts::action::move_angle::FORWARD;
     }
     
     // Store computed actions
@@ -356,7 +356,7 @@ void ViewerCore::resetInputState(int world_idx) {
 void ViewerCore::applyFrameActions() {
     const auto& actions = action_manager_.getFrameActions();
     for (uint32_t i = 0; i < config_.num_worlds; i++) {
-        uint32_t base = i * 3;
+        uint32_t base = i * consts::viewer::actionComponentsPerAgent;
         mgr_->setAction(i, actions[base], actions[base + 1], actions[base + 2]);
     }
 }

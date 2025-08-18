@@ -19,6 +19,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "madrona_escape_room_c_constants.h"
 
 // Error codes
 typedef enum {
@@ -41,7 +42,7 @@ typedef struct {
     uint32_t num_agents_per_world;
     uint32_t num_steps;
     uint32_t seed;
-    char sim_name[64];
+    char sim_name[MER_MAX_NAME_LENGTH];
     uint64_t timestamp;
 } MER_ReplayMetadata;
 
@@ -81,7 +82,7 @@ typedef struct {
     int32_t width;             // Grid width
     int32_t height;            // Grid height
     float scale;               // World scale factor
-    char level_name[64];       // Level name for identification (MAX_LEVEL_NAME_LENGTH)
+    char level_name[MER_MAX_NAME_LENGTH];       // Level name for identification
     
     // Spawn data
     int32_t num_spawns;        // Number of spawn points
@@ -90,9 +91,9 @@ typedef struct {
     float spawn_facing[8];     // Spawn facing angles in radians (MAX_SPAWNS buffer)
     
     // Tile data arrays (size matches CompiledLevel::MAX_TILES, use mer_get_max_tiles() to get value)
-    int32_t tile_types[1024];   // Type enum for each tile (MAX_TILES buffer)
-    float tile_x[1024];         // World X position (MAX_TILES buffer)
-    float tile_y[1024];         // World Y position (MAX_TILES buffer)
+    int32_t tile_types[MER_MAX_TILES];   // Type enum for each tile
+    float tile_x[MER_MAX_TILES];         // World X position
+    float tile_y[MER_MAX_TILES];         // World Y position
 } MER_CompiledLevel;
 
 // Manager configuration

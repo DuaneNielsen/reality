@@ -44,7 +44,7 @@ struct ReplayMetadata {
         meta.num_worlds = 1;
         meta.num_agents_per_world = 1;
         meta.num_steps = 0;
-        meta.actions_per_step = 3;
+        meta.actions_per_step = madEscape::consts::numActionComponents;
         meta.timestamp = 0;
         meta.seed = madEscape::consts::fileFormat::defaultSeed;
         std::memset(meta.reserved, 0, sizeof(meta.reserved));

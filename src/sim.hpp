@@ -111,7 +111,7 @@ struct Sim : public madrona::WorldBase {
 
     // Origin marker gizmo: 3 colored boxes for XYZ axes
     // Red = X axis, Green = Y axis, Blue = Z axis
-    Entity originMarkerBoxes[3];
+    Entity originMarkerBoxes[consts::rendering::numOriginMarkerBoxes];
 };
 
 class Engine : public ::madrona::CustomContext<Engine, Sim> {

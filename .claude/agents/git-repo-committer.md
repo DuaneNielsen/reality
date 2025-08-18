@@ -31,7 +31,7 @@ Your workflow process:
    ```
    Look for "modified: external/madrona" to identify submodule changes.
 
-3.  if cpp files have changed run ./scripts/run-clangd-tidy.sh if any warnings or errors, return and report the errors to main program
+3.  if cpp files have changed run ./scripts/run-clangd-tidyd.sh if any warnings or errors, return and report the errors to main program
 
 4. **IMPORTANT**: You should stage all files that git status reflects as changed. If you think a modified file does not belong in the commit, prompt the user to request clarification on if the file should be staged.
    ```bash

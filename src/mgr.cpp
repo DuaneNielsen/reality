@@ -269,7 +269,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     imp::AssetImporter importer;
 
     // [BOILERPLATE]
-    std::array<char, 1024> import_err;
+    std::array<char, consts::performance::importErrorBufferSize> import_err;
     auto render_assets = importer.importFromDisk(
         render_asset_cstrs, Span<char>(import_err.data(), import_err.size()));
 
@@ -282,7 +282,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     auto materials = std::to_array<imp::SourceMaterial>({
         { render::rgb8ToFloat(consts::rendering::colors::cubeRed, consts::rendering::colors::cubeGreen, consts::rendering::colors::cubeBlue), -1, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic },      // Brown (cube)
         { math::Vector4{consts::rendering::normalizedColors::wallGray, consts::rendering::normalizedColors::wallGray, consts::rendering::normalizedColors::wallGray, consts::rendering::material::floorAlpha}, -1, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic,},  // Gray (wall)
-        { math::Vector4{consts::rendering::normalizedColors::white, consts::rendering::normalizedColors::white, consts::rendering::normalizedColors::white, consts::rendering::material::floorAlpha}, 1, 0.5f, consts::rendering::material::agentBodyMetallic,},      // White (agent body)
+        { math::Vector4{consts::rendering::normalizedColors::white, consts::rendering::normalizedColors::white, consts::rendering::normalizedColors::white, consts::rendering::material::floorAlpha}, 1, consts::rendering::material::agentBodyRoughness, consts::rendering::material::agentBodyMetallic,},      // White (agent body)
         { render::rgb8ToFloat(consts::rendering::colors::agentGray, consts::rendering::colors::agentGray, consts::rendering::colors::agentGray),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },   // Light gray (agent parts)
         { math::Vector4{consts::rendering::normalizedColors::floorBrownRed, consts::rendering::normalizedColors::floorBrownGreen, consts::rendering::normalizedColors::floorBrownBlue, consts::rendering::material::floorAlpha},  0, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic,},  // Brown (floor)
         { render::rgb8ToFloat(consts::rendering::colors::axisRed, consts::rendering::colors::redGreen, consts::rendering::colors::redBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },     // Red (door/X-axis)
@@ -292,15 +292,15 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     });
 
     // [GAME_SPECIFIC] Assign materials to each object's meshes
-    render_assets->objects[(CountT)SimObject::Cube].meshes[0].materialIDX = 0;
-    render_assets->objects[(CountT)SimObject::Wall].meshes[0].materialIDX = 1;
-    render_assets->objects[(CountT)SimObject::Agent].meshes[0].materialIDX = 2;  // Body
-    render_assets->objects[(CountT)SimObject::Agent].meshes[1].materialIDX = 3;  // Eyes
-    render_assets->objects[(CountT)SimObject::Agent].meshes[2].materialIDX = 3;  // Other parts
-    render_assets->objects[(CountT)SimObject::Plane].meshes[0].materialIDX = 4;
-    render_assets->objects[(CountT)SimObject::AxisX].meshes[0].materialIDX = 5;  // Red
-    render_assets->objects[(CountT)SimObject::AxisY].meshes[0].materialIDX = 7;  // Green
-    render_assets->objects[(CountT)SimObject::AxisZ].meshes[0].materialIDX = 8;  // Blue
+    render_assets->objects[(CountT)SimObject::Cube].meshes[0].materialIDX = consts::rendering::materialIndex::cube;
+    render_assets->objects[(CountT)SimObject::Wall].meshes[0].materialIDX = consts::rendering::materialIndex::wall;
+    render_assets->objects[(CountT)SimObject::Agent].meshes[0].materialIDX = consts::rendering::materialIndex::agentBody;  // Body
+    render_assets->objects[(CountT)SimObject::Agent].meshes[1].materialIDX = consts::rendering::materialIndex::agentParts;  // Eyes
+    render_assets->objects[(CountT)SimObject::Agent].meshes[2].materialIDX = consts::rendering::materialIndex::agentParts;  // Other parts
+    render_assets->objects[(CountT)SimObject::Plane].meshes[0].materialIDX = consts::rendering::materialIndex::floor;
+    render_assets->objects[(CountT)SimObject::AxisX].meshes[0].materialIDX = consts::rendering::materialIndex::axisX;  // Red
+    render_assets->objects[(CountT)SimObject::AxisY].meshes[0].materialIDX = consts::rendering::materialIndex::axisY;  // Green
+    render_assets->objects[(CountT)SimObject::AxisZ].meshes[0].materialIDX = consts::rendering::materialIndex::axisZ;  // Blue
 
     // [GAME_SPECIFIC] Load textures for materials
     imp::ImageImporter img_importer;
@@ -318,7 +318,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 
     // [GAME_SPECIFIC] Configure scene lighting
     render_mgr.configureLighting({
-        { true, math::Vector3{1.0f, 1.0f, -2.0f}, math::Vector3{1.0f, 1.0f, 1.0f} }
+        { true, math::Vector3{1.0f, 1.0f, consts::rendering::lightPositionZ}, math::Vector3{1.0f, 1.0f, 1.0f} }
     });
 }
 
@@ -372,9 +372,9 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     auto getPhysicsIdx = [](SimObject obj_id) -> CountT {
         switch(obj_id) {
             case SimObject::Cube: return 0;
-            case SimObject::Wall: return 1;
-            case SimObject::Agent: return 2;
-            case SimObject::Plane: return 3;
+            case SimObject::Wall: return consts::physics::objectIndex::wall;
+            case SimObject::Agent: return consts::physics::objectIndex::agent;
+            case SimObject::Plane: return consts::physics::objectIndex::plane;
             default: FATAL("Object type has no physics");
         }
     };
@@ -406,20 +406,20 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     };
 
     // [GAME_SPECIFIC] Configure physics for each object type
-    setupHull(SimObject::Cube, 0.075f, {    // Pushable with ~13kg mass
-        .muS = 0.5f,
-        .muD = 0.75f,
+    setupHull(SimObject::Cube, consts::physics::cubeInverseMass, {    // Pushable with ~13kg mass
+        .muS = consts::physics::cubeStaticFriction,
+        .muD = consts::physics::cubeDynamicFriction,
     });
 
-    setupHull(SimObject::Wall, 0.f, {       // Static (infinite mass)
-        .muS = 0.5f,
-        .muD = 0.5f,
+    setupHull(SimObject::Wall, consts::physics::wallInverseMass, {       // Static (infinite mass)
+        .muS = consts::physics::standardStaticFriction,
+        .muD = consts::physics::standardDynamicFriction,
     });
 
 
-    setupHull(SimObject::Agent, 1.f, {      // Unit mass for direct control
-        .muS = 0.5f,
-        .muD = 0.5f,
+    setupHull(SimObject::Agent, consts::physics::agentInverseMass, {      // Unit mass for direct control
+        .muS = consts::physics::standardStaticFriction,
+        .muD = consts::physics::standardDynamicFriction,
     });
 
     SourceCollisionPrimitive plane_prim {
@@ -429,10 +429,10 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
 
     src_objs[getPhysicsIdx(SimObject::Plane)] = {
         .prims = Span<const SourceCollisionPrimitive>(&plane_prim, 1),
-        .invMass = 0.f,
+        .invMass = consts::physics::planeInverseMass,
         .friction = {
-            .muS = 0.5f,
-            .muD = 0.5f,
+            .muS = consts::physics::standardStaticFriction,
+            .muD = consts::physics::standardDynamicFriction,
         },
     };
 
@@ -677,7 +677,7 @@ void Manager::step()
         
         // Calculate total size needed: num_worlds * 3 actions per world
         uint32_t num_worlds = impl_->cfg.numWorlds;
-        uint32_t total_actions = num_worlds * 3;
+        uint32_t total_actions = num_worlds * consts::numActionComponents;
         frame_actions.resize(total_actions);
         
         // Handle GPU vs CPU memory access
@@ -1201,7 +1201,7 @@ bool Manager::replayStep()
     const auto& metadata = impl_->replayData->metadata;
     
     for (uint32_t i = 0; i < metadata.num_worlds; i++) {
-        uint32_t base_idx = (impl_->currentReplayStep * metadata.num_worlds * 3) + (i * 3);
+        uint32_t base_idx = (impl_->currentReplayStep * metadata.num_worlds * consts::numActionComponents) + (i * consts::numActionComponents);
         
         int32_t move_amount = actions[base_idx];
         int32_t move_angle = actions[base_idx + 1];

@@ -133,9 +133,9 @@ MER_Result mer_create_manager(
         .autoReset = config->auto_reset,
         .enableBatchRenderer = config->enable_batch_renderer,
         .batchRenderViewWidth = config->batch_render_view_width ? 
-            config->batch_render_view_width : 64,
+            config->batch_render_view_width : consts::display::defaultBatchRenderSize,
         .batchRenderViewHeight = config->batch_render_view_height ? 
-            config->batch_render_view_height : 64,
+            config->batch_render_view_height : consts::display::defaultBatchRenderSize,
         .perWorldCompiledLevels = std::move(cpp_per_world_levels),  // Per-world compiled levels
     };
     

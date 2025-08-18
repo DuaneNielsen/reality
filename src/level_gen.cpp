@@ -100,23 +100,23 @@ void createPersistentEntities(Engine &ctx)
     // Create origin marker gizmo - 3 colored boxes for XYZ axes
     // Box 0: Red box along X axis
     ctx.data().originMarkerBoxes[0] = ctx.makeRenderableEntity<RenderOnlyEntity>();
-    ctx.get<Position>(ctx.data().originMarkerBoxes[0]) = Vector3{0.75f, 0, 0};  // Offset along X
+    ctx.get<Position>(ctx.data().originMarkerBoxes[0]) = Vector3{consts::rendering::axisMarkerOffset, 0, 0};  // Offset along X
     ctx.get<Rotation>(ctx.data().originMarkerBoxes[0]) = Quat{1, 0, 0, 0};
-    ctx.get<Scale>(ctx.data().originMarkerBoxes[0]) = Diag3x3{1.5f, 0.3f, 0.3f};  // Elongated along X
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[0]) = Diag3x3{consts::rendering::axisMarkerLength, consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerThickness};  // Elongated along X
     ctx.get<ObjectID>(ctx.data().originMarkerBoxes[0]) = ObjectID{(int32_t)SimObject::AxisX};
     
     // Box 1: Green box along Y axis  
     ctx.data().originMarkerBoxes[1] = ctx.makeRenderableEntity<RenderOnlyEntity>();
-    ctx.get<Position>(ctx.data().originMarkerBoxes[1]) = Vector3{0, 0.75f, 0};  // Offset along Y
+    ctx.get<Position>(ctx.data().originMarkerBoxes[1]) = Vector3{0, consts::rendering::axisMarkerOffset, 0};  // Offset along Y
     ctx.get<Rotation>(ctx.data().originMarkerBoxes[1]) = Quat{1, 0, 0, 0};
-    ctx.get<Scale>(ctx.data().originMarkerBoxes[1]) = Diag3x3{0.3f, 1.5f, 0.3f};  // Elongated along Y
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[1]) = Diag3x3{consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerLength, consts::rendering::axisMarkerThickness};  // Elongated along Y
     ctx.get<ObjectID>(ctx.data().originMarkerBoxes[1]) = ObjectID{(int32_t)SimObject::AxisY};
     
     // Box 2: Blue box along Z axis
     ctx.data().originMarkerBoxes[2] = ctx.makeRenderableEntity<RenderOnlyEntity>();
-    ctx.get<Position>(ctx.data().originMarkerBoxes[2]) = Vector3{0, 0, 0.75f};  // Offset along Z
+    ctx.get<Position>(ctx.data().originMarkerBoxes[2]) = Vector3{0, 0, consts::rendering::axisMarkerOffset};  // Offset along Z
     ctx.get<Rotation>(ctx.data().originMarkerBoxes[2]) = Quat{1, 0, 0, 0};
-    ctx.get<Scale>(ctx.data().originMarkerBoxes[2]) = Diag3x3{0.3f, 0.3f, 1.5f};  // Elongated along Z
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[2]) = Diag3x3{consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerLength};  // Elongated along Z
     ctx.get<ObjectID>(ctx.data().originMarkerBoxes[2]) = ObjectID{(int32_t)SimObject::AxisZ};
 }
 
@@ -149,7 +149,7 @@ static void resetPersistentEntities(Engine &ctx)
          } else {
              // Fallback: place agents in center with slight offset
              pos = Vector3 {
-                 i * 2.0f - 1.0f,  // Slight offset between agents
+                 i * consts::rendering::agentSpacing - 1.0f,  // Slight offset between agents
                  0.0f,              // Center of room  
                  1.0f,              // Above ground
              };
@@ -325,11 +325,11 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
             case TILE_WALL:
                 // Scale walls to fill the entire tile (scale x scale x 2.0 height)
                 // Wall model has base at z=0, so position at z=0 to rest on ground
-                entity = makeWall(ctx, x, y, 0.0f, Diag3x3{tile_scale, tile_scale, 2.0f});
+                entity = makeWall(ctx, x, y, 0.0f, Diag3x3{tile_scale, tile_scale, consts::rendering::wallHeight});
                 break;
             case TILE_CUBE:
                 // Scale cubes proportionally to tile size
-                entity = makeCube(ctx, x, y, 1.5f * tile_scale / 2.0f);
+                entity = makeCube(ctx, x, y, consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor);
                 break;
             case TILE_EMPTY:
             case TILE_SPAWN:
@@ -360,12 +360,12 @@ static void generateLevel(Engine &ctx)
         printf("ERROR: No compiled level provided! All simulations must use ASCII levels.\n");
         // Create a minimal emergency level to avoid crashes
         level.num_tiles = 4;
-        level.width = 3; level.height = 3; level.scale = 2.0f;
+        level.width = consts::rendering::emergencyLevelSize; level.height = consts::rendering::emergencyLevelSize; level.scale = consts::rendering::emergencyLevelScale;
         // Emergency 3x3 room
-        level.tile_types[0] = TILE_WALL; level.tile_x[0] = -2.0f; level.tile_y[0] = -2.0f;
-        level.tile_types[1] = TILE_WALL; level.tile_x[1] =  2.0f; level.tile_y[1] = -2.0f;
-        level.tile_types[2] = TILE_WALL; level.tile_x[2] = -2.0f; level.tile_y[2] =  2.0f;
-        level.tile_types[3] = TILE_WALL; level.tile_x[3] =  2.0f; level.tile_y[3] =  2.0f;
+        level.tile_types[consts::rendering::emergencyLevel::tile0] = TILE_WALL; level.tile_x[consts::rendering::emergencyLevel::tile0] = -consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile0] = -consts::rendering::emergencyLevelCoord;
+        level.tile_types[consts::rendering::emergencyLevel::tile1] = TILE_WALL; level.tile_x[consts::rendering::emergencyLevel::tile1] =  consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile1] = -consts::rendering::emergencyLevelCoord;
+        level.tile_types[consts::rendering::emergencyLevel::tile2] = TILE_WALL; level.tile_x[consts::rendering::emergencyLevel::tile2] = -consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile2] =  consts::rendering::emergencyLevelCoord;
+        level.tile_types[consts::rendering::emergencyLevel::tile3] = TILE_WALL; level.tile_x[consts::rendering::emergencyLevel::tile3] =  consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile3] =  consts::rendering::emergencyLevelCoord;
     }
     
     // Generate from compiled level

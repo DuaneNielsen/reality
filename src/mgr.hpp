@@ -30,8 +30,8 @@ public:
         uint32_t randSeed; // Seed for random world gen
         bool autoReset; // Immediately generate new world on episode end
         bool enableBatchRenderer;
-        uint32_t batchRenderViewWidth = 64;
-        uint32_t batchRenderViewHeight = 64;
+        uint32_t batchRenderViewWidth = consts::display::defaultBatchRenderSize;
+        uint32_t batchRenderViewHeight = consts::display::defaultBatchRenderSize;
         madrona::render::APIBackend *extRenderAPI = nullptr;
         madrona::render::GPUDevice *extRenderDev = nullptr;
         bool enableTrajectoryTracking = false; // Print agent trajectories to stdout

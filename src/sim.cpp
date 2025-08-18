@@ -224,8 +224,8 @@ static inline float angleObs(float v)
 
 static inline float computeZAngle(Quat q)
 {
-    float siny_cosp = 2.f * (q.w * q.z + q.x * q.y);
-    float cosy_cosp = 1.f - 2.f * (q.y * q.y + q.z * q.z);
+    float siny_cosp = consts::math::quaternionConversionFactor * (q.w * q.z + q.x * q.y);
+    float cosy_cosp = 1.f - consts::math::quaternionConversionFactor * (q.y * q.y + q.z * q.z);
     return atan2f(siny_cosp, cosy_cosp);
 }
 
