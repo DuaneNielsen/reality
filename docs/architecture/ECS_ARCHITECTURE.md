@@ -285,3 +285,10 @@ if (grab_state.constraintEntity != Entity::none()) {
 5. **Fail-Safe Design**: Invalid entities simply fail validation, no crashes
 
 This system ensures that stale entity references never cause undefined behavior - they simply fail validation checks and return invalid results that can be handled gracefully.
+
+## Related Documentation
+
+- [Asset Management](ASSET_MANAGEMENT.md) - How physics and rendering assets are stored and accessed
+- [Collision System](COLLISION_SYSTEM.md) - Physics system implementation
+- [Initialization Sequence](INITIALIZATION_SEQUENCE.md) - World and entity setup process
+- [Step Sequence](STEP_SEQUENCE.md) - Simulation update cycle
