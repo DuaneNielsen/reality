@@ -5,11 +5,9 @@
 #include <cstdio>
 #include <chrono>
 #include <string>
-#include <filesystem>
 #include <fstream>
 #include <random>
 #include <iostream>
-#include <algorithm>
 
 #include <madrona/heap_array.hpp>
 

@@ -2,14 +2,12 @@
 #include <madrona/render/render_mgr.hpp>
 #include <madrona/window.hpp>
 
-#include "sim.hpp"
 #include "mgr.hpp"
 #include "types.hpp"
 #include "viewer_core.hpp"
 
 #include <optionparser.h>
 
-#include <filesystem>
 #include <string>
 #include <cstring>
 #include <iostream>

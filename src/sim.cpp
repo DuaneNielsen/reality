@@ -3,7 +3,6 @@
 #include "sim.hpp"
 #include "level_gen.hpp"
 
-#include <algorithm>
 
 /*
  * This file uses a three-tier classification system for code:

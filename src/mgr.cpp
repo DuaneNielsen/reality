@@ -24,13 +24,10 @@
 #include <madrona/render/api.hpp>
 
 #include <array>
-#include <charconv>
 #include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <string>
-#include <cmath>
-#include <stdexcept>
 
 #ifdef MADRONA_CUDA_SUPPORT
 #include <madrona/mw_gpu.hpp>
@@ -182,14 +179,14 @@ struct Manager::CPUImpl final : Manager::Impl {
           cpuExec(std::move(cpu_exec))
     {}
 
-    inline virtual ~CPUImpl() final {}
+    ~CPUImpl() final = default;
 
-    inline virtual void run()
+    void run() final
     {
         cpuExec.run();
     }
 
-    virtual inline Tensor exportTensor(ExportID slot,
+    Tensor exportTensor(ExportID slot,
         TensorElementType type,
         madrona::Span<const int64_t> dims) const final
     {
@@ -218,14 +215,14 @@ struct Manager::CUDAImpl final : Manager::Impl {
           stepGraph(gpuExec.buildLaunchGraphAllTaskGraphs())
     {}
 
-    inline virtual ~CUDAImpl() final {}
+    ~CUDAImpl() final = default;
 
-    inline virtual void run()
+    void run() final
     {
         gpuExec.run(stepGraph);
     }
 
-    virtual inline Tensor exportTensor(ExportID slot,
+    Tensor exportTensor(ExportID slot,
         TensorElementType type,
         madrona::Span<const int64_t> dims) const final
     {

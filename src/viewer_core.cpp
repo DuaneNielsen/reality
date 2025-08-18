@@ -1,7 +1,6 @@
 #include "viewer_core.hpp"
 #include "mgr.hpp"
 #include "consts.hpp"
-#include <iostream>
 #include <cassert>
 
 namespace madEscape {

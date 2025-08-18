@@ -239,36 +239,36 @@ static Entity makeCube(Engine &ctx,
 
 
 // A room with 3 cubes as fixed obstacles
-static CountT makeCubeObstacleRoom(Engine &ctx,
-                                   Room &room,
-                                   float y_min,
-                                   float y_max)
-{
-    // Position cubes as obstacles in the room
-    float center_x = 0.f;
-    float center_y = (y_min + y_max) / 2.f;
-
-    float cube_a_x = center_x - 3.f;
-    float cube_a_y = center_y;
-
-    Entity cube_a = makeCube(ctx, cube_a_x, cube_a_y, 1.5f);
-
-    float cube_b_x = center_x;
-    float cube_b_y = center_y;
-
-    Entity cube_b = makeCube(ctx, cube_b_x, cube_b_y, 1.5f);
-
-    float cube_c_x = center_x + 3.f;
-    float cube_c_y = center_y;
-
-    Entity cube_c = makeCube(ctx, cube_c_x, cube_c_y, 1.5f);
-
-    room.entities[0] = cube_a;
-    room.entities[1] = cube_b;
-    room.entities[2] = cube_c;
-
-    return 3;
-}
+// static CountT makeCubeObstacleRoom(Engine &ctx,
+//                                    Room &room,
+//                                    float y_min,
+//                                    float y_max)
+// {
+//     // Position cubes as obstacles in the room
+//     float center_x = 0.f;
+//     float center_y = (y_min + y_max) / 2.f;
+//
+//     float cube_a_x = center_x - 3.f;
+//     float cube_a_y = center_y;
+//
+//     Entity cube_a = makeCube(ctx, cube_a_x, cube_a_y, 1.5f);
+//
+//     float cube_b_x = center_x;
+//     float cube_b_y = center_y;
+//
+//     Entity cube_b = makeCube(ctx, cube_b_x, cube_b_y, 1.5f);
+//
+//     float cube_c_x = center_x + 3.f;
+//     float cube_c_y = center_y;
+//
+//     Entity cube_c = makeCube(ctx, cube_c_x, cube_c_y, 1.5f);
+//
+//     room.entities[0] = cube_a;
+//     room.entities[1] = cube_b;
+//     room.entities[2] = cube_c;
+//
+//     return 3;
+// }
 
 
 // Create cube obstacles for the room

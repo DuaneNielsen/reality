@@ -1,7 +1,6 @@
 #include "madrona_escape_room_c_api.h"
 #include "mgr.hpp"
 #include "types.hpp"
-#include "consts.hpp"
 
 #include <cstring>
 #include <new>
