@@ -20,6 +20,7 @@ target_link_libraries(mad_escape_cpu_impl
 add_library(mad_escape_mgr STATIC
     mgr.hpp mgr.cpp
     asset_descriptors.hpp asset_descriptors.cpp
+    asset_registry.hpp asset_registry.cpp
 )
 
 target_link_libraries(mad_escape_mgr 

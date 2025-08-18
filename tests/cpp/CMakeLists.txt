@@ -23,6 +23,7 @@ set(TEST_SOURCES
     integration/test_viewer_input.cpp
     integration/test_viewer_errors.cpp
     e2e/test_viewer_workflows.cpp
+    test_asset_registry.cpp
 )
 
 # Create test executable
