@@ -107,7 +107,7 @@ MER_Result mer_create_manager(
             
             // Copy arrays (full array size for proper GPU indexing)
             // The arrays contain meaningful data up to num_tiles, rest is zero-filled
-            std::memcpy(cpp_level.tile_types, c_level->tile_types,
+            std::memcpy(cpp_level.object_ids, c_level->tile_types,
                        sizeof(int32_t) * array_size);
             std::memcpy(cpp_level.tile_x, c_level->tile_x,
                        sizeof(float) * array_size);

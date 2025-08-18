@@ -1,4 +1,5 @@
 #include "level_gen.hpp"
+#include "asset_ids.hpp"
 
 namespace madEscape {
 
@@ -24,12 +25,12 @@ static inline void setupRigidBodyEntity(
     Entity e,
     Vector3 pos,
     Quat rot,
-    SimObject sim_obj,
+    uint32_t object_id,
     EntityType entity_type,
     ResponseType response_type = ResponseType::Dynamic,
     Diag3x3 scale = {1, 1, 1})
 {
-    ObjectID obj_id { (int32_t)sim_obj };
+    ObjectID obj_id { (int32_t)object_id };
 
     ctx.get<Position>(e) = pos;
     ctx.get<Rotation>(e) = rot;
@@ -52,9 +53,9 @@ static inline void setupRigidBodyEntity(
 static void registerRigidBodyEntity(
     Engine &ctx,
     Entity e,
-    SimObject sim_obj)
+    uint32_t object_id)
 {
-    ObjectID obj_id { (int32_t)sim_obj };
+    ObjectID obj_id { (int32_t)object_id };
     ctx.get<broadphase::LeafID>(e) =
         PhysicsSystem::registerEntity(ctx, e, obj_id);
 }
@@ -70,7 +71,7 @@ void createPersistentEntities(Engine &ctx)
         ctx.data().floorPlane,
         Vector3 { 0, 0, 0 },
         Quat { 1, 0, 0, 0 },
-        SimObject::Plane,
+        AssetIDs::PLANE,
         EntityType::None, // Floor plane type should never be queried
         ResponseType::Static);
 
@@ -92,7 +93,7 @@ void createPersistentEntities(Engine &ctx)
         }
 
         ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };
-        ctx.get<ObjectID>(agent) = ObjectID { (int32_t)SimObject::Agent };
+        ctx.get<ObjectID>(agent) = ObjectID { (int32_t)AssetIDs::AGENT };
         ctx.get<ResponseType>(agent) = ResponseType::Dynamic;
         ctx.get<EntityType>(agent) = EntityType::Agent;
     }
@@ -103,21 +104,21 @@ void createPersistentEntities(Engine &ctx)
     ctx.get<Position>(ctx.data().originMarkerBoxes[0]) = Vector3{consts::rendering::axisMarkerOffset, 0, 0};  // Offset along X
     ctx.get<Rotation>(ctx.data().originMarkerBoxes[0]) = Quat{1, 0, 0, 0};
     ctx.get<Scale>(ctx.data().originMarkerBoxes[0]) = Diag3x3{consts::rendering::axisMarkerLength, consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerThickness};  // Elongated along X
-    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[0]) = ObjectID{(int32_t)SimObject::AxisX};
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[0]) = ObjectID{(int32_t)AssetIDs::AXIS_X};
     
     // Box 1: Green box along Y axis  
     ctx.data().originMarkerBoxes[1] = ctx.makeRenderableEntity<RenderOnlyEntity>();
     ctx.get<Position>(ctx.data().originMarkerBoxes[1]) = Vector3{0, consts::rendering::axisMarkerOffset, 0};  // Offset along Y
     ctx.get<Rotation>(ctx.data().originMarkerBoxes[1]) = Quat{1, 0, 0, 0};
     ctx.get<Scale>(ctx.data().originMarkerBoxes[1]) = Diag3x3{consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerLength, consts::rendering::axisMarkerThickness};  // Elongated along Y
-    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[1]) = ObjectID{(int32_t)SimObject::AxisY};
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[1]) = ObjectID{(int32_t)AssetIDs::AXIS_Y};
     
     // Box 2: Blue box along Z axis
     ctx.data().originMarkerBoxes[2] = ctx.makeRenderableEntity<RenderOnlyEntity>();
     ctx.get<Position>(ctx.data().originMarkerBoxes[2]) = Vector3{0, 0, consts::rendering::axisMarkerOffset};  // Offset along Z
     ctx.get<Rotation>(ctx.data().originMarkerBoxes[2]) = Quat{1, 0, 0, 0};
     ctx.get<Scale>(ctx.data().originMarkerBoxes[2]) = Diag3x3{consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerLength};  // Elongated along Z
-    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[2]) = ObjectID{(int32_t)SimObject::AxisZ};
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[2]) = ObjectID{(int32_t)AssetIDs::AXIS_Z};
 }
 
 // Although agents and walls persist between episodes, we still need to
@@ -125,7 +126,7 @@ void createPersistentEntities(Engine &ctx)
 // reset their positions.
 static void resetPersistentEntities(Engine &ctx)
 {
-    registerRigidBodyEntity(ctx, ctx.data().floorPlane, SimObject::Plane);
+    registerRigidBodyEntity(ctx, ctx.data().floorPlane, AssetIDs::PLANE);
 
      // Phase 1.1: Border wall registration removed - using hardcoded 16x16 room instead
      
@@ -135,7 +136,7 @@ static void resetPersistentEntities(Engine &ctx)
 
      for (CountT i = 0; i < consts::numAgents; i++) {
          Entity agent_entity = ctx.data().agents[i];
-         registerRigidBodyEntity(ctx, agent_entity, SimObject::Agent);
+         registerRigidBodyEntity(ctx, agent_entity, AssetIDs::AGENT);
 
          // Use spawn positions from level if available, otherwise use defaults
          Vector3 pos;
@@ -187,53 +188,38 @@ static void resetPersistentEntities(Engine &ctx)
 }
 
 
-// Helper function to create a wall entity - will be reused in Phase 2
-static Entity makeWall(Engine &ctx,
-                      float wall_x,
-                      float wall_y,
-                      float wall_z,
-                      Diag3x3 wall_scale)
-{
-    Entity wall = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        wall,
-        Vector3 { wall_x, wall_y, wall_z },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Wall,
-        EntityType::Wall,
-        ResponseType::Static,
-        wall_scale);
-    registerRigidBodyEntity(ctx, wall, SimObject::Wall);
-    return wall;
-}
-
-static Entity makeCube(Engine &ctx,
-                       float cube_x,
-                       float cube_y,
-                       float scale = 1.f)
-{
-    Entity cube = ctx.makeRenderableEntity<PhysicsEntity>();
-    setupRigidBodyEntity(
-        ctx,
-        cube,
-        Vector3 {
-            cube_x,
-            cube_y,
-            1.f * scale,
-        },
-        Quat { 1, 0, 0, 0 },
-        SimObject::Cube,
-        EntityType::Cube,
-        ResponseType::Static,
-        Diag3x3 {
-            scale,
-            scale,
-            scale,
-        });
-    registerRigidBodyEntity(ctx, cube, SimObject::Cube);
-
-    return cube;
+// Generic entity creator that works with any asset ID
+static Entity createEntityFromId(Engine& ctx, uint32_t objectId, 
+                                Vector3 pos, Quat rot, Diag3x3 scale) {
+    // Check for render-only assets (no physics)
+    if (objectId == AssetIDs::AXIS_X || 
+        objectId == AssetIDs::AXIS_Y || 
+        objectId == AssetIDs::AXIS_Z) {
+        Entity e = ctx.makeRenderableEntity<RenderOnlyEntity>();
+        ctx.get<Position>(e) = pos;
+        ctx.get<Rotation>(e) = rot;
+        ctx.get<Scale>(e) = scale;
+        ctx.get<ObjectID>(e) = ObjectID{(int32_t)objectId};
+        return e;
+    } else {
+        // Physics entity
+        Entity e = ctx.makeRenderableEntity<PhysicsEntity>();
+        
+        // Determine entity type based on object ID
+        EntityType entityType = EntityType::None;
+        if (objectId == AssetIDs::WALL) {
+            entityType = EntityType::Wall;
+        } else if (objectId == AssetIDs::CUBE) {
+            entityType = EntityType::Cube;
+        } else if (objectId == AssetIDs::AGENT) {
+            entityType = EntityType::Agent;
+        }
+        
+        setupRigidBodyEntity(ctx, e, pos, rot, objectId,
+                           entityType, ResponseType::Static, scale);
+        registerRigidBodyEntity(ctx, e, objectId);
+        return e;
+    }
 }
 
 
@@ -315,29 +301,29 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
     
     // Generate tiles from compiled data
     for (int32_t i = 0; i < level->num_tiles && entity_count < CompiledLevel::MAX_TILES; i++) {
-        TileType type = (TileType)level->tile_types[i];
+        uint32_t objectId = level->object_ids[i];
         float x = level->tile_x[i];
         float y = level->tile_y[i];
         
         Entity entity = Entity::none();
         
-        switch(type) {
-            case TILE_WALL:
-                // Scale walls to fill the entire tile (scale x scale x 2.0 height)
-                // Wall model has base at z=0, so position at z=0 to rest on ground
-                entity = makeWall(ctx, x, y, 0.0f, Diag3x3{tile_scale, tile_scale, consts::rendering::wallHeight});
-                break;
-            case TILE_CUBE:
-                // Scale cubes proportionally to tile size
-                entity = makeCube(ctx, x, y, consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor);
-                break;
-            case TILE_EMPTY:
-            case TILE_SPAWN:
-            case TILE_DOOR:
-            case TILE_BUTTON:
-            case TILE_GOAL:
-                // Skip these for now - TILE_SPAWN handled in resetPersistentEntities
-                break;
+        // Create entity based on object ID
+        if (objectId != AssetIDs::INVALID && objectId != 0) {  // 0 means empty
+            // Determine scale based on object type
+            Diag3x3 scale = {tile_scale, tile_scale, tile_scale};
+            float z = 0.0f;
+            
+            if (objectId == AssetIDs::WALL) {
+                scale = {tile_scale, tile_scale, consts::rendering::wallHeight};  // Walls are taller
+            } else if (objectId == AssetIDs::CUBE) {
+                float s = consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor;
+                scale = {s, s, s};
+                z = s;  // Cubes rest on ground with bottom at z=0
+            }
+            
+            entity = createEntityFromId(ctx, objectId, 
+                                       Vector3{x, y, z}, 
+                                       Quat{1,0,0,0}, scale);
         }
         
         if (entity != Entity::none()) {
@@ -362,10 +348,10 @@ static void generateLevel(Engine &ctx)
         level.num_tiles = 4;
         level.width = consts::rendering::emergencyLevelSize; level.height = consts::rendering::emergencyLevelSize; level.scale = consts::rendering::emergencyLevelScale;
         // Emergency 3x3 room
-        level.tile_types[consts::rendering::emergencyLevel::tile0] = TILE_WALL; level.tile_x[consts::rendering::emergencyLevel::tile0] = -consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile0] = -consts::rendering::emergencyLevelCoord;
-        level.tile_types[consts::rendering::emergencyLevel::tile1] = TILE_WALL; level.tile_x[consts::rendering::emergencyLevel::tile1] =  consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile1] = -consts::rendering::emergencyLevelCoord;
-        level.tile_types[consts::rendering::emergencyLevel::tile2] = TILE_WALL; level.tile_x[consts::rendering::emergencyLevel::tile2] = -consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile2] =  consts::rendering::emergencyLevelCoord;
-        level.tile_types[consts::rendering::emergencyLevel::tile3] = TILE_WALL; level.tile_x[consts::rendering::emergencyLevel::tile3] =  consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile3] =  consts::rendering::emergencyLevelCoord;
+        level.object_ids[consts::rendering::emergencyLevel::tile0] = AssetIDs::WALL; level.tile_x[consts::rendering::emergencyLevel::tile0] = -consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile0] = -consts::rendering::emergencyLevelCoord;
+        level.object_ids[consts::rendering::emergencyLevel::tile1] = AssetIDs::WALL; level.tile_x[consts::rendering::emergencyLevel::tile1] =  consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile1] = -consts::rendering::emergencyLevelCoord;
+        level.object_ids[consts::rendering::emergencyLevel::tile2] = AssetIDs::WALL; level.tile_x[consts::rendering::emergencyLevel::tile2] = -consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile2] =  consts::rendering::emergencyLevelCoord;
+        level.object_ids[consts::rendering::emergencyLevel::tile3] = AssetIDs::WALL; level.tile_x[consts::rendering::emergencyLevel::tile3] =  consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile3] =  consts::rendering::emergencyLevelCoord;
     }
     
     // Generate from compiled level

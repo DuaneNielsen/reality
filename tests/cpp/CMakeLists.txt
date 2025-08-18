@@ -19,6 +19,7 @@ set(TEST_SOURCES
     unit/test_viewer_core.cpp
     unit/test_viewercore_trajectory.cpp
     unit/test_direct_cpp.cpp
+    unit/test_asset_refactor.cpp
     integration/test_viewer_integration.cpp
     integration/test_viewer_input.cpp
     integration/test_viewer_errors.cpp

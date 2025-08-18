@@ -161,7 +161,7 @@ protected:
         
         // Fill with simple tile pattern
         for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
-            level.tile_types[i] = i % 3;  // Cycle through a few tile types
+            level.tile_types[i] = (i % 2) + 1;  // Cycle between CUBE (1) and WALL (2)
             level.tile_x[i] = (i % width) * level.scale;
             level.tile_y[i] = (i / width) * level.scale;
         }

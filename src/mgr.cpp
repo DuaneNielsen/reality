@@ -276,18 +276,20 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 {
     StackAlloc tmp_alloc;
 
-    // Build asset paths from descriptors
-    std::array<std::string, (size_t)SimObject::NumObjects> render_asset_paths;
+    // Build dense arrays for the importer
+    std::vector<std::string> dense_paths;
+    std::vector<uint32_t> asset_id_map;
+    
     for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
         const auto& desc = madrona::escape_room::RENDER_ASSETS[i];
-        render_asset_paths[(size_t)desc.objectId] = 
-            (std::filesystem::path(DATA_DIR) / desc.meshPath).string();
+        dense_paths.push_back((std::filesystem::path(DATA_DIR) / desc.meshPath).string());
+        asset_id_map.push_back(desc.objectId);
     }
-
-    // [BOILERPLATE]
-    std::array<const char *, (size_t)SimObject::NumObjects> render_asset_cstrs;
-    for (size_t i = 0; i < render_asset_paths.size(); i++) {
-        render_asset_cstrs[i] = render_asset_paths[i].c_str();
+    
+    // Convert to C-strings for importer
+    std::vector<const char*> render_asset_cstrs;
+    for (const auto& path : dense_paths) {
+        render_asset_cstrs.push_back(path.c_str());
     }
 
     // [BOILERPLATE]
@@ -309,10 +311,25 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     // Create materials from descriptors
     auto materials = createMaterials();
     
+    // Now we need to create a properly indexed sparse array of objects
+    HeapArray<imp::SourceObject> indexed_objects(madEscape::AssetIDs::MAX_ASSETS);
+    
+    // Initialize all entries to prevent accessing uninitialized memory
+    // Assets without render data will have empty objects
+    for (CountT i = 0; i < indexed_objects.size(); i++) {
+        indexed_objects[i] = imp::SourceObject{};
+    }
+    
+    // Copy imported objects to their proper positions based on object IDs
+    for (size_t i = 0; i < asset_id_map.size(); i++) {
+        uint32_t obj_id = asset_id_map[i];
+        indexed_objects[obj_id] = render_assets->objects[i];
+    }
+    
     // Assign materials to each object's meshes based on descriptors
     for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
         const auto& desc = madrona::escape_room::RENDER_ASSETS[i];
-        auto& obj_meshes = render_assets->objects[(CountT)desc.objectId].meshes;
+        auto& obj_meshes = indexed_objects[(CountT)desc.objectId].meshes;
         
         for (uint32_t mesh_idx = 0; mesh_idx < desc.numMeshes && mesh_idx < obj_meshes.size(); mesh_idx++) {
             obj_meshes[mesh_idx].materialIDX = desc.materialIndices[mesh_idx];
@@ -321,7 +338,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 
     // [BOILERPLATE]
     render_mgr.loadObjects(
-        render_assets->objects, materials, imported_textures);
+        indexed_objects, materials, imported_textures);
 
     // [GAME_SPECIFIC] Configure scene lighting
     render_mgr.configureLighting({
@@ -332,26 +349,23 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 // [REQUIRED_INTERFACE] Load physics assets - must be implemented by every environment
 static void loadPhysicsObjects(PhysicsLoader &loader)
 {
-    // Build asset paths array indexed by SimObject enum values
-    // Only first 3 objects (Cube, Wall, Agent) have file meshes
-    constexpr size_t numFileAssets = 3;
-    std::array<std::string, numFileAssets> asset_paths;
+    // Build dense arrays for the importer, then create sparse array for indexing
+    // First pass: count file-based assets and build dense arrays
+    std::vector<std::string> dense_paths;
+    std::vector<uint32_t> asset_id_map;
     
     for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
         const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
         if (desc.type == madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH) {
-            // Use SimObject enum value as index
-            size_t idx = static_cast<size_t>(desc.objectId);
-            if (idx < numFileAssets) {
-                asset_paths[idx] = (std::filesystem::path(DATA_DIR) / desc.filepath).string();
-            }
+            dense_paths.push_back((std::filesystem::path(DATA_DIR) / desc.filepath).string());
+            asset_id_map.push_back(desc.objectId);
         }
     }
     
     // Convert to C-strings for importer
-    std::array<const char*, numFileAssets> asset_cstrs;
-    for (size_t i = 0; i < asset_paths.size(); i++) {
-        asset_cstrs[i] = asset_paths[i].c_str();
+    std::vector<const char*> asset_cstrs;
+    for (const auto& path : dense_paths) {
+        asset_cstrs.push_back(path.c_str());
     }
 
     // [BOILERPLATE]
@@ -373,18 +387,30 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
 
     // [BOILERPLATE]
     DynArray<DynArray<SourceCollisionPrimitive>> prim_arrays(0);
-    HeapArray<SourceCollisionObject> src_objs(madrona::escape_room::NUM_PHYSICS_ASSETS);
+    // Only allocate space for the built-in assets we actually have (IDs 0-7)
+    constexpr CountT NUM_BUILTIN_ASSETS = 8;
+    HeapArray<SourceCollisionObject> src_objs(NUM_BUILTIN_ASSETS);
+    
+    // Initialize all entries to prevent accessing uninitialized memory
+    // Render-only objects will have empty collision data
+    for (CountT i = 0; i < src_objs.size(); i++) {
+        src_objs[i] = {
+            .prims = Span<const SourceCollisionPrimitive>(nullptr, 0),
+            .invMass = 0.f,  // Infinite mass (static)
+            .friction = {0.f, 0.f},
+        };
+    }
 
-    // Map SimObject IDs to physics array indices
-    auto getPhysicsIdx = [](SimObject obj_id) -> CountT {
+    // Map asset IDs to physics array indices
+    auto getPhysicsIdx = [](uint32_t obj_id) -> CountT {
         return static_cast<CountT>(obj_id);
     };
 
     // Helper lambda to setup hull-based collision objects
-    auto setupHull = [&](SimObject obj_id,
+    auto setupHull = [&](uint32_t obj_id, size_t import_idx,
                         float inv_mass,
                         RigidBodyFrictionData friction) {
-        auto meshes = imported_src_hulls->objects[(CountT)obj_id].meshes;
+        auto meshes = imported_src_hulls->objects[(CountT)import_idx].meshes;
         DynArray<SourceCollisionPrimitive> prims(meshes.size());
 
         for (const imp::SourceMesh &mesh : meshes) {
@@ -407,10 +433,12 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     };
     
     // Process file-based assets using descriptors
+    size_t import_idx = 0;
     for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
         const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
         if (desc.type == madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH) {
-            setupHull(desc.objectId, desc.inverseMass, desc.friction);
+            setupHull(desc.objectId, import_idx, desc.inverseMass, desc.friction);
+            import_idx++;
         }
     }
     
@@ -454,9 +482,9 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         if (desc.constrainRotationXY) {
             // Setting inverse inertia to 0 makes rotation impossible around that axis
             rigid_body_assets.metadatas[
-                getPhysicsIdx(desc.objectId)].mass.invInertiaTensor.x = 0.f;
+                static_cast<CountT>(desc.objectId)].mass.invInertiaTensor.x = 0.f;
             rigid_body_assets.metadatas[
-                getPhysicsIdx(desc.objectId)].mass.invInertiaTensor.y = 0.f;
+                static_cast<CountT>(desc.objectId)].mass.invInertiaTensor.y = 0.f;
         }
     }
 

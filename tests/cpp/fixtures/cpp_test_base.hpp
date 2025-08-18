@@ -57,7 +57,7 @@ protected:
         
         // Fill with empty tiles
         for (int i = 0; i < level.num_tiles; i++) {
-            level.tile_types[i] = 0;  // Empty
+            level.object_ids[i] = 0;  // Empty
             level.tile_x[i] = (i % 16) * level.scale;
             level.tile_y[i] = (i / 16) * level.scale;
         }
@@ -83,7 +83,7 @@ protected:
                 level.max_entities = level.num_tiles + 6 + 30;
                 
                 for (int j = 0; j < level.num_tiles; j++) {
-                    level.tile_types[j] = 0;
+                    level.object_ids[j] = 0;
                     level.tile_x[j] = (j % 16) * level.scale;
                     level.tile_y[j] = (j / 16) * level.scale;
                 }
@@ -205,7 +205,6 @@ protected:
     }
 };
 
-// Initialize static member
-std::mutex MadronaCppGPUTest::gpu_test_mutex;
+// Static member definition moved to test_base.cpp to avoid multiple definitions
 
 } // namespace madEscape

@@ -4,7 +4,6 @@
 #include <madrona/render/ecs.hpp>
 #include <madrona/render/common.hpp>
 #include <madrona/math.hpp>
-#include "sim.hpp"
 
 namespace madrona::escape_room {
 
@@ -92,8 +91,8 @@ struct PhysicsAssetDescriptor {
     // Human-readable name for debugging/logging
     const char* name;
     
-    // Which madEscape::SimObject this physics asset is for
-    madEscape::SimObject objectId;
+    // Which asset ID this physics asset is for (from AssetIDs namespace)
+    uint32_t objectId;
     
     // Type of physics asset
     enum Type {
@@ -119,8 +118,8 @@ struct RenderAssetDescriptor {
     // Human-readable name for debugging/logging
     const char* name;
     
-    // Which madEscape::SimObject this render asset is for
-    madEscape::SimObject objectId;
+    // Which asset ID this render asset is for (from AssetIDs namespace)
+    uint32_t objectId;
     
     // Mesh file path relative to DATA_DIR
     const char* meshPath;
@@ -169,10 +168,10 @@ constexpr size_t NUM_MATERIALS = 9;  // All material types
 extern const TextureDescriptor TEXTURES[];
 constexpr size_t NUM_TEXTURES = 2;  // green_grid.png, smile.png
 
-// Helper function to get physics asset by madEscape::SimObject
-const PhysicsAssetDescriptor* getPhysicsAsset(madEscape::SimObject obj);
+// Helper function to get physics asset by asset ID
+const PhysicsAssetDescriptor* getPhysicsAsset(uint32_t objectId);
 
-// Helper function to get render asset by madEscape::SimObject
-const RenderAssetDescriptor* getRenderAsset(madEscape::SimObject obj);
+// Helper function to get render asset by asset ID
+const RenderAssetDescriptor* getRenderAsset(uint32_t objectId);
 
 }

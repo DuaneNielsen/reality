@@ -31,18 +31,8 @@ enum class ExportID : uint32_t {
     NumExports,
 };
 
-// Stores values for the ObjectID component that links entities to
-// render / physics assets.
-enum class SimObject : uint32_t {
-    Cube,
-    Wall,
-    Agent,
-    Plane,
-    AxisX,  // Red cube for X axis
-    AxisY,  // Green cube for Y axis
-    AxisZ,  // Blue cube for Z axis
-    NumObjects,
-};
+// SimObject enum removed - using AssetIDs namespace instead
+// Asset IDs are now defined in asset_ids.hpp for NVRTC compatibility
 
 // The Sim class encapsulates the per-world state of the simulation.
 // Sim is always available by calling ctx.data() given a reference

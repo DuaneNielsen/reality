@@ -226,7 +226,7 @@ bool validateLevelFile(const FileInfo& info) {
     // Count actual tiles
     int actual_tiles = 0;
     for (int i = 0; i < level.num_tiles; i++) {
-        if (level.tile_types[i] != 0) {  // Not TILE_EMPTY
+        if (level.object_ids[i] != 0) {  // Not empty (0 means no object)
             actual_tiles++;
         }
     }

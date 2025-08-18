@@ -134,16 +134,8 @@ namespace madEscape {
 
 
     // [GAME_SPECIFIC] Phase 2: Test-Driven Level System
-    // Tile types for compiled level system
-    enum TileType : int32_t {
-        TILE_EMPTY = 0,
-        TILE_WALL = 1,
-        TILE_CUBE = 2,
-        TILE_SPAWN = 3,
-        TILE_DOOR = 4,    // Future
-        TILE_BUTTON = 5,  // Future
-        TILE_GOAL = 6,    // Future
-    };
+    // Tile types removed - now using object_ids with AssetIDs
+    // Object IDs directly reference assets from AssetIDs namespace
 
     // GPU-compatible compiled level data structure
     // Fixed-size arrays for GPU efficiency, no dynamic allocation
@@ -169,7 +161,7 @@ namespace madEscape {
         float spawn_facing[MAX_SPAWNS];   // Spawn facing angles in radians
         
         // Tile data arrays (packed for GPU efficiency)
-        int32_t tile_types[MAX_TILES];    // Type enum for each tile
+        int32_t object_ids[MAX_TILES];    // Asset ID for each tile (from AssetIDs namespace)
         float tile_x[MAX_TILES];          // World X position
         float tile_y[MAX_TILES];          // World Y position
     };

@@ -83,7 +83,7 @@ protected:
         
         // Add some basic tile data
         for (int i = 0; i < level.num_tiles; i++) {
-            level.tile_types[i] = 1; // TILE_WALL
+            level.object_ids[i] = 2; // Wall (AssetIDs::WALL = 2)
             level.tile_x[i] = static_cast<float>(i % level.width) * level.scale;
             level.tile_y[i] = static_cast<float>(i / level.width) * level.scale;
         }

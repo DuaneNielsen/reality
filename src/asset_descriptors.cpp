@@ -1,4 +1,5 @@
 #include "asset_descriptors.hpp"
+#include "asset_ids.hpp"
 
 using namespace madrona;
 using namespace madrona::phys;
@@ -11,7 +12,7 @@ using namespace asset_constants;
 const PhysicsAssetDescriptor PHYSICS_ASSETS[] = {
     {
         .name = "cube",
-        .objectId = madEscape::SimObject::Cube,
+        .objectId = madEscape::AssetIDs::CUBE,
         .type = madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH,
         .filepath = "cube_collision.obj",
         .inverseMass = physics::cubeInverseMass,
@@ -23,7 +24,7 @@ const PhysicsAssetDescriptor PHYSICS_ASSETS[] = {
     },
     {
         .name = "wall",
-        .objectId = madEscape::SimObject::Wall,
+        .objectId = madEscape::AssetIDs::WALL,
         .type = madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH,
         .filepath = "wall_collision.obj",
         .inverseMass = physics::wallInverseMass,
@@ -35,7 +36,7 @@ const PhysicsAssetDescriptor PHYSICS_ASSETS[] = {
     },
     {
         .name = "agent",
-        .objectId = madEscape::SimObject::Agent,
+        .objectId = madEscape::AssetIDs::AGENT,
         .type = madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH,
         .filepath = "agent_collision_simplified.obj",
         .inverseMass = physics::agentInverseMass,
@@ -47,7 +48,7 @@ const PhysicsAssetDescriptor PHYSICS_ASSETS[] = {
     },
     {
         .name = "plane",
-        .objectId = madEscape::SimObject::Plane,
+        .objectId = madEscape::AssetIDs::PLANE,
         .type = madrona::escape_room::PhysicsAssetDescriptor::BUILTIN_PLANE,
         .filepath = nullptr,
         .inverseMass = physics::planeInverseMass,
@@ -77,49 +78,49 @@ static const uint32_t AXIS_Z_MATERIALS[] = { rendering::materialIndex::axisZ };
 const RenderAssetDescriptor RENDER_ASSETS[] = {
     {
         .name = "cube",
-        .objectId = madEscape::SimObject::Cube,
+        .objectId = madEscape::AssetIDs::CUBE,
         .meshPath = "cube_render.obj",
         .materialIndices = CUBE_MATERIALS,
         .numMeshes = 1,
     },
     {
         .name = "wall",
-        .objectId = madEscape::SimObject::Wall,
+        .objectId = madEscape::AssetIDs::WALL,
         .meshPath = "wall_render.obj",
         .materialIndices = WALL_MATERIALS,
         .numMeshes = 1,
     },
     {
         .name = "agent",
-        .objectId = madEscape::SimObject::Agent,
+        .objectId = madEscape::AssetIDs::AGENT,
         .meshPath = "agent_render.obj",
         .materialIndices = AGENT_MATERIALS,
         .numMeshes = 3,
     },
     {
         .name = "plane",
-        .objectId = madEscape::SimObject::Plane,
+        .objectId = madEscape::AssetIDs::PLANE,
         .meshPath = "plane.obj",
         .materialIndices = PLANE_MATERIALS,
         .numMeshes = 1,
     },
     {
         .name = "axis_x",
-        .objectId = madEscape::SimObject::AxisX,
+        .objectId = madEscape::AssetIDs::AXIS_X,
         .meshPath = "cube_render.obj",  // Reuse cube mesh
         .materialIndices = AXIS_X_MATERIALS,
         .numMeshes = 1,
     },
     {
         .name = "axis_y",
-        .objectId = madEscape::SimObject::AxisY,
+        .objectId = madEscape::AssetIDs::AXIS_Y,
         .meshPath = "cube_render.obj",  // Reuse cube mesh
         .materialIndices = AXIS_Y_MATERIALS,
         .numMeshes = 1,
     },
     {
         .name = "axis_z",
-        .objectId = madEscape::SimObject::AxisZ,
+        .objectId = madEscape::AssetIDs::AXIS_Z,
         .meshPath = "cube_render.obj",  // Reuse cube mesh
         .materialIndices = AXIS_Z_MATERIALS,
         .numMeshes = 1,
@@ -248,18 +249,18 @@ const TextureDescriptor TEXTURES[] = {
 // NUM_TEXTURES is defined as constexpr in header
 
 // Helper function implementations
-const madrona::escape_room::PhysicsAssetDescriptor* getPhysicsAsset(madEscape::SimObject obj) {
+const madrona::escape_room::PhysicsAssetDescriptor* getPhysicsAsset(uint32_t objectId) {
     for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
-        if (madrona::escape_room::PHYSICS_ASSETS[i].objectId == obj) {
+        if (madrona::escape_room::PHYSICS_ASSETS[i].objectId == objectId) {
             return &madrona::escape_room::PHYSICS_ASSETS[i];
         }
     }
     return nullptr;
 }
 
-const RenderAssetDescriptor* getRenderAsset(madEscape::SimObject obj) {
+const RenderAssetDescriptor* getRenderAsset(uint32_t objectId) {
     for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
-        if (madrona::escape_room::RENDER_ASSETS[i].objectId == obj) {
+        if (madrona::escape_room::RENDER_ASSETS[i].objectId == objectId) {
             return &madrona::escape_room::RENDER_ASSETS[i];
         }
     }
