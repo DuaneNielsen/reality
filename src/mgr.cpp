@@ -1,5 +1,6 @@
 #include "mgr.hpp"
 #include "sim.hpp"
+#include "asset_descriptors.hpp"
 
 #include <chrono>
 
@@ -97,8 +98,8 @@ static inline Optional<render::RenderManager> initRenderManager(
         .agentViewWidth = mgr_cfg.batchRenderViewWidth,
         .agentViewHeight = mgr_cfg.batchRenderViewHeight,
         .numWorlds = mgr_cfg.numWorlds,
-        .maxViewsPerWorld = consts::numAgents,
-        .maxInstancesPerWorld = consts::performance::maxProgressEntries,           // [GAME_SPECIFIC] Max entities to render
+        .maxViewsPerWorld = madEscape::consts::numAgents,
+        .maxInstancesPerWorld = madEscape::consts::performance::maxProgressEntries,           // [GAME_SPECIFIC] Max entities to render
         .execMode = mgr_cfg.execMode,
         .voxelCfg = {},
     });
@@ -237,27 +238,51 @@ struct Manager::CUDAImpl final : Manager::Impl {
 // Every Madrona environment must implement these methods
 // ============================================================================
 
+// Helper function to load textures
+static Span<imp::SourceTexture> loadTextures(StackAlloc &alloc)
+{
+    imp::ImageImporter img_importer;
+    
+    // Load textures in the same way as original code
+    return img_importer.importImages(
+        alloc, {
+            (std::filesystem::path(DATA_DIR) / 
+                madrona::escape_room::TEXTURES[0].filepath).string().c_str(),  // Green grid texture
+            (std::filesystem::path(DATA_DIR) / 
+                madrona::escape_room::TEXTURES[1].filepath).string().c_str(),  // Smile texture
+        });
+}
+
+// Helper function to create materials
+static std::array<imp::SourceMaterial, madrona::escape_room::NUM_MATERIALS> createMaterials()
+{
+    std::array<imp::SourceMaterial, madrona::escape_room::NUM_MATERIALS> materials;
+    
+    for (size_t i = 0; i < madrona::escape_room::NUM_MATERIALS; i++) {
+        const auto& desc = madrona::escape_room::MATERIALS[i];
+        materials[i] = imp::SourceMaterial{
+            desc.color,
+            desc.textureIdx,
+            desc.roughness,
+            desc.metallic,
+        };
+    }
+    
+    return materials;
+}
+
 // [REQUIRED_INTERFACE] Load visual assets - must be implemented by every environment
 static void loadRenderObjects(render::RenderManager &render_mgr)
 {
     StackAlloc tmp_alloc;
 
-    // [GAME_SPECIFIC] Map each game object type to its visual mesh
+    // Build asset paths from descriptors
     std::array<std::string, (size_t)SimObject::NumObjects> render_asset_paths;
-    render_asset_paths[(size_t)SimObject::Cube] =
-        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();
-    render_asset_paths[(size_t)SimObject::Wall] =
-        (std::filesystem::path(DATA_DIR) / "wall_render.obj").string();
-    render_asset_paths[(size_t)SimObject::Agent] =
-        (std::filesystem::path(DATA_DIR) / "agent_render.obj").string();
-    render_asset_paths[(size_t)SimObject::Plane] =
-        (std::filesystem::path(DATA_DIR) / "plane.obj").string();
-    render_asset_paths[(size_t)SimObject::AxisX] =
-        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();  // Reuse cube mesh
-    render_asset_paths[(size_t)SimObject::AxisY] =
-        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();  // Reuse cube mesh
-    render_asset_paths[(size_t)SimObject::AxisZ] =
-        (std::filesystem::path(DATA_DIR) / "cube_render.obj").string();  // Reuse cube mesh
+    for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
+        const auto& desc = madrona::escape_room::RENDER_ASSETS[i];
+        render_asset_paths[(size_t)desc.objectId] = 
+            (std::filesystem::path(DATA_DIR) / desc.meshPath).string();
+    }
 
     // [BOILERPLATE]
     std::array<const char *, (size_t)SimObject::NumObjects> render_asset_cstrs;
@@ -269,7 +294,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
     imp::AssetImporter importer;
 
     // [BOILERPLATE]
-    std::array<char, consts::performance::importErrorBufferSize> import_err;
+    std::array<char, madEscape::consts::performance::importErrorBufferSize> import_err;
     auto render_assets = importer.importFromDisk(
         render_asset_cstrs, Span<char>(import_err.data(), import_err.size()));
 
@@ -278,39 +303,21 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         FATAL("Failed to load render assets: %s", import_err);
     }
 
-    // [GAME_SPECIFIC] Define materials for each object type
-    auto materials = std::to_array<imp::SourceMaterial>({
-        { render::rgb8ToFloat(consts::rendering::colors::cubeRed, consts::rendering::colors::cubeGreen, consts::rendering::colors::cubeBlue), -1, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic },      // Brown (cube)
-        { math::Vector4{consts::rendering::normalizedColors::wallGray, consts::rendering::normalizedColors::wallGray, consts::rendering::normalizedColors::wallGray, consts::rendering::material::floorAlpha}, -1, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic,},  // Gray (wall)
-        { math::Vector4{consts::rendering::normalizedColors::white, consts::rendering::normalizedColors::white, consts::rendering::normalizedColors::white, consts::rendering::material::floorAlpha}, 1, consts::rendering::material::agentBodyRoughness, consts::rendering::material::agentBodyMetallic,},      // White (agent body)
-        { render::rgb8ToFloat(consts::rendering::colors::agentGray, consts::rendering::colors::agentGray, consts::rendering::colors::agentGray),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },   // Light gray (agent parts)
-        { math::Vector4{consts::rendering::normalizedColors::floorBrownRed, consts::rendering::normalizedColors::floorBrownGreen, consts::rendering::normalizedColors::floorBrownBlue, consts::rendering::material::floorAlpha},  0, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic,},  // Brown (floor)
-        { render::rgb8ToFloat(consts::rendering::colors::axisRed, consts::rendering::colors::redGreen, consts::rendering::colors::redBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },     // Red (door/X-axis)
-        { render::rgb8ToFloat(consts::rendering::colors::yellowRed, consts::rendering::colors::yellowGreen, consts::rendering::colors::yellowBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },    // Yellow (button)
-        { render::rgb8ToFloat(consts::rendering::colors::greenRed, consts::rendering::colors::axisGreen, consts::rendering::colors::greenBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },     // Green (Y-axis)
-        { render::rgb8ToFloat(consts::rendering::colors::blueRed, consts::rendering::colors::blueGreen, consts::rendering::colors::axisBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },     // Blue (Z-axis)
-    });
-
-    // [GAME_SPECIFIC] Assign materials to each object's meshes
-    render_assets->objects[(CountT)SimObject::Cube].meshes[0].materialIDX = consts::rendering::materialIndex::cube;
-    render_assets->objects[(CountT)SimObject::Wall].meshes[0].materialIDX = consts::rendering::materialIndex::wall;
-    render_assets->objects[(CountT)SimObject::Agent].meshes[0].materialIDX = consts::rendering::materialIndex::agentBody;  // Body
-    render_assets->objects[(CountT)SimObject::Agent].meshes[1].materialIDX = consts::rendering::materialIndex::agentParts;  // Eyes
-    render_assets->objects[(CountT)SimObject::Agent].meshes[2].materialIDX = consts::rendering::materialIndex::agentParts;  // Other parts
-    render_assets->objects[(CountT)SimObject::Plane].meshes[0].materialIDX = consts::rendering::materialIndex::floor;
-    render_assets->objects[(CountT)SimObject::AxisX].meshes[0].materialIDX = consts::rendering::materialIndex::axisX;  // Red
-    render_assets->objects[(CountT)SimObject::AxisY].meshes[0].materialIDX = consts::rendering::materialIndex::axisY;  // Green
-    render_assets->objects[(CountT)SimObject::AxisZ].meshes[0].materialIDX = consts::rendering::materialIndex::axisZ;  // Blue
-
-    // [GAME_SPECIFIC] Load textures for materials
-    imp::ImageImporter img_importer;
-    Span<imp::SourceTexture> imported_textures = img_importer.importImages(
-        tmp_alloc, {
-            (std::filesystem::path(DATA_DIR) /
-               "green_grid.png").string().c_str(),   // Floor texture
-            (std::filesystem::path(DATA_DIR) /
-               "smile.png").string().c_str(),        // Agent texture
-        });
+    // Load textures
+    auto imported_textures = loadTextures(tmp_alloc);
+    
+    // Create materials from descriptors
+    auto materials = createMaterials();
+    
+    // Assign materials to each object's meshes based on descriptors
+    for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
+        const auto& desc = madrona::escape_room::RENDER_ASSETS[i];
+        auto& obj_meshes = render_assets->objects[(CountT)desc.objectId].meshes;
+        
+        for (uint32_t mesh_idx = 0; mesh_idx < desc.numMeshes && mesh_idx < obj_meshes.size(); mesh_idx++) {
+            obj_meshes[mesh_idx].materialIDX = desc.materialIndices[mesh_idx];
+        }
+    }
 
     // [BOILERPLATE]
     render_mgr.loadObjects(
@@ -318,71 +325,65 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 
     // [GAME_SPECIFIC] Configure scene lighting
     render_mgr.configureLighting({
-        { true, math::Vector3{1.0f, 1.0f, consts::rendering::lightPositionZ}, math::Vector3{1.0f, 1.0f, 1.0f} }
+        { true, math::Vector3{1.0f, 1.0f, madEscape::consts::rendering::lightPositionZ}, math::Vector3{1.0f, 1.0f, 1.0f} }
     });
 }
 
 // [REQUIRED_INTERFACE] Load physics assets - must be implemented by every environment
 static void loadPhysicsObjects(PhysicsLoader &loader)
 {
-
-    // [GAME_SPECIFIC]
-    // Only Cube, Wall, and Agent need physics assets (3 objects)
-    // Plane uses built-in plane collision, AxisX/Y/Z are render-only
-    constexpr size_t numPhysicsAssets = 3;
-    std::array<std::string, numPhysicsAssets> asset_paths;
-    asset_paths[(size_t)SimObject::Cube] =
-        (std::filesystem::path(DATA_DIR) / "cube_collision.obj").string();
-    asset_paths[(size_t)SimObject::Wall] =
-        (std::filesystem::path(DATA_DIR) / "wall_collision.obj").string();
-    asset_paths[(size_t)SimObject::Agent] =
-        (std::filesystem::path(DATA_DIR) / "agent_collision_simplified.obj").string();
-
-
-    // [BOILERPLATE]
-    std::array<const char *, numPhysicsAssets> asset_cstrs;
+    // Build asset paths array indexed by SimObject enum values
+    // Only first 3 objects (Cube, Wall, Agent) have file meshes
+    constexpr size_t numFileAssets = 3;
+    std::array<std::string, numFileAssets> asset_paths;
+    
+    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
+        const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
+        if (desc.type == madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH) {
+            // Use SimObject enum value as index
+            size_t idx = static_cast<size_t>(desc.objectId);
+            if (idx < numFileAssets) {
+                asset_paths[idx] = (std::filesystem::path(DATA_DIR) / desc.filepath).string();
+            }
+        }
+    }
+    
+    // Convert to C-strings for importer
+    std::array<const char*, numFileAssets> asset_cstrs;
     for (size_t i = 0; i < asset_paths.size(); i++) {
         asset_cstrs[i] = asset_paths[i].c_str();
     }
 
     // [BOILERPLATE]
     imp::AssetImporter importer;
-
+    
     // [BOILERPLATE]
-    char import_err_buffer[consts::performance::defaultBufferSize];
+    char import_err_buffer[madEscape::consts::performance::defaultBufferSize];
     auto imported_src_hulls = importer.importFromDisk(
         asset_cstrs, import_err_buffer, true);
-
+    
     // [BOILERPLATE]
     if (!imported_src_hulls.has_value()) {
         FATAL("%s", import_err_buffer);
     }
-
+    
     // [BOILERPLATE]
     DynArray<imp::SourceMesh> src_convex_hulls(
         imported_src_hulls->objects.size());
 
     // [BOILERPLATE]
     DynArray<DynArray<SourceCollisionPrimitive>> prim_arrays(0);
-    // Only allocate physics for objects that need it (Cube, Wall, Agent, Plane)
-    constexpr CountT numPhysicsObjects = 4;  // Cube, Wall, Agent, Plane
-    HeapArray<SourceCollisionObject> src_objs(numPhysicsObjects);
+    HeapArray<SourceCollisionObject> src_objs(madrona::escape_room::NUM_PHYSICS_ASSETS);
 
     // Map SimObject IDs to physics array indices
     auto getPhysicsIdx = [](SimObject obj_id) -> CountT {
-        switch(obj_id) {
-            case SimObject::Cube: return 0;
-            case SimObject::Wall: return consts::physics::objectIndex::wall;
-            case SimObject::Agent: return consts::physics::objectIndex::agent;
-            case SimObject::Plane: return consts::physics::objectIndex::plane;
-            default: FATAL("Object type has no physics");
-        }
+        return static_cast<CountT>(obj_id);
     };
 
-    // [BOILERPLATE]
+    // Helper lambda to setup hull-based collision objects
     auto setupHull = [&](SimObject obj_id,
-                         float inv_mass,
-                         RigidBodyFrictionData friction) {
+                        float inv_mass,
+                        RigidBodyFrictionData friction) {
         auto meshes = imported_src_hulls->objects[(CountT)obj_id].meshes;
         DynArray<SourceCollisionPrimitive> prims(meshes.size());
 
@@ -404,37 +405,31 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
             .friction = friction,
         };
     };
-
-    // [GAME_SPECIFIC] Configure physics for each object type
-    setupHull(SimObject::Cube, consts::physics::cubeInverseMass, {    // Pushable with ~13kg mass
-        .muS = consts::physics::cubeStaticFriction,
-        .muD = consts::physics::cubeDynamicFriction,
-    });
-
-    setupHull(SimObject::Wall, consts::physics::wallInverseMass, {       // Static (infinite mass)
-        .muS = consts::physics::standardStaticFriction,
-        .muD = consts::physics::standardDynamicFriction,
-    });
-
-
-    setupHull(SimObject::Agent, consts::physics::agentInverseMass, {      // Unit mass for direct control
-        .muS = consts::physics::standardStaticFriction,
-        .muD = consts::physics::standardDynamicFriction,
-    });
-
-    SourceCollisionPrimitive plane_prim {
-        .type = CollisionPrimitive::Type::Plane,
-        .plane = {},
-    };
-
-    src_objs[getPhysicsIdx(SimObject::Plane)] = {
-        .prims = Span<const SourceCollisionPrimitive>(&plane_prim, 1),
-        .invMass = consts::physics::planeInverseMass,
-        .friction = {
-            .muS = consts::physics::standardStaticFriction,
-            .muD = consts::physics::standardDynamicFriction,
-        },
-    };
+    
+    // Process file-based assets using descriptors
+    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
+        const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
+        if (desc.type == madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH) {
+            setupHull(desc.objectId, desc.inverseMass, desc.friction);
+        }
+    }
+    
+    // Process built-in assets (plane)
+    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
+        const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
+        if (desc.type == madrona::escape_room::PhysicsAssetDescriptor::BUILTIN_PLANE) {
+            static SourceCollisionPrimitive plane_prim {
+                .type = CollisionPrimitive::Type::Plane,
+                .plane = {},
+            };
+            
+            src_objs[getPhysicsIdx(desc.objectId)] = {
+                .prims = Span<const SourceCollisionPrimitive>(&plane_prim, 1),
+                .invMass = desc.inverseMass,
+                .friction = desc.friction,
+            };
+        }
+    }
 
 
     // [BOILERPLATE] process the rigid body assets
@@ -453,13 +448,17 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         FATAL("Invalid collision hull input");
     }
 
-    // [GAME_SPECIFIC] Constrain agent rotation to Z-axis only
-    // This prevents agents from tipping over and ensures controllability
-    // Setting inverse inertia to 0 makes rotation impossible around that axis
-    rigid_body_assets.metadatas[
-        getPhysicsIdx(SimObject::Agent)].mass.invInertiaTensor.x = 0.f;
-    rigid_body_assets.metadatas[
-        getPhysicsIdx(SimObject::Agent)].mass.invInertiaTensor.y = 0.f;
+    // Apply rotation constraints
+    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
+        const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
+        if (desc.constrainRotationXY) {
+            // Setting inverse inertia to 0 makes rotation impossible around that axis
+            rigid_body_assets.metadatas[
+                getPhysicsIdx(desc.objectId)].mass.invInertiaTensor.x = 0.f;
+            rigid_body_assets.metadatas[
+                getPhysicsIdx(desc.objectId)].mass.invInertiaTensor.y = 0.f;
+        }
+    }
 
     // [BOILERPLATE]
     loader.loadRigidBodies(rigid_body_assets);
@@ -677,7 +676,7 @@ void Manager::step()
         
         // Calculate total size needed: num_worlds * 3 actions per world
         uint32_t num_worlds = impl_->cfg.numWorlds;
-        uint32_t total_actions = num_worlds * consts::numActionComponents;
+        uint32_t total_actions = num_worlds * madEscape::consts::numActionComponents;
         frame_actions.resize(total_actions);
         
         // Handle GPU vs CPU memory access
@@ -719,7 +718,7 @@ void Manager::step()
         auto progress = progressTensor();
         
         // Calculate index for the specific agent
-        int32_t idx = impl_->trackWorldIdx * consts::numAgents + impl_->trackAgentIdx;
+        int32_t idx = impl_->trackWorldIdx * madEscape::consts::numAgents + impl_->trackAgentIdx;
         
         // Get data pointers based on execution mode
         const SelfObservation* obs_data;
@@ -758,7 +757,7 @@ void Manager::step()
                 obs_data->globalX,
                 obs_data->globalY,
                 obs_data->globalZ,
-                obs_data->theta * consts::math::degreesInHalfCircle / M_PI,
+                obs_data->theta * madEscape::consts::math::degreesInHalfCircle / M_PI,
                 *progress_data);
         fflush(output);  // Ensure output is written immediately
     }
@@ -791,7 +790,7 @@ Tensor Manager::actionTensor() const
     return impl_->exportTensor(ExportID::Action, TensorElementType::Int32,
         {
             impl_->cfg.numWorlds,
-            consts::numActionComponents,
+            madEscape::consts::numActionComponents,
         });
 }
 
@@ -801,7 +800,7 @@ Tensor Manager::rewardTensor() const
     return impl_->exportTensor(ExportID::Reward, TensorElementType::Float32,
                                {
                                    impl_->cfg.numWorlds,
-                                   consts::numAgents,
+                                   madEscape::consts::numAgents,
                                    1,
                                });
 }
@@ -812,7 +811,7 @@ Tensor Manager::doneTensor() const
     return impl_->exportTensor(ExportID::Done, TensorElementType::Int32,
                                {
                                    impl_->cfg.numWorlds,
-                                   consts::numAgents,
+                                   madEscape::consts::numAgents,
                                    1,
                                });
 }
@@ -824,7 +823,7 @@ Tensor Manager::selfObservationTensor() const
                                TensorElementType::Float32,
                                {
                                    impl_->cfg.numWorlds,
-                                   consts::numAgents,
+                                   madEscape::consts::numAgents,
                                    SelfObservationFloatCount,
                                });
 }
@@ -840,7 +839,7 @@ Tensor Manager::stepsRemainingTensor() const
                                TensorElementType::Int32,
                                {
                                    impl_->cfg.numWorlds,
-                                   consts::numAgents,
+                                   madEscape::consts::numAgents,
                                    1,
                                });
 }
@@ -851,7 +850,7 @@ Tensor Manager::progressTensor() const
                                TensorElementType::Float32,
                                {
                                    impl_->cfg.numWorlds,
-                                   consts::numAgents,
+                                   madEscape::consts::numAgents,
                                    1,
                                });
 }
@@ -865,7 +864,7 @@ Tensor Manager::rgbTensor() const
     // [GAME_SPECIFIC] Return tensor with escape room view dimensions
     return Tensor((void*)rgb_ptr, TensorElementType::UInt8, {
         impl_->cfg.numWorlds,
-        consts::numAgents,
+        madEscape::consts::numAgents,
         impl_->cfg.batchRenderViewHeight,
         impl_->cfg.batchRenderViewWidth,
         4,
@@ -879,7 +878,7 @@ Tensor Manager::depthTensor() const
 
     return Tensor((void *)depth_ptr, TensorElementType::Float32, {
         impl_->cfg.numWorlds,
-        consts::numAgents,
+        madEscape::consts::numAgents,
         impl_->cfg.batchRenderViewHeight,
         impl_->cfg.batchRenderViewWidth,
         1,
@@ -942,9 +941,9 @@ void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std:
     }
     
     // Validate agent index
-    if (agent_idx < 0 || agent_idx >= consts::numAgents) {
+    if (agent_idx < 0 || agent_idx >= madEscape::consts::numAgents) {
         fprintf(stderr, "ERROR: Invalid agent_idx: %d. Must be between 0 and %ld\n", 
-                agent_idx, consts::numAgents - 1);
+                agent_idx, madEscape::consts::numAgents - 1);
         return;
     }
     
@@ -1201,7 +1200,7 @@ bool Manager::replayStep()
     const auto& metadata = impl_->replayData->metadata;
     
     for (uint32_t i = 0; i < metadata.num_worlds; i++) {
-        uint32_t base_idx = (impl_->currentReplayStep * metadata.num_worlds * consts::numActionComponents) + (i * consts::numActionComponents);
+        uint32_t base_idx = (impl_->currentReplayStep * metadata.num_worlds * madEscape::consts::numActionComponents) + (i * madEscape::consts::numActionComponents);
         
         int32_t move_amount = actions[base_idx];
         int32_t move_angle = actions[base_idx + 1];

@@ -28,6 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement learning environment built on the Madrona Engine. It implements a navigation environment where agents explore and try to maximize their forward progress through the world.
 
 **Tech Stack:**
+
 - C++ (core simulation using Entity Component System pattern)
 - Python (PyTorch-based PPO training)
 - CMake build system
@@ -37,17 +38,19 @@ This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement 
 Headless mode runs simulation without graphics for benchmarking, testing, or server deployment.
 
 ## to see the options run
+
 ```bash
 ./build/headless --help
 ```
 
 # Essential Commands
 
-###  Building the project
+### Building the project
+
 use the project-builder subagent to build the project
 
-
 ### Running the Simulation
+
 to visualize the simulation for the user, run the viewer, it will create a playable simulation that the user can use to interact eith the simulation
 read the viewer guide in [VIEWER_GUIDE.md](docs/tools/VIEWER_GUIDE.md) for commands on how to run the viewer
 
@@ -81,7 +84,7 @@ IMPORTANT: NEVER use sys.path.insert(..) ALWAYS place modules in the correct loc
 
 # Testing
 
-###  Unit tests
+### Unit tests
 
 This project uses pytest for python tests and GoogleTest for C++ tests
 The pytests are documented in [TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)
@@ -94,7 +97,7 @@ c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/CPP_TES
 
 ### Rules when fixing CPP tests
 
-**IMPORTANT**:  After you make code changes, you must call the build agent to build the project!
+**IMPORTANT**:  After you make c++ code changes, **you must call the build agent**to build the project!
 
 ### Debugging using GDB
 
@@ -119,14 +122,18 @@ When creating a python file that we don't want to keep in the repo, but just wan
 The codebase uses a three-tier classification system to help developers understand what needs to be modified:
 
 ### [BOILERPLATE]
+
 Pure Madrona framework code that should never be changed. This includes:
+
 - CPU/GPU execution infrastructure
 - Memory management systems
 - Rendering pipeline setup
 - Base class structures
 
 ### [REQUIRED_INTERFACE]
+
 Methods and structures that every Madrona environment must implement:
+
 - `loadPhysicsObjects()` - Load collision meshes and configure physics
 - `loadRenderObjects()` - Load visual assets and materials
 - `triggerReset()` - Reset episode state (for episodic environments)
@@ -135,7 +142,9 @@ Methods and structures that every Madrona environment must implement:
 - Reset and action buffers - Required for episodic RL
 
 ### [GAME_SPECIFIC]
+
 Implementation details unique to this escape room game:
+
 - Action structure fields (moveAmount, moveAngle, rotate, grab)
 - Observation tensor types and shapes
 - Object types and their physics properties
@@ -143,6 +152,7 @@ Implementation details unique to this escape room game:
 - Game constants (see Game-Specific Constants section below)
 
 When creating a new environment:
+
 1. Keep all `[BOILERPLATE]` code unchanged
 2. Implement all `[REQUIRED_INTERFACE]` methods with your game's logic
 3. Replace all `[GAME_SPECIFIC]` code with your game's details
