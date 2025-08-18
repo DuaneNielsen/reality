@@ -176,6 +176,10 @@ If you need to make modifications to the ECS system, read the documentation in [
 - **viewer_core.hpp**: Header for viewer state machine and core functionality
 - **viewer_orig.cpp**: Original viewer implementation (legacy)
 
+## Scripts (./scripts/)
+
+- **run-clangd-tidy.sh**: Fast static analysis and magic number detection
+
 ## Python Package Files (./madrona_escape_room/madrona_escape_room/)
 
 - **__init__.py**: Main Python package entry point with SimManager class and ctypes bindings

@@ -87,8 +87,8 @@ void createPersistentEntities(Engine &ctx)
         if (ctx.data().enableRender) {
             render::RenderingSystem::attachEntityToView(ctx,
                     agent,
-                    100.f, 0.001f,
-                    1.5f * math::up);
+                    consts::rendering::cameraDistance, consts::rendering::cameraOffsetZ,
+                    consts::rendering::agentHeightMultiplier * math::up);
         }
 
         ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };

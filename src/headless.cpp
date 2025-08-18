@@ -18,11 +18,11 @@ using namespace madrona;
     int32_t total_num_steps,
     int32_t world_idx)
 {
-    const int32_t *world_base = action_store.data() + world_idx * total_num_steps * 3;
+    const int32_t *world_base = action_store.data() + world_idx * total_num_steps * madEscape::consts::numActionComponents;
 
     std::ofstream f("/tmp/actions", std::ios::binary);
     f.write((char *)world_base,
-            sizeof(uint32_t) * total_num_steps * 3);
+            sizeof(uint32_t) * total_num_steps * madEscape::consts::numActionComponents);
 }
 
 namespace ArgChecker {
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
     
     // Optional parameters
     bool rand_actions = options[RAND_ACTIONS];
-    uint32_t rand_seed = options[SEED] ? strtoul(options[SEED].arg, nullptr, 10) : 5;
+    uint32_t rand_seed = options[SEED] ? strtoul(options[SEED].arg, nullptr, 10) : madEscape::consts::fileFormat::defaultSeed;
     std::string track_file = options[TRACK_FILE] ? options[TRACK_FILE].arg : "";
     
     // Parse tracking options
@@ -254,7 +254,7 @@ int main(int argc, char *argv[])
     }
     
     // Only needed for random actions now
-    HeapArray<int32_t> action_store(rand_actions ? (num_worlds * num_steps * 3) : 0);
+    HeapArray<int32_t> action_store(rand_actions ? (num_worlds * num_steps * madEscape::consts::numActionComponents) : 0);
 
     // Load level based on three-flag interface
     CompiledLevel loaded_level = {};
@@ -329,15 +329,15 @@ int main(int argc, char *argv[])
 
     if (rand_actions || replay_mode) {
         std::mt19937 rand_gen(rand_seed);
-        std::uniform_int_distribution<int32_t> move_amount_dist(0, 3);
-        std::uniform_int_distribution<int32_t> move_angle_dist(0, 7);
+        std::uniform_int_distribution<int32_t> move_amount_dist(0, madEscape::consts::maxMoveAmountValue);
+        std::uniform_int_distribution<int32_t> move_angle_dist(0, madEscape::consts::maxMoveAngleValue);
         std::uniform_int_distribution<int32_t> turn_dist(0, 4);
 
         if (rand_actions) {
             // Generate random actions
             for (uint64_t i = 0; i < num_steps; i++) {
                 for (uint64_t j = 0; j < num_worlds; j++) {
-                    uint64_t base_idx = 3 * (i * num_worlds + j);
+                    uint64_t base_idx = madEscape::consts::numActionComponents * (i * num_worlds + j);
                     action_store[base_idx] = move_amount_dist(rand_gen);
                     action_store[base_idx + 1] = move_angle_dist(rand_gen);
                     action_store[base_idx + 2] = turn_dist(rand_gen);
@@ -375,7 +375,7 @@ int main(int argc, char *argv[])
         } else if (rand_actions) {
             // Set random actions
             for (uint64_t j = 0; j < num_worlds; j++) {
-                uint64_t base_idx = 3 * (i * num_worlds + j);
+                uint64_t base_idx = madEscape::consts::numActionComponents * (i * num_worlds + j);
                 mgr.setAction(j,
                               action_store[base_idx],
                               action_store[base_idx + 1],

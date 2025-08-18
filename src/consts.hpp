@@ -37,6 +37,11 @@ inline constexpr madrona::CountT numTurnBuckets = 5;
 // Number of action components per agent
 inline constexpr madrona::CountT numActionComponents = 3;
 
+// Action bucket max values (for random generation)
+inline constexpr int32_t maxMoveAmountValue = numMoveAmountBuckets - 1;  // 3
+inline constexpr int32_t maxMoveAngleValue = numMoveAngleBuckets - 1;    // 7
+inline constexpr int32_t maxTurnValue = numTurnBuckets - 1;              // 4
+
 // Action value constants for better code readability and Python bindings
 namespace action {
     // Movement amount values (0-3)
@@ -136,6 +141,11 @@ namespace rendering {
         // White colors
         inline constexpr float white = 1.0f;
     }
+    
+    // Camera positioning for agents
+    inline constexpr float cameraDistance = 100.f;
+    inline constexpr float cameraOffsetZ = 0.001f;
+    inline constexpr float agentHeightMultiplier = 1.5f;
 }
 
 // Display and UI constants
@@ -178,6 +188,7 @@ namespace fileFormat {
     // Default values
     inline constexpr int32_t defaultSeed = 5;
 }
+
 
 // Math constants
 namespace math {

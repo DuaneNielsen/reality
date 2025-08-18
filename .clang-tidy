@@ -15,6 +15,7 @@ Checks: >
   bugprone-use-after-move,
   readability-container-size-empty,
   readability-delete-null-pointer,
+  readability-magic-numbers,
   readability-misleading-indentation,
   readability-redundant-member-init,
   readability-simplify-boolean-expr,
@@ -30,6 +31,10 @@ CheckOptions:
     value: 25
   - key: cppcoreguidelines-avoid-do-while.IgnoreMacros
     value: true
+  - key: readability-magic-numbers.IgnoredIntegerValues
+    value: '0;1;2;4;8;10;16;32;255'
+  - key: readability-magic-numbers.IgnoredFloatingPointValues
+    value: '0.0;1.0'
 
 HeaderFilterRegex: '^(src|include)/.*\.(h|hpp)$'
 WarningsAsErrors: ''
