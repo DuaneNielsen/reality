@@ -670,6 +670,8 @@ Manager::~Manager() {}
 // [BOILERPLATE] Execute one simulation step - standard Madrona pattern
 void Manager::step()
 {
+    static uint32_t step_counter = 0;
+    step_counter++;
     // Record actions if recording is active
     if (impl_->isRecordingActive) {
         // Get current actions from the action tensor
@@ -1010,17 +1012,6 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
         return;
     }
     
-    // Prepare metadata
-    impl_->recordingMetadata = madrona::escape_room::ReplayMetadata::createDefault();
-    impl_->recordingMetadata.num_worlds = impl_->cfg.numWorlds;
-    impl_->recordingMetadata.num_agents_per_world = 1; // Single agent per world
-    impl_->recordingMetadata.seed = seed;
-    impl_->recordingMetadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-    
-    // Write metadata header (will update num_steps when closing)
-    impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
-                              sizeof(impl_->recordingMetadata));
-    
     // Always embed compiled level data after metadata
     // Format: [ReplayMetadata] [CompiledLevel] [ActionFrames...]
     // Use first valid per-world level for embedding
@@ -1037,6 +1028,19 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
         std::cerr << "ERROR: Cannot start recording - no compiled level available\n";
         return;
     }
+    
+    // Prepare metadata
+    impl_->recordingMetadata = madrona::escape_room::ReplayMetadata::createDefault();
+    impl_->recordingMetadata.num_worlds = impl_->cfg.numWorlds;
+    impl_->recordingMetadata.num_agents_per_world = 1; // Single agent per world
+    impl_->recordingMetadata.seed = seed;
+    impl_->recordingMetadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+    // Copy level name from the CompiledLevel to the ReplayMetadata
+    std::strcpy(impl_->recordingMetadata.level_name, levelToEmbed.level_name);
+    
+    // Write metadata header (will update num_steps when closing)
+    impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
+                              sizeof(impl_->recordingMetadata));
     
     // Write compiled level data
     impl_->recordingFile.write(reinterpret_cast<const char*>(&levelToEmbed), 
@@ -1088,9 +1092,7 @@ void Manager::recordActions(const std::vector<int32_t>& frame_actions)
                               frame_actions.size() * sizeof(int32_t));
     impl_->recordedFrames++;
     
-    if (impl_->recordedFrames % consts::performance::frameLoggingInterval == 0) {
-        printf("Recorded %u frames...\n", impl_->recordedFrames);
-    }
+    // Tracking frame count without logging
 }
 
 // Replay functionality

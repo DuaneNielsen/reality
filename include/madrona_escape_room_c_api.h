@@ -81,6 +81,7 @@ typedef struct {
     int32_t width;             // Grid width
     int32_t height;            // Grid height
     float scale;               // World scale factor
+    char level_name[64];       // Level name for identification (MAX_LEVEL_NAME_LENGTH)
     
     // Spawn data
     int32_t num_spawns;        // Number of spawn points

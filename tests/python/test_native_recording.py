@@ -189,7 +189,7 @@ def test_recording_file_format(cpu_manager):
             # File should have some content
             assert len(file_data) > 0
 
-            # Version 2 ReplayMetadata structure (136 bytes total):
+            # Version 2 ReplayMetadata structure (192 bytes total):
             # - magic number (4 bytes)
             # - version (4 bytes)
             # - sim_name (64 bytes)
@@ -200,8 +200,8 @@ def test_recording_file_format(cpu_manager):
             # - actions_per_step (4 bytes)
             # - timestamp (8 bytes)
             # - seed (4 bytes)
-            # - reserved (28 bytes) - reduced by 4 bytes for level_name
-            metadata_size = 136  # Correct size for version 2
+            # - reserved (28 bytes) - 7 * 4 bytes
+            metadata_size = 192  # Correct size for version 2
 
             if len(file_data) >= metadata_size:
                 # Read all 14 fields (vs previous 9 fields) from the loaded data
@@ -451,10 +451,10 @@ def test_current_format_specification_compliance(cpu_manager):
             assert level_name_null_pos >= 0, "level_name must be null-terminated"
 
             # Ensure proper padding - check remaining fields
-            remaining_fields = f.read(40)  # 4+4+4+4+8+4+28 = 56 bytes remaining in metadata
+            remaining_fields = f.read(56)  # 4+4+4+4+8+4+28 = 56 bytes remaining in metadata
             assert (
-                len(remaining_fields) == 40
-            ), f"Expected 40 bytes for remaining fields, got {len(remaining_fields)}"
+                len(remaining_fields) == 56
+            ), f"Expected 56 bytes for remaining fields, got {len(remaining_fields)}"
 
             print("✓ Magic number and version validation passed")
             print("✓ String field layout and null-termination validated")
@@ -564,10 +564,10 @@ def test_field_alignment_and_padding(cpu_manager):
             print("=== Field Alignment and Padding Validation ===")
 
             # Read complete metadata and verify field boundaries
-            complete_metadata = f.read(136)
+            complete_metadata = f.read(192)
             assert (
-                len(complete_metadata) == 136
-            ), f"Expected 136 bytes, got {len(complete_metadata)}"
+                len(complete_metadata) == 192
+            ), f"Expected 192 bytes, got {len(complete_metadata)}"
 
             # Parse each field at correct offset
             offset = 0
@@ -590,11 +590,42 @@ def test_field_alignment_and_padding(cpu_manager):
             level_name = level_name_bytes.decode("ascii").rstrip("\x00")
             offset += 64
 
+            # Continue parsing remaining fields to reach offset 192
+            # num_worlds (4 bytes)
+            num_worlds = struct.unpack("<I", complete_metadata[offset : offset + 4])[0]
+            offset += 4
+
+            # num_agents_per_world (4 bytes)
+            _num_agents = struct.unpack("<I", complete_metadata[offset : offset + 4])[0]
+            offset += 4
+
+            # num_steps (4 bytes)
+            _num_steps = struct.unpack("<I", complete_metadata[offset : offset + 4])[0]
+            offset += 4
+
+            # actions_per_step (4 bytes)
+            _actions_per_step = struct.unpack("<I", complete_metadata[offset : offset + 4])[0]
+            offset += 4
+
+            # timestamp (8 bytes)
+            timestamp = struct.unpack("<Q", complete_metadata[offset : offset + 8])[0]
+            offset += 8
+
+            # seed (4 bytes)
+            _seed = struct.unpack("<I", complete_metadata[offset : offset + 4])[0]
+            offset += 4
+
+            # reserved (28 bytes)
+            _reserved = complete_metadata[offset : offset + 28]
+            offset += 28
+
             print("Field offsets verified:")
             print(f"  Magic at 0: 0x{magic:08x}")
             print(f"  Version at 4: {version}")
             print(f"  Sim name at 8: '{sim_name}' ({len(sim_name_bytes)} bytes)")
             print(f"  Level name at 72: '{level_name}' ({len(level_name_bytes)} bytes)")
+            print(f"  Num worlds at 136: {num_worlds}")
+            print(f"  Timestamp at 152: {timestamp}")
             print(f"  Next field at: {offset}")
 
             # Validate field values
@@ -602,7 +633,7 @@ def test_field_alignment_and_padding(cpu_manager):
             assert version == 2, "Version field misaligned or corrupted"
             assert sim_name == "madrona_escape_room", "sim_name field misaligned or corrupted"
             assert level_name, "level_name field misaligned or corrupted"
-            assert offset == 136, f"Field alignment error: should be at offset 136, got {offset}"
+            assert offset == 192, f"Field alignment error: should be at offset 192, got {offset}"
 
             # Check string field padding
             for i in range(len(sim_name), 64):

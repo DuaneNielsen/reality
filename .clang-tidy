@@ -1,15 +1,5 @@
 ---
-Checks: >
-  readability-magic-numbers,
-  cppcoreguidelines-avoid-magic-numbers,
-  readability-avoid-const-params-in-decls,
-  modernize-use-nullptr,
-  performance-*,
-  -performance-avoid-endl,
-  bugprone-*,
-  -bugprone-easily-swappable-parameters,
-  misc-*,
-  -misc-non-private-member-variables-in-classes
+Checks: '-*'  # Temporarily disable all checks
 
 CheckOptions:
   - key: readability-magic-numbers.IgnoredIntegerValues

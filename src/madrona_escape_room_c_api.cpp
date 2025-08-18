@@ -66,6 +66,13 @@ MER_Result mer_create_manager(
     
     *out_handle = nullptr;
     
+    // Verify struct layout matches between C API and C++ at compile time
+    using namespace madEscape;
+    static_assert(sizeof(MER_CompiledLevel) == sizeof(CompiledLevel), 
+                  "MER_CompiledLevel and CompiledLevel sizes must match");
+    static_assert(offsetof(MER_CompiledLevel, max_entities) == offsetof(CompiledLevel, max_entities),
+                  "max_entities field offset mismatch between C API and C++");
+    
     // Convert array of C compiled levels to C++ vector (if provided)
     std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;
     if (compiled_levels != nullptr && num_compiled_levels > 0) {
@@ -85,6 +92,10 @@ MER_Result mer_create_manager(
             cpp_level.width = c_level->width;
             cpp_level.height = c_level->height;
             cpp_level.scale = c_level->scale;
+            // Copy level name (ensure null termination)
+            std::strncpy(cpp_level.level_name, c_level->level_name, 
+                        CompiledLevel::MAX_LEVEL_NAME_LENGTH - 1);
+            cpp_level.level_name[CompiledLevel::MAX_LEVEL_NAME_LENGTH - 1] = '\0';
             
             // Copy spawn data
             cpp_level.num_spawns = c_level->num_spawns;

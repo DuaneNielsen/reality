@@ -33,7 +33,7 @@ def test_replay_metadata_complete_structure(cpu_manager):
 
         mgr.stop_recording()
 
-        # Read and validate complete ReplayMetadata structure (136 bytes for version 2)
+        # Read and validate complete ReplayMetadata structure (192 bytes for version 2)
         with open(recording_path, "rb") as f:
             # Read complete ReplayMetadata structure
             # Based on replay_metadata.hpp version 2 format:
@@ -124,8 +124,8 @@ def test_compiled_level_structure_validation(cpu_manager):
 
         # Read file structure
         with open(recording_path, "rb") as f:
-            # Skip ReplayMetadata (136 bytes for version 2)
-            f.seek(136)
+            # Skip ReplayMetadata (192 bytes for version 2)
+            f.seek(192)
 
             level_start = f.tell()
             print(f"=== CompiledLevel at offset {level_start} ===")
@@ -233,8 +233,8 @@ def test_action_data_verification_step_by_step(cpu_manager):
 
         # Read and validate action data
         with open(recording_path, "rb") as f:
-            # Skip ReplayMetadata (136 bytes) and CompiledLevel
-            f.seek(136)
+            # Skip ReplayMetadata (192 bytes) and CompiledLevel
+            f.seek(192)
 
             # Determine CompiledLevel size by reading to find actions
             # For now, use a known offset or seek to end to calculate
@@ -325,7 +325,7 @@ def test_format_specification_compliance(cpu_manager):
             print(f"Total file size: {len(file_data)} bytes")
 
             # Validate minimum file size
-            min_expected_size = 136  # ReplayMetadata for version 2
+            min_expected_size = 192  # ReplayMetadata for version 2
             assert (
                 len(file_data) >= min_expected_size
             ), f"File too small: {len(file_data)} < {min_expected_size}"
@@ -447,9 +447,9 @@ def test_error_condition_handling(cpu_manager):
         with open(truncated_path, "rb") as f:
             data = f.read()
             assert len(data) == 50, f"Expected 50 bytes, got {len(data)}"
-            assert len(data) < 136, "Should be less than full metadata size"
+            assert len(data) < 192, "Should be less than full metadata size"
 
-        print("✓ Truncated file handling verified (50 bytes vs expected 136+ bytes)")
+        print("✓ Truncated file handling verified (50 bytes vs expected 192+ bytes)")
 
     finally:
         for path in [full_path, truncated_path]:
@@ -489,7 +489,7 @@ def test_file_boundary_validation(cpu_manager):
             print(f"Total file size: {file_size} bytes")
 
             # Read metadata
-            metadata_end = 136  # ReplayMetadata size for version 2
+            metadata_end = 192  # ReplayMetadata size for version 2
             f.seek(metadata_end)
 
             print(f"ReplayMetadata ends at: {metadata_end}")
