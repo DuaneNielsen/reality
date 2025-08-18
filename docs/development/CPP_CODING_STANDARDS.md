@@ -5,6 +5,33 @@
 - **NO STL IN GPU CODE** - NVRTC cannot compile STL headers
 - **ECS ONLY** - All simulation code must use Entity Component System
 
+## GPU vs CPU Code Split
+
+### NVRTC-Compiled (GPU) Files
+Files in `SIMULATOR_SRCS` are compiled by NVRTC for GPU execution:
+- `sim.cpp`, `sim.hpp`, `sim.inl` - Core ECS simulation
+- `level_gen.cpp`, `level_gen.hpp` - Level generation
+- `types.hpp` - ECS component definitions
+
+**Restrictions**: No STL, exceptions, or RTTI. Use Madrona containers only.
+
+### Regular C++ Files  
+Manager and host code compiled normally:
+- `mgr.cpp`, `mgr.hpp` - Manager layer (CPU-only)
+- `viewer.cpp`, `headless.cpp` - Host applications
+- `madrona_escape_room_c_api.cpp` - C API wrapper
+
+**Allowed**: STL, standard C++ features (but still no exceptions/RTTI per project settings)
+
+### How to Check
+```bash
+# Files compiled by NVRTC
+grep -A 10 "SIMULATOR_SRCS" src/CMakeLists.txt
+
+# GPU code markers
+grep "__device__\|__global__\|__host__" src/filename.cpp
+```
+
 ## Madrona-Specific Requirements
 
 ### STL Replacement Rules (All Code)

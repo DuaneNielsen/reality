@@ -4,6 +4,9 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/external/madrona/cmake/madrona_init.cmake")
 
 project(Madrona3DExample LANGUAGES C CXX)
 
+# Enable compile_commands.json for language servers
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 include(setup)
 include(dependencies)
 
