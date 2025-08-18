@@ -79,7 +79,9 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(./mad_escape_tests:*)",
       "Bash(export ALLOW_GPU_TESTS_IN_SUITE=1)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "mcp__madrona_repl__execute_python",
+      "Bash(./tests/run_cpp_tests.sh:*)"
     ],
     "deny": []
   },

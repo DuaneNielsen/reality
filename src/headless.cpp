@@ -30,7 +30,7 @@ using namespace madrona;
 namespace ArgChecker {
     static option::ArgStatus Required(const option::Option& option, bool msg)
     {
-        if (option.arg != 0)
+        if (option.arg != nullptr)
             return option::ARG_OK;
         
         if (msg) std::cerr << "Option '" << option.name << "' requires an argument\n";
@@ -39,9 +39,9 @@ namespace ArgChecker {
     
     static option::ArgStatus Numeric(const option::Option& option, bool msg)
     {
-        char* endptr = 0;
-        if (option.arg != 0 && strtol(option.arg, &endptr, 10)){};
-        if (endptr != option.arg && *endptr == 0)
+        char* endptr = nullptr;
+        if (option.arg != nullptr && strtol(option.arg, &endptr, 10)){};
+        if (endptr != option.arg && *endptr == '\0')
             return option::ARG_OK;
         
         if (msg) std::cerr << "Option '" << option.name << "' requires a numeric argument\n";

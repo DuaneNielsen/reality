@@ -18,7 +18,7 @@ int main() {
     
     MER_ManagerHandle handle = nullptr;
     printf("Creating CPU manager...\n");
-    MER_Result result = mer_create_manager(&handle, &config, NULL, 0);  // Use default levels
+    MER_Result result = mer_create_manager(&handle, &config, nullptr, 0);  // Use default levels
     
     if (result != MER_SUCCESS) {
         fprintf(stderr, "Failed to create CPU manager: %s\n", mer_result_to_string(result));

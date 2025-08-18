@@ -24,7 +24,7 @@ using namespace madrona::viz;
 namespace ArgChecker {
     static option::ArgStatus Required(const option::Option& option, bool msg)
     {
-        if (option.arg != 0)
+        if (option.arg != nullptr)
             return option::ARG_OK;
         
         if (msg) std::cerr << "Option '" << option.name << "' requires an argument\n";
@@ -33,9 +33,9 @@ namespace ArgChecker {
     
     static option::ArgStatus Numeric(const option::Option& option, bool msg)
     {
-        char* endptr = 0;
-        if (option.arg != 0 && strtol(option.arg, &endptr, 10)){};
-        if (endptr != option.arg && *endptr == 0)
+        char* endptr = nullptr;
+        if (option.arg != nullptr && strtol(option.arg, &endptr, 10)){};
+        if (endptr != option.arg && *endptr == '\0')
             return option::ARG_OK;
         
         if (msg) std::cerr << "Option '" << option.name << "' requires a numeric argument\n";
@@ -64,7 +64,7 @@ const option::Descriptor usage[] = {
     {TRACK_FILE, 0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file"},
     {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed <value>, -s <value>  \tSet random seed (default: 5)"},
     {HIDE_MENU, 0, "", "hide-menu", option::Arg::None, "  --hide-menu  \tHide ImGui menu (useful for clean screenshots)"},
-    {0,0,0,0,0,0}
+    {UNKNOWN, 0, "", "", nullptr, nullptr}
 };
 
 int main(int argc, char *argv[])
