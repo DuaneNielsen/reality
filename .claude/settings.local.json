@@ -81,7 +81,8 @@
       "Bash(export ALLOW_GPU_TESTS_IN_SUITE=1)",
       "Bash(cp:*)",
       "mcp__madrona_repl__execute_python",
-      "Bash(./tests/run_cpp_tests.sh:*)"
+      "Bash(./tests/run_cpp_tests.sh:*)",
+      "Bash(./scripts/run-clang-tidy.sh:*)"
     ],
     "deny": []
   },

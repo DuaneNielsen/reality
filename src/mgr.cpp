@@ -1036,7 +1036,8 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
     impl_->recordingMetadata.seed = seed;
     impl_->recordingMetadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
     // Copy level name from the CompiledLevel to the ReplayMetadata
-    std::strcpy(impl_->recordingMetadata.level_name, levelToEmbed.level_name);
+    std::strncpy(impl_->recordingMetadata.level_name, levelToEmbed.level_name, sizeof(impl_->recordingMetadata.level_name) - 1);
+    impl_->recordingMetadata.level_name[sizeof(impl_->recordingMetadata.level_name) - 1] = '\0';
     
     // Write metadata header (will update num_steps when closing)
     impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 

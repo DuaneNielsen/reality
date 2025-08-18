@@ -37,8 +37,10 @@ struct ReplayMetadata {
         ReplayMetadata meta;
         meta.magic = REPLAY_MAGIC;
         meta.version = REPLAY_VERSION;
-        std::strcpy(meta.sim_name, "madrona_escape_room");
-        std::strcpy(meta.level_name, "unknown_level");
+        std::strncpy(meta.sim_name, "madrona_escape_room", sizeof(meta.sim_name) - 1);
+        meta.sim_name[sizeof(meta.sim_name) - 1] = '\0';
+        std::strncpy(meta.level_name, "unknown_level", sizeof(meta.level_name) - 1);
+        meta.level_name[sizeof(meta.level_name) - 1] = '\0';
         meta.num_worlds = 1;
         meta.num_agents_per_world = 1;
         meta.num_steps = 0;

@@ -71,7 +71,7 @@ const option::Descriptor usage[] = {
     {TRACK_WORLD,  0, "", "track-world", ArgChecker::Numeric, "  --track-world <n>  \tSpecify world to track (default: 0)"},
     {TRACK_AGENT,  0, "", "track-agent", ArgChecker::Numeric, "  --track-agent <n>  \tSpecify agent to track (default: 0)"},
     {TRACK_FILE,   0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file"},
-    {0,0,0,0,0,0}
+    {UNKNOWN, 0, "", "", nullptr, nullptr}
 };
 
 int main(int argc, char *argv[])
