@@ -8,15 +8,15 @@ using namespace madrona::phys;
 
 // Door-related constants removed - no longer needed
 
-static inline float randInRangeCentered(Engine &ctx, float range)
-{
-    return ctx.data().rng.sampleUniform() * range - range / 2.f;
-}
+// static inline float randInRangeCentered(Engine &ctx, float range)
+// {
+//     return ctx.data().rng.sampleUniform() * range - range / 2.f;
+// }
 
-static inline float randBetween(Engine &ctx, float min, float max)
-{
-    return ctx.data().rng.sampleUniform() * (max - min) + min;
-}
+// static inline float randBetween(Engine &ctx, float min, float max)
+// {
+//     return ctx.data().rng.sampleUniform() * (max - min) + min;
+// }
 
 // Initialize the basic components needed for physics rigid body entities
 static inline void setupRigidBodyEntity(
@@ -272,36 +272,36 @@ static CountT makeCubeObstacleRoom(Engine &ctx,
 
 
 // Create cube obstacles for the room
-static void makeRoom(Engine &ctx,
-                     LevelState &level,
-                     CountT room_idx)
-{
-    Room &room = level.rooms[room_idx];
-
-    float room_y_min = room_idx * consts::worldLength;
-    float room_y_max = (room_idx + 1) * consts::worldLength;
-
-    // Always create a cube obstacle room
-    CountT num_room_entities = makeCubeObstacleRoom(ctx, room, room_y_min, room_y_max);
-
-    // Need to set any extra entities to type none so random uninitialized data
-    // from prior episodes isn't exported to pytorch as agent observations.
-    for (CountT i = num_room_entities; i < CompiledLevel::MAX_TILES; i++) {
-        room.entities[i] = Entity::none();
-    }
-}
+// static void makeRoom(Engine &ctx,
+//                      LevelState &level,
+//                      CountT room_idx)
+// {
+//     Room &room = level.rooms[room_idx];
+//
+//     float room_y_min = room_idx * consts::worldLength;
+//     float room_y_max = (room_idx + 1) * consts::worldLength;
+//
+//     // Always create a cube obstacle room
+//     CountT num_room_entities = makeCubeObstacleRoom(ctx, room, room_y_min, room_y_max);
+//
+//     // Need to set any extra entities to type none so random uninitialized data
+//     // from prior episodes isn't exported to pytorch as agent observations.
+//     for (CountT i = num_room_entities; i < CompiledLevel::MAX_TILES; i++) {
+//         room.entities[i] = Entity::none();
+//     }
+// }
 
 // REMOVED: Hardcoded room generation - now always use ASCII levels
 
 // Original level generation with cube obstacles
-static void generateDefaultLevel(Engine &ctx)
-{
-    LevelState &level = ctx.singleton<LevelState>();
-    // Generate single room with cube obstacles
-    makeRoom(ctx, level, 0);
-    
-    // NOTE: max_entities should be set by compiler, not by level generator
-}
+// static void generateDefaultLevel(Engine &ctx)
+// {
+//     LevelState &level = ctx.singleton<LevelState>();
+//     // Generate single room with cube obstacles
+//     makeRoom(ctx, level, 0);
+//     
+//     // NOTE: max_entities should be set by compiler, not by level generator
+// }
 
 // Phase 2: Generate level from compiled level data
 // Simple array iteration - GPU friendly

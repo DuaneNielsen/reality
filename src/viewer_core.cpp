@@ -252,7 +252,7 @@ void ViewerCore::computeActionsFromInput(int world_idx) {
     action_manager_.setAction(world_idx, move_amount, move_angle, r);
 }
 
-void ViewerCore::updateFrameActions(int world_idx, int agent_idx) {
+void ViewerCore::updateFrameActions(int world_idx, int /* agent_idx */) {
     // Compute actions from current input state
     computeActionsFromInput(world_idx);
 }

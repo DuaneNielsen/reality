@@ -670,8 +670,8 @@ Manager::~Manager() {}
 // [BOILERPLATE] Execute one simulation step - standard Madrona pattern
 void Manager::step()
 {
-    static uint32_t step_counter = 0;
-    step_counter++;
+    // static uint32_t step_counter = 0;
+    // step_counter++;
     // Record actions if recording is active
     if (impl_->isRecordingActive) {
         // Get current actions from the action tensor

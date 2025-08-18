@@ -190,9 +190,9 @@ int main(int argc, char *argv[])
     }
 
     // Validate three-flag interface
-    int mode_flag_count = 0;
-    if (!replay_path.empty()) mode_flag_count++;
-    if (!record_path.empty()) mode_flag_count++;
+    // int mode_flag_count = 0;
+    // if (!replay_path.empty()) mode_flag_count++;
+    // if (!record_path.empty()) mode_flag_count++;
     
     // --load can be combined with --record, but --replay is mutually exclusive
     if (!replay_path.empty() && !record_path.empty()) {
@@ -453,7 +453,7 @@ int main(int argc, char *argv[])
         using Key = Viewer::KeyboardKey;
 
         // Map key press/release events to ViewerCore
-        auto sendEvent = [&](Key key, ViewerCore::InputEvent::Key core_key, bool pressed) {
+        auto sendEvent = [&](Key /* key */, ViewerCore::InputEvent::Key core_key, bool pressed) {
             if (pressed) {
                 ViewerCore::InputEvent event{
                     ViewerCore::InputEvent::KeyPress,

@@ -190,10 +190,10 @@ inline void agentZeroVelSystem(Engine &,
 }
 
 // [GAME_SPECIFIC] Helper functions for observation normalization
-static inline float distObs(float v)
-{
-    return v / consts::worldLength;
-}
+// static inline float distObs(float v)
+// {
+//     return v / consts::worldLength;
+// }
 
 static inline float globalPosObs(float v)
 {
@@ -206,20 +206,20 @@ static inline float angleObs(float v)
 }
 
 // [GAME_SPECIFIC] Translate xy delta to polar observations for learning.
-static inline PolarObservation xyToPolar(Vector3 v)
-{
-    Vector2 xy { v.x, v.y };
-
-    float r = xy.length();
-
-    // Note that this is angle off y-forward
-    float theta = atan2f(xy.x, xy.y);
-
-    return PolarObservation {
-        .r = distObs(r),
-        .theta = angleObs(theta),
-    };
-}
+// static inline PolarObservation xyToPolar(Vector3 v)
+// {
+//     Vector2 xy { v.x, v.y };
+//
+//     float r = xy.length();
+//
+//     // Note that this is angle off y-forward
+//     float theta = atan2f(xy.x, xy.y);
+//
+//     return PolarObservation {
+//         .r = distObs(r),
+//         .theta = angleObs(theta),
+//     };
+// }
 
 // Removed encodeType - no longer needed without entity observations
 
@@ -233,7 +233,7 @@ static inline float computeZAngle(Quat q)
 // [REQUIRED_INTERFACE] This system packages all the egocentric observations together 
 // for the policy inputs. Every environment must implement observation collection.
 // [GAME_SPECIFIC] The specific observations collected and their format.
-inline void collectObservationsSystem(Engine &ctx,
+inline void collectObservationsSystem(Engine & /* ctx */,
                                       Position pos,
                                       Rotation rot,
                                       const Progress &progress,
