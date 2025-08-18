@@ -78,6 +78,117 @@ inline constexpr float deltaT = 0.04f;
 // Number of physics substeps
 inline constexpr madrona::CountT numPhysicsSubsteps = 4.f;
 
+// Physics constants
+namespace physics {
+    // Standard Earth gravity acceleration (m/s²)
+    inline constexpr float gravityAcceleration = 9.8f;
+}
+
+// Rendering and color constants  
+namespace rendering {
+    // Material properties
+    namespace material {
+        inline constexpr float defaultRoughness = 0.8f;
+        inline constexpr float defaultMetallic = 0.2f;
+        inline constexpr float agentBodyMetallic = 1.0f;
+        inline constexpr float floorAlpha = 0.0f;
+    }
+    
+    // RGB color values (0-255)
+    namespace colors {
+        // Brown (cube)
+        inline constexpr int32_t cubeRed = 191;
+        inline constexpr int32_t cubeGreen = 108;
+        inline constexpr int32_t cubeBlue = 10;
+        
+        // Light gray (agent parts)  
+        inline constexpr int32_t agentGray = 230;
+        
+        // Red (door/X-axis)
+        inline constexpr int32_t axisRed = 230;
+        inline constexpr int32_t redGreen = 20;
+        inline constexpr int32_t redBlue = 20;
+        
+        // Yellow (button)
+        inline constexpr int32_t yellowRed = 230;
+        inline constexpr int32_t yellowGreen = 230;
+        inline constexpr int32_t yellowBlue = 20;
+        
+        // Green (Y-axis)
+        inline constexpr int32_t greenRed = 20;
+        inline constexpr int32_t axisGreen = 230;
+        inline constexpr int32_t greenBlue = 20;
+        
+        // Blue (Z-axis)
+        inline constexpr int32_t blueRed = 20;
+        inline constexpr int32_t blueGreen = 20;
+        inline constexpr int32_t axisBlue = 230;
+    }
+    
+    // Normalized color values (0.0-1.0)
+    namespace normalizedColors {
+        // Gray colors
+        inline constexpr float wallGray = 0.4f;
+        inline constexpr float floorBrownRed = 0.5f;
+        inline constexpr float floorBrownGreen = 0.3f;
+        inline constexpr float floorBrownBlue = 0.3f;
+        
+        // White colors
+        inline constexpr float white = 1.0f;
+    }
+}
+
+// Display and UI constants
+namespace display {
+    // Default window resolution
+    inline constexpr int32_t defaultWindowWidth = 1920;
+    inline constexpr int32_t defaultWindowHeight = 1080;
+    
+    // Timing constants  
+    inline constexpr int32_t defaultSimTickRate = 20;
+    inline constexpr float defaultCameraDist = 10.0f;
+    inline constexpr float cameraRotationAngle = 30.0f;
+    inline constexpr float viewerRotationFactor = 0.4f;
+    
+    // UI spacing values
+    inline constexpr int32_t defaultSpacing = 5;
+    inline constexpr int32_t standardSpacing = 7;
+    inline constexpr int32_t largeSpacing = 10;
+}
+
+// Performance and buffer constants
+namespace performance {
+    // Buffer sizes
+    inline constexpr int32_t defaultBufferSize = 4096;
+    inline constexpr int32_t maxProgressEntries = 1000;
+    
+    // Logging intervals
+    inline constexpr int32_t frameLoggingInterval = 100;
+    
+    // Timing and limits
+    inline constexpr int32_t defaultDecimalPlaces = 10;
+}
+
+// File format constants
+namespace fileFormat {
+    // Magic number lengths for file headers
+    inline constexpr int32_t replayMagicLength = 7;
+    inline constexpr int32_t levelMagicLength = 5;
+    
+    // Default values
+    inline constexpr int32_t defaultSeed = 5;
+}
+
+// Math constants
+namespace math {
+    // Degrees to radians conversion
+    inline constexpr float degreesInHalfCircle = 180.0f;
+    
+    // Camera and view constants
+    inline constexpr float cameraFovYDegrees = 0.075f;
+    inline constexpr float cameraZNear = 0.75f;
+}
+
 }
 
 }

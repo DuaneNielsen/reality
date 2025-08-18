@@ -264,7 +264,7 @@ int main(int argc, char *argv[])
 #endif
 
     WindowManager wm {};
-    WindowHandle window = wm.makeWindow("Escape Room", 1920, 1080);
+    WindowHandle window = wm.makeWindow("Escape Room", consts::display::defaultWindowWidth, consts::display::defaultWindowHeight);
     render::GPUHandle render_gpu = wm.initGPU(gpu_id, { window.get() });
 
     // Use seed from replay if available
@@ -370,11 +370,11 @@ int main(int argc, char *argv[])
     std::cout << "  T: Toggle trajectory tracking for current world\n";
     std::cout << "\n";
 
-    float camera_move_speed = 10.f;
+    float camera_move_speed = consts::display::defaultCameraDist;
 
     // Phase 1.1: Camera positioned for 16x16 room centered at origin
     // Positioned above and slightly behind to see all walls
-    math::Vector3 initial_camera_position = { 0.0f, -0.0f, 30.f };
+    math::Vector3 initial_camera_position = { 0.0f, -0.0f, consts::display::cameraRotationAngle };
 
     // Look down at the room to see all four walls
     // math::Quat initial_camera_rotation =
@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
     //     math::Quat::angleAxis(-math::pi * 0.4f, math::right)).normalize();
 
     math::Quat initial_camera_rotation =
-    (math::Quat::angleAxis(-math::pi * 0.4f, math::right)).normalize();
+    (math::Quat::angleAxis(-math::pi * consts::display::viewerRotationFactor, math::right)).normalize();
 
     // Check if menu should be hidden
     bool hide_menu = options[HIDE_MENU];
@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
     // Create the viewer
     viz::Viewer viewer(mgr.getRenderManager(), window.get(), {
         .numWorlds = num_worlds,
-        .simTickRate = 20,
+        .simTickRate = consts::display::defaultSimTickRate,
         .cameraMoveSpeed = camera_move_speed,
         .cameraPosition = initial_camera_position,
         .cameraRotation = initial_camera_rotation,

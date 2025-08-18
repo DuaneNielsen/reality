@@ -432,7 +432,7 @@ Sim::Sim(Engine &ctx,
     // [BOILERPLATE] Initialize physics system
     // [GAME_SPECIFIC] Physics parameters (deltaT, substeps, gravity) are game-specific
     phys::PhysicsSystem::init(ctx, cfg.rigidBodyObjMgr,
-        consts::deltaT, consts::numPhysicsSubsteps, -9.8f * math::up,
+        consts::deltaT, consts::numPhysicsSubsteps, -consts::physics::gravityAcceleration * math::up,
         max_total_entities);
 
     // [GAME_SPECIFIC] Store configuration

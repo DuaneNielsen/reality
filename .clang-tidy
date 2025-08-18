@@ -1,0 +1,30 @@
+---
+Checks: >
+  readability-magic-numbers,
+  cppcoreguidelines-avoid-magic-numbers,
+  readability-avoid-const-params-in-decls,
+  modernize-use-nullptr,
+  performance-*,
+  -performance-avoid-endl,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  misc-*,
+  -misc-non-private-member-variables-in-classes
+
+CheckOptions:
+  - key: readability-magic-numbers.IgnoredIntegerValues
+    value: '0;1;2;3;4;-1;8;16;32;64;128;256;512;1024'
+  - key: readability-magic-numbers.IgnoredFloatingPointValues
+    value: '0.0;1.0;-1.0;0.5;2.0;3.14159'
+  - key: readability-magic-numbers.IgnoreAllFloatingPointValues
+    value: false
+  - key: readability-magic-numbers.IgnorePowersOf2IntegerValues
+    value: true
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnoredIntegerValues
+    value: '0;1;2;3;4;-1;8;16;32;64;128;256;512;1024'
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnoredFloatingPointValues
+    value: '0.0;1.0;-1.0;0.5;2.0;3.14159'
+
+HeaderFilterRegex: '(src|include)/.*\.(h|hpp)$'
+WarningsAsErrors: ''
+FormatStyle: none

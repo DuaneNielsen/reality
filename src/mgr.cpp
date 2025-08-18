@@ -101,7 +101,7 @@ static inline Optional<render::RenderManager> initRenderManager(
         .agentViewHeight = mgr_cfg.batchRenderViewHeight,
         .numWorlds = mgr_cfg.numWorlds,
         .maxViewsPerWorld = consts::numAgents,
-        .maxInstancesPerWorld = 1000,           // [GAME_SPECIFIC] Max entities to render
+        .maxInstancesPerWorld = consts::performance::maxProgressEntries,           // [GAME_SPECIFIC] Max entities to render
         .execMode = mgr_cfg.execMode,
         .voxelCfg = {},
     });
@@ -283,15 +283,15 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 
     // [GAME_SPECIFIC] Define materials for each object type
     auto materials = std::to_array<imp::SourceMaterial>({
-        { render::rgb8ToFloat(191, 108, 10), -1, 0.8f, 0.2f },      // Brown (cube)
-        { math::Vector4{0.4f, 0.4f, 0.4f, 0.0f}, -1, 0.8f, 0.2f,},  // Gray (wall)
-        { math::Vector4{1.f, 1.f, 1.f, 0.0f}, 1, 0.5f, 1.0f,},      // White (agent body)
-        { render::rgb8ToFloat(230, 230, 230),   -1, 0.8f, 1.0f },   // Light gray (agent parts)
-        { math::Vector4{0.5f, 0.3f, 0.3f, 0.0f},  0, 0.8f, 0.2f,},  // Brown (floor)
-        { render::rgb8ToFloat(230, 20, 20),   -1, 0.8f, 1.0f },     // Red (door/X-axis)
-        { render::rgb8ToFloat(230, 230, 20),   -1, 0.8f, 1.0f },    // Yellow (button)
-        { render::rgb8ToFloat(20, 230, 20),   -1, 0.8f, 1.0f },     // Green (Y-axis)
-        { render::rgb8ToFloat(20, 20, 230),   -1, 0.8f, 1.0f },     // Blue (Z-axis)
+        { render::rgb8ToFloat(consts::rendering::colors::cubeRed, consts::rendering::colors::cubeGreen, consts::rendering::colors::cubeBlue), -1, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic },      // Brown (cube)
+        { math::Vector4{consts::rendering::normalizedColors::wallGray, consts::rendering::normalizedColors::wallGray, consts::rendering::normalizedColors::wallGray, consts::rendering::material::floorAlpha}, -1, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic,},  // Gray (wall)
+        { math::Vector4{consts::rendering::normalizedColors::white, consts::rendering::normalizedColors::white, consts::rendering::normalizedColors::white, consts::rendering::material::floorAlpha}, 1, 0.5f, consts::rendering::material::agentBodyMetallic,},      // White (agent body)
+        { render::rgb8ToFloat(consts::rendering::colors::agentGray, consts::rendering::colors::agentGray, consts::rendering::colors::agentGray),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },   // Light gray (agent parts)
+        { math::Vector4{consts::rendering::normalizedColors::floorBrownRed, consts::rendering::normalizedColors::floorBrownGreen, consts::rendering::normalizedColors::floorBrownBlue, consts::rendering::material::floorAlpha},  0, consts::rendering::material::defaultRoughness, consts::rendering::material::defaultMetallic,},  // Brown (floor)
+        { render::rgb8ToFloat(consts::rendering::colors::axisRed, consts::rendering::colors::redGreen, consts::rendering::colors::redBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },     // Red (door/X-axis)
+        { render::rgb8ToFloat(consts::rendering::colors::yellowRed, consts::rendering::colors::yellowGreen, consts::rendering::colors::yellowBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },    // Yellow (button)
+        { render::rgb8ToFloat(consts::rendering::colors::greenRed, consts::rendering::colors::axisGreen, consts::rendering::colors::greenBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },     // Green (Y-axis)
+        { render::rgb8ToFloat(consts::rendering::colors::blueRed, consts::rendering::colors::blueGreen, consts::rendering::colors::axisBlue),   -1, consts::rendering::material::defaultRoughness, consts::rendering::material::agentBodyMetallic },     // Blue (Z-axis)
     });
 
     // [GAME_SPECIFIC] Assign materials to each object's meshes
@@ -352,7 +352,7 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
     imp::AssetImporter importer;
 
     // [BOILERPLATE]
-    char import_err_buffer[4096];
+    char import_err_buffer[consts::performance::defaultBufferSize];
     auto imported_src_hulls = importer.importFromDisk(
         asset_cstrs, import_err_buffer, true);
 
@@ -759,7 +759,7 @@ void Manager::step()
                 obs_data->globalX,
                 obs_data->globalY,
                 obs_data->globalZ,
-                obs_data->theta * 180.0f / M_PI,
+                obs_data->theta * consts::math::degreesInHalfCircle / M_PI,
                 *progress_data);
         fflush(output);  // Ensure output is written immediately
     }
@@ -1088,7 +1088,7 @@ void Manager::recordActions(const std::vector<int32_t>& frame_actions)
                               frame_actions.size() * sizeof(int32_t));
     impl_->recordedFrames++;
     
-    if (impl_->recordedFrames % 100 == 0) {
+    if (impl_->recordedFrames % consts::performance::frameLoggingInterval == 0) {
         printf("Recorded %u frames...\n", impl_->recordedFrames);
     }
 }

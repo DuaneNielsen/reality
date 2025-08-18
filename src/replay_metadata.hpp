@@ -6,6 +6,7 @@
 #include <fstream>
 #include <string>
 #include "types.hpp"  // For CompiledLevel
+#include "consts.hpp"  // For file format constants
 
 namespace madrona {
 namespace escape_room {
@@ -30,7 +31,7 @@ struct ReplayMetadata {
     uint32_t actions_per_step;              // Number of action components (3: move_amount, move_angle, rotate)
     uint64_t timestamp;                     // Unix timestamp when recording started
     uint32_t seed;                          // Random seed used for simulation
-    uint32_t reserved[7];                   // Reserved for future use (reduced by 1 for level_name)
+    uint32_t reserved[madEscape::consts::fileFormat::replayMagicLength];                   // Reserved for future use (reduced by 1 for level_name)
     
     static ReplayMetadata createDefault() {
         ReplayMetadata meta;
@@ -43,7 +44,7 @@ struct ReplayMetadata {
         meta.num_steps = 0;
         meta.actions_per_step = 3;
         meta.timestamp = 0;
-        meta.seed = 5;
+        meta.seed = madEscape::consts::fileFormat::defaultSeed;
         std::memset(meta.reserved, 0, sizeof(meta.reserved));
         return meta;
     }
