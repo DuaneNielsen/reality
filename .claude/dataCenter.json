@@ -1,0 +1,14 @@
+{
+	"imageFolderPath": "/home/duane/madrona_escape_room/.claude/images",
+	"screenshotFolderPath": "/home/duane/madrona_escape_room/.claude/screenshot",
+	"webImages": [],
+	"cloudImages": [],
+	"currentUploader": "none",
+	"imageBed": {
+		"github": {
+			"owner": "",
+			"repo": "",
+			"branch": ""
+		}
+	}
+}
