@@ -487,6 +487,58 @@ def create_compiled_levels_array(compiled_level_dicts):
     return levels_array, len(levels)
 
 
+def get_physics_assets_list():
+    """Get list of physics asset names."""
+    if "lib" in globals() and hasattr(lib, "mer_get_physics_assets_count"):
+        lib.mer_get_physics_assets_count.restype = c_int32
+        lib.mer_get_physics_asset_name.restype = c_char_p
+        lib.mer_get_physics_asset_name.argtypes = [c_int32]
+
+        count = lib.mer_get_physics_assets_count()
+        names = []
+        for i in range(count):
+            name = lib.mer_get_physics_asset_name(i)
+            if name:
+                names.append(name.decode("utf-8"))
+        return names
+    return []
+
+
+def get_render_assets_list():
+    """Get list of render asset names."""
+    if "lib" in globals() and hasattr(lib, "mer_get_render_assets_count"):
+        lib.mer_get_render_assets_count.restype = c_int32
+        lib.mer_get_render_asset_name.restype = c_char_p
+        lib.mer_get_render_asset_name.argtypes = [c_int32]
+
+        count = lib.mer_get_render_assets_count()
+        names = []
+        for i in range(count):
+            name = lib.mer_get_render_asset_name(i)
+            if name:
+                names.append(name.decode("utf-8"))
+        return names
+    return []
+
+
+def get_physics_asset_object_id(name):
+    """Get object ID for a physics asset by name."""
+    if "lib" in globals() and hasattr(lib, "mer_get_physics_asset_object_id"):
+        lib.mer_get_physics_asset_object_id.restype = c_int32
+        lib.mer_get_physics_asset_object_id.argtypes = [c_char_p]
+        return lib.mer_get_physics_asset_object_id(name.encode("utf-8"))
+    return -1
+
+
+def get_render_asset_object_id(name):
+    """Get object ID for a render asset by name."""
+    if "lib" in globals() and hasattr(lib, "mer_get_render_asset_object_id"):
+        lib.mer_get_render_asset_object_id.restype = c_int32
+        lib.mer_get_render_asset_object_id.argtypes = [c_char_p]
+        return lib.mer_get_render_asset_object_id(name.encode("utf-8"))
+    return -1
+
+
 # Create instances for compatibility
 ctypes_lib = CTypesLib()
 

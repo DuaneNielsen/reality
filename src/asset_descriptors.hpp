@@ -49,6 +49,13 @@ namespace rendering {
         inline constexpr int32_t axisZ = 8;        // Blue Z-axis material
     }
     
+    // Origin marker gizmo geometry constants
+    namespace gizmo {
+        inline constexpr float axisMarkerOffset = 0.75f;       // Offset along axis for visual markers
+        inline constexpr float axisMarkerLength = 1.5f;        // Length of axis markers
+        inline constexpr float axisMarkerThickness = 0.3f;     // Thickness of axis markers
+    }
+    
     // Color values (RGB 0-255)
     namespace colors {
         inline constexpr uint8_t cubeRed = 139;

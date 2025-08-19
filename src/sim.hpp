@@ -102,6 +102,11 @@ struct Sim : public madrona::WorldBase {
     // Origin marker gizmo: 3 colored boxes for XYZ axes
     // Red = X axis, Green = Y axis, Blue = Z axis
     Entity originMarkerBoxes[consts::rendering::numOriginMarkerBoxes];
+    
+    // Persistent level entities that survive across episodes
+    static constexpr CountT MAX_PERSISTENT_TILES = 256;  // Reasonable limit for persistent entities
+    Entity persistentLevelEntities[MAX_PERSISTENT_TILES];
+    CountT numPersistentLevelEntities;
 };
 
 class Engine : public ::madrona::CustomContext<Engine, Sim> {

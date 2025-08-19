@@ -1,6 +1,7 @@
 #include "madrona_escape_room_c_api.h"
 #include "mgr.hpp"
 #include "types.hpp"
+#include "asset_descriptors.hpp"
 
 #include <cstring>
 #include <new>
@@ -113,6 +114,8 @@ MER_Result mer_create_manager(
                        sizeof(float) * array_size);
             std::memcpy(cpp_level.tile_y, c_level->tile_y,
                        sizeof(float) * array_size);
+            std::memcpy(cpp_level.tile_persistent, c_level->tile_persistent,
+                       sizeof(bool) * array_size);
             
             cpp_per_world_levels.push_back(cpp_level);
         }
@@ -506,6 +509,55 @@ const char* mer_result_to_string(MER_Result result) {
         default:
             return "Unknown error";
     }
+}
+
+// Asset descriptor functions
+int32_t mer_get_physics_assets_count(void) {
+    return static_cast<int32_t>(madrona::escape_room::NUM_PHYSICS_ASSETS);
+}
+
+int32_t mer_get_render_assets_count(void) {
+    return static_cast<int32_t>(madrona::escape_room::NUM_RENDER_ASSETS);
+}
+
+const char* mer_get_physics_asset_name(int32_t index) {
+    if (index < 0 || index >= static_cast<int32_t>(madrona::escape_room::NUM_PHYSICS_ASSETS)) {
+        return nullptr;
+    }
+    return madrona::escape_room::PHYSICS_ASSETS[index].name;
+}
+
+const char* mer_get_render_asset_name(int32_t index) {
+    if (index < 0 || index >= static_cast<int32_t>(madrona::escape_room::NUM_RENDER_ASSETS)) {
+        return nullptr;
+    }
+    return madrona::escape_room::RENDER_ASSETS[index].name;
+}
+
+int32_t mer_get_physics_asset_object_id(const char* name) {
+    if (name == nullptr) {
+        return -1;
+    }
+    
+    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
+        if (std::strcmp(madrona::escape_room::PHYSICS_ASSETS[i].name, name) == 0) {
+            return static_cast<int32_t>(madrona::escape_room::PHYSICS_ASSETS[i].objectId);
+        }
+    }
+    return -1;  // Not found
+}
+
+int32_t mer_get_render_asset_object_id(const char* name) {
+    if (name == nullptr) {
+        return -1;
+    }
+    
+    for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
+        if (std::strcmp(madrona::escape_room::RENDER_ASSETS[i].name, name) == 0) {
+            return static_cast<int32_t>(madrona::escape_room::RENDER_ASSETS[i].objectId);
+        }
+    }
+    return -1;  // Not found
 }
 
 } // extern "C"

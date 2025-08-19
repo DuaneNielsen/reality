@@ -94,6 +94,7 @@ typedef struct {
     int32_t tile_types[MER_MAX_TILES];   // Type enum for each tile
     float tile_x[MER_MAX_TILES];         // World X position
     float tile_y[MER_MAX_TILES];         // World Y position
+    bool tile_persistent[MER_MAX_TILES]; // Whether tile persists across episodes
 } MER_CompiledLevel;
 
 // Manager configuration
@@ -222,6 +223,19 @@ MER_EXPORT const char* mer_result_to_string(MER_Result result);
 // Get CompiledLevel constants
 MER_EXPORT int32_t mer_get_max_tiles(void);
 MER_EXPORT int32_t mer_get_max_spawns(void);
+
+// Asset descriptor functions
+// Get counts
+MER_EXPORT int32_t mer_get_physics_assets_count(void);
+MER_EXPORT int32_t mer_get_render_assets_count(void);
+
+// Get asset names by index
+MER_EXPORT const char* mer_get_physics_asset_name(int32_t index);
+MER_EXPORT const char* mer_get_render_asset_name(int32_t index);
+
+// Lookup object IDs by name
+MER_EXPORT int32_t mer_get_physics_asset_object_id(const char* name);
+MER_EXPORT int32_t mer_get_render_asset_object_id(const char* name);
 
 #ifdef __cplusplus
 }

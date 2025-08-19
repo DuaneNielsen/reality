@@ -164,6 +164,7 @@ namespace madEscape {
         int32_t object_ids[MAX_TILES];    // Asset ID for each tile (from AssetIDs namespace)
         float tile_x[MAX_TILES];          // World X position
         float tile_y[MAX_TILES];          // World Y position
+        bool tile_persistent[MAX_TILES];  // Whether tile persists across episodes
     };
 
     // [GAME_SPECIFIC]
