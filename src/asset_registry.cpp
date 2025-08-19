@@ -2,19 +2,169 @@
 #include "asset_ids.hpp"
 #include <cassert>
 
+// Asset constants for physics and rendering properties
+namespace {
+    // Physics properties
+    constexpr float cubeInverseMass = 0.075f;     // Pushable cube with ~13kg mass
+    constexpr float wallInverseMass = 0.f;        // Static walls (infinite mass)
+    constexpr float agentInverseMass = 1.f;       // Agent unit mass for direct control
+    constexpr float planeInverseMass = 0.f;       // Static plane (infinite mass)
+    
+    constexpr float standardStaticFriction = 0.5f;     // Standard static friction
+    constexpr float standardDynamicFriction = 0.5f;    // Standard dynamic friction
+    constexpr float cubeStaticFriction = 0.5f;         // Cube static friction
+    constexpr float cubeDynamicFriction = 0.75f;       // Cube dynamic friction
+    
+    // Material indices
+    constexpr uint32_t materialCube = 0;
+    constexpr uint32_t materialWall = 1;
+    constexpr uint32_t materialAgentBody = 2;
+    constexpr uint32_t materialAgentParts = 3;
+    constexpr uint32_t materialFloor = 4;
+    constexpr uint32_t materialAxisX = 5;
+    constexpr uint32_t materialAxisY = 7;
+    constexpr uint32_t materialAxisZ = 8;
+    
+    // Mesh counts
+    constexpr uint32_t agentMeshCount = 3;
+}
+
 namespace madEscape {
 
 AssetRegistry::AssetRegistry() : nextId(AssetIDs::DYNAMIC_START) {
     idToAsset.resize(AssetIDs::MAX_ASSETS);
     
-    registerAssetWithId("cube", AssetIDs::CUBE, true, true);
-    registerAssetWithId("wall", AssetIDs::WALL, true, true);
-    registerAssetWithId("agent", AssetIDs::AGENT, true, true);
-    registerAssetWithId("plane", AssetIDs::PLANE, true, true);
+    // Register cube asset
+    {
+        AssetInfo cube;
+        cube.name = "cube";
+        cube.id = AssetIDs::CUBE;
+        cube.hasPhysics = true;
+        cube.hasRender = true;
+        cube.assetType = FILE_MESH;
+        cube.filepath = "cube_collision.obj";
+        cube.inverseMass = cubeInverseMass;
+        cube.friction = { cubeStaticFriction, cubeDynamicFriction };
+        cube.constrainRotationXY = false;
+        cube.meshPath = "cube_render.obj";
+        cube.materialIndices = { materialCube };
+        cube.numMeshes = 1;
+        registerFullAsset(cube);
+    }
     
-    registerAssetWithId("axis_x", AssetIDs::AXIS_X, false, true);
-    registerAssetWithId("axis_y", AssetIDs::AXIS_Y, false, true);
-    registerAssetWithId("axis_z", AssetIDs::AXIS_Z, false, true);
+    // Register wall asset
+    {
+        AssetInfo wall;
+        wall.name = "wall";
+        wall.id = AssetIDs::WALL;
+        wall.hasPhysics = true;
+        wall.hasRender = true;
+        wall.assetType = FILE_MESH;
+        wall.filepath = "wall_collision.obj";
+        wall.inverseMass = wallInverseMass;
+        wall.friction = { standardStaticFriction, standardDynamicFriction };
+        wall.constrainRotationXY = false;
+        wall.meshPath = "wall_render.obj";
+        wall.materialIndices = { materialWall };
+        wall.numMeshes = 1;
+        registerFullAsset(wall);
+    }
+    
+    // Register agent asset
+    {
+        AssetInfo agent;
+        agent.name = "agent";
+        agent.id = AssetIDs::AGENT;
+        agent.hasPhysics = true;
+        agent.hasRender = true;
+        agent.assetType = FILE_MESH;
+        agent.filepath = "agent_collision_simplified.obj";
+        agent.inverseMass = agentInverseMass;
+        agent.friction = { standardStaticFriction, standardDynamicFriction };
+        agent.constrainRotationXY = true;  // Prevent tipping over
+        agent.meshPath = "agent_render.obj";
+        agent.materialIndices = { materialAgentBody, materialAgentParts, materialAgentParts };
+        agent.numMeshes = agentMeshCount;
+        registerFullAsset(agent);
+    }
+    
+    // Register plane asset
+    {
+        AssetInfo plane;
+        plane.name = "plane";
+        plane.id = AssetIDs::PLANE;
+        plane.hasPhysics = true;
+        plane.hasRender = true;
+        plane.assetType = BUILTIN_PLANE;
+        plane.filepath = "";  // No file for built-in
+        plane.inverseMass = planeInverseMass;
+        plane.friction = { standardStaticFriction, standardDynamicFriction };
+        plane.constrainRotationXY = false;
+        plane.meshPath = "plane_render.obj";
+        plane.materialIndices = { materialFloor };
+        plane.numMeshes = 1;
+        registerFullAsset(plane);
+    }
+    
+    // Register axis visualization assets (render only)
+    {
+        AssetInfo axis_x;
+        axis_x.name = "axis_x";
+        axis_x.id = AssetIDs::AXIS_X;
+        axis_x.hasPhysics = false;
+        axis_x.hasRender = true;
+        axis_x.assetType = FILE_MESH;
+        axis_x.meshPath = "cube_render.obj";
+        axis_x.materialIndices = { materialAxisX };
+        axis_x.numMeshes = 1;
+        registerFullAsset(axis_x);
+    }
+    
+    {
+        AssetInfo axis_y;
+        axis_y.name = "axis_y";
+        axis_y.id = AssetIDs::AXIS_Y;
+        axis_y.hasPhysics = false;
+        axis_y.hasRender = true;
+        axis_y.assetType = FILE_MESH;
+        axis_y.meshPath = "cube_render.obj";
+        axis_y.materialIndices = { materialAxisY };
+        axis_y.numMeshes = 1;
+        registerFullAsset(axis_y);
+    }
+    
+    {
+        AssetInfo axis_z;
+        axis_z.name = "axis_z";
+        axis_z.id = AssetIDs::AXIS_Z;
+        axis_z.hasPhysics = false;
+        axis_z.hasRender = true;
+        axis_z.assetType = FILE_MESH;
+        axis_z.meshPath = "cube_render.obj";
+        axis_z.materialIndices = { materialAxisZ };
+        axis_z.numMeshes = 1;
+        registerFullAsset(axis_z);
+    }
+}
+
+uint32_t AssetRegistry::registerFullAsset(const AssetInfo& info) {
+    if (info.name.empty()) {
+        return AssetIDs::INVALID;
+    }
+    
+    auto it = nameToAsset.find(info.name);
+    if (it != nameToAsset.end()) {
+        return it->second.id;
+    }
+    
+    if (info.id >= AssetIDs::MAX_ASSETS) {
+        return AssetIDs::INVALID;
+    }
+    
+    nameToAsset[info.name] = info;
+    idToAsset[info.id] = info;
+    
+    return info.id;
 }
 
 uint32_t AssetRegistry::registerAsset(const std::string& name, 
@@ -51,7 +201,21 @@ uint32_t AssetRegistry::registerAssetWithId(const std::string& name, uint32_t id
         return it->second.id;
     }
     
-    AssetInfo info{name, id, hasPhysics, hasRender};
+    AssetInfo info;
+    info.name = name;
+    info.id = id;
+    info.hasPhysics = hasPhysics;
+    info.hasRender = hasRender;
+    // Set default values for other fields
+    info.assetType = FILE_MESH;
+    info.filepath = "";
+    info.inverseMass = 0.f;
+    info.friction = {0.f, 0.f};
+    info.constrainRotationXY = false;
+    info.meshPath = "";
+    info.materialIndices = {};
+    info.numMeshes = 0;
+    
     nameToAsset[name] = info;
     idToAsset[id] = info;
     
@@ -96,6 +260,74 @@ const std::string& AssetRegistry::getAssetName(uint32_t id) const {
         return empty;
     }
     return idToAsset[id].name;
+}
+
+const AssetRegistry::AssetInfo* AssetRegistry::getAssetInfo(uint32_t id) const {
+    if (id >= AssetIDs::MAX_ASSETS || idToAsset[id].name.empty()) {
+        return nullptr;
+    }
+    return &idToAsset[id];
+}
+
+const AssetRegistry::AssetInfo* AssetRegistry::getAssetInfoByName(const std::string& name) const {
+    auto it = nameToAsset.find(name);
+    if (it == nameToAsset.end()) {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+std::vector<AssetRegistry::AssetInfo> AssetRegistry::getAllAssets() const {
+    std::vector<AssetInfo> result;
+    for (const auto& [name, info] : nameToAsset) {
+        result.push_back(info);
+    }
+    return result;
+}
+
+std::vector<AssetRegistry::AssetInfo> AssetRegistry::getPhysicsAssets() const {
+    std::vector<AssetInfo> result;
+    for (const auto& [name, info] : nameToAsset) {
+        if (info.hasPhysics) {
+            result.push_back(info);
+        }
+    }
+    return result;
+}
+
+std::vector<AssetRegistry::AssetInfo> AssetRegistry::getRenderAssets() const {
+    std::vector<AssetInfo> result;
+    for (const auto& [name, info] : nameToAsset) {
+        if (info.hasRender) {
+            result.push_back(info);
+        }
+    }
+    return result;
+}
+
+uint32_t AssetRegistry::getPhysicsAssetCount() const {
+    uint32_t count = 0;
+    for (const auto& [name, info] : nameToAsset) {
+        if (info.hasPhysics) {
+            count++;
+        }
+    }
+    return count;
+}
+
+uint32_t AssetRegistry::getRenderAssetCount() const {
+    uint32_t count = 0;
+    for (const auto& [name, info] : nameToAsset) {
+        if (info.hasRender) {
+            count++;
+        }
+    }
+    return count;
+}
+
+AssetRegistry& AssetRegistry::getInstance() {
+    static AssetRegistry instance;
+    return instance;
 }
 
 }

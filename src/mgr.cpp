@@ -1,7 +1,7 @@
 #include "mgr.hpp"
 #include "sim.hpp"
-#include "asset_descriptors.hpp"
 #include "asset_ids.hpp"
+#include "asset_registry.hpp"
 
 #include <chrono>
 
@@ -40,6 +40,41 @@ using namespace madrona;
 using namespace madrona::math;
 using namespace madrona::phys;
 using namespace madrona::py;
+
+// Temporary material and texture definitions (until moved to AssetRegistry)
+namespace {
+    struct TextureDescriptor {
+        const char* name;
+        const char* filepath;
+    };
+    
+    struct MaterialDescriptor {
+        const char* name;
+        madrona::math::Vector4 color;
+        int32_t textureIdx;
+        float roughness;
+        float metallic;
+    };
+    
+    constexpr TextureDescriptor TEXTURES[] = {
+        { "green_grid", "green_grid.png" },
+        { "smile", "smile.png" },
+    };
+    constexpr size_t NUM_TEXTURES = 2;
+    
+    constexpr MaterialDescriptor MATERIALS[] = {
+        { "cube", {139.f/255.f, 69.f/255.f, 19.f/255.f, 1.0f}, -1, 0.8f, 0.2f },
+        { "wall", {0.5f, 0.5f, 0.5f, 1.0f}, 0, 0.8f, 0.2f },  // Uses green_grid texture
+        { "agent_body", {1.0f, 1.0f, 1.0f, 1.0f}, 1, 0.5f, 1.0f },  // Uses smile texture  
+        { "agent_parts", {0.7f, 0.7f, 0.7f, 1.0f}, -1, 0.8f, 0.2f },
+        { "floor", {0.4f, 0.3f, 0.2f, 1.0f}, -1, 0.8f, 0.2f },
+        { "axis_x", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
+        { "button", {1.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
+        { "axis_y", {0.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
+        { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },
+    };
+    constexpr size_t NUM_MATERIALS = 9;
+}
 
 namespace madEscape {
 
@@ -248,19 +283,19 @@ static Span<imp::SourceTexture> loadTextures(StackAlloc &alloc)
     return img_importer.importImages(
         alloc, {
             (std::filesystem::path(DATA_DIR) / 
-                madrona::escape_room::TEXTURES[0].filepath).string().c_str(),  // Green grid texture
+                TEXTURES[0].filepath).string().c_str(),  // Green grid texture
             (std::filesystem::path(DATA_DIR) / 
-                madrona::escape_room::TEXTURES[1].filepath).string().c_str(),  // Smile texture
+                TEXTURES[1].filepath).string().c_str(),  // Smile texture
         });
 }
 
 // Helper function to create materials
-static std::array<imp::SourceMaterial, madrona::escape_room::NUM_MATERIALS> createMaterials()
+static std::array<imp::SourceMaterial, NUM_MATERIALS> createMaterials()
 {
-    std::array<imp::SourceMaterial, madrona::escape_room::NUM_MATERIALS> materials;
+    std::array<imp::SourceMaterial, NUM_MATERIALS> materials;
     
-    for (size_t i = 0; i < madrona::escape_room::NUM_MATERIALS; i++) {
-        const auto& desc = madrona::escape_room::MATERIALS[i];
+    for (size_t i = 0; i < NUM_MATERIALS; i++) {
+        const auto& desc = MATERIALS[i];
         materials[i] = imp::SourceMaterial{
             desc.color,
             desc.textureIdx,
@@ -277,14 +312,17 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 {
     StackAlloc tmp_alloc;
 
+    // Get render assets from AssetRegistry
+    auto& registry = madEscape::AssetRegistry::getInstance();
+    auto render_assets_list = registry.getRenderAssets();
+
     // Build dense arrays for the importer
     std::vector<std::string> dense_paths;
     std::vector<uint32_t> asset_id_map;
     
-    for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
-        const auto& desc = madrona::escape_room::RENDER_ASSETS[i];
-        dense_paths.push_back((std::filesystem::path(DATA_DIR) / desc.meshPath).string());
-        asset_id_map.push_back(desc.objectId);
+    for (const auto& asset : render_assets_list) {
+        dense_paths.push_back((std::filesystem::path(DATA_DIR) / asset.meshPath).string());
+        asset_id_map.push_back(asset.id);
     }
     
     // Convert to C-strings for importer
@@ -303,7 +341,7 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 
     // [BOILERPLATE]
     if (!render_assets.has_value()) {
-        FATAL("Failed to load render assets: %s", import_err);
+        FATAL("Failed to load render assets: %s", import_err.data());
     }
 
     // Load textures
@@ -327,13 +365,14 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         indexed_objects[obj_id] = render_assets->objects[i];
     }
     
-    // Assign materials to each object's meshes based on descriptors
-    for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
-        const auto& desc = madrona::escape_room::RENDER_ASSETS[i];
-        auto& obj_meshes = indexed_objects[(CountT)desc.objectId].meshes;
+    // Assign materials to each object's meshes based on AssetRegistry
+    for (const auto& asset : render_assets_list) {
+        auto& obj_meshes = indexed_objects[(CountT)asset.id].meshes;
         
-        for (uint32_t mesh_idx = 0; mesh_idx < desc.numMeshes && mesh_idx < obj_meshes.size(); mesh_idx++) {
-            obj_meshes[mesh_idx].materialIDX = desc.materialIndices[mesh_idx];
+        for (uint32_t mesh_idx = 0; mesh_idx < asset.numMeshes && mesh_idx < obj_meshes.size(); mesh_idx++) {
+            if (mesh_idx < asset.materialIndices.size()) {
+                obj_meshes[mesh_idx].materialIDX = asset.materialIndices[mesh_idx];
+            }
         }
     }
 
@@ -350,16 +389,19 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 // [REQUIRED_INTERFACE] Load physics assets - must be implemented by every environment
 static void loadPhysicsObjects(PhysicsLoader &loader)
 {
+    // Get physics assets from AssetRegistry
+    auto& registry = madEscape::AssetRegistry::getInstance();
+    auto physics_assets = registry.getPhysicsAssets();
+    
     // Build dense arrays for the importer, then create sparse array for indexing
     // First pass: count file-based assets and build dense arrays
     std::vector<std::string> dense_paths;
     std::vector<uint32_t> asset_id_map;
     
-    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
-        const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
-        if (desc.type == madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH) {
-            dense_paths.push_back((std::filesystem::path(DATA_DIR) / desc.filepath).string());
-            asset_id_map.push_back(desc.objectId);
+    for (const auto& asset : physics_assets) {
+        if (asset.assetType == madEscape::AssetRegistry::FILE_MESH) {
+            dense_paths.push_back((std::filesystem::path(DATA_DIR) / asset.filepath).string());
+            asset_id_map.push_back(asset.id);
         }
     }
     
@@ -433,29 +475,27 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         };
     };
     
-    // Process file-based assets using descriptors
+    // Process file-based assets using AssetRegistry
     size_t import_idx = 0;
-    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
-        const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
-        if (desc.type == madrona::escape_room::PhysicsAssetDescriptor::FILE_MESH) {
-            setupHull(desc.objectId, import_idx, desc.inverseMass, desc.friction);
+    for (const auto& asset : physics_assets) {
+        if (asset.assetType == madEscape::AssetRegistry::FILE_MESH) {
+            setupHull(asset.id, import_idx, asset.inverseMass, asset.friction);
             import_idx++;
         }
     }
     
     // Process built-in assets (plane)
-    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
-        const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
-        if (desc.type == madrona::escape_room::PhysicsAssetDescriptor::BUILTIN_PLANE) {
+    for (const auto& asset : physics_assets) {
+        if (asset.assetType == madEscape::AssetRegistry::BUILTIN_PLANE) {
             static SourceCollisionPrimitive plane_prim {
                 .type = CollisionPrimitive::Type::Plane,
                 .plane = {},
             };
             
-            src_objs[getPhysicsIdx(desc.objectId)] = {
+            src_objs[getPhysicsIdx(asset.id)] = {
                 .prims = Span<const SourceCollisionPrimitive>(&plane_prim, 1),
-                .invMass = desc.inverseMass,
-                .friction = desc.friction,
+                .invMass = asset.inverseMass,
+                .friction = asset.friction,
             };
         }
     }
@@ -477,15 +517,14 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         FATAL("Invalid collision hull input");
     }
 
-    // Apply rotation constraints
-    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
-        const auto& desc = madrona::escape_room::PHYSICS_ASSETS[i];
-        if (desc.constrainRotationXY) {
+    // Apply rotation constraints using AssetRegistry
+    for (const auto& asset : physics_assets) {
+        if (asset.constrainRotationXY) {
             // Setting inverse inertia to 0 makes rotation impossible around that axis
             rigid_body_assets.metadatas[
-                static_cast<CountT>(desc.objectId)].mass.invInertiaTensor.x = 0.f;
+                static_cast<CountT>(asset.id)].mass.invInertiaTensor.x = 0.f;
             rigid_body_assets.metadatas[
-                static_cast<CountT>(desc.objectId)].mass.invInertiaTensor.y = 0.f;
+                static_cast<CountT>(asset.id)].mass.invInertiaTensor.y = 0.f;
         }
     }
 

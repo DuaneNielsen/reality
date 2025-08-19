@@ -1,0 +1,228 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "src/libmad_escape_cpu_impl.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_link_libraries"
+		],
+		"files" : 
+		[
+			"src/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 7,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 11,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -ggdb3 -std=c++20 -fPIC -fvisibility=hidden -fcolor-diagnostics"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fcolor-diagnostics"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wshadow"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-pedantic"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wall"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wextra"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-march=x86-64-v3"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-nostdinc++"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-nostdlib++"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-exceptions"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-rtti"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_LINUX=(1)"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_MW_MODE=1"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_USE_TASK_GRAPH=1"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 2,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/src/common/../../include"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/external/madrona-toolchain/bundled-toolchain/libcxx-madrona/include/c++/v1"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					1
+				],
+				"standard" : "20"
+			},
+			"sourceIndexes" : 
+			[
+				3,
+				5
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "madrona_err::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_std_mem::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mem::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_common::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mw_core::@dd83b556749d72b01914"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mw_physics::@0146aaa3c2e3fa7f1d23"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_rendering_system::@fbd19b6ec54aea13e66c"
+		}
+	],
+	"id" : "mad_escape_cpu_impl::@145eef247bfb46b6828c",
+	"name" : "mad_escape_cpu_impl",
+	"nameOnDisk" : "libmad_escape_cpu_impl.a",
+	"paths" : 
+	{
+		"build" : "src",
+		"source" : "src"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Header Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				4
+			]
+		},
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				3,
+				5
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"path" : "src/types.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "src/sim.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "src/sim.inl",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/sim.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "src/level_gen.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/level_gen.cpp",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

@@ -11,7 +11,7 @@ include(setup)
 include(dependencies)
 
 # Option to build C++ tests
-option(BUILD_TESTS "Build C++ unit tests" OFF)
+option(BUILD_TESTS "Build C++ unit tests" ON)
 if(BUILD_TESTS)
     # Enable Madrona's tests to get GoogleTest built with the correct toolchain
     set(MADRONA_ENABLE_TESTS ON CACHE BOOL "" FORCE)

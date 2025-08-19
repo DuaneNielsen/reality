@@ -1,0 +1,287 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "libmadrona_render_shader_compiler.so"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_link_libraries",
+			"add_dependencies"
+		],
+		"files" : 
+		[
+			"external/madrona/src/render/shader/CMakeLists.txt",
+			"external/madrona/external/madrona-toolchain/CMakeLists.txt",
+			"external/madrona/src/common/CMakeLists.txt",
+			"external/madrona/external/madrona-deps/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 1,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 5,
+				"parent" : 0
+			},
+			{
+				"file" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 23,
+				"parent" : 3
+			},
+			{
+				"file" : 2
+			},
+			{
+				"command" : 1,
+				"file" : 2,
+				"line" : 126,
+				"parent" : 5
+			},
+			{
+				"file" : 3
+			},
+			{
+				"command" : 2,
+				"file" : 3,
+				"line" : 153,
+				"parent" : 7
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -ggdb3 -ggdb3 -std=c++20 -fPIC -fvisibility=hidden -fcolor-diagnostics"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fcolor-diagnostics"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wshadow"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-pedantic"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wall"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wextra"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-march=x86-64-v3"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-nostdinc++"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-nostdlib++"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-exceptions"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-rtti"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_LINUX=(1)"
+				},
+				{
+					"define" : "madrona_render_shader_compiler_EXPORTS"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 2,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/src/common/../../include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/external/SPIRV-Reflect"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/external/madrona-toolchain/bundled-toolchain/libcxx-madrona/include/c++/v1"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/external/madrona-deps/bundled-deps/dxc/include"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					1
+				],
+				"standard" : "20"
+			},
+			"sourceIndexes" : 
+			[
+				1
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "spv_reflect::@46a39538b071753048ca"
+		},
+		{
+			"backtrace" : 8,
+			"id" : "madrona_libdxc_shlib::@eab414a77dfdb8cf2589"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_err::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_std_mem::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mem::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_common::@0daae6e6d1e5da37b583"
+		}
+	],
+	"id" : "madrona_render_shader_compiler::@85c67002b37fd6eee18e",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "",
+				"role" : "flags"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "-nostdlib++",
+				"role" : "flags"
+			},
+			{
+				"fragment" : "-Wl,-rpath,/home/duane/madrona_escape_room",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "../../common/libmadrona_common.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "../../../../../libdxcompiler.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "../../../external/libspv_reflect.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "../../../external/madrona-toolchain/bundled-toolchain/libcxx-madrona/lib/libc++-madrona.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "../../common/libmadrona_err.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "../../../../../libmadrona_std_mem.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "../../common/libmadrona_mem.a",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX"
+	},
+	"name" : "madrona_render_shader_compiler",
+	"nameOnDisk" : "libmadrona_render_shader_compiler.so",
+	"paths" : 
+	{
+		"build" : "external/madrona/src/render/shader",
+		"source" : "external/madrona/src/render/shader"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Header Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		},
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				1
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"path" : "external/madrona/include/madrona/render/shader_compiler.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "external/madrona/src/render/shader/compiler.cpp",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "SHARED_LIBRARY"
+}

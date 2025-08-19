@@ -190,6 +190,13 @@ namespace rendering {
     // Scene lighting configuration
     inline constexpr float lightPositionZ = -2.0f;             // Light Z position for scene lighting
     
+    // Origin marker gizmo constants  
+    namespace gizmo {
+        inline constexpr float axisMarkerOffset = 0.75f;       // Offset along axis for visual markers
+        inline constexpr float axisMarkerLength = 1.5f;        // Length of axis markers
+        inline constexpr float axisMarkerThickness = 0.3f;     // Thickness of axis markers
+    }
+    
     // Origin marker constants
     inline constexpr int32_t numOriginMarkerBoxes = 3;          // Number of origin marker boxes (X, Y, Z axes)
 }

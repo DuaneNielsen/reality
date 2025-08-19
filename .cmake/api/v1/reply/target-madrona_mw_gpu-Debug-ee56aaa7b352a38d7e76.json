@@ -1,0 +1,316 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "external/madrona/src/mw/libmadrona_mw_gpu.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_link_libraries",
+			"target_compile_definitions"
+		],
+		"files" : 
+		[
+			"external/madrona/src/mw/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 19,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 26,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 135,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 144,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -ggdb3 -ggdb3 -std=c++20 -fPIC -fvisibility=hidden -fcolor-diagnostics"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fcolor-diagnostics"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wshadow"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-pedantic"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wall"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wextra"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-march=x86-64-v3"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-nostdinc++"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-nostdlib++"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-exceptions"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-rtti"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 3,
+					"define" : "MADRONA_CUDADEVRT_PATH=\"/usr/local/cuda/lib64/libcudadevrt.a\""
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_CUDA_SUPPORT=1"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_LINUX=(1)"
+				},
+				{
+					"backtrace" : 4,
+					"define" : "MADRONA_MWGPU_SUPPORT=1"
+				},
+				{
+					"backtrace" : 3,
+					"define" : "MADRONA_MW_GPU_BVH_INTERNAL_CPP=\"/home/duane/madrona_escape_room/external/madrona/src/mw/device/bvh.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/memory.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/host_print.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/bvh_raycast.cpp\", "
+				},
+				{
+					"backtrace" : 3,
+					"define" : "MADRONA_MW_GPU_DEVICE_SRC_DIR=\"/home/duane/madrona_escape_room/external/madrona/src/mw/device\""
+				},
+				{
+					"backtrace" : 3,
+					"define" : "MADRONA_MW_GPU_JOB_SYS_INTERNAL_CPP=\"/home/duane/madrona_escape_room/external/madrona/src/mw/device/job.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/state.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/crash.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/const.cpp\", "
+				},
+				{
+					"backtrace" : 3,
+					"define" : "MADRONA_MW_GPU_TASK_GRAPH_INTERNAL_CPP=\"/home/duane/madrona_escape_room/external/madrona/src/mw/device/memory.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/state.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/crash.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/consts.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/taskgraph.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/taskgraph_utils.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/sort_archetype.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/host_print.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/device/ecs_render_bridge.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../common/hashmap.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../common/navmesh.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../core/base.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../physics/physics.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../physics/geo.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../physics/xpbd.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../physics/tgs.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../physics/narrowphase.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../physics/broadphase.cpp\", \"/home/duane/madrona_escape_room/external/madrona/src/mw/../render/ecs_system.cpp\", "
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_MW_MODE=1"
+				},
+				{
+					"backtrace" : 3,
+					"define" : "MADRONA_NVRTC_OPTIONS=\"-I/home/duane/madrona_escape_room/external/madrona/src/mw/device/include\", \"-I/home/duane/madrona_escape_room/external/madrona/src/common/../../include\", \"-I/usr/local/cuda/targets/x86_64-linux/include\", \"-std=c++20\", \"-default-device\", \"-rdc=true\", \"-use_fast_math\", \"-DMADRONA_GPU_MODE=1\", \"-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP\", \"-DCCCL_DISABLE_BF16_SUPPORT=1\", \"-DCUB_DISABLE_BF16_SUPPORT=1\", "
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_USE_TASK_GRAPH=1"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "SIMDJSON_THREADS_ENABLED=1"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "_LIBCUDACXX_HAS_NO_ASAN=1"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 2,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/src/common/../../include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/external/simdjson/include"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/usr/local/cuda/targets/x86_64-linux/include"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/external/madrona-toolchain/bundled-toolchain/libcxx-madrona/include/c++/v1"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					2
+				],
+				"standard" : "20"
+			},
+			"sourceIndexes" : 
+			[
+				1,
+				4,
+				7,
+				8
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "simdjson::@409b8da4a3d88c2fb428"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_err::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_std_mem::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mem::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_common::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_cuda::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mw_core::@dd83b556749d72b01914"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_json::@26666b46fe4c113bac89"
+		}
+	],
+	"id" : "madrona_mw_gpu::@8ecd407776ec1a5d709e",
+	"name" : "madrona_mw_gpu",
+	"nameOnDisk" : "libmadrona_mw_gpu.a",
+	"paths" : 
+	{
+		"build" : "external/madrona/src/mw",
+		"source" : "external/madrona/src/mw"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Header Files",
+			"sourceIndexes" : 
+			[
+				0,
+				2,
+				3,
+				5,
+				6
+			]
+		},
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				1,
+				4,
+				7,
+				8
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"path" : "external/madrona/src/mw/cpp_compile.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "external/madrona/src/mw/cpp_compile.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "external/madrona/src/mw/cuda_compile_helpers.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "external/madrona/src/mw/cuda_compile_helpers.inl",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "external/madrona/src/mw/cuda_compile_helpers.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"path" : "external/madrona/include/madrona/mw_gpu.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "external/madrona/include/madrona/mw_ext_gpu_mem.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "external/madrona/src/mw/cuda_exec.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "external/madrona/src/mw/ext_gpu_mem.cpp",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

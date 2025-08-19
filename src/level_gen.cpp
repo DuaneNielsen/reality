@@ -1,6 +1,5 @@
 #include "level_gen.hpp"
 #include "asset_ids.hpp"
-#include "asset_descriptors.hpp"
 #include <cmath>
 
 namespace madEscape {
@@ -134,7 +133,7 @@ static void createFloorPlane(Engine &ctx)
  */
 static void createOriginMarkerGizmo(Engine &ctx)
 {
-    using namespace madrona::escape_room::asset_constants::rendering::gizmo;
+    using namespace madEscape::consts::rendering::gizmo;
     
     // Box 0: Red box along X axis
     ctx.data().originMarkerBoxes[0] = ctx.makeRenderableEntity<RenderOnlyEntity>();

@@ -1,0 +1,43 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/mad_escape_tests.dir/e2e/test_viewer_workflows.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/e2e/test_viewer_workflows.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/fixtures/test_base.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/fixtures/test_base.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/integration/test_viewer_errors.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/integration/test_viewer_errors.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/integration/test_viewer_input.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/integration/test_viewer_input.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/integration/test_viewer_integration.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/integration/test_viewer_integration.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/test_asset_registry.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/test_asset_registry.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_asset_refactor.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_asset_refactor.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_c_api_cpu.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_c_api_cpu.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_c_api_gpu.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_c_api_gpu.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_direct_cpp.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_direct_cpp.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_file_inspector.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_file_inspector.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_level_utilities.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_level_utilities.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_option_parser.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_option_parser.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_persistence.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_persistence.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_recording_utilities.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_recording_utilities.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_viewer_core.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_viewer_core.cpp.o.d"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_viewercore_trajectory.cpp.o"
+  "CMakeFiles/mad_escape_tests.dir/unit/test_viewercore_trajectory.cpp.o.d"
+  "mad_escape_tests"
+  "mad_escape_tests.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/mad_escape_tests.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

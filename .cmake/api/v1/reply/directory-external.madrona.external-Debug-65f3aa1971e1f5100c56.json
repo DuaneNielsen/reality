@@ -1,0 +1,51 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"external/madrona/external/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 35,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "/usr/local",
+			"exportName" : "madronaExternal",
+			"exportTargets" : 
+			[
+				{
+					"id" : "madrona_noexceptrtti::@46a39538b071753048ca",
+					"index" : 0
+				}
+			],
+			"paths" : 
+			[
+				"external/madrona/external/CMakeFiles/Export/ecb11dda71a57ccdbf63675d24260fe6/madronaExternal.cmake"
+			],
+			"type" : "export"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "external/madrona/external",
+		"source" : "external/madrona/external"
+	}
+}

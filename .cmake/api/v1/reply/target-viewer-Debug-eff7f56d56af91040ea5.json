@@ -1,0 +1,780 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "viewer"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_executable",
+			"target_link_libraries",
+			"_CUDAToolkit_find_and_add_import_lib",
+			"find_package",
+			"include",
+			"add_dependencies",
+			"target_compile_definitions",
+			"target_include_directories"
+		],
+		"files" : 
+		[
+			"src/CMakeLists.txt",
+			"external/madrona/src/physics/CMakeLists.txt",
+			"external/madrona/src/mw/CMakeLists.txt",
+			"/usr/share/cmake-3.28/Modules/FindCUDAToolkit.cmake",
+			"external/madrona/cmake/dependencies.cmake",
+			"CMakeLists.txt",
+			"external/madrona/src/viz/CMakeLists.txt",
+			"external/madrona/src/importer/CMakeLists.txt",
+			"external/madrona/src/render/CMakeLists.txt",
+			"external/madrona/external/madrona-deps/CMakeLists.txt",
+			"external/madrona/src/interact/CMakeLists.txt",
+			"external/madrona/src/core/CMakeLists.txt",
+			"external/madrona/src/common/CMakeLists.txt",
+			"external/madrona/src/python/CMakeLists.txt",
+			"external/madrona/src/render/vk/CMakeLists.txt",
+			"external/madrona/external/madrona-toolchain/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 72,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 73,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 26,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 11,
+				"parent" : 0
+			},
+			{
+				"file" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 42,
+				"parent" : 5
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 50,
+				"parent" : 0
+			},
+			{
+				"file" : 2
+			},
+			{
+				"command" : 1,
+				"file" : 2,
+				"line" : 26,
+				"parent" : 8
+			},
+			{
+				"file" : 5
+			},
+			{
+				"command" : 4,
+				"file" : 5,
+				"line" : 11,
+				"parent" : 10
+			},
+			{
+				"file" : 4,
+				"parent" : 11
+			},
+			{
+				"command" : 3,
+				"file" : 4,
+				"line" : 18,
+				"parent" : 12
+			},
+			{
+				"file" : 3,
+				"parent" : 13
+			},
+			{
+				"command" : 2,
+				"file" : 3,
+				"line" : 1294,
+				"parent" : 14
+			},
+			{
+				"command" : 1,
+				"file" : 3,
+				"line" : 1122,
+				"parent" : 15
+			},
+			{
+				"command" : 1,
+				"file" : 3,
+				"line" : 1122,
+				"parent" : 15
+			},
+			{
+				"file" : 6
+			},
+			{
+				"command" : 1,
+				"file" : 6,
+				"line" : 41,
+				"parent" : 18
+			},
+			{
+				"file" : 7
+			},
+			{
+				"command" : 1,
+				"file" : 7,
+				"line" : 36,
+				"parent" : 20
+			},
+			{
+				"command" : 1,
+				"file" : 7,
+				"line" : 7,
+				"parent" : 20
+			},
+			{
+				"file" : 8
+			},
+			{
+				"command" : 1,
+				"file" : 8,
+				"line" : 36,
+				"parent" : 23
+			},
+			{
+				"command" : 1,
+				"file" : 8,
+				"line" : 67,
+				"parent" : 23
+			},
+			{
+				"command" : 1,
+				"file" : 8,
+				"line" : 53,
+				"parent" : 23
+			},
+			{
+				"file" : 9
+			},
+			{
+				"command" : 1,
+				"file" : 9,
+				"line" : 270,
+				"parent" : 27
+			},
+			{
+				"command" : 1,
+				"file" : 8,
+				"line" : 74,
+				"parent" : 23
+			},
+			{
+				"file" : 10
+			},
+			{
+				"command" : 1,
+				"file" : 10,
+				"line" : 6,
+				"parent" : 30
+			},
+			{
+				"file" : 11
+			},
+			{
+				"command" : 1,
+				"file" : 11,
+				"line" : 39,
+				"parent" : 32
+			},
+			{
+				"file" : 12
+			},
+			{
+				"command" : 1,
+				"file" : 12,
+				"line" : 126,
+				"parent" : 34
+			},
+			{
+				"file" : 13
+			},
+			{
+				"command" : 1,
+				"file" : 13,
+				"line" : 23,
+				"parent" : 36
+			},
+			{
+				"file" : 14
+			},
+			{
+				"command" : 1,
+				"file" : 14,
+				"line" : 74,
+				"parent" : 38
+			},
+			{
+				"file" : 15
+			},
+			{
+				"command" : 1,
+				"file" : 15,
+				"line" : 23,
+				"parent" : 40
+			},
+			{
+				"command" : 5,
+				"file" : 9,
+				"line" : 114,
+				"parent" : 27
+			},
+			{
+				"command" : 5,
+				"file" : 9,
+				"line" : 273,
+				"parent" : 27
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 77,
+				"parent" : 0
+			},
+			{
+				"command" : 7,
+				"file" : 0,
+				"line" : 81,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -ggdb3 -std=c++20 -fPIE -fvisibility=hidden -fcolor-diagnostics"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fcolor-diagnostics"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wshadow"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-pedantic"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wall"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-Wextra"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-march=x86-64-v3"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-nostdinc++"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-nostdlib++"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-exceptions"
+				},
+				{
+					"backtrace" : 2,
+					"fragment" : "-fno-rtti"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 44,
+					"define" : "DATA_DIR=\"/home/duane/madrona_escape_room/src/../data/\""
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_LINUX=(1)"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_MW_MODE=1"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "MADRONA_USE_TASK_GRAPH=1"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 45,
+					"path" : "/home/duane/madrona_escape_room/src/../external/optionparser"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/src/common/../../include"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/usr/local/cuda/targets/x86_64-linux/include"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/external/madrona-toolchain/bundled-toolchain/libcxx-madrona/include/c++/v1"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/home/duane/madrona_escape_room/external/madrona/external/imgui"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					1
+				],
+				"standard" : "20"
+			},
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 42,
+			"id" : "madrona_vk_loader::@eab414a77dfdb8cf2589"
+		},
+		{
+			"backtrace" : 43,
+			"id" : "madrona_embree_lib::@eab414a77dfdb8cf2589"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "meshoptimizer::@bf2b041c01c0f3b9b815"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "simdjson::@409b8da4a3d88c2fb428"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "glfw::@995f5a1088c988435c3e"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_err::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_std_mem::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mem::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_common::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_bvh_builder::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_cuda::@0daae6e6d1e5da37b583"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mw_core::@dd83b556749d72b01914"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_json::@26666b46fe4c113bac89"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_importer::@26666b46fe4c113bac89"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mw_physics::@0146aaa3c2e3fa7f1d23"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_physics_assets::@0146aaa3c2e3fa7f1d23"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_physics_loader::@0146aaa3c2e3fa7f1d23"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_rendering_system::@fbd19b6ec54aea13e66c"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_render_core::@fbd19b6ec54aea13e66c"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_render_asset_processor::@fbd19b6ec54aea13e66c"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_render::@fbd19b6ec54aea13e66c"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_render_shader_compiler::@85c67002b37fd6eee18e"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_render_vk::@e7f48fefc2f31b626a9e"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_render_vk_cuda::@e7f48fefc2f31b626a9e"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_window::@2fdadcdd9e60b52fdd80"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mw_cpu::@8ecd407776ec1a5d709e"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_mw_gpu::@8ecd407776ec1a5d709e"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_python_utils::@716734abe046831d83f2"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "imgui_impl::@0138b573ddf696c2cc8c"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "madrona_viz::@0138b573ddf696c2cc8c"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "mad_escape_cpu_impl::@145eef247bfb46b6828c"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "mad_escape_mgr::@145eef247bfb46b6828c"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "viewer_core::@145eef247bfb46b6828c"
+		}
+	],
+	"id" : "viewer::@145eef247bfb46b6828c",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "-g -ggdb3",
+				"role" : "flags"
+			},
+			{
+				"fragment" : "",
+				"role" : "flags"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "-nostdlib++",
+				"role" : "flags"
+			},
+			{
+				"fragment" : "-Wl,-rpath,/usr/local/cuda-12.5/targets/x86_64-linux/lib:/usr/local/cuda/lib64:/home/duane/madrona_escape_room",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "libviewer_core.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "../external/madrona/src/core/libmadrona_mw_core.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "libmad_escape_mgr.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "../external/madrona/src/viz/libmadrona_viz.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "../external/madrona/src/python/libmadrona_python_utils.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "libmad_escape_cpu_impl.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "../external/madrona/src/physics/libmadrona_mw_physics.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "../external/madrona/src/mw/libmadrona_mw_cpu.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "../external/madrona/src/physics/libmadrona_physics_loader.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "../external/madrona/src/physics/libmadrona_physics_assets.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 7,
+				"fragment" : "../external/madrona/src/mw/libmadrona_mw_gpu.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 9,
+				"fragment" : "/usr/local/cuda-12.5/targets/x86_64-linux/lib/libnvrtc.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 16,
+				"fragment" : "/usr/local/cuda-12.5/targets/x86_64-linux/lib/libnvrtc-builtins.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 17,
+				"fragment" : "/usr/local/cuda-12.5/targets/x86_64-linux/lib/libnvJitLink.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 9,
+				"fragment" : "/usr/local/cuda/lib64/libnvJitLink.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 19,
+				"fragment" : "../external/madrona/src/interact/libmadrona_window.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "../external/madrona/src/render/libmadrona_render.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 19,
+				"fragment" : "../external/madrona/src/render/libmadrona_render_core.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "../external/madrona/src/importer/libmadrona_importer.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 21,
+				"fragment" : "../external/madrona/src/importer/libmadrona_json.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 22,
+				"fragment" : "../external/madrona/external/simdjson/libsimdjson.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 21,
+				"fragment" : "../external/madrona/external/meshoptimizer/libmeshoptimizer.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "../external/madrona/src/render/libmadrona_rendering_system.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "../external/madrona/src/core/libmadrona_mw_core.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 24,
+				"fragment" : "../libmadrona_render_shader_compiler.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 25,
+				"fragment" : "../external/madrona/src/render/libmadrona_render_asset_processor.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 26,
+				"fragment" : "../external/madrona/src/common/libmadrona_bvh_builder.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 28,
+				"fragment" : "../libembree4.so.4",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 29,
+				"fragment" : "../external/madrona/src/render/vk/libmadrona_render_vk_cuda.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 31,
+				"fragment" : "../external/madrona/src/render/vk/libmadrona_render_vk.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 33,
+				"fragment" : "../external/madrona/src/common/libmadrona_common.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 35,
+				"fragment" : "../libmadrona_std_mem.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 35,
+				"fragment" : "../external/madrona/src/common/libmadrona_mem.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 37,
+				"fragment" : "../external/madrona/src/common/libmadrona_cuda.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 35,
+				"fragment" : "../external/madrona/src/common/libmadrona_err.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 37,
+				"fragment" : "/usr/local/cuda-12.5/targets/x86_64-linux/lib/libcudart.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 9,
+				"fragment" : "/usr/local/cuda/targets/x86_64-linux/lib/stubs/libcuda.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 39,
+				"fragment" : "-ldl",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 19,
+				"fragment" : "../external/madrona/src/viz/libimgui_impl.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 41,
+				"fragment" : "../external/madrona/external/madrona-toolchain/bundled-toolchain/libcxx-madrona/lib/libc++-madrona.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 19,
+				"fragment" : "../libglfw.so.3.4",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "-Wl,-rpath-link,/home/duane/madrona_escape_room",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX"
+	},
+	"name" : "viewer",
+	"nameOnDisk" : "viewer",
+	"paths" : 
+	{
+		"build" : "src",
+		"source" : "src"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/viewer.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "EXECUTABLE"
+}

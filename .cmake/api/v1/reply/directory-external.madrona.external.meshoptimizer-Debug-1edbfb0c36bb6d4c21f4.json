@@ -1,0 +1,102 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"external/madrona/external/meshoptimizer/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 142,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 149,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 150,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 169,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "meshoptimizer",
+			"destination" : "lib",
+			"paths" : 
+			[
+				"external/madrona/external/meshoptimizer/libmeshoptimizer.a"
+			],
+			"targetId" : "meshoptimizer::@bf2b041c01c0f3b9b815",
+			"targetIndex" : 44,
+			"type" : "target"
+		},
+		{
+			"backtrace" : 2,
+			"component" : "meshoptimizer",
+			"destination" : "include",
+			"paths" : 
+			[
+				"external/madrona/external/meshoptimizer/src/meshoptimizer.h"
+			],
+			"type" : "file"
+		},
+		{
+			"backtrace" : 3,
+			"component" : "meshoptimizer",
+			"destination" : "lib/cmake/meshoptimizer",
+			"exportName" : "meshoptimizerTargets",
+			"exportTargets" : 
+			[
+				{
+					"id" : "meshoptimizer::@bf2b041c01c0f3b9b815",
+					"index" : 44
+				}
+			],
+			"paths" : 
+			[
+				"external/madrona/external/meshoptimizer/CMakeFiles/Export/ceb4a2f0e054867e59945df3bd2dce32/meshoptimizerTargets.cmake"
+			],
+			"type" : "export"
+		},
+		{
+			"backtrace" : 4,
+			"component" : "meshoptimizer",
+			"destination" : "lib/cmake/meshoptimizer",
+			"paths" : 
+			[
+				"external/madrona/external/meshoptimizer/meshoptimizerConfig.cmake",
+				"external/madrona/external/meshoptimizer/meshoptimizerConfigVersion.cmake"
+			],
+			"type" : "file"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "external/madrona/external/meshoptimizer",
+		"source" : "external/madrona/external/meshoptimizer"
+	}
+}
