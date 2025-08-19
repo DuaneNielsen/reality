@@ -192,12 +192,14 @@ def compile_level(
     tile_types = [0] * MAX_TILES_C_API
     tile_x = [0.0] * MAX_TILES_C_API
     tile_y = [0.0] * MAX_TILES_C_API
+    tile_persistent = [False] * MAX_TILES_C_API  # Default: all tiles non-persistent
 
     # Fill arrays with actual tile data
     for i, (world_x, world_y, tile_type) in enumerate(tiles):
         tile_types[i] = tile_type
         tile_x[i] = world_x
         tile_y[i] = world_y
+        # tile_persistent[i] remains False by default
 
     # Prepare spawn arrays (MAX_SPAWNS from C API)
     spawn_x = [0.0] * MAX_SPAWNS_C_API
@@ -231,6 +233,7 @@ def compile_level(
         "tile_types": tile_types,
         "tile_x": tile_x,
         "tile_y": tile_y,
+        "tile_persistent": tile_persistent,  # Persistence flags for each tile
         # Metadata for debugging/validation (not part of C struct)
         "_spawn_points": spawns,
         "_entity_count": entity_count,
@@ -262,6 +265,7 @@ def validate_compiled_level(compiled: Dict) -> None:
         "tile_types",
         "tile_x",
         "tile_y",
+        "tile_persistent",
     ]
     for field in required_fields:
         if field not in compiled:
@@ -282,7 +286,7 @@ def validate_compiled_level(compiled: Dict) -> None:
         raise ValueError(f"Invalid scale: {compiled['scale']} (must be > 0)")
 
     # Check array lengths match MAX_TILES_C_API (fixed size for C++ compatibility)
-    for array_name in ["tile_types", "tile_x", "tile_y"]:
+    for array_name in ["tile_types", "tile_x", "tile_y", "tile_persistent"]:
         if len(compiled[array_name]) != MAX_TILES_C_API:
             raise ValueError(
                 f"Invalid {array_name} array length: {len(compiled[array_name])} "
@@ -362,6 +366,14 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
                 else:
                     f.write(struct.pack("<f", 0.0))
 
+            # tile_persistent array - pad with false if needed
+            for i in range(MAX_TILES_C_API):
+                if i < array_size and "tile_persistent" in compiled:
+                    # Write as bool (1 byte)
+                    f.write(struct.pack("<B", 1 if compiled["tile_persistent"][i] else 0))
+                else:
+                    f.write(struct.pack("<B", 0))  # Default: non-persistent
+
     except IOError as e:
         raise IOError(f"Failed to write level file '{filepath}': {e}")
 
@@ -421,6 +433,15 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             for _ in range(MAX_TILES_C_API):
                 tile_y.append(struct.unpack("<f", f.read(4))[0])
 
+            # Read tile_persistent array (if present in file)
+            tile_persistent = []
+            try:
+                for _ in range(MAX_TILES_C_API):
+                    tile_persistent.append(struct.unpack("<B", f.read(1))[0] != 0)
+            except struct.error:
+                # Old file format without persistent flags - default to all non-persistent
+                tile_persistent = [False] * MAX_TILES_C_API
+
             # Calculate expected array size for this level's dimensions
             array_size = width * height
 
@@ -440,6 +461,7 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 "tile_types": tile_types,
                 "tile_x": tile_x,
                 "tile_y": tile_y,
+                "tile_persistent": tile_persistent,
             }
 
             # Validate loaded data
