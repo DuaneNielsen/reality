@@ -61,9 +61,14 @@ version = "0.1.2"  # Incremented version
 dlpack_extension = Extension(
     "_madrona_escape_room_dlpack",
     sources=["src/dlpack_extension.cpp"],
+    include_dirs=[
+        "external/madrona/include",
+        "include",
+        "src",
+    ],
     language="c++",
     extra_compile_args=[
-        "-std=c++17",
+        "-std=c++20",
         "-O3",
         "-fPIC",
         "-Wall",
