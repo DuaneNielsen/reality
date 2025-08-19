@@ -228,6 +228,22 @@ public:
             level.tile_render_only[i] = false;  // Default: all physics entities
         }
         
+        // Initialize entity type values for test tiles
+        for (int i = 0; i < level.num_tiles; i++) {
+            // All walls in this test level use object_id = 1, which corresponds to WALL
+            // Map to EntityType::Wall (value 2)
+            if (level.object_ids[i] == 1) {  // WALL
+                level.tile_entity_type[i] = 2;  // EntityType::Wall
+            } else {
+                level.tile_entity_type[i] = 0;  // EntityType::None (default)
+            }
+        }
+        
+        // Initialize rest as None (default)
+        for (int i = level.num_tiles; i < MER_MAX_TILES; i++) {
+            level.tile_entity_type[i] = 0;  // EntityType::None
+        }
+        
         return level;
     }
     

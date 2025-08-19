@@ -166,6 +166,7 @@ namespace madEscape {
         float tile_y[MAX_TILES];          // World Y position
         bool tile_persistent[MAX_TILES];  // Whether tile persists across episodes
         bool tile_render_only[MAX_TILES]; // Whether tile is render-only (no physics)
+        int32_t tile_entity_type[MAX_TILES]; // EntityType value for each tile (0=None, 1=Cube, 2=Wall, 3=Agent)
     };
 
     // [GAME_SPECIFIC]

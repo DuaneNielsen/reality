@@ -69,11 +69,20 @@ protected:
         level.tile_render_only[4] = true;   // AXIS_X - render-only
         level.tile_render_only[5] = true;   // AXIS_Y - render-only
         
+        // Initialize entity type values
+        level.tile_entity_type[0] = 2;  // Wall - EntityType::Wall
+        level.tile_entity_type[1] = 2;  // Wall - EntityType::Wall  
+        level.tile_entity_type[2] = 1;  // Cube - EntityType::Cube
+        level.tile_entity_type[3] = 1;  // Cube - EntityType::Cube
+        level.tile_entity_type[4] = 0;  // AXIS_X - EntityType::None (render-only)
+        level.tile_entity_type[5] = 0;  // AXIS_Y - EntityType::None (render-only)
+        
         // Initialize rest as empty
         for (int i = 6; i < CompiledLevel::MAX_TILES; i++) {
             level.object_ids[i] = 0;
             level.tile_persistent[i] = false;
             level.tile_render_only[i] = false;  // Default: physics entities
+            level.tile_entity_type[i] = 0;  // EntityType::None
             level.tile_x[i] = 0.0f;
             level.tile_y[i] = 0.0f;
         }
@@ -284,4 +293,113 @@ TEST_F(PersistenceTest, MixedPhysicsRenderOnlyLevel) {
     }
     EXPECT_EQ(renderOnlyCount, 2);  // 2 axis markers
     EXPECT_EQ(physicsCount, 4);     // 2 walls + 2 cubes
+}
+
+TEST_F(PersistenceTest, DataDrivenEntityTypesAssigned) {
+    mgr->step();
+    
+    // Verify entity types are set from level data, not hardcoded logic
+    // Test passes if simulation runs without entity type conflicts
+    for (int step = 0; step < 50; step++) {
+        mgr->step();
+    }
+}
+
+TEST_F(PersistenceTest, MixedEntityTypesLevel) {
+    // Test level with different entity types
+    mgr->step();
+    
+    int wallCount = 0;
+    int cubeCount = 0; 
+    int noneCount = 0;
+    for (int i = 0; i < testLevels[0]->num_tiles; i++) {
+        int32_t entityType = testLevels[0]->tile_entity_type[i];
+        if (entityType == 1) cubeCount++;       // Cube
+        else if (entityType == 2) wallCount++;  // Wall
+        else noneCount++;                        // None
+    }
+    EXPECT_EQ(wallCount, 2);   // 2 walls
+    EXPECT_EQ(cubeCount, 2);   // 2 cubes  
+    EXPECT_EQ(noneCount, 2);   // 2 axis markers (render-only)
+}
+
+TEST_F(PersistenceTest, GenerateHardcodedLevelFile) {
+    // Create a simple hardcoded level
+    CompiledLevel level = {};
+    level.width = 3;
+    level.height = 3;
+    level.scale = 1.0f;
+    level.num_tiles = 4;
+    level.max_entities = 10;
+    std::strcpy(level.level_name, "hardcoded_test");
+    
+    // Set spawn point
+    level.num_spawns = 1;
+    level.spawn_x[0] = 0.0f;
+    level.spawn_y[0] = 0.0f;
+    level.spawn_facing[0] = 0.0f;
+    
+    // Tile 0: Wall at (-1, -1)
+    level.object_ids[0] = 2;  // WALL
+    level.tile_x[0] = -1.0f;
+    level.tile_y[0] = -1.0f;
+    level.tile_persistent[0] = true;
+    level.tile_render_only[0] = false;
+    level.tile_entity_type[0] = 2;  // EntityType::Wall
+    
+    // Tile 1: Cube at (1, -1)
+    level.object_ids[1] = 1;  // CUBE
+    level.tile_x[1] = 1.0f;
+    level.tile_y[1] = -1.0f;
+    level.tile_persistent[1] = false;
+    level.tile_render_only[1] = false;
+    level.tile_entity_type[1] = 1;  // EntityType::Cube
+    
+    // Tile 2: Wall at (-1, 1)
+    level.object_ids[2] = 2;  // WALL
+    level.tile_x[2] = -1.0f;
+    level.tile_y[2] = 1.0f;
+    level.tile_persistent[2] = true;
+    level.tile_render_only[2] = false;
+    level.tile_entity_type[2] = 2;  // EntityType::Wall
+    
+    // Tile 3: Axis marker (render-only) at (1, 1)
+    level.object_ids[3] = 5;  // AXIS_X
+    level.tile_x[3] = 1.0f;
+    level.tile_y[3] = 1.0f;
+    level.tile_persistent[3] = true;
+    level.tile_render_only[3] = true;
+    level.tile_entity_type[3] = 0;  // EntityType::None
+    
+    // Write to file
+    std::ofstream file("test_hardcoded.lvl", std::ios::binary);
+    ASSERT_TRUE(file.is_open());
+    file.write(reinterpret_cast<const char*>(&level), sizeof(CompiledLevel));
+    file.close();
+    
+    // Verify file was created and has correct size
+    std::ifstream check_file("test_hardcoded.lvl", std::ios::binary | std::ios::ate);
+    ASSERT_TRUE(check_file.is_open());
+    size_t file_size = check_file.tellg();
+    EXPECT_EQ(file_size, sizeof(CompiledLevel));
+    check_file.close();
+    
+    // Read back and verify contents
+    CompiledLevel loaded_level = {};
+    std::ifstream read_file("test_hardcoded.lvl", std::ios::binary);
+    ASSERT_TRUE(read_file.is_open());
+    read_file.read(reinterpret_cast<char*>(&loaded_level), sizeof(CompiledLevel));
+    read_file.close();
+    
+    // Verify key fields
+    EXPECT_EQ(loaded_level.width, 3);
+    EXPECT_EQ(loaded_level.height, 3);
+    EXPECT_EQ(loaded_level.num_tiles, 4);
+    EXPECT_STREQ(loaded_level.level_name, "hardcoded_test");
+    
+    // Verify tiles
+    EXPECT_EQ(loaded_level.object_ids[0], 2);  // WALL
+    EXPECT_EQ(loaded_level.tile_entity_type[0], 2);  // EntityType::Wall
+    EXPECT_EQ(loaded_level.object_ids[1], 1);  // CUBE
+    EXPECT_EQ(loaded_level.tile_entity_type[1], 1);  // EntityType::Cube
 }

@@ -78,15 +78,8 @@ static Entity createEntityShell(Engine& ctx, uint32_t objectId, bool isRenderOnl
  * ONLY for physics entities, not render-only.
  */
 static void setupEntityPhysics(Engine& ctx, Entity e, uint32_t objectId,
-                              Vector3 pos, Quat rot, Diag3x3 scale) {
-    EntityType entityType = EntityType::None;
-    if (objectId == AssetIDs::WALL) {
-        entityType = EntityType::Wall;
-    } else if (objectId == AssetIDs::CUBE) {
-        entityType = EntityType::Cube;
-    } else if (objectId == AssetIDs::AGENT) {
-        entityType = EntityType::Agent;
-    }
+                              Vector3 pos, Quat rot, Diag3x3 scale, int32_t entityTypeValue) {
+    EntityType entityType = static_cast<EntityType>(entityTypeValue);
     
     setupRigidBodyEntity(ctx, e, pos, rot, objectId,
                        entityType, ResponseType::Static, scale);
@@ -273,7 +266,8 @@ static void resetPersistentEntities(Engine &ctx)
                  if (isRenderOnly) {
                      setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
                  } else {
-                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
+                     int32_t entityTypeValue = level.tile_entity_type[i];
+                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale, entityTypeValue);
                  }
              }
          }
@@ -393,7 +387,8 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                 if (isRenderOnly) {
                     setupRenderOnlyEntity(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
                 } else {
-                    setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
+                    int32_t entityTypeValue = level->tile_entity_type[i];
+                    setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale, entityTypeValue);
                 }
             }
         }

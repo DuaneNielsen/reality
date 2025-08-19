@@ -98,7 +98,8 @@ public:
                 level1.tile_x[i] != level2.tile_x[i] ||
                 level1.tile_y[i] != level2.tile_y[i] ||
                 level1.tile_persistent[i] != level2.tile_persistent[i] ||
-                level1.tile_render_only[i] != level2.tile_render_only[i]) {
+                level1.tile_render_only[i] != level2.tile_render_only[i] ||
+                level1.tile_entity_type[i] != level2.tile_entity_type[i]) {
                 return false;
             }
         }
@@ -168,6 +169,7 @@ protected:
             level.tile_y[i] = (i / width) * level.scale;
             level.tile_persistent[i] = false;  // Default: non-persistent
             level.tile_render_only[i] = false;  // Default: physics entities
+            level.tile_entity_type[i] = (i % 2) + 1;  // Match object_ids (1=Cube, 2=Wall)
         }
         
         std::ofstream file(filename, std::ios::binary);
@@ -207,6 +209,7 @@ protected:
                 level.tile_y[i] = (i / 16) * level.scale;
                 level.tile_persistent[i] = false;  // Default: non-persistent
                 level.tile_render_only[i] = false;  // Default: physics entities
+                level.tile_entity_type[i] = 0;  // Default EntityType::None
             }
             file.write(reinterpret_cast<const char*>(&level), sizeof(MER_CompiledLevel));
             
