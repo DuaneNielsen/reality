@@ -3,6 +3,26 @@
 /build-debug
 /.vs
 /CMakeSettings.json
+
+# CMake build artifacts (prevent in-source builds)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+Testing/
+CTestTestfile.cmake
+*.cmake
+!CMakeLists.txt
+.cmake/
+
+# Build artifacts
+*.a
+*.so
+*.so.*
+mad_escape_tests
+libembree*.so.*
+vk/
 /scripts/__pycache__
 /train_src/madrona_escape_room_learn/__pycache__
 uv.lock

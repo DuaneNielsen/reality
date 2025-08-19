@@ -1,7 +1,0 @@
-/home/duane/madrona_escape_room/tests/cpp/build/CMakeFiles/mad_escape_tests.dir
-/home/duane/madrona_escape_room/tests/cpp/build/CMakeFiles/run_cpp_tests.dir
-/home/duane/madrona_escape_room/tests/cpp/build/CMakeFiles/run_cpp_cpu_tests.dir
-/home/duane/madrona_escape_room/tests/cpp/build/CMakeFiles/run_cpp_gpu_tests.dir
-/home/duane/madrona_escape_room/tests/cpp/build/CMakeFiles/test.dir
-/home/duane/madrona_escape_room/tests/cpp/build/CMakeFiles/edit_cache.dir
-/home/duane/madrona_escape_room/tests/cpp/build/CMakeFiles/rebuild_cache.dir
