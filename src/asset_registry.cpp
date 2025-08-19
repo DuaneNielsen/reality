@@ -2,6 +2,31 @@
 #include "asset_ids.hpp"
 #include <cassert>
 
+namespace madEscape {
+
+// Texture definitions
+namespace AssetTextures {
+    const TextureDescriptor TEXTURES[NUM_TEXTURES] = {
+        { "green_grid", "green_grid.png" },
+        { "smile", "smile.png" },
+    };
+}
+
+// Material definitions
+namespace AssetMaterials {
+    const MaterialDescriptor MATERIALS[NUM_MATERIALS] = {
+        { "cube", {139.f/255.f, 69.f/255.f, 19.f/255.f, 1.0f}, -1, 0.8f, 0.2f },
+        { "wall", {0.5f, 0.5f, 0.5f, 1.0f}, -1, 0.8f, 0.2f },  // No texture
+        { "agent_body", {1.0f, 1.0f, 1.0f, 1.0f}, 1, 0.5f, 1.0f },  // Uses smile texture  
+        { "agent_parts", {0.7f, 0.7f, 0.7f, 1.0f}, -1, 0.8f, 0.2f },
+        { "floor", {0.2f, 0.6f, 0.2f, 1.0f}, 0, 0.8f, 0.2f },  // Uses green_grid texture
+        { "axis_x", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
+        { "button", {1.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
+        { "axis_y", {0.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
+        { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },
+    };
+}
+
 // Asset constants for physics and rendering properties
 namespace {
     // Physics properties
@@ -28,8 +53,6 @@ namespace {
     // Mesh counts
     constexpr uint32_t agentMeshCount = 3;
 }
-
-namespace madEscape {
 
 AssetRegistry::AssetRegistry() : nextId(AssetIDs::DYNAMIC_START) {
     idToAsset.resize(AssetIDs::MAX_ASSETS);

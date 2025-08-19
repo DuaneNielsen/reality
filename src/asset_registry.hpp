@@ -4,8 +4,33 @@
 #include <unordered_map>
 #include <vector>
 #include <madrona/physics.hpp>
+#include <madrona/math.hpp>
 
 namespace madEscape {
+
+// Texture and Material definitions
+namespace AssetTextures {
+    struct TextureDescriptor {
+        const char* name;
+        const char* filepath;
+    };
+    
+    constexpr size_t NUM_TEXTURES = 2;
+    extern const TextureDescriptor TEXTURES[NUM_TEXTURES];
+}
+
+namespace AssetMaterials {
+    struct MaterialDescriptor {
+        const char* name;
+        madrona::math::Vector4 color;
+        int32_t textureIdx;
+        float roughness;
+        float metallic;
+    };
+    
+    constexpr size_t NUM_MATERIALS = 9;
+    extern const MaterialDescriptor MATERIALS[NUM_MATERIALS];
+}
 
 class AssetRegistry {
 public:

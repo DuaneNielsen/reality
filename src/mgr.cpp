@@ -41,40 +41,6 @@ using namespace madrona::math;
 using namespace madrona::phys;
 using namespace madrona::py;
 
-// Temporary material and texture definitions (until moved to AssetRegistry)
-namespace {
-    struct TextureDescriptor {
-        const char* name;
-        const char* filepath;
-    };
-    
-    struct MaterialDescriptor {
-        const char* name;
-        madrona::math::Vector4 color;
-        int32_t textureIdx;
-        float roughness;
-        float metallic;
-    };
-    
-    constexpr TextureDescriptor TEXTURES[] = {
-        { "green_grid", "green_grid.png" },
-        { "smile", "smile.png" },
-    };
-    constexpr size_t NUM_TEXTURES = 2;
-    
-    constexpr MaterialDescriptor MATERIALS[] = {
-        { "cube", {139.f/255.f, 69.f/255.f, 19.f/255.f, 1.0f}, -1, 0.8f, 0.2f },
-        { "wall", {0.5f, 0.5f, 0.5f, 1.0f}, -1, 0.8f, 0.2f },  // No texture
-        { "agent_body", {1.0f, 1.0f, 1.0f, 1.0f}, 1, 0.5f, 1.0f },  // Uses smile texture  
-        { "agent_parts", {0.7f, 0.7f, 0.7f, 1.0f}, -1, 0.8f, 0.2f },
-        { "floor", {0.2f, 0.6f, 0.2f, 1.0f}, 0, 0.8f, 0.2f },  // Uses green_grid texture
-        { "axis_x", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
-        { "button", {1.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
-        { "axis_y", {0.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
-        { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },
-    };
-    constexpr size_t NUM_MATERIALS = 9;
-}
 
 namespace madEscape {
 
@@ -283,19 +249,19 @@ static Span<imp::SourceTexture> loadTextures(StackAlloc &alloc)
     return img_importer.importImages(
         alloc, {
             (std::filesystem::path(DATA_DIR) / 
-                TEXTURES[0].filepath).string().c_str(),  // Green grid texture
+                madEscape::AssetTextures::TEXTURES[0].filepath).string().c_str(),  // Green grid texture
             (std::filesystem::path(DATA_DIR) / 
-                TEXTURES[1].filepath).string().c_str(),  // Smile texture
+                madEscape::AssetTextures::TEXTURES[1].filepath).string().c_str(),  // Smile texture
         });
 }
 
 // Helper function to create materials
-static std::array<imp::SourceMaterial, NUM_MATERIALS> createMaterials()
+static std::array<imp::SourceMaterial, madEscape::AssetMaterials::NUM_MATERIALS> createMaterials()
 {
-    std::array<imp::SourceMaterial, NUM_MATERIALS> materials;
+    std::array<imp::SourceMaterial, madEscape::AssetMaterials::NUM_MATERIALS> materials;
     
-    for (size_t i = 0; i < NUM_MATERIALS; i++) {
-        const auto& desc = MATERIALS[i];
+    for (size_t i = 0; i < madEscape::AssetMaterials::NUM_MATERIALS; i++) {
+        const auto& desc = madEscape::AssetMaterials::MATERIALS[i];
         materials[i] = imp::SourceMaterial{
             desc.color,
             desc.textureIdx,
