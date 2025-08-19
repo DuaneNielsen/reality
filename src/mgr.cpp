@@ -64,7 +64,7 @@ namespace {
     
     constexpr MaterialDescriptor MATERIALS[] = {
         { "cube", {139.f/255.f, 69.f/255.f, 19.f/255.f, 1.0f}, -1, 0.8f, 0.2f },
-        { "wall", {0.5f, 0.5f, 0.5f, 1.0f}, 0, 0.8f, 0.2f },  // Uses green_grid texture
+        { "wall", {0.5f, 0.5f, 0.5f, 1.0f}, -1, 0.8f, 0.2f },  // No texture
         { "agent_body", {1.0f, 1.0f, 1.0f, 1.0f}, 1, 0.5f, 1.0f },  // Uses smile texture  
         { "agent_parts", {0.7f, 0.7f, 0.7f, 1.0f}, -1, 0.8f, 0.2f },
         { "floor", {0.2f, 0.6f, 0.2f, 1.0f}, 0, 0.8f, 0.2f },  // Uses green_grid texture
