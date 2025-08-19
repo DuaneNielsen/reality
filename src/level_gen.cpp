@@ -1,5 +1,7 @@
 #include "level_gen.hpp"
 #include "asset_ids.hpp"
+#include "asset_descriptors.hpp"
+#include <cmath>
 
 namespace madEscape {
 
@@ -60,11 +62,60 @@ static void registerRigidBodyEntity(
         PhysicsSystem::registerEntity(ctx, e, obj_id);
 }
 
+/**
+ * Creates ONLY the entity shell - no physics setup at all.
+ * Used for persistent entities created at startup.
+ */
+static Entity createEntityShell(Engine& ctx, uint32_t objectId) {
+    if (objectId == AssetIDs::AXIS_X || 
+        objectId == AssetIDs::AXIS_Y || 
+        objectId == AssetIDs::AXIS_Z) {
+        return ctx.makeRenderableEntity<RenderOnlyEntity>();
+    } else {
+        return ctx.makeRenderableEntity<PhysicsEntity>();
+    }
+}
+
+/**
+ * Sets up physics for a physics entity.
+ * ONLY for physics entities, not render-only.
+ */
+static void setupEntityPhysics(Engine& ctx, Entity e, uint32_t objectId,
+                              Vector3 pos, Quat rot, Diag3x3 scale) {
+    EntityType entityType = EntityType::None;
+    if (objectId == AssetIDs::WALL) {
+        entityType = EntityType::Wall;
+    } else if (objectId == AssetIDs::CUBE) {
+        entityType = EntityType::Cube;
+    } else if (objectId == AssetIDs::AGENT) {
+        entityType = EntityType::Agent;
+    }
+    
+    setupRigidBodyEntity(ctx, e, pos, rot, objectId,
+                       entityType, ResponseType::Static, scale);
+    registerRigidBodyEntity(ctx, e, objectId);
+}
+
+/**
+ * Sets up render-only entity components.
+ * ONLY for render-only entities.
+ */
+static void setupRenderOnlyEntity(Engine& ctx, Entity e, uint32_t objectId,
+                                 Vector3 pos, Quat rot, Diag3x3 scale) {
+    ctx.get<Position>(e) = pos;
+    ctx.get<Rotation>(e) = rot;
+    ctx.get<Scale>(e) = scale;
+    ctx.get<ObjectID>(e) = ObjectID{(int32_t)objectId};
+}
+
 // Creates floor, outer walls, and agent entities.
 // All these entities persist across all episodes.
-void createPersistentEntities(Engine &ctx)
+/**
+ * Helper function to create the floor plane entity.
+ * Called once from createPersistentEntities() during initialization.
+ */
+static void createFloorPlane(Engine &ctx)
 {
-    // Create the floor entity, just a simple static plane.
     ctx.data().floorPlane = ctx.makeRenderableEntity<PhysicsEntity>();
     setupRigidBodyEntity(
         ctx,
@@ -74,8 +125,55 @@ void createPersistentEntities(Engine &ctx)
         AssetIDs::PLANE,
         EntityType::None, // Floor plane type should never be queried
         ResponseType::Static);
+}
 
-    // Phase 1.1: Old border walls removed - using hardcoded 16x16 room instead
+/**
+ * Helper function to create the origin marker gizmo.
+ * Creates 3 colored boxes representing XYZ axes for visual reference.
+ * Called once from createPersistentEntities() during initialization.
+ */
+static void createOriginMarkerGizmo(Engine &ctx)
+{
+    using namespace madrona::escape_room::asset_constants::rendering::gizmo;
+    
+    // Box 0: Red box along X axis
+    ctx.data().originMarkerBoxes[0] = ctx.makeRenderableEntity<RenderOnlyEntity>();
+    ctx.get<Position>(ctx.data().originMarkerBoxes[0]) = Vector3{axisMarkerOffset, 0, 0};  // Offset along X
+    ctx.get<Rotation>(ctx.data().originMarkerBoxes[0]) = Quat{1, 0, 0, 0};
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[0]) = Diag3x3{axisMarkerLength, axisMarkerThickness, axisMarkerThickness};  // Elongated along X
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[0]) = ObjectID{(int32_t)AssetIDs::AXIS_X};
+    
+    // Box 1: Green box along Y axis  
+    ctx.data().originMarkerBoxes[1] = ctx.makeRenderableEntity<RenderOnlyEntity>();
+    ctx.get<Position>(ctx.data().originMarkerBoxes[1]) = Vector3{0, axisMarkerOffset, 0};  // Offset along Y
+    ctx.get<Rotation>(ctx.data().originMarkerBoxes[1]) = Quat{1, 0, 0, 0};
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[1]) = Diag3x3{axisMarkerThickness, axisMarkerLength, axisMarkerThickness};  // Elongated along Y
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[1]) = ObjectID{(int32_t)AssetIDs::AXIS_Y};
+    
+    // Box 2: Blue box along Z axis
+    ctx.data().originMarkerBoxes[2] = ctx.makeRenderableEntity<RenderOnlyEntity>();
+    ctx.get<Position>(ctx.data().originMarkerBoxes[2]) = Vector3{0, 0, axisMarkerOffset};  // Offset along Z
+    ctx.get<Rotation>(ctx.data().originMarkerBoxes[2]) = Quat{1, 0, 0, 0};
+    ctx.get<Scale>(ctx.data().originMarkerBoxes[2]) = Diag3x3{axisMarkerThickness, axisMarkerThickness, axisMarkerLength};  // Elongated along Z
+    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[2]) = ObjectID{(int32_t)AssetIDs::AXIS_Z};
+}
+
+/**
+ * Entry point #1: Called ONCE at simulation startup from Sim constructor.
+ * Creates all entities that persist for the entire simulation lifetime.
+ */
+void createPersistentEntities(Engine &ctx)
+{
+    // Initialize persistent entity count - we'll track them but not create them yet
+    ctx.data().numPersistentLevelEntities = 0;
+    
+    // Create the floor plane
+    createFloorPlane(ctx);
+
+    // Create origin marker gizmo
+    createOriginMarkerGizmo(ctx);
+
+    // Phase 1.1: Old border walls removed
 
     // Create agent entities. Note that this leaves a lot of components
     // uninitialized, these will be set during world generation, which is
@@ -98,41 +196,89 @@ void createPersistentEntities(Engine &ctx)
         ctx.get<EntityType>(agent) = EntityType::Agent;
     }
 
-    // Create origin marker gizmo - 3 colored boxes for XYZ axes
-    // Box 0: Red box along X axis
-    ctx.data().originMarkerBoxes[0] = ctx.makeRenderableEntity<RenderOnlyEntity>();
-    ctx.get<Position>(ctx.data().originMarkerBoxes[0]) = Vector3{consts::rendering::axisMarkerOffset, 0, 0};  // Offset along X
-    ctx.get<Rotation>(ctx.data().originMarkerBoxes[0]) = Quat{1, 0, 0, 0};
-    ctx.get<Scale>(ctx.data().originMarkerBoxes[0]) = Diag3x3{consts::rendering::axisMarkerLength, consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerThickness};  // Elongated along X
-    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[0]) = ObjectID{(int32_t)AssetIDs::AXIS_X};
+    // Create persistent level tiles from compiled level data
+    // These entities will NOT be registered with physics yet - that happens in resetPersistentEntities()
+    CompiledLevel& level = ctx.singleton<CompiledLevel>();
     
-    // Box 1: Green box along Y axis  
-    ctx.data().originMarkerBoxes[1] = ctx.makeRenderableEntity<RenderOnlyEntity>();
-    ctx.get<Position>(ctx.data().originMarkerBoxes[1]) = Vector3{0, consts::rendering::axisMarkerOffset, 0};  // Offset along Y
-    ctx.get<Rotation>(ctx.data().originMarkerBoxes[1]) = Quat{1, 0, 0, 0};
-    ctx.get<Scale>(ctx.data().originMarkerBoxes[1]) = Diag3x3{consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerLength, consts::rendering::axisMarkerThickness};  // Elongated along Y
-    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[1]) = ObjectID{(int32_t)AssetIDs::AXIS_Y};
+    // Use the scale from the compiled level to size tiles properly
+    float tile_scale = level.scale;
     
-    // Box 2: Blue box along Z axis
-    ctx.data().originMarkerBoxes[2] = ctx.makeRenderableEntity<RenderOnlyEntity>();
-    ctx.get<Position>(ctx.data().originMarkerBoxes[2]) = Vector3{0, 0, consts::rendering::axisMarkerOffset};  // Offset along Z
-    ctx.get<Rotation>(ctx.data().originMarkerBoxes[2]) = Quat{1, 0, 0, 0};
-    ctx.get<Scale>(ctx.data().originMarkerBoxes[2]) = Diag3x3{consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerThickness, consts::rendering::axisMarkerLength};  // Elongated along Z
-    ctx.get<ObjectID>(ctx.data().originMarkerBoxes[2]) = ObjectID{(int32_t)AssetIDs::AXIS_Z};
+    // Create persistent tiles
+    for (int32_t i = 0; i < level.num_tiles && i < CompiledLevel::MAX_TILES; i++) {
+        if (level.tile_persistent[i]) {
+            uint32_t objectId = level.object_ids[i];
+            float x = level.tile_x[i];
+            float y = level.tile_y[i];
+            
+            if (objectId != AssetIDs::INVALID && objectId != 0) {
+                Diag3x3 scale = {tile_scale, tile_scale, tile_scale};
+                float z = 0.0f;
+                
+                if (objectId == AssetIDs::WALL) {
+                    scale = {tile_scale, tile_scale, consts::rendering::wallHeight};
+                } else if (objectId == AssetIDs::CUBE) {
+                    float s = consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor;
+                    scale = {s, s, s};
+                    z = s;
+                }
+                
+                // Create persistent entity shell only - no physics setup
+                Entity entity = createEntityShell(ctx, objectId);
+                
+                // Store in persistent array
+                if (ctx.data().numPersistentLevelEntities < Sim::MAX_PERSISTENT_TILES) {
+                    ctx.data().persistentLevelEntities[ctx.data().numPersistentLevelEntities++] = entity;
+                }
+            }
+        }
+    }
 }
 
-// Although agents and walls persist between episodes, we still need to
-// re-register them with the broadphase system and, in the case of the agents,
-// reset their positions.
+/**
+ * Resets persistent entities for a new episode.
+ * Called from generateWorld() at the start of each episode.
+ * 
+ * Although agents and walls persist between episodes, we still need to
+ * re-register them with the broadphase system and, in the case of the agents,
+ * reset their positions.
+ */
 static void resetPersistentEntities(Engine &ctx)
 {
     registerRigidBodyEntity(ctx, ctx.data().floorPlane, AssetIDs::PLANE);
 
-     // Phase 1.1: Border wall registration removed - using hardcoded 16x16 room instead
-     
-     // Get spawn positions from compiled level
+     // Get compiled level for persistent entity setup
      CompiledLevel& level = ctx.singleton<CompiledLevel>();
+     float tile_scale = level.scale;
      
+     // Set up physics for persistent level entities
+     CountT persistent_idx = 0;
+     for (int32_t i = 0; i < level.num_tiles && persistent_idx < ctx.data().numPersistentLevelEntities; i++) {
+         if (level.tile_persistent[i]) {
+             uint32_t objectId = level.object_ids[i];
+             if (objectId != AssetIDs::INVALID && objectId != 0) {
+                 Entity e = ctx.data().persistentLevelEntities[persistent_idx++];
+                 
+                 float x = level.tile_x[i];
+                 float y = level.tile_y[i];
+                 Diag3x3 scale = {tile_scale, tile_scale, tile_scale};
+                 float z = 0.0f;
+                 
+                 if (objectId == AssetIDs::WALL) {
+                     scale = {tile_scale, tile_scale, consts::rendering::wallHeight};
+                 } else if (objectId == AssetIDs::CUBE) {
+                     float s = consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor;
+                     scale = {s, s, s};
+                     z = s;
+                 }
+                 
+                 if (objectId == AssetIDs::AXIS_X || objectId == AssetIDs::AXIS_Y || objectId == AssetIDs::AXIS_Z) {
+                     setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
+                 } else {
+                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
+                 }
+             }
+         }
+     }
 
      for (CountT i = 0; i < consts::numAgents; i++) {
          Entity agent_entity = ctx.data().agents[i];
@@ -188,109 +334,13 @@ static void resetPersistentEntities(Engine &ctx)
 }
 
 
-// Generic entity creator that works with any asset ID
-static Entity createEntityFromId(Engine& ctx, uint32_t objectId, 
-                                Vector3 pos, Quat rot, Diag3x3 scale) {
-    // Check for render-only assets (no physics)
-    if (objectId == AssetIDs::AXIS_X || 
-        objectId == AssetIDs::AXIS_Y || 
-        objectId == AssetIDs::AXIS_Z) {
-        Entity e = ctx.makeRenderableEntity<RenderOnlyEntity>();
-        ctx.get<Position>(e) = pos;
-        ctx.get<Rotation>(e) = rot;
-        ctx.get<Scale>(e) = scale;
-        ctx.get<ObjectID>(e) = ObjectID{(int32_t)objectId};
-        return e;
-    } else {
-        // Physics entity
-        Entity e = ctx.makeRenderableEntity<PhysicsEntity>();
-        
-        // Determine entity type based on object ID
-        EntityType entityType = EntityType::None;
-        if (objectId == AssetIDs::WALL) {
-            entityType = EntityType::Wall;
-        } else if (objectId == AssetIDs::CUBE) {
-            entityType = EntityType::Cube;
-        } else if (objectId == AssetIDs::AGENT) {
-            entityType = EntityType::Agent;
-        }
-        
-        setupRigidBodyEntity(ctx, e, pos, rot, objectId,
-                           entityType, ResponseType::Static, scale);
-        registerRigidBodyEntity(ctx, e, objectId);
-        return e;
-    }
-}
 
 
-
-// A room with 3 cubes as fixed obstacles
-// static CountT makeCubeObstacleRoom(Engine &ctx,
-//                                    Room &room,
-//                                    float y_min,
-//                                    float y_max)
-// {
-//     // Position cubes as obstacles in the room
-//     float center_x = 0.f;
-//     float center_y = (y_min + y_max) / 2.f;
-//
-//     float cube_a_x = center_x - 3.f;
-//     float cube_a_y = center_y;
-//
-//     Entity cube_a = makeCube(ctx, cube_a_x, cube_a_y, 1.5f);
-//
-//     float cube_b_x = center_x;
-//     float cube_b_y = center_y;
-//
-//     Entity cube_b = makeCube(ctx, cube_b_x, cube_b_y, 1.5f);
-//
-//     float cube_c_x = center_x + 3.f;
-//     float cube_c_y = center_y;
-//
-//     Entity cube_c = makeCube(ctx, cube_c_x, cube_c_y, 1.5f);
-//
-//     room.entities[0] = cube_a;
-//     room.entities[1] = cube_b;
-//     room.entities[2] = cube_c;
-//
-//     return 3;
-// }
-
-
-// Create cube obstacles for the room
-// static void makeRoom(Engine &ctx,
-//                      LevelState &level,
-//                      CountT room_idx)
-// {
-//     Room &room = level.rooms[room_idx];
-//
-//     float room_y_min = room_idx * consts::worldLength;
-//     float room_y_max = (room_idx + 1) * consts::worldLength;
-//
-//     // Always create a cube obstacle room
-//     CountT num_room_entities = makeCubeObstacleRoom(ctx, room, room_y_min, room_y_max);
-//
-//     // Need to set any extra entities to type none so random uninitialized data
-//     // from prior episodes isn't exported to pytorch as agent observations.
-//     for (CountT i = num_room_entities; i < CompiledLevel::MAX_TILES; i++) {
-//         room.entities[i] = Entity::none();
-//     }
-// }
-
-// REMOVED: Hardcoded room generation - now always use ASCII levels
-
-// Original level generation with cube obstacles
-// static void generateDefaultLevel(Engine &ctx)
-// {
-//     LevelState &level = ctx.singleton<LevelState>();
-//     // Generate single room with cube obstacles
-//     makeRoom(ctx, level, 0);
-//     
-//     // NOTE: max_entities should be set by compiler, not by level generator
-// }
-
-// Phase 2: Generate level from compiled level data
-// Simple array iteration - GPU friendly
+/**
+ * Creates per-episode entities from compiled level data.
+ * Called from generateLevel() each episode.
+ * Iterates through tile arrays and creates entities for non-empty tiles.
+ */
 static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
 {
     LevelState &level_state = ctx.singleton<LevelState>();
@@ -309,21 +359,43 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
         
         // Create entity based on object ID
         if (objectId != AssetIDs::INVALID && objectId != 0) {  // 0 means empty
-            // Determine scale based on object type
-            Diag3x3 scale = {tile_scale, tile_scale, tile_scale};
-            float z = 0.0f;
+            // Check if this entity is persistent and already exists
+            bool isPersistent = level->tile_persistent[i];
             
-            if (objectId == AssetIDs::WALL) {
-                scale = {tile_scale, tile_scale, consts::rendering::wallHeight};  // Walls are taller
-            } else if (objectId == AssetIDs::CUBE) {
-                float s = consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor;
-                scale = {s, s, s};
-                z = s;  // Cubes rest on ground with bottom at z=0
+            if (isPersistent) {
+                // Persistent entity was already created in createPersistentEntities()
+                // Find it by matching position
+                for (CountT j = 0; j < ctx.data().numPersistentLevelEntities; j++) {
+                    Entity e = ctx.data().persistentLevelEntities[j];
+                    if (e != Entity::none()) {
+                        Position pos = ctx.get<Position>(e);
+                        if (std::abs(pos.x - x) < 0.01f && std::abs(pos.y - y) < 0.01f) {
+                            entity = e;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Non-persistent entity - create with full physics setup
+                Diag3x3 scale = {tile_scale, tile_scale, tile_scale};
+                float z = 0.0f;
+                
+                if (objectId == AssetIDs::WALL) {
+                    scale = {tile_scale, tile_scale, consts::rendering::wallHeight};
+                } else if (objectId == AssetIDs::CUBE) {
+                    float s = consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor;
+                    scale = {s, s, s};
+                    z = s;
+                }
+                
+                // Create entity and set up immediately
+                entity = createEntityShell(ctx, objectId);
+                if (objectId == AssetIDs::AXIS_X || objectId == AssetIDs::AXIS_Y || objectId == AssetIDs::AXIS_Z) {
+                    setupRenderOnlyEntity(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
+                } else {
+                    setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
+                }
             }
-            
-            entity = createEntityFromId(ctx, objectId, 
-                                       Vector3{x, y, z}, 
-                                       Quat{1,0,0,0}, scale);
         }
         
         if (entity != Entity::none()) {
@@ -337,28 +409,32 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
     }
 }
 
+/**
+ * Generates the level-specific entities for this episode.
+ * Called from generateWorld() each episode.
+ * Uses the compiled level singleton to create tile entities.
+ */
 static void generateLevel(Engine &ctx)
 {
     // Always use compiled level - no fallback to hardcoded generation
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
     if (level.num_tiles == 0) {
-        // This should not happen - all managers should provide a level
-        printf("ERROR: No compiled level provided! All simulations must use ASCII levels.\n");
-        // Create a minimal emergency level to avoid crashes
-        level.num_tiles = 4;
-        level.width = consts::rendering::emergencyLevelSize; level.height = consts::rendering::emergencyLevelSize; level.scale = consts::rendering::emergencyLevelScale;
-        // Emergency 3x3 room
-        level.object_ids[consts::rendering::emergencyLevel::tile0] = AssetIDs::WALL; level.tile_x[consts::rendering::emergencyLevel::tile0] = -consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile0] = -consts::rendering::emergencyLevelCoord;
-        level.object_ids[consts::rendering::emergencyLevel::tile1] = AssetIDs::WALL; level.tile_x[consts::rendering::emergencyLevel::tile1] =  consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile1] = -consts::rendering::emergencyLevelCoord;
-        level.object_ids[consts::rendering::emergencyLevel::tile2] = AssetIDs::WALL; level.tile_x[consts::rendering::emergencyLevel::tile2] = -consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile2] =  consts::rendering::emergencyLevelCoord;
-        level.object_ids[consts::rendering::emergencyLevel::tile3] = AssetIDs::WALL; level.tile_x[consts::rendering::emergencyLevel::tile3] =  consts::rendering::emergencyLevelCoord; level.tile_y[consts::rendering::emergencyLevel::tile3] =  consts::rendering::emergencyLevelCoord;
+        // Fatal error - all managers must provide a level
+        FATAL("No compiled level provided! All simulations must use compiled level data.\n"
+              "Please provide a valid .lvl file or use the level compiler to create one.");
     }
     
     // Generate from compiled level
     generateFromCompiled(ctx, &level);
 }
 
-// Randomly generate a new world for a training episode
+/**
+ * Entry point #2: Called at the START of EACH episode.
+ * - Called from initWorld() for the first episode
+ * - Called from resetSystem() for subsequent episodes
+ * 
+ * Coordinates the per-episode world generation process.
+ */
 void generateWorld(Engine &ctx)
 {
     resetPersistentEntities(ctx);
