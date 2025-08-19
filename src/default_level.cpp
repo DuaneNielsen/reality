@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstring>
 #include "types.hpp"
+#include "asset_ids.hpp"
 
 using namespace madEscape;
 
@@ -11,52 +12,83 @@ int main(int argc, char* argv[]) {
         output_file = argv[1];
     }
     
-    // Create a simple hardcoded level
+    // Create a 32x32 room with border walls
     CompiledLevel level = {};
-    level.width = 3;
-    level.height = 3;
+    level.width = 32;
+    level.height = 32;
     level.scale = 1.0f;
-    level.num_tiles = 4;
-    level.max_entities = 10;
-    std::strcpy(level.level_name, "default_level");
+    level.max_entities = 150;  // Enough for walls and other objects
+    std::strcpy(level.level_name, "default_32x32_room");
     
-    // Set spawn point
+    // Set spawn point at center
     level.num_spawns = 1;
     level.spawn_x[0] = 0.0f;
     level.spawn_y[0] = 0.0f;
     level.spawn_facing[0] = 0.0f;
     
-    // Tile 0: Wall at (-1, -1)
-    level.object_ids[0] = 2;  // WALL
-    level.tile_x[0] = -1.0f;
-    level.tile_y[0] = -1.0f;
-    level.tile_persistent[0] = true;
-    level.tile_render_only[0] = false;
-    level.tile_entity_type[0] = 2;  // EntityType::Wall
+    // Generate border walls
+    // The room spans from -16 to 16 in both X and Y
+    // Place walls at the edges (-15.5 and 15.5) to create the border
+    int tile_index = 0;
+    const float half_size = 15.5f;  // 32/2 - 0.5 to place walls at edges
     
-    // Tile 1: Cube at (1, -1)
-    level.object_ids[1] = 1;  // CUBE
-    level.tile_x[1] = 1.0f;
-    level.tile_y[1] = -1.0f;
-    level.tile_persistent[1] = false;
-    level.tile_render_only[1] = false;
-    level.tile_entity_type[1] = 1;  // EntityType::Cube
+    // Top and bottom walls
+    for (int i = 0; i < 32; i++) {
+        float x = -half_size + i;
+        
+        // Top wall
+        level.object_ids[tile_index] = AssetIDs::WALL;
+        level.tile_x[tile_index] = x;
+        level.tile_y[tile_index] = half_size;
+        level.tile_persistent[tile_index] = true;
+        level.tile_render_only[tile_index] = false;
+        level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
+        tile_index++;
+        
+        // Bottom wall
+        level.object_ids[tile_index] = AssetIDs::WALL;
+        level.tile_x[tile_index] = x;
+        level.tile_y[tile_index] = -half_size;
+        level.tile_persistent[tile_index] = true;
+        level.tile_render_only[tile_index] = false;
+        level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
+        tile_index++;
+    }
     
-    // Tile 2: Wall at (-1, 1)
-    level.object_ids[2] = 2;  // WALL
-    level.tile_x[2] = -1.0f;
-    level.tile_y[2] = 1.0f;
-    level.tile_persistent[2] = true;
-    level.tile_render_only[2] = false;
-    level.tile_entity_type[2] = 2;  // EntityType::Wall
+    // Left and right walls (skip corners to avoid duplicates)
+    for (int i = 1; i < 31; i++) {
+        float y = -half_size + i;
+        
+        // Left wall
+        level.object_ids[tile_index] = AssetIDs::WALL;
+        level.tile_x[tile_index] = -half_size;
+        level.tile_y[tile_index] = y;
+        level.tile_persistent[tile_index] = true;
+        level.tile_render_only[tile_index] = false;
+        level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
+        tile_index++;
+        
+        // Right wall
+        level.object_ids[tile_index] = AssetIDs::WALL;
+        level.tile_x[tile_index] = half_size;
+        level.tile_y[tile_index] = y;
+        level.tile_persistent[tile_index] = true;
+        level.tile_render_only[tile_index] = false;
+        level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
+        tile_index++;
+    }
     
-    // Tile 3: Axis marker (render-only) at (1, 1)
-    level.object_ids[3] = 5;  // AXIS_X
-    level.tile_x[3] = 1.0f;
-    level.tile_y[3] = 1.0f;
-    level.tile_persistent[3] = true;
-    level.tile_render_only[3] = true;
-    level.tile_entity_type[3] = 0;  // EntityType::None
+    // Add an axis marker at the origin for visual reference
+    level.object_ids[tile_index] = AssetIDs::AXIS_X;
+    level.tile_x[tile_index] = 0.0f;
+    level.tile_y[tile_index] = 0.0f;
+    level.tile_persistent[tile_index] = true;
+    level.tile_render_only[tile_index] = true;
+    level.tile_entity_type[tile_index] = 0;  // EntityType::None
+    tile_index++;
+    
+    // Set the actual number of tiles used
+    level.num_tiles = tile_index;
     
     // Write to file
     std::ofstream file(output_file, std::ios::binary);

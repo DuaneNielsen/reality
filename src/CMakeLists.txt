@@ -100,12 +100,13 @@ target_link_libraries(file_inspector madrona_mw_core mad_escape_mgr)
 add_executable(default_level default_level.cpp)
 target_link_libraries(default_level madrona_mw_core mad_escape_mgr)
 
-# Generate default_level.lvl during build
+# Generate default_level.lvl by running the executable
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/default_level.lvl
     COMMAND default_level ${CMAKE_BINARY_DIR}/default_level.lvl
     DEPENDS default_level
     COMMENT "Generating default_level.lvl"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     VERBATIM
 )
 
