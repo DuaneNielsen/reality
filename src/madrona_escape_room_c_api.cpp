@@ -115,12 +115,30 @@ MER_Result mer_create_manager(
                        sizeof(float) * array_size);
             std::memcpy(cpp_level.tile_y, c_level->tile_y,
                        sizeof(float) * array_size);
+            std::memcpy(cpp_level.tile_z, c_level->tile_z,
+                       sizeof(float) * array_size);
             std::memcpy(cpp_level.tile_persistent, c_level->tile_persistent,
                        sizeof(bool) * array_size);
             std::memcpy(cpp_level.tile_render_only, c_level->tile_render_only,
                        sizeof(bool) * array_size);
             std::memcpy(cpp_level.tile_entity_type, c_level->tile_entity_type,
                        sizeof(int32_t) * array_size);
+            
+            // Copy transform data arrays
+            std::memcpy(cpp_level.tile_scale_x, c_level->tile_scale_x,
+                       sizeof(float) * array_size);
+            std::memcpy(cpp_level.tile_scale_y, c_level->tile_scale_y,
+                       sizeof(float) * array_size);
+            std::memcpy(cpp_level.tile_scale_z, c_level->tile_scale_z,
+                       sizeof(float) * array_size);
+            std::memcpy(cpp_level.tile_rot_w, c_level->tile_rot_w,
+                       sizeof(float) * array_size);
+            std::memcpy(cpp_level.tile_rot_x, c_level->tile_rot_x,
+                       sizeof(float) * array_size);
+            std::memcpy(cpp_level.tile_rot_y, c_level->tile_rot_y,
+                       sizeof(float) * array_size);
+            std::memcpy(cpp_level.tile_rot_z, c_level->tile_rot_z,
+                       sizeof(float) * array_size);
             
             cpp_per_world_levels.push_back(cpp_level);
         }

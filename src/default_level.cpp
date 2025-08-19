@@ -20,6 +20,18 @@ int main(int argc, char* argv[]) {
     level.max_entities = 150;  // Enough for walls and other objects
     std::strcpy(level.level_name, "default_32x32_room");
     
+    // Initialize all transform data to defaults
+    for (int i = 0; i < CompiledLevel::MAX_TILES; i++) {
+        level.tile_z[i] = 0.0f;
+        level.tile_scale_x[i] = 1.0f;
+        level.tile_scale_y[i] = 1.0f;
+        level.tile_scale_z[i] = 1.0f;
+        level.tile_rot_w[i] = 1.0f;  // Identity quaternion
+        level.tile_rot_x[i] = 0.0f;
+        level.tile_rot_y[i] = 0.0f;
+        level.tile_rot_z[i] = 0.0f;
+    }
+    
     // Set spawn point at center
     level.num_spawns = 1;
     level.spawn_x[0] = 0.0f;

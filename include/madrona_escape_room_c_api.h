@@ -94,9 +94,19 @@ typedef struct {
     int32_t object_ids[MER_MAX_TILES];   // Asset ID for each tile (from AssetIDs namespace)
     float tile_x[MER_MAX_TILES];         // World X position
     float tile_y[MER_MAX_TILES];         // World Y position
+    float tile_z[MER_MAX_TILES];         // World Z position
     bool tile_persistent[MER_MAX_TILES]; // Whether tile persists across episodes
     bool tile_render_only[MER_MAX_TILES]; // Whether tile is render-only (no physics)
     int32_t tile_entity_type[MER_MAX_TILES]; // EntityType integer values (0=None, 1=Cube, 2=Wall, 3=Agent)
+    
+    // Transform data arrays (per-tile scale and rotation)
+    float tile_scale_x[MER_MAX_TILES];   // Local X scale
+    float tile_scale_y[MER_MAX_TILES];   // Local Y scale
+    float tile_scale_z[MER_MAX_TILES];   // Local Z scale
+    float tile_rot_w[MER_MAX_TILES];     // Quaternion W component
+    float tile_rot_x[MER_MAX_TILES];     // Quaternion X component
+    float tile_rot_y[MER_MAX_TILES];     // Quaternion Y component
+    float tile_rot_z[MER_MAX_TILES];     // Quaternion Z component
 } MER_CompiledLevel;
 
 // Manager configuration

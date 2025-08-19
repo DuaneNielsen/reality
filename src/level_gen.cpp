@@ -201,16 +201,8 @@ void createPersistentEntities(Engine &ctx)
             float y = level.tile_y[i];
             
             if (objectId != AssetIDs::INVALID && objectId != 0) {
-                Diag3x3 scale = {tile_scale, tile_scale, tile_scale};
-                float z = 0.0f;
-                
-                if (objectId == AssetIDs::WALL) {
-                    scale = {tile_scale, tile_scale, consts::rendering::wallHeight};
-                } else if (objectId == AssetIDs::CUBE) {
-                    float s = consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor;
-                    scale = {s, s, s};
-                    z = s;
-                }
+                Diag3x3 scale = {level.tile_scale_x[i], level.tile_scale_y[i], level.tile_scale_z[i]};
+                float z = level.tile_z[i];
                 
                 // Create persistent entity shell only - no physics setup
                 bool isRenderOnly = level.tile_render_only[i];
@@ -251,23 +243,16 @@ static void resetPersistentEntities(Engine &ctx)
                  
                  float x = level.tile_x[i];
                  float y = level.tile_y[i];
-                 Diag3x3 scale = {tile_scale, tile_scale, tile_scale};
-                 float z = 0.0f;
-                 
-                 if (objectId == AssetIDs::WALL) {
-                     scale = {tile_scale, tile_scale, consts::rendering::wallHeight};
-                 } else if (objectId == AssetIDs::CUBE) {
-                     float s = consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor;
-                     scale = {s, s, s};
-                     z = s;
-                 }
+                 Diag3x3 scale = {level.tile_scale_x[i], level.tile_scale_y[i], level.tile_scale_z[i]};
+                 float z = level.tile_z[i];
                  
                  bool isRenderOnly = level.tile_render_only[i];
+                 Quat rotation{level.tile_rot_w[i], level.tile_rot_x[i], level.tile_rot_y[i], level.tile_rot_z[i]};
                  if (isRenderOnly) {
-                     setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
+                     setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, rotation, scale);
                  } else {
                      int32_t entityTypeValue = level.tile_entity_type[i];
-                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale, entityTypeValue);
+                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue);
                  }
              }
          }
@@ -370,25 +355,18 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                 }
             } else {
                 // Non-persistent entity - create with full physics setup
-                Diag3x3 scale = {tile_scale, tile_scale, tile_scale};
-                float z = 0.0f;
-                
-                if (objectId == AssetIDs::WALL) {
-                    scale = {tile_scale, tile_scale, consts::rendering::wallHeight};
-                } else if (objectId == AssetIDs::CUBE) {
-                    float s = consts::rendering::cubeHeightRatio * tile_scale / consts::rendering::cubeScaleFactor;
-                    scale = {s, s, s};
-                    z = s;
-                }
+                Diag3x3 scale = {level->tile_scale_x[i], level->tile_scale_y[i], level->tile_scale_z[i]};
+                float z = level->tile_z[i];
                 
                 // Create entity and set up immediately
                 bool isRenderOnly = level->tile_render_only[i];
                 entity = createEntityShell(ctx, objectId, isRenderOnly);
+                Quat rotation{level->tile_rot_w[i], level->tile_rot_x[i], level->tile_rot_y[i], level->tile_rot_z[i]};
                 if (isRenderOnly) {
-                    setupRenderOnlyEntity(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
+                    setupRenderOnlyEntity(ctx, entity, objectId, Vector3{x, y, z}, rotation, scale);
                 } else {
                     int32_t entityTypeValue = level->tile_entity_type[i];
-                    setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale, entityTypeValue);
+                    setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue);
                 }
             }
         }

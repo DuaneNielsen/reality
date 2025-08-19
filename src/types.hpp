@@ -164,9 +164,19 @@ namespace madEscape {
         int32_t object_ids[MAX_TILES];    // Asset ID for each tile (from AssetIDs namespace)
         float tile_x[MAX_TILES];          // World X position
         float tile_y[MAX_TILES];          // World Y position
+        float tile_z[MAX_TILES];          // World Z position
         bool tile_persistent[MAX_TILES];  // Whether tile persists across episodes
         bool tile_render_only[MAX_TILES]; // Whether tile is render-only (no physics)
         int32_t tile_entity_type[MAX_TILES]; // EntityType value for each tile (0=None, 1=Cube, 2=Wall, 3=Agent)
+        
+        // Transform data arrays (per-tile scale and rotation)
+        float tile_scale_x[MAX_TILES];    // Local X scale
+        float tile_scale_y[MAX_TILES];    // Local Y scale
+        float tile_scale_z[MAX_TILES];    // Local Z scale
+        float tile_rot_w[MAX_TILES];      // Quaternion W component
+        float tile_rot_x[MAX_TILES];      // Quaternion X component
+        float tile_rot_y[MAX_TILES];      // Quaternion Y component
+        float tile_rot_z[MAX_TILES];      // Quaternion Z component
     };
 
     // [GAME_SPECIFIC]

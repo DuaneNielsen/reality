@@ -85,7 +85,9 @@
       "Bash(./scripts/run-clang-tidy.sh:*)",
       "Bash(./scripts/run-clangd-tidy.sh:*)",
       "Bash(git -C external/mcp-gdb status --porcelain)",
-      "Bash(./tests/cpp/mad_escape_tests:*)"
+      "Bash(./tests/cpp/mad_escape_tests:*)",
+      "Bash(git -C external/madrona status)",
+      "Bash(git -C external/madrona clean -fd)"
     ],
     "deny": []
   },

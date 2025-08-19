@@ -92,11 +92,19 @@ public:
             return false;
         }
         
-        // Compare tile data - check object_ids, tile_x, tile_y arrays
+        // Compare tile data - check all tile arrays including new transform data
         for (int32_t i = 0; i < level1.num_tiles; i++) {
             if (level1.object_ids[i] != level2.object_ids[i] ||
                 level1.tile_x[i] != level2.tile_x[i] ||
                 level1.tile_y[i] != level2.tile_y[i] ||
+                level1.tile_z[i] != level2.tile_z[i] ||
+                level1.tile_scale_x[i] != level2.tile_scale_x[i] ||
+                level1.tile_scale_y[i] != level2.tile_scale_y[i] ||
+                level1.tile_scale_z[i] != level2.tile_scale_z[i] ||
+                level1.tile_rot_w[i] != level2.tile_rot_w[i] ||
+                level1.tile_rot_x[i] != level2.tile_rot_x[i] ||
+                level1.tile_rot_y[i] != level2.tile_rot_y[i] ||
+                level1.tile_rot_z[i] != level2.tile_rot_z[i] ||
                 level1.tile_persistent[i] != level2.tile_persistent[i] ||
                 level1.tile_render_only[i] != level2.tile_render_only[i] ||
                 level1.tile_entity_type[i] != level2.tile_entity_type[i]) {
@@ -170,6 +178,30 @@ protected:
             level.tile_persistent[i] = false;  // Default: non-persistent
             level.tile_render_only[i] = false;  // Default: physics entities
             level.tile_entity_type[i] = (i % 2) + 1;  // Match object_ids (1=Cube, 2=Wall)
+            
+            // Initialize transform data with defaults matching old hardcoded logic
+            level.tile_z[i] = 0.0f;  // Default ground level
+            level.tile_scale_x[i] = level.scale;
+            level.tile_scale_y[i] = level.scale;
+            
+            // Apply object-specific defaults to match old behavior
+            if (level.object_ids[i] == 2) {  // WALL (AssetIDs::WALL)
+                level.tile_scale_z[i] = 2.0f;  // wallHeight constant from consts.hpp
+            } else if (level.object_ids[i] == 1) {  // CUBE (AssetIDs::CUBE)
+                float s = 1.5f * level.scale / 2.0f;  // cubeHeightRatio * scale / cubeScaleFactor
+                level.tile_scale_x[i] = s;
+                level.tile_scale_y[i] = s;
+                level.tile_scale_z[i] = s;
+                level.tile_z[i] = s;  // Cubes float above ground
+            } else {
+                level.tile_scale_z[i] = level.scale;
+            }
+            
+            // Identity rotation quaternion
+            level.tile_rot_w[i] = 1.0f;
+            level.tile_rot_x[i] = 0.0f;
+            level.tile_rot_y[i] = 0.0f;
+            level.tile_rot_z[i] = 0.0f;
         }
         
         std::ofstream file(filename, std::ios::binary);
