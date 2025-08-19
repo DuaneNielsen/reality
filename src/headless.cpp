@@ -154,15 +154,10 @@ int main(int argc, char *argv[])
         return 1;
     }
     
-    if (replay_file.empty() && load_path.empty()) {
-        std::cerr << "Error: Must provide either --replay <file.rec> OR --load <file.lvl>\n";
-        std::cerr << "Usage patterns:\n";
-        std::cerr << "  --load <file.lvl>                    # Load and run level\n";
-        std::cerr << "  --load <file.lvl> --record <file.rec> # Load level and record session\n";
-        std::cerr << "  --replay <file.rec>                  # Replay recording (level embedded)\n";
-        delete[] options;
-        delete[] buffer;
-        return 1;
+    // If no replay and no load path specified, use embedded default level
+    bool use_embedded_default = replay_file.empty() && load_path.empty();
+    if (use_embedded_default) {
+        std::cout << "No level file specified, using embedded default level\n";
     }
     
     // Optional parameters
@@ -260,7 +255,25 @@ int main(int argc, char *argv[])
     CompiledLevel loaded_level = {};
     std::vector<std::optional<CompiledLevel>> headless_levels;
     
-    if (!load_path.empty()) {
+    if (use_embedded_default) {
+        // Load from embedded default level data
+        #include "default_level_data.h"
+        if (sizeof(CompiledLevel) != default_level_lvl_len) {
+            std::cerr << "Error: Embedded level size mismatch: expected " << sizeof(CompiledLevel) 
+                     << " bytes, got " << default_level_lvl_len << " bytes\n";
+            delete[] options;
+            delete[] buffer;
+            return 1;
+        }
+        
+        std::memcpy(&loaded_level, default_level_lvl, sizeof(CompiledLevel));
+        printf("Loaded embedded default level: %dx%d grid, %d tiles\n", 
+               loaded_level.width, loaded_level.height, loaded_level.num_tiles);
+        
+        // All worlds use the same loaded level
+        headless_levels.resize(num_worlds, loaded_level);
+        
+    } else if (!load_path.empty()) {
         // Load from .lvl file
         std::ifstream lvl_file(load_path, std::ios::binary);
         if (!lvl_file.is_open()) {

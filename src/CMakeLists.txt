@@ -73,6 +73,8 @@ if (TARGET madrona_viz)
     target_link_libraries(viewer PRIVATE
         viewer_core
         madrona_mw_core mad_escape_mgr madrona_viz)
+    target_include_directories(viewer PRIVATE ${CMAKE_BINARY_DIR})
+    add_dependencies(viewer generate_default_level)
 
     target_compile_definitions(viewer PRIVATE
         -DDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../data/"
@@ -88,10 +90,38 @@ target_link_libraries(headless madrona_mw_core mad_escape_mgr)
 
 target_include_directories(headless PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../external/optionparser
+    ${CMAKE_BINARY_DIR}
 )
+add_dependencies(headless generate_default_level)
 
 add_executable(file_inspector file_inspector.cpp)
 target_link_libraries(file_inspector madrona_mw_core mad_escape_mgr)
+
+add_executable(default_level default_level.cpp)
+target_link_libraries(default_level madrona_mw_core mad_escape_mgr)
+
+# Generate default_level.lvl during build
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/default_level.lvl
+    COMMAND default_level ${CMAKE_BINARY_DIR}/default_level.lvl
+    DEPENDS default_level
+    COMMENT "Generating default_level.lvl"
+    VERBATIM
+)
+
+# Generate C header with embedded level data
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/default_level_data.h
+    COMMAND xxd -i default_level.lvl > ${CMAKE_BINARY_DIR}/default_level_data.h
+    DEPENDS ${CMAKE_BINARY_DIR}/default_level.lvl
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Generating default_level_data.h from binary"
+    VERBATIM
+)
+
+add_custom_target(generate_default_level ALL
+    DEPENDS ${CMAKE_BINARY_DIR}/default_level.lvl ${CMAKE_BINARY_DIR}/default_level_data.h
+)
 
 # Test executables moved to tests/cpp/CMakeLists.txt
 # To build tests, use: cmake -DBUILD_TESTS=ON ..
