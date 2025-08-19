@@ -203,7 +203,7 @@ class MER_CompiledLevel(Structure):
         ("spawn_x", c_float * 8),  # MAX_SPAWNS = 8
         ("spawn_y", c_float * 8),  # MAX_SPAWNS = 8
         ("spawn_facing", c_float * 8),  # MAX_SPAWNS = 8, agent facing angles in radians
-        ("tile_types", c_int32 * MAX_TILES),
+        ("object_ids", c_int32 * MAX_TILES),
         ("tile_x", c_float * MAX_TILES),
         ("tile_y", c_float * MAX_TILES),
     ]
@@ -427,13 +427,13 @@ def dict_to_compiled_level(compiled_dict):
 
     # Copy actual data from compiler-calculated arrays
     for i in range(array_size):
-        level.tile_types[i] = compiled_dict["tile_types"][i]
+        level.object_ids[i] = compiled_dict["object_ids"][i]
         level.tile_x[i] = compiled_dict["tile_x"][i]
         level.tile_y[i] = compiled_dict["tile_y"][i]
 
     # Zero-fill remaining slots (important for deterministic behavior)
     for i in range(array_size, MAX_TILES):
-        level.tile_types[i] = 0  # TILE_EMPTY
+        level.object_ids[i] = 0  # TILE_EMPTY
         level.tile_x[i] = 0.0
         level.tile_y[i] = 0.0
 

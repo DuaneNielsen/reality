@@ -135,7 +135,7 @@ class TestArraySizing:
         compiled = compile_level(level)
 
         # Arrays should be sized to MAX_TILES_C_API, not level dimensions
-        assert len(compiled["tile_types"]) == MAX_TILES_C_API
+        assert len(compiled["object_ids"]) == MAX_TILES_C_API
         assert len(compiled["tile_x"]) == MAX_TILES_C_API
         assert len(compiled["tile_y"]) == MAX_TILES_C_API
 
@@ -156,7 +156,7 @@ class TestArraySizing:
 
         # Check that slots beyond num_tiles are zero
         for i in range(num_tiles, min(num_tiles + 10, MAX_TILES_C_API)):
-            assert compiled["tile_types"][i] == 0
+            assert compiled["object_ids"][i] == 0
             assert compiled["tile_x"][i] == 0.0
             assert compiled["tile_y"][i] == 0.0
 
@@ -185,13 +185,13 @@ class TestBinaryIO:
                     assert original[field] == loaded[field]
 
                 # Check arrays are same size
-                assert len(loaded["tile_types"]) == MAX_TILES_C_API
+                assert len(loaded["object_ids"]) == MAX_TILES_C_API
                 assert len(loaded["tile_x"]) == MAX_TILES_C_API
                 assert len(loaded["tile_y"]) == MAX_TILES_C_API
 
                 # Check tile data matches for used slots
                 for i in range(original["num_tiles"]):
-                    assert original["tile_types"][i] == loaded["tile_types"][i]
+                    assert original["object_ids"][i] == loaded["object_ids"][i]
                     assert abs(original["tile_x"][i] - loaded["tile_x"][i]) < 0.001
                     assert abs(original["tile_y"][i] - loaded["tile_y"][i]) < 0.001
 
@@ -199,7 +199,7 @@ class TestBinaryIO:
                 for i in range(
                     original["num_tiles"], min(original["num_tiles"] + 10, MAX_TILES_C_API)
                 ):
-                    assert loaded["tile_types"][i] == 0
+                    assert loaded["object_ids"][i] == 0
                     assert loaded["tile_x"][i] == 0.0
                     assert loaded["tile_y"][i] == 0.0
 
@@ -228,9 +228,9 @@ class TestBinaryIO:
         compiled = compile_level(level)
 
         # Corrupt the array size
-        compiled["tile_types"] = compiled["tile_types"][:100]  # Wrong size
+        compiled["object_ids"] = compiled["object_ids"][:100]  # Wrong size
 
-        with pytest.raises(ValueError, match=r"Invalid tile_types array length.*must be 1024"):
+        with pytest.raises(ValueError, match=r"Invalid object_ids array length.*must be 1024"):
             validate_compiled_level(compiled)
 
 
@@ -250,7 +250,7 @@ class TestEdgeCases:
         assert compiled["height"] == 3
         assert compiled["array_size"] == 9
         assert compiled["num_tiles"] == 0  # No solid tiles, just spawn and empty
-        assert len(compiled["tile_types"]) == MAX_TILES_C_API
+        assert len(compiled["object_ids"]) == MAX_TILES_C_API
         validate_compiled_level(compiled)
 
     def test_exact_square_root_size(self):

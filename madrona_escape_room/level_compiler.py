@@ -98,7 +98,7 @@ def compile_level(
         - max_entities: BVH size hint (includes persistent entities)
         - width, height: Grid dimensions
         - scale: World scale factor
-        - tile_types, tile_x, tile_y: Arrays of tile data (MAX_TILES_C_API elements each)
+        - object_ids, tile_x, tile_y: Arrays of tile data (MAX_TILES_C_API elements each)
         - spawn_facing: Array of agent facing angles (MAX_SPAWNS elements)
 
     Raises:
@@ -189,14 +189,14 @@ def compile_level(
         raise ValueError("No spawn points (S) found in level - at least one required")
 
     # Build arrays with MAX_TILES_C_API size for C++ compatibility
-    tile_types = [0] * MAX_TILES_C_API
+    object_ids = [0] * MAX_TILES_C_API
     tile_x = [0.0] * MAX_TILES_C_API
     tile_y = [0.0] * MAX_TILES_C_API
     tile_persistent = [False] * MAX_TILES_C_API  # Default: all tiles non-persistent
 
     # Fill arrays with actual tile data
     for i, (world_x, world_y, tile_type) in enumerate(tiles):
-        tile_types[i] = tile_type
+        object_ids[i] = tile_type
         tile_x[i] = world_x
         tile_y[i] = world_y
         # tile_persistent[i] remains False by default
@@ -230,7 +230,7 @@ def compile_level(
         "spawn_y": spawn_y,
         "spawn_facing": spawn_facing,  # Agent facing angles in radians
         "array_size": array_size,  # NEW: compiler-calculated array size (width × height)
-        "tile_types": tile_types,
+        "object_ids": object_ids,
         "tile_x": tile_x,
         "tile_y": tile_y,
         "tile_persistent": tile_persistent,  # Persistence flags for each tile
@@ -262,7 +262,7 @@ def validate_compiled_level(compiled: Dict) -> None:
         "spawn_y",
         "spawn_facing",
         "array_size",
-        "tile_types",
+        "object_ids",
         "tile_x",
         "tile_y",
         "tile_persistent",
@@ -286,7 +286,7 @@ def validate_compiled_level(compiled: Dict) -> None:
         raise ValueError(f"Invalid scale: {compiled['scale']} (must be > 0)")
 
     # Check array lengths match MAX_TILES_C_API (fixed size for C++ compatibility)
-    for array_name in ["tile_types", "tile_x", "tile_y", "tile_persistent"]:
+    for array_name in ["object_ids", "tile_x", "tile_y", "tile_persistent"]:
         if len(compiled[array_name]) != MAX_TILES_C_API:
             raise ValueError(
                 f"Invalid {array_name} array length: {len(compiled[array_name])} "
@@ -345,10 +345,10 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
             # Always write MAX_TILES_C_API elements regardless of actual array size
             array_size = compiled["array_size"]
 
-            # tile_types array - pad with zeros if needed
+            # object_ids array - pad with zeros if needed
             for i in range(MAX_TILES_C_API):
                 if i < array_size:
-                    f.write(struct.pack("<i", compiled["tile_types"][i]))
+                    f.write(struct.pack("<i", compiled["object_ids"][i]))
                 else:
                     f.write(struct.pack("<i", 0))  # TILE_EMPTY
 
@@ -421,9 +421,9 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 spawn_facing.append(struct.unpack("<f", f.read(4))[0])
 
             # Read fixed-size arrays (always MAX_TILES_C_API elements for C++ compatibility)
-            tile_types = []
+            object_ids = []
             for _ in range(MAX_TILES_C_API):
-                tile_types.append(struct.unpack("<i", f.read(4))[0])
+                object_ids.append(struct.unpack("<i", f.read(4))[0])
 
             tile_x = []
             for _ in range(MAX_TILES_C_API):
@@ -458,7 +458,7 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 "spawn_y": spawn_y,
                 "spawn_facing": spawn_facing,
                 "array_size": array_size,  # Add calculated array size
-                "tile_types": tile_types,
+                "object_ids": object_ids,
                 "tile_x": tile_x,
                 "tile_y": tile_y,
                 "tile_persistent": tile_persistent,
@@ -715,7 +715,7 @@ def run_test_suite():
 
         for i in range(compiled["num_tiles"]):
             if (
-                compiled["tile_types"][i] != loaded["tile_types"][i]
+                compiled["object_ids"][i] != loaded["object_ids"][i]
                 or abs(compiled["tile_x"][i] - loaded["tile_x"][i]) > 0.001
                 or abs(compiled["tile_y"][i] - loaded["tile_y"][i]) > 0.001
             ):

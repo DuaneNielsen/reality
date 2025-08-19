@@ -1,10 +1,11 @@
 #include "madrona_escape_room_c_api.h"
 #include "mgr.hpp"
 #include "types.hpp"
-#include "asset_descriptors.hpp"
+#include "asset_registry.hpp"
 
 #include <cstring>
 #include <new>
+#include <vector>
 
 using namespace madEscape;
 
@@ -108,7 +109,7 @@ MER_Result mer_create_manager(
             
             // Copy arrays (full array size for proper GPU indexing)
             // The arrays contain meaningful data up to num_tiles, rest is zero-filled
-            std::memcpy(cpp_level.object_ids, c_level->tile_types,
+            std::memcpy(cpp_level.object_ids, c_level->object_ids,
                        sizeof(int32_t) * array_size);
             std::memcpy(cpp_level.tile_x, c_level->tile_x,
                        sizeof(float) * array_size);
@@ -513,25 +514,43 @@ const char* mer_result_to_string(MER_Result result) {
 
 // Asset descriptor functions
 int32_t mer_get_physics_assets_count(void) {
-    return static_cast<int32_t>(madrona::escape_room::NUM_PHYSICS_ASSETS);
+    return static_cast<int32_t>(madEscape::AssetRegistry::getInstance().getPhysicsAssetCount());
 }
 
 int32_t mer_get_render_assets_count(void) {
-    return static_cast<int32_t>(madrona::escape_room::NUM_RENDER_ASSETS);
+    return static_cast<int32_t>(madEscape::AssetRegistry::getInstance().getRenderAssetCount());
 }
 
 const char* mer_get_physics_asset_name(int32_t index) {
-    if (index < 0 || index >= static_cast<int32_t>(madrona::escape_room::NUM_PHYSICS_ASSETS)) {
+    // Use static storage to ensure the returned strings remain valid
+    static std::vector<madEscape::AssetRegistry::AssetInfo> cached_physics_assets;
+    static bool cached = false;
+    
+    if (!cached) {
+        cached_physics_assets = madEscape::AssetRegistry::getInstance().getPhysicsAssets();
+        cached = true;
+    }
+    
+    if (index < 0 || index >= static_cast<int32_t>(cached_physics_assets.size())) {
         return nullptr;
     }
-    return madrona::escape_room::PHYSICS_ASSETS[index].name;
+    return cached_physics_assets[index].name.c_str();
 }
 
 const char* mer_get_render_asset_name(int32_t index) {
-    if (index < 0 || index >= static_cast<int32_t>(madrona::escape_room::NUM_RENDER_ASSETS)) {
+    // Use static storage to ensure the returned strings remain valid
+    static std::vector<madEscape::AssetRegistry::AssetInfo> cached_render_assets;
+    static bool cached = false;
+    
+    if (!cached) {
+        cached_render_assets = madEscape::AssetRegistry::getInstance().getRenderAssets();
+        cached = true;
+    }
+    
+    if (index < 0 || index >= static_cast<int32_t>(cached_render_assets.size())) {
         return nullptr;
     }
-    return madrona::escape_room::RENDER_ASSETS[index].name;
+    return cached_render_assets[index].name.c_str();
 }
 
 int32_t mer_get_physics_asset_object_id(const char* name) {
@@ -539,12 +558,13 @@ int32_t mer_get_physics_asset_object_id(const char* name) {
         return -1;
     }
     
-    for (size_t i = 0; i < madrona::escape_room::NUM_PHYSICS_ASSETS; i++) {
-        if (std::strcmp(madrona::escape_room::PHYSICS_ASSETS[i].name, name) == 0) {
-            return static_cast<int32_t>(madrona::escape_room::PHYSICS_ASSETS[i].objectId);
-        }
+    // Check if this asset has physics
+    auto& registry = madEscape::AssetRegistry::getInstance();
+    uint32_t id;
+    if (registry.tryGetAssetId(name, id) && registry.assetHasPhysics(id)) {
+        return static_cast<int32_t>(id);
     }
-    return -1;  // Not found
+    return -1;  // Not found or doesn't have physics
 }
 
 int32_t mer_get_render_asset_object_id(const char* name) {
@@ -552,12 +572,13 @@ int32_t mer_get_render_asset_object_id(const char* name) {
         return -1;
     }
     
-    for (size_t i = 0; i < madrona::escape_room::NUM_RENDER_ASSETS; i++) {
-        if (std::strcmp(madrona::escape_room::RENDER_ASSETS[i].name, name) == 0) {
-            return static_cast<int32_t>(madrona::escape_room::RENDER_ASSETS[i].objectId);
-        }
+    // Check if this asset has render
+    auto& registry = madEscape::AssetRegistry::getInstance();
+    uint32_t id;
+    if (registry.tryGetAssetId(name, id) && registry.assetHasRender(id)) {
+        return static_cast<int32_t>(id);
     }
-    return -1;  // Not found
+    return -1;  // Not found or doesn't have render
 }
 
 } // extern "C"

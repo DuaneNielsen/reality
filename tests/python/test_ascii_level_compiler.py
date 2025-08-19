@@ -30,7 +30,7 @@ class TestLevelCompiler:
         assert compiled["scale"] == 2.5
         assert compiled["num_tiles"] > 0
         assert compiled["max_entities"] > compiled["num_tiles"]
-        assert len(compiled["tile_types"]) == MAX_TILES_C_API
+        assert len(compiled["object_ids"]) == MAX_TILES_C_API
         assert len(compiled["tile_x"]) == MAX_TILES_C_API
         assert len(compiled["tile_y"]) == MAX_TILES_C_API
 
@@ -52,10 +52,10 @@ class TestLevelCompiler:
 
         # Should have walls + cubes
         wall_count = sum(
-            1 for i in range(compiled["num_tiles"]) if compiled["tile_types"][i] == 1
+            1 for i in range(compiled["num_tiles"]) if compiled["object_ids"][i] == 1
         )  # TILE_WALL
         cube_count = sum(
-            1 for i in range(compiled["num_tiles"]) if compiled["tile_types"][i] == 2
+            1 for i in range(compiled["num_tiles"]) if compiled["object_ids"][i] == 2
         )  # TILE_CUBE
 
         assert wall_count > 0, "Should have wall tiles"
@@ -108,13 +108,13 @@ class TestCTypesIntegration:
 
         # Verify arrays copied correctly
         for i in range(compiled["num_tiles"]):
-            assert struct.tile_types[i] == compiled["tile_types"][i]
+            assert struct.object_ids[i] == compiled["object_ids"][i]
             assert abs(struct.tile_x[i] - compiled["tile_x"][i]) < 0.001
             assert abs(struct.tile_y[i] - compiled["tile_y"][i]) < 0.001
 
         # Verify zero padding
         for i in range(compiled["num_tiles"], MAX_TILES_C_API):
-            assert struct.tile_types[i] == 0
+            assert struct.object_ids[i] == 0
             assert abs(struct.tile_x[i]) < 0.001
             assert abs(struct.tile_y[i]) < 0.001
 

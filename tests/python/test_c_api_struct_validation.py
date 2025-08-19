@@ -32,7 +32,7 @@ class TestCAPIStructValidation:
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
                 ("scale", ctypes.c_float),
-                ("tile_types", ctypes.c_int32 * 256),
+                ("object_ids", ctypes.c_int32 * 256),
                 ("tile_x", ctypes.c_float * 256),
                 ("tile_y", ctypes.c_float * 256),
             ]
@@ -46,7 +46,7 @@ class TestCAPIStructValidation:
         level_struct.scale = compiled["scale"]
 
         for i in range(256):
-            level_struct.tile_types[i] = compiled["tile_types"][i]
+            level_struct.object_ids[i] = compiled["object_ids"][i]
             level_struct.tile_x[i] = compiled["tile_x"][i]
             level_struct.tile_y[i] = compiled["tile_y"][i]
 
@@ -87,7 +87,7 @@ class TestCAPIStructValidation:
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
                 ("scale", ctypes.c_float),
-                ("tile_types", ctypes.c_int32 * 256),
+                ("object_ids", ctypes.c_int32 * 256),
                 ("tile_x", ctypes.c_float * 256),
                 ("tile_y", ctypes.c_float * 256),
             ]
@@ -113,7 +113,7 @@ class TestCAPIStructValidation:
         level_struct.scale = compiled["scale"]
 
         for i in range(256):
-            level_struct.tile_types[i] = compiled["tile_types"][i]
+            level_struct.object_ids[i] = compiled["object_ids"][i]
             level_struct.tile_x[i] = compiled["tile_x"][i]
             level_struct.tile_y[i] = compiled["tile_y"][i]
 
@@ -191,15 +191,15 @@ class TestCAPIStructValidation:
         assert abs(struct.scale - 1.5) < 0.001
 
         # Test array bounds
-        struct.tile_types[0] = 1
-        struct.tile_types[255] = 2
+        struct.object_ids[0] = 1
+        struct.object_ids[255] = 2
         struct.tile_x[0] = 3.14
         struct.tile_x[255] = 2.71
         struct.tile_y[0] = -1.0
         struct.tile_y[255] = 1.0
 
-        assert struct.tile_types[0] == 1
-        assert struct.tile_types[255] == 2
+        assert struct.object_ids[0] == 1
+        assert struct.object_ids[255] == 2
         assert abs(struct.tile_x[0] - 3.14) < 0.001
         assert abs(struct.tile_x[255] - 2.71) < 0.001
         assert abs(struct.tile_y[0] + 1.0) < 0.001
@@ -234,7 +234,7 @@ class TestCAPIStructValidation:
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
                 ("scale", ctypes.c_float),
-                ("tile_types", ctypes.c_int32 * 256),
+                ("object_ids", ctypes.c_int32 * 256),
                 ("tile_x", ctypes.c_float * 256),
                 ("tile_y", ctypes.c_float * 256),
             ]
@@ -254,7 +254,7 @@ class TestCAPIStructValidation:
             struct.scale = compiled["scale"]
 
             for j in range(256):
-                struct.tile_types[j] = compiled["tile_types"][j]
+                struct.object_ids[j] = compiled["object_ids"][j]
                 struct.tile_x[j] = compiled["tile_x"][j]
                 struct.tile_y[j] = compiled["tile_y"][j]
 

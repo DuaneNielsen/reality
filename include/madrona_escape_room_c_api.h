@@ -91,7 +91,7 @@ typedef struct {
     float spawn_facing[8];     // Spawn facing angles in radians (MAX_SPAWNS buffer)
     
     // Tile data arrays (size matches CompiledLevel::MAX_TILES, use mer_get_max_tiles() to get value)
-    int32_t tile_types[MER_MAX_TILES];   // Type enum for each tile
+    int32_t object_ids[MER_MAX_TILES];   // Asset ID for each tile (from AssetIDs namespace)
     float tile_x[MER_MAX_TILES];         // World X position
     float tile_y[MER_MAX_TILES];         // World Y position
     bool tile_persistent[MER_MAX_TILES]; // Whether tile persists across episodes

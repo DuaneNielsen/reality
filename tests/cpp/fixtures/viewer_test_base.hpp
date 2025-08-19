@@ -92,9 +92,9 @@ public:
             return false;
         }
         
-        // Compare tile data - check tile_types, tile_x, tile_y arrays
+        // Compare tile data - check object_ids, tile_x, tile_y arrays
         for (int32_t i = 0; i < level1.num_tiles; i++) {
-            if (level1.tile_types[i] != level2.tile_types[i] ||
+            if (level1.object_ids[i] != level2.object_ids[i] ||
                 level1.tile_x[i] != level2.tile_x[i] ||
                 level1.tile_y[i] != level2.tile_y[i]) {
                 return false;
@@ -161,7 +161,7 @@ protected:
         
         // Fill with simple tile pattern
         for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
-            level.tile_types[i] = (i % 2) + 1;  // Cycle between CUBE (1) and WALL (2)
+            level.object_ids[i] = (i % 2) + 1;  // Cycle between CUBE (1) and WALL (2)
             level.tile_x[i] = (i % width) * level.scale;
             level.tile_y[i] = (i / width) * level.scale;
         }
@@ -198,7 +198,7 @@ protected:
             level.max_entities = level.num_tiles + 6 + 30;
             // Initialize tile data
             for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
-                level.tile_types[i] = 0;
+                level.object_ids[i] = 0;
                 level.tile_x[i] = (i % 16) * level.scale;
                 level.tile_y[i] = (i / 16) * level.scale;
             }

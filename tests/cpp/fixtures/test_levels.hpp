@@ -194,13 +194,13 @@ public:
         // Top and bottom walls
         for (int x = 0; x < 5; x++) {
             // Top wall
-            level.tile_types[tile_idx] = 1;  // Wall type
+            level.object_ids[tile_idx] = 1;  // Wall type
             level.tile_x[tile_idx] = x * level.scale - 5.0f;
             level.tile_y[tile_idx] = 0 * level.scale - 5.0f;
             tile_idx++;
             
             // Bottom wall
-            level.tile_types[tile_idx] = 1;  // Wall type
+            level.object_ids[tile_idx] = 1;  // Wall type
             level.tile_x[tile_idx] = x * level.scale - 5.0f;
             level.tile_y[tile_idx] = 4 * level.scale - 5.0f;
             tile_idx++;
@@ -209,13 +209,13 @@ public:
         // Left and right walls (excluding corners already placed)
         for (int y = 1; y < 4; y++) {
             // Left wall
-            level.tile_types[tile_idx] = 1;  // Wall type
+            level.object_ids[tile_idx] = 1;  // Wall type
             level.tile_x[tile_idx] = 0 * level.scale - 5.0f;
             level.tile_y[tile_idx] = y * level.scale - 5.0f;
             tile_idx++;
             
             // Right wall
-            level.tile_types[tile_idx] = 1;  // Wall type
+            level.object_ids[tile_idx] = 1;  // Wall type
             level.tile_x[tile_idx] = 4 * level.scale - 5.0f;
             level.tile_y[tile_idx] = y * level.scale - 5.0f;
             tile_idx++;
