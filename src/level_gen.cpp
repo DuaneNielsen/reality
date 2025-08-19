@@ -65,10 +65,8 @@ static void registerRigidBodyEntity(
  * Creates ONLY the entity shell - no physics setup at all.
  * Used for persistent entities created at startup.
  */
-static Entity createEntityShell(Engine& ctx, uint32_t objectId) {
-    if (objectId == AssetIDs::AXIS_X || 
-        objectId == AssetIDs::AXIS_Y || 
-        objectId == AssetIDs::AXIS_Z) {
+static Entity createEntityShell(Engine& ctx, uint32_t objectId, bool isRenderOnly) {
+    if (isRenderOnly) {
         return ctx.makeRenderableEntity<RenderOnlyEntity>();
     } else {
         return ctx.makeRenderableEntity<PhysicsEntity>();
@@ -222,7 +220,8 @@ void createPersistentEntities(Engine &ctx)
                 }
                 
                 // Create persistent entity shell only - no physics setup
-                Entity entity = createEntityShell(ctx, objectId);
+                bool isRenderOnly = level.tile_render_only[i];
+                Entity entity = createEntityShell(ctx, objectId, isRenderOnly);
                 
                 // Store in persistent array
                 if (ctx.data().numPersistentLevelEntities < Sim::MAX_PERSISTENT_TILES) {
@@ -270,7 +269,8 @@ static void resetPersistentEntities(Engine &ctx)
                      z = s;
                  }
                  
-                 if (objectId == AssetIDs::AXIS_X || objectId == AssetIDs::AXIS_Y || objectId == AssetIDs::AXIS_Z) {
+                 bool isRenderOnly = level.tile_render_only[i];
+                 if (isRenderOnly) {
                      setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
                  } else {
                      setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
@@ -388,8 +388,9 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                 }
                 
                 // Create entity and set up immediately
-                entity = createEntityShell(ctx, objectId);
-                if (objectId == AssetIDs::AXIS_X || objectId == AssetIDs::AXIS_Y || objectId == AssetIDs::AXIS_Z) {
+                bool isRenderOnly = level->tile_render_only[i];
+                entity = createEntityShell(ctx, objectId, isRenderOnly);
+                if (isRenderOnly) {
                     setupRenderOnlyEntity(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);
                 } else {
                     setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, Quat{1,0,0,0}, scale);

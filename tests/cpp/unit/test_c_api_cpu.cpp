@@ -189,3 +189,22 @@ TEST_F(CApiCPUTest, ManagerRecreation) {
     ASSERT_TRUE(CreateManager(levels2.data(), levels2.size()));
     EXPECT_NE(handle, nullptr);
 }
+
+TEST_F(CApiCPUTest, RenderOnlyEntitiesInLevel) {
+    // Create level with render-only entities
+    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    
+    // Mark some entities as render-only
+    levels[0].tile_render_only[0] = true;  // First tile render-only
+    
+    ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
+    
+    // Should create manager without issues
+    EXPECT_NE(handle, nullptr);
+    
+    // Run a few steps to verify no crashes with render-only entities
+    for (int i = 0; i < 5; i++) {
+        MER_Result result = mer_step(handle);
+        EXPECT_EQ(result, MER_SUCCESS);
+    }
+}

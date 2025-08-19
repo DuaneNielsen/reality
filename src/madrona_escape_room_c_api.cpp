@@ -117,6 +117,8 @@ MER_Result mer_create_manager(
                        sizeof(float) * array_size);
             std::memcpy(cpp_level.tile_persistent, c_level->tile_persistent,
                        sizeof(bool) * array_size);
+            std::memcpy(cpp_level.tile_render_only, c_level->tile_render_only,
+                       sizeof(bool) * array_size);
             
             cpp_per_world_levels.push_back(cpp_level);
         }

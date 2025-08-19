@@ -165,6 +165,7 @@ namespace madEscape {
         float tile_x[MAX_TILES];          // World X position
         float tile_y[MAX_TILES];          // World Y position
         bool tile_persistent[MAX_TILES];  // Whether tile persists across episodes
+        bool tile_render_only[MAX_TILES]; // Whether tile is render-only (no physics)
     };
 
     // [GAME_SPECIFIC]

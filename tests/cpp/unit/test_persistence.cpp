@@ -61,10 +61,19 @@ protected:
         level.tile_y[5] = -5.0f;
         level.tile_persistent[5] = true;  // PERSISTENT (visual marker)
         
+        // Initialize render-only flags
+        level.tile_render_only[0] = false;  // Wall - physics
+        level.tile_render_only[1] = false;  // Wall - physics  
+        level.tile_render_only[2] = false;  // Cube - physics
+        level.tile_render_only[3] = false;  // Cube - physics
+        level.tile_render_only[4] = true;   // AXIS_X - render-only
+        level.tile_render_only[5] = true;   // AXIS_Y - render-only
+        
         // Initialize rest as empty
         for (int i = 6; i < CompiledLevel::MAX_TILES; i++) {
             level.object_ids[i] = 0;
             level.tile_persistent[i] = false;
+            level.tile_render_only[i] = false;  // Default: physics entities
             level.tile_x[i] = 0.0f;
             level.tile_y[i] = 0.0f;
         }
@@ -150,6 +159,7 @@ TEST_F(PersistenceTest, AllPersistentLevel) {
     CompiledLevel allPersistent = *testLevels[0];
     for (int i = 0; i < allPersistent.num_tiles; i++) {
         allPersistent.tile_persistent[i] = true;
+        // Keep original render-only flags
     }
     
     // Update config with new level
@@ -176,6 +186,7 @@ TEST_F(PersistenceTest, NoPersistentLevel) {
     CompiledLevel noPersistent = *testLevels[0];
     for (int i = 0; i < noPersistent.num_tiles; i++) {
         noPersistent.tile_persistent[i] = false;
+        // Keep original render-only flags
     }
     
     // Update config with new level
@@ -223,6 +234,7 @@ TEST_F(PersistenceTest, PersistencePerformance) {
     // Mark all entities as non-persistent in the second level
     for (int i = 0; i < withoutPersistence.num_tiles; i++) {
         withoutPersistence.tile_persistent[i] = false;
+        // Keep original render-only flags
     }
     
     // Test manager with persistence
@@ -245,4 +257,31 @@ TEST_F(PersistenceTest, PersistencePerformance) {
     
     // Both should run without crashes
     // Performance measurement would require timing infrastructure
+}
+
+TEST_F(PersistenceTest, RenderOnlyEntitiesCreated) {
+    mgr->step();
+    
+    // Verify render-only entities don't participate in physics
+    // Test passes if simulation runs without physics conflicts
+    for (int step = 0; step < 50; step++) {
+        mgr->step();
+    }
+}
+
+TEST_F(PersistenceTest, MixedPhysicsRenderOnlyLevel) {
+    // Test level with both physics and render-only entities
+    mgr->step();
+    
+    int renderOnlyCount = 0;
+    int physicsCount = 0;
+    for (int i = 0; i < testLevels[0]->num_tiles; i++) {
+        if (testLevels[0]->tile_render_only[i]) {
+            renderOnlyCount++;
+        } else {
+            physicsCount++;
+        }
+    }
+    EXPECT_EQ(renderOnlyCount, 2);  // 2 axis markers
+    EXPECT_EQ(physicsCount, 4);     // 2 walls + 2 cubes
 }

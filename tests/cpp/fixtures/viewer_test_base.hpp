@@ -96,7 +96,9 @@ public:
         for (int32_t i = 0; i < level1.num_tiles; i++) {
             if (level1.object_ids[i] != level2.object_ids[i] ||
                 level1.tile_x[i] != level2.tile_x[i] ||
-                level1.tile_y[i] != level2.tile_y[i]) {
+                level1.tile_y[i] != level2.tile_y[i] ||
+                level1.tile_persistent[i] != level2.tile_persistent[i] ||
+                level1.tile_render_only[i] != level2.tile_render_only[i]) {
                 return false;
             }
         }
@@ -164,6 +166,8 @@ protected:
             level.object_ids[i] = (i % 2) + 1;  // Cycle between CUBE (1) and WALL (2)
             level.tile_x[i] = (i % width) * level.scale;
             level.tile_y[i] = (i / width) * level.scale;
+            level.tile_persistent[i] = false;  // Default: non-persistent
+            level.tile_render_only[i] = false;  // Default: physics entities
         }
         
         std::ofstream file(filename, std::ios::binary);
@@ -201,6 +205,8 @@ protected:
                 level.object_ids[i] = 0;
                 level.tile_x[i] = (i % 16) * level.scale;
                 level.tile_y[i] = (i / 16) * level.scale;
+                level.tile_persistent[i] = false;  // Default: non-persistent
+                level.tile_render_only[i] = false;  // Default: physics entities
             }
             file.write(reinterpret_cast<const char*>(&level), sizeof(MER_CompiledLevel));
             

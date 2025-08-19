@@ -223,6 +223,11 @@ public:
         
         level.num_tiles = tile_idx;
         
+        // Initialize render-only flags for test tiles (all physics entities by default)
+        for (int i = 0; i < level.num_tiles; i++) {
+            level.tile_render_only[i] = false;  // Default: all physics entities
+        }
+        
         return level;
     }
     

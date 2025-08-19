@@ -95,6 +95,7 @@ typedef struct {
     float tile_x[MER_MAX_TILES];         // World X position
     float tile_y[MER_MAX_TILES];         // World Y position
     bool tile_persistent[MER_MAX_TILES]; // Whether tile persists across episodes
+    bool tile_render_only[MER_MAX_TILES]; // Whether tile is render-only (no physics)
 } MER_CompiledLevel;
 
 // Manager configuration
