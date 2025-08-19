@@ -85,13 +85,26 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
 // [GAME_SPECIFIC] Helper to clean up escape room entities
 static inline void cleanupWorld(Engine &ctx)
 {
-    // Destroy current level entities
+    // Destroy current level entities (but not persistent ones)
     LevelState &level = ctx.singleton<LevelState>();
     Room &room = level.rooms[0];
     
     for (CountT j = 0; j < CompiledLevel::MAX_TILES; j++) {
-        if (room.entities[j] != Entity::none()) {
-            ctx.destroyRenderableEntity(room.entities[j]);
+        Entity e = room.entities[j];
+        if (e != Entity::none()) {
+            // Check if this is a persistent entity
+            bool isPersistent = false;
+            for (CountT k = 0; k < ctx.data().numPersistentLevelEntities; k++) {
+                if (ctx.data().persistentLevelEntities[k] == e) {
+                    isPersistent = true;
+                    break;
+                }
+            }
+            
+            // Only destroy non-persistent entities
+            if (!isPersistent) {
+                ctx.destroyRenderableEntity(e);
+            }
         }
     }
 }

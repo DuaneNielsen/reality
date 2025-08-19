@@ -181,25 +181,11 @@ namespace rendering {
     inline constexpr float cameraOffsetZ = 0.001f;
     inline constexpr float agentHeightMultiplier = 1.5f;
     
-    // Geometric constants for visual markers and scaling
-    inline constexpr float axisMarkerOffset = 0.75f;           // Offset along axis for visual markers
-    inline constexpr float axisMarkerLength = 1.5f;            // Length of axis markers
-    inline constexpr float axisMarkerThickness = 0.3f;         // Thickness of axis markers
+    // Geometric constants for scaling
     inline constexpr float wallHeight = 2.0f;                  // Standard wall height
     inline constexpr float agentSpacing = 2.0f;                // Space between agents
-    inline constexpr float emergencyLevelSize = 3;             // Emergency level grid size
-    inline constexpr float emergencyLevelScale = 2.0f;         // Emergency level world scale
-    inline constexpr float emergencyLevelCoord = 2.0f;         // Emergency level wall coordinates
     inline constexpr float cubeHeightRatio = 1.5f;             // Cube height ratio relative to tile scale
     inline constexpr float cubeScaleFactor = 2.0f;             // Cube scale division factor
-    
-    // Emergency level tile indices
-    namespace emergencyLevel {
-        inline constexpr int32_t tile0 = 0;                     // First emergency tile index
-        inline constexpr int32_t tile1 = 1;                     // Second emergency tile index
-        inline constexpr int32_t tile2 = 2;                     // Third emergency tile index
-        inline constexpr int32_t tile3 = 3;                     // Fourth emergency tile index
-    }
     
     // Scene lighting configuration
     inline constexpr float lightPositionZ = -2.0f;             // Light Z position for scene lighting

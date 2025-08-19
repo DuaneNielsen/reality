@@ -1,6 +1,7 @@
 #include "mgr.hpp"
 #include "sim.hpp"
 #include "asset_descriptors.hpp"
+#include "asset_ids.hpp"
 
 #include <chrono>
 
