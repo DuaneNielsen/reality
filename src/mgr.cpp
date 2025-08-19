@@ -67,7 +67,7 @@ namespace {
         { "wall", {0.5f, 0.5f, 0.5f, 1.0f}, 0, 0.8f, 0.2f },  // Uses green_grid texture
         { "agent_body", {1.0f, 1.0f, 1.0f, 1.0f}, 1, 0.5f, 1.0f },  // Uses smile texture  
         { "agent_parts", {0.7f, 0.7f, 0.7f, 1.0f}, -1, 0.8f, 0.2f },
-        { "floor", {0.4f, 0.3f, 0.2f, 1.0f}, -1, 0.8f, 0.2f },
+        { "floor", {0.2f, 0.6f, 0.2f, 1.0f}, -1, 0.8f, 0.2f },
         { "axis_x", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
         { "button", {1.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
         { "axis_y", {0.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
