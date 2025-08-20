@@ -32,10 +32,10 @@ int main(int argc, char* argv[]) {
         level.tile_rot_z[i] = 0.0f;
     }
     
-    // Set spawn point at center
+    // Set spawn point at x=0, y=-12.5
     level.num_spawns = 1;
     level.spawn_x[0] = 0.0f;
-    level.spawn_y[0] = 0.0f;
+    level.spawn_y[0] = -12.5f;
     level.spawn_facing[0] = 0.0f;
     
     // Generate border walls
@@ -90,10 +90,10 @@ int main(int argc, char* argv[]) {
         tile_index++;
     }
     
-    // Add an axis marker at the origin for visual reference
+    // Add an axis marker at x=0, y=12.5 for visual reference
     level.object_ids[tile_index] = AssetIDs::AXIS_X;
     level.tile_x[tile_index] = 0.0f;
-    level.tile_y[tile_index] = 0.0f;
+    level.tile_y[tile_index] = 12.5f;
     level.tile_persistent[tile_index] = true;
     level.tile_render_only[tile_index] = true;
     level.tile_entity_type[tile_index] = 0;  // EntityType::None

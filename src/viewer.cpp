@@ -384,7 +384,7 @@ int main(int argc, char *argv[])
 
     // Phase 1.1: Camera positioned for 16x16 room centered at origin
     // Positioned above and slightly behind to see all walls
-    math::Vector3 initial_camera_position = { 0.0f, -0.0f, consts::display::cameraRotationAngle };
+    math::Vector3 initial_camera_position = { 0.0f, -10.0f, consts::display::cameraRotationAngle };
 
     // Look down at the room to see all four walls
     // math::Quat initial_camera_rotation =
