@@ -24,7 +24,7 @@ class TestCAPIStructValidation:
         # Load C API library directly
         lib = ctypes.CDLL("./build/libmadrona_escape_room_c_api.so")
 
-        # Define struct manually
+        # Define struct manually - must match C++ CompiledLevel exactly
         class MER_CompiledLevel(ctypes.Structure):
             _fields_ = [
                 ("num_tiles", ctypes.c_int32),
@@ -32,9 +32,26 @@ class TestCAPIStructValidation:
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
                 ("scale", ctypes.c_float),
-                ("object_ids", ctypes.c_int32 * 256),
-                ("tile_x", ctypes.c_float * 256),
-                ("tile_y", ctypes.c_float * 256),
+                ("level_name", ctypes.c_char * 64),  # MAX_LEVEL_NAME_LENGTH
+                ("num_spawns", ctypes.c_int32),
+                ("spawn_x", ctypes.c_float * 8),  # MAX_SPAWNS
+                ("spawn_y", ctypes.c_float * 8),
+                ("spawn_facing", ctypes.c_float * 8),
+                ("object_ids", ctypes.c_int32 * 1024),  # MAX_TILES
+                ("tile_x", ctypes.c_float * 1024),
+                ("tile_y", ctypes.c_float * 1024),
+                ("tile_z", ctypes.c_float * 1024),
+                ("tile_persistent", ctypes.c_bool * 1024),
+                ("tile_render_only", ctypes.c_bool * 1024),
+                ("tile_entity_type", ctypes.c_int32 * 1024),
+                ("tile_response_type", ctypes.c_int32 * 1024),
+                ("tile_scale_x", ctypes.c_float * 1024),
+                ("tile_scale_y", ctypes.c_float * 1024),
+                ("tile_scale_z", ctypes.c_float * 1024),
+                ("tile_rot_w", ctypes.c_float * 1024),
+                ("tile_rot_x", ctypes.c_float * 1024),
+                ("tile_rot_y", ctypes.c_float * 1024),
+                ("tile_rot_z", ctypes.c_float * 1024),
             ]
 
         # Populate struct
@@ -44,11 +61,30 @@ class TestCAPIStructValidation:
         level_struct.width = compiled["width"]
         level_struct.height = compiled["height"]
         level_struct.scale = compiled["scale"]
+        level_struct.level_name = compiled["level_name"].encode("utf-8")
+        level_struct.num_spawns = compiled["num_spawns"]
 
-        for i in range(256):
+        for i in range(8):  # MAX_SPAWNS
+            level_struct.spawn_x[i] = compiled["spawn_x"][i]
+            level_struct.spawn_y[i] = compiled["spawn_y"][i]
+            level_struct.spawn_facing[i] = compiled["spawn_facing"][i]
+
+        for i in range(1024):  # MAX_TILES
             level_struct.object_ids[i] = compiled["object_ids"][i]
             level_struct.tile_x[i] = compiled["tile_x"][i]
             level_struct.tile_y[i] = compiled["tile_y"][i]
+            level_struct.tile_z[i] = compiled["tile_z"][i]
+            level_struct.tile_persistent[i] = compiled["tile_persistent"][i]
+            level_struct.tile_render_only[i] = compiled["tile_render_only"][i]
+            level_struct.tile_entity_type[i] = compiled["tile_entity_type"][i]
+            level_struct.tile_response_type[i] = compiled["tile_response_type"][i]
+            level_struct.tile_scale_x[i] = compiled["tile_scale_x"][i]
+            level_struct.tile_scale_y[i] = compiled["tile_scale_y"][i]
+            level_struct.tile_scale_z[i] = compiled["tile_scale_z"][i]
+            level_struct.tile_rot_w[i] = compiled["tile_rot_w"][i]
+            level_struct.tile_rot_x[i] = compiled["tile_rot_x"][i]
+            level_struct.tile_rot_y[i] = compiled["tile_rot_y"][i]
+            level_struct.tile_rot_z[i] = compiled["tile_rot_z"][i]
 
         # Set up C API validation
         lib.mer_validate_compiled_level.argtypes = [ctypes.POINTER(MER_CompiledLevel)]
@@ -79,7 +115,7 @@ class TestCAPIStructValidation:
         # Load library
         lib = ctypes.CDLL("./build/libmadrona_escape_room_c_api.so")
 
-        # Define structs
+        # Define structs - must match C++ CompiledLevel exactly
         class MER_CompiledLevel(ctypes.Structure):
             _fields_ = [
                 ("num_tiles", ctypes.c_int32),
@@ -87,9 +123,26 @@ class TestCAPIStructValidation:
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
                 ("scale", ctypes.c_float),
-                ("object_ids", ctypes.c_int32 * 256),
-                ("tile_x", ctypes.c_float * 256),
-                ("tile_y", ctypes.c_float * 256),
+                ("level_name", ctypes.c_char * 64),  # MAX_LEVEL_NAME_LENGTH
+                ("num_spawns", ctypes.c_int32),
+                ("spawn_x", ctypes.c_float * 8),  # MAX_SPAWNS
+                ("spawn_y", ctypes.c_float * 8),
+                ("spawn_facing", ctypes.c_float * 8),
+                ("object_ids", ctypes.c_int32 * 1024),  # MAX_TILES
+                ("tile_x", ctypes.c_float * 1024),
+                ("tile_y", ctypes.c_float * 1024),
+                ("tile_z", ctypes.c_float * 1024),
+                ("tile_persistent", ctypes.c_bool * 1024),
+                ("tile_render_only", ctypes.c_bool * 1024),
+                ("tile_entity_type", ctypes.c_int32 * 1024),
+                ("tile_response_type", ctypes.c_int32 * 1024),
+                ("tile_scale_x", ctypes.c_float * 1024),
+                ("tile_scale_y", ctypes.c_float * 1024),
+                ("tile_scale_z", ctypes.c_float * 1024),
+                ("tile_rot_w", ctypes.c_float * 1024),
+                ("tile_rot_x", ctypes.c_float * 1024),
+                ("tile_rot_y", ctypes.c_float * 1024),
+                ("tile_rot_z", ctypes.c_float * 1024),
             ]
 
         class MER_ManagerConfig(ctypes.Structure):
@@ -111,11 +164,30 @@ class TestCAPIStructValidation:
         level_struct.width = compiled["width"]
         level_struct.height = compiled["height"]
         level_struct.scale = compiled["scale"]
+        level_struct.level_name = compiled["level_name"].encode("utf-8")
+        level_struct.num_spawns = compiled["num_spawns"]
 
-        for i in range(256):
+        for i in range(8):  # MAX_SPAWNS
+            level_struct.spawn_x[i] = compiled["spawn_x"][i]
+            level_struct.spawn_y[i] = compiled["spawn_y"][i]
+            level_struct.spawn_facing[i] = compiled["spawn_facing"][i]
+
+        for i in range(1024):  # MAX_TILES
             level_struct.object_ids[i] = compiled["object_ids"][i]
             level_struct.tile_x[i] = compiled["tile_x"][i]
             level_struct.tile_y[i] = compiled["tile_y"][i]
+            level_struct.tile_z[i] = compiled["tile_z"][i]
+            level_struct.tile_persistent[i] = compiled["tile_persistent"][i]
+            level_struct.tile_render_only[i] = compiled["tile_render_only"][i]
+            level_struct.tile_entity_type[i] = compiled["tile_entity_type"][i]
+            level_struct.tile_response_type[i] = compiled["tile_response_type"][i]
+            level_struct.tile_scale_x[i] = compiled["tile_scale_x"][i]
+            level_struct.tile_scale_y[i] = compiled["tile_scale_y"][i]
+            level_struct.tile_scale_z[i] = compiled["tile_scale_z"][i]
+            level_struct.tile_rot_w[i] = compiled["tile_rot_w"][i]
+            level_struct.tile_rot_x[i] = compiled["tile_rot_x"][i]
+            level_struct.tile_rot_y[i] = compiled["tile_rot_y"][i]
+            level_struct.tile_rot_z[i] = compiled["tile_rot_z"][i]
 
         # Create config
         config = MER_ManagerConfig()
