@@ -39,10 +39,10 @@ int main(int argc, char* argv[]) {
         level.tile_rand_rot_z[i] = 0.0f;
     }
     
-    // Set spawn point at x=0, y=-5.0 (adjusted for 16x16 room)
+    // Set spawn point at x=0, y=-17.0 (near southern wall)
     level.num_spawns = 1;
     level.spawn_x[0] = 0.0f;
-    level.spawn_y[0] = -5.0f;
+    level.spawn_y[0] = -17.0f;
     level.spawn_facing[0] = 0.0f;
     
     // Generate border walls with 2.5 unit tile spacing
