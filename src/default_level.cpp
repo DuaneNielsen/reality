@@ -232,7 +232,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;  // Has physics
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (movable)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static (immovable)
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;  // Random Z-axis rotation
@@ -246,7 +246,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
@@ -260,7 +260,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
@@ -288,7 +288,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
