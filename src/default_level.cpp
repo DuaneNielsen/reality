@@ -106,10 +106,12 @@ int main(int argc, char* argv[]) {
     tile_index++;
     
     // Add cylinders scattered around the level
+    const float cylinder_z_offset = 1.5f;  // Lift cylinders so bottom is at ground level
     // Cylinder 1: Near top-left corner
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = -10.0f;
     level.tile_y[tile_index] = 10.0f;
+    level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object (pushable)
@@ -120,6 +122,7 @@ int main(int argc, char* argv[]) {
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = 8.0f;
     level.tile_y[tile_index] = 12.0f;
+    level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
@@ -130,6 +133,7 @@ int main(int argc, char* argv[]) {
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = -12.0f;
     level.tile_y[tile_index] = -3.0f;
+    level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
@@ -140,6 +144,7 @@ int main(int argc, char* argv[]) {
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = 11.0f;
     level.tile_y[tile_index] = 3.0f;
+    level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
@@ -150,6 +155,7 @@ int main(int argc, char* argv[]) {
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = 3.0f;
     level.tile_y[tile_index] = -2.0f;
+    level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
@@ -160,6 +166,7 @@ int main(int argc, char* argv[]) {
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = -7.0f;
     level.tile_y[tile_index] = -10.0f;
+    level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
@@ -170,6 +177,7 @@ int main(int argc, char* argv[]) {
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = 9.0f;
     level.tile_y[tile_index] = -8.0f;
+    level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
@@ -180,6 +188,7 @@ int main(int argc, char* argv[]) {
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = -5.0f;
     level.tile_y[tile_index] = 4.0f;
+    level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
