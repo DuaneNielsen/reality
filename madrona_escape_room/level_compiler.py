@@ -47,14 +47,9 @@ def _get_max_spawns_from_c_api():
 MAX_TILES_C_API = _get_max_tiles_from_c_api()
 MAX_SPAWNS_C_API = _get_max_spawns_from_c_api()
 
-# Tile type constants (must match C++ TileType enum in src/level_gen.cpp)
-TILE_EMPTY = 0
-TILE_WALL = 1
-TILE_CUBE = 2
-TILE_SPAWN = 3
-TILE_DOOR = 4  # Future
-TILE_BUTTON = 5  # Future
-TILE_GOAL = 6  # Future
+# Special values for non-asset tiles
+TILE_EMPTY = 0  # Empty space (no object)
+TILE_SPAWN = -1  # Spawn point marker (agent will be placed here)
 
 # Level dimension limits for validation
 MAX_LEVEL_WIDTH = 64
@@ -78,22 +73,26 @@ def _get_legacy_char_map():
     return {
         ".": TILE_EMPTY,
         " ": TILE_EMPTY,  # Whitespace also means empty
-        "#": wall_id if wall_id >= 0 else 2,  # Use actual wall asset ID
-        "C": cube_id if cube_id >= 0 else 1,  # Use actual cube asset ID
+        "#": wall_id,  # Use actual wall asset ID from C API
+        "C": cube_id,  # Use actual cube asset ID from C API
         "S": TILE_SPAWN,
     }
 
 
-# Default tileset using asset names
-# Each entry can optionally specify scale_x, scale_y, scale_z
-DEFAULT_TILESET = {
-    "#": {"asset": "wall"},  # Will be auto-scaled to match tile spacing
+# Default tileset as JSON string - can be easily modified/extended
+DEFAULT_TILESET_JSON = """
+{
+    "#": {"asset": "wall"},
     "C": {"asset": "cube"},
     "O": {"asset": "cylinder"},
-    "S": {"asset": "spawn"},  # Special case for agent spawn
-    ".": {"asset": "empty"},  # Special case for empty space
-    " ": {"asset": "empty"},  # Whitespace also means empty
+    "S": {"asset": "spawn"},
+    ".": {"asset": "empty"},
+    " ": {"asset": "empty"}
 }
+"""
+
+# Parse the default tileset at module load time
+DEFAULT_TILESET = json.loads(DEFAULT_TILESET_JSON)
 
 
 def _get_asset_object_id(asset_name: str) -> int:
@@ -239,20 +238,21 @@ def compile_level(
             f"{MAX_TILES_C_API} max (from C API)"
         )
 
-    # Determine which character map to use
-    if tileset is not None:
-        # Validate the provided tileset
-        _validate_tileset(tileset)
-        char_to_tile = {}
-        for char, tile_def in tileset.items():
-            asset_name = tile_def["asset"]
-            try:
-                char_to_tile[char] = _get_asset_object_id(asset_name)
-            except ValueError as e:
-                raise ValueError(f"Invalid asset '{asset_name}' for character '{char}': {e}")
-    else:
-        # Use legacy CHAR_MAP with correct asset IDs from C API
-        char_to_tile = _get_legacy_char_map()
+    # Always use tileset approach (either provided or default)
+    if tileset is None:
+        tileset = DEFAULT_TILESET
+
+    # Validate the tileset
+    _validate_tileset(tileset)
+
+    # Build character to object ID mapping
+    char_to_tile = {}
+    for char, tile_def in tileset.items():
+        asset_name = tile_def["asset"]
+        try:
+            char_to_tile[char] = _get_asset_object_id(asset_name)
+        except ValueError as e:
+            raise ValueError(f"Invalid asset '{asset_name}' for character '{char}': {e}")
 
     tiles = []
     spawns = []

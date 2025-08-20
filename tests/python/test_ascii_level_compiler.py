@@ -50,13 +50,19 @@ class TestLevelCompiler:
 
         compiled = compile_level(level)
 
+        # Get the actual object IDs from the C API
+        from madrona_escape_room.ctypes_bindings import get_physics_asset_object_id
+
+        wall_id = get_physics_asset_object_id("wall")
+        cube_id = get_physics_asset_object_id("cube")
+
         # Should have walls + cubes
         wall_count = sum(
-            1 for i in range(compiled["num_tiles"]) if compiled["object_ids"][i] == 1
-        )  # TILE_WALL
+            1 for i in range(compiled["num_tiles"]) if compiled["object_ids"][i] == wall_id
+        )
         cube_count = sum(
-            1 for i in range(compiled["num_tiles"]) if compiled["object_ids"][i] == 2
-        )  # TILE_CUBE
+            1 for i in range(compiled["num_tiles"]) if compiled["object_ids"][i] == cube_id
+        )
 
         assert wall_count > 0, "Should have wall tiles"
         assert cube_count == 2, f"Should have 2 cubes, got {cube_count}"

@@ -37,9 +37,12 @@ class TestTilesetFunctionality:
 
     def test_asset_object_id_mapping(self):
         """Test asset name to object ID conversion"""
-        # Special cases
-        assert _get_asset_object_id("spawn") == 3  # TILE_SPAWN
-        assert _get_asset_object_id("empty") == 0  # TILE_EMPTY
+        # Import the actual constants from level_compiler
+        from madrona_escape_room.level_compiler import TILE_EMPTY, TILE_SPAWN
+
+        # Special cases - use actual constants not hardcoded values
+        assert _get_asset_object_id("spawn") == TILE_SPAWN
+        assert _get_asset_object_id("empty") == TILE_EMPTY
 
         # Standard assets - should get actual IDs from C API
         wall_id = _get_asset_object_id("wall")
