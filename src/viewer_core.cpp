@@ -2,6 +2,7 @@
 #include "mgr.hpp"
 #include "consts.hpp"
 #include <cassert>
+#include <chrono>
 
 namespace madEscape {
 
@@ -20,8 +21,21 @@ void RecordReplayStateMachine::startReplay() {
     }
 }
 
+void RecordReplayStateMachine::startInitialPause() {
+    if (state_ == Idle) {
+        state_ = InitialPaused;
+    }
+}
+
 void RecordReplayStateMachine::togglePause() {
     switch (state_) {
+        case Idle:
+            // Allow pausing during normal operation
+            state_ = InitialPaused;
+            break;
+        case InitialPaused:
+            state_ = Idle;
+            break;
         case RecordingPaused:
             state_ = Recording;
             break;
@@ -59,7 +73,7 @@ bool RecordReplayStateMachine::shouldAdvanceReplay() const {
 }
 
 bool RecordReplayStateMachine::isPaused() const {
-    return state_ == RecordingPaused || state_ == ReplayingPaused;
+    return state_ == InitialPaused || state_ == RecordingPaused || state_ == ReplayingPaused;
 }
 
 bool RecordReplayStateMachine::isRecording() const {
@@ -118,6 +132,11 @@ ViewerCore::ViewerCore(const Config& cfg, Manager* mgr)
     } else if (!config_.record_path.empty()) {
         state_machine_.startRecording();
         printf("Recording mode: Starting PAUSED (press SPACE to start recording)\n");
+    } else if (config_.start_paused) {
+        state_machine_.startInitialPause();
+        initial_pause_active_ = true;
+        pause_start_time_ = std::chrono::steady_clock::now();
+        printf("DEBUG: Starting paused with delay = %.2f seconds\n", config_.pause_delay_seconds);
     }
 }
 
@@ -134,6 +153,10 @@ void ViewerCore::handleInput(int world_idx, const InputEvent& event) {
     
     // Handle special keys first
     if (event.key == InputEvent::Space && event.type == InputEvent::KeyHit) {
+        // If we're in initial pause, clear the flag when manually resuming
+        if (state_machine_.getState() == RecordReplayStateMachine::InitialPaused) {
+            initial_pause_active_ = false;
+        }
         state_machine_.togglePause();
         printf("Simulation %s\n", state_machine_.isPaused() ? "PAUSED" : "RESUMED");
         return;
@@ -256,12 +279,36 @@ void ViewerCore::updateFrameActions(int world_idx, int /* agent_idx */) {
     computeActionsFromInput(world_idx);
 }
 
-void ViewerCore::stepSimulation() {
-    // Don't step if paused
-    if (state_machine_.isPaused()) {
-        return;
+void ViewerCore::updateFrame() {
+    // Handle auto-resume timer for initial pause
+    if (initial_pause_active_ && state_machine_.getState() == RecordReplayStateMachine::InitialPaused) {
+        if (config_.pause_delay_seconds > 0.0f) {
+            // Calculate actual elapsed time
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::duration<float>>(now - pause_start_time_).count();
+            
+            // Debug: Print timer progress every 0.5 seconds
+            static auto last_print = std::chrono::steady_clock::now();
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_print).count() > 500) {
+                printf("Timer: %.2f / %.2f seconds elapsed\n", elapsed, config_.pause_delay_seconds);
+                last_print = now;
+            }
+            
+            if (elapsed >= config_.pause_delay_seconds) {
+                printf("Auto-resuming after %.1f seconds\n", elapsed);
+                state_machine_.togglePause();
+                initial_pause_active_ = false;
+            }
+        }
     }
     
+    // Only step the simulation if not paused
+    if (!state_machine_.isPaused()) {
+        stepSimulation();
+    }
+}
+
+void ViewerCore::stepSimulation() {
     // Load actions from replay if replaying
     bool replay_finished = false;
     if (state_machine_.isReplaying()) {
@@ -271,7 +318,7 @@ void ViewerCore::stepSimulation() {
     // Don't call recordActions here - Manager::step() handles recording internally
     // when recording is active
     
-    // Always step the simulation (unless paused or finished)
+    // Always step the simulation
     mgr_->step();
     
     // After stepping, check if replay finished

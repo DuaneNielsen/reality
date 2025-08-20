@@ -39,10 +39,26 @@ namespace ArgChecker {
         if (msg) std::cerr << "Option '" << option.name << "' requires a numeric argument\n";
         return option::ARG_ILLEGAL;
     }
+    
+    static option::ArgStatus OptionalNumeric(const option::Option& option, bool msg)
+    {
+        // No argument is OK (will use default behavior)
+        if (option.arg == nullptr)
+            return option::ARG_OK;
+        
+        // If argument provided, must be a valid float
+        char* endptr = nullptr;
+        strtof(option.arg, &endptr);
+        if (endptr != option.arg && *endptr == '\0')
+            return option::ARG_OK;
+        
+        if (msg) std::cerr << "Option '" << option.name << "' requires a numeric argument if provided\n";
+        return option::ARG_ILLEGAL;
+    }
 }
 
 enum OptionIndex { 
-    UNKNOWN, HELP, CUDA, NUM_WORLDS, LOAD, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED, HIDE_MENU 
+    UNKNOWN, HELP, CUDA, NUM_WORLDS, LOAD, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED, HIDE_MENU, PAUSE
 };
 
 const option::Descriptor usage[] = {
@@ -62,6 +78,7 @@ const option::Descriptor usage[] = {
     {TRACK_FILE, 0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file"},
     {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed <value>, -s <value>  \tSet random seed (default: 5)"},
     {HIDE_MENU, 0, "", "hide-menu", option::Arg::None, "  --hide-menu  \tHide ImGui menu (useful for clean screenshots)"},
+    {PAUSE,   0, "p", "pause", ArgChecker::OptionalNumeric, "  --pause [delay], -p [delay]  \tStart paused, optionally auto-resume after delay seconds"},
     {UNKNOWN, 0, "", "", nullptr, nullptr}
 };
 
@@ -128,6 +145,8 @@ int main(int argc, char *argv[])
     int32_t track_agent_idx = 0;  // Default to agent 0
     bool track_trajectory = false;
     std::string track_file;
+    bool start_paused = false;
+    float pause_delay_seconds = 0.0f;
 
     // Process options
     if (options[CUDA]) {
@@ -176,6 +195,16 @@ int main(int argc, char *argv[])
     
     if (options[SEED]) {
         rand_seed = strtoul(options[SEED].arg, nullptr, 10);
+    }
+    
+    if (options[PAUSE]) {
+        start_paused = true;
+        if (options[PAUSE].arg != nullptr) {
+            pause_delay_seconds = strtof(options[PAUSE].arg, nullptr);
+            printf("Starting paused, will auto-resume after %.1f seconds\n", pause_delay_seconds);
+        } else {
+            printf("Starting paused (press SPACE to resume)\n");
+        }
     }
 
     // Check for any remaining non-option arguments
@@ -350,6 +379,8 @@ int main(int argc, char *argv[])
         .load_path = load_path,
         .record_path = record_path,
         .replay_path = replay_path,
+        .start_paused = start_paused,
+        .pause_delay_seconds = pause_delay_seconds,
     };
     
     // Initialize ViewerCore
@@ -512,8 +543,8 @@ int main(int argc, char *argv[])
         // Compute and apply actions
         viewer_core.updateFrameActions(world_idx, 0);
     }, [&viewer_core, &viewer]() {
-        // Step simulation
-        viewer_core.stepSimulation();
+        // Update frame (handles timing and conditionally steps simulation)
+        viewer_core.updateFrame();
         
         // Check if we should exit
         auto frame_state = viewer_core.getFrameState();

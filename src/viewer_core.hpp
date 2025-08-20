@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <chrono>
 
 namespace madEscape {
 
@@ -14,6 +15,7 @@ class RecordReplayStateMachine {
 public:
     enum State {
         Idle,
+        InitialPaused,
         RecordingPaused,
         Recording,
         ReplayingPaused,
@@ -26,6 +28,7 @@ public:
     // State transitions - all testable
     void startRecording();
     void startReplay();
+    void startInitialPause();
     void togglePause();
     void finishReplay();
     void stop();
@@ -67,6 +70,8 @@ public:
         std::string load_path;
         std::string record_path;
         std::string replay_path;
+        bool start_paused = false;
+        float pause_delay_seconds = 0.0f;
     };
     
     struct InputEvent {
@@ -90,7 +95,8 @@ public:
     // Pure logic functions - fully testable
     void handleInput(int world_idx, const InputEvent& event);
     void updateFrameActions(int world_idx, int agent_idx);
-    void stepSimulation();
+    void updateFrame();  // Handles timing and pause logic
+    void stepSimulation();  // Actually steps the simulation
     FrameState getFrameState() const;
     
     // Recording/replay control
@@ -136,6 +142,10 @@ private:
     void resetInputState(int world_idx);
     void applyFrameActions();
     bool should_exit_ = false;
+    
+    // Pause timer for auto-resume
+    std::chrono::steady_clock::time_point pause_start_time_;
+    bool initial_pause_active_ = false;
 };
 
 } // namespace madEscape
