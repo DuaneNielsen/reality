@@ -206,6 +206,18 @@ class MER_CompiledLevel(Structure):
         ("object_ids", c_int32 * MAX_TILES),
         ("tile_x", c_float * MAX_TILES),
         ("tile_y", c_float * MAX_TILES),
+        ("tile_z", c_float * MAX_TILES),
+        ("tile_persistent", c_bool * MAX_TILES),
+        ("tile_render_only", c_bool * MAX_TILES),
+        ("tile_entity_type", c_int32 * MAX_TILES),
+        ("tile_response_type", c_int32 * MAX_TILES),
+        ("tile_scale_x", c_float * MAX_TILES),
+        ("tile_scale_y", c_float * MAX_TILES),
+        ("tile_scale_z", c_float * MAX_TILES),
+        ("tile_rot_w", c_float * MAX_TILES),
+        ("tile_rot_x", c_float * MAX_TILES),
+        ("tile_rot_y", c_float * MAX_TILES),
+        ("tile_rot_z", c_float * MAX_TILES),
     ]
 
 

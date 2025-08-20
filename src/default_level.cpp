@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
         level.tile_rot_x[i] = 0.0f;
         level.tile_rot_y[i] = 0.0f;
         level.tile_rot_z[i] = 0.0f;
+        level.tile_response_type[i] = 2;  // Default to Static
     }
     
     // Set spawn point at x=0, y=-12.5
@@ -55,6 +56,7 @@ int main(int argc, char* argv[]) {
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
         level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
+        level.tile_response_type[tile_index] = 2;  // ResponseType::Static
         tile_index++;
         
         // Bottom wall
@@ -64,6 +66,7 @@ int main(int argc, char* argv[]) {
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
         level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
+        level.tile_response_type[tile_index] = 2;  // ResponseType::Static
         tile_index++;
     }
     
@@ -78,6 +81,7 @@ int main(int argc, char* argv[]) {
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
         level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
+        level.tile_response_type[tile_index] = 2;  // ResponseType::Static
         tile_index++;
         
         // Right wall
@@ -87,6 +91,7 @@ int main(int argc, char* argv[]) {
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
         level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
+        level.tile_response_type[tile_index] = 2;  // ResponseType::Static
         tile_index++;
     }
     
@@ -97,6 +102,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = true;
     level.tile_render_only[tile_index] = true;
     level.tile_entity_type[tile_index] = 0;  // EntityType::None
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static (render-only)
     tile_index++;
     
     // Add cylinders scattered around the level
@@ -107,6 +113,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object (pushable)
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
     tile_index++;
     
     // Cylinder 2: Near top-right corner
@@ -116,6 +123,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
     tile_index++;
     
     // Cylinder 3: Left side
@@ -125,6 +133,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
     tile_index++;
     
     // Cylinder 4: Right side
@@ -134,6 +143,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
     tile_index++;
     
     // Cylinder 5: Near center but offset
@@ -143,6 +153,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
     tile_index++;
     
     // Cylinder 6: Bottom-left area
@@ -152,6 +163,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
     tile_index++;
     
     // Cylinder 7: Bottom-right area
@@ -161,6 +173,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
     tile_index++;
     
     // Cylinder 8: Mid-left
@@ -170,6 +183,7 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
     tile_index++;
     
     // Set the actual number of tiles used

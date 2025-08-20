@@ -78,11 +78,12 @@ static Entity createEntityShell(Engine& ctx, uint32_t objectId, bool isRenderOnl
  * ONLY for physics entities, not render-only.
  */
 static void setupEntityPhysics(Engine& ctx, Entity e, uint32_t objectId,
-                              Vector3 pos, Quat rot, Diag3x3 scale, int32_t entityTypeValue) {
+                              Vector3 pos, Quat rot, Diag3x3 scale, int32_t entityTypeValue, int32_t responseTypeValue) {
     EntityType entityType = static_cast<EntityType>(entityTypeValue);
+    ResponseType responseType = static_cast<ResponseType>(responseTypeValue);
     
     setupRigidBodyEntity(ctx, e, pos, rot, objectId,
-                       entityType, ResponseType::Static, scale);
+                       entityType, responseType, scale);
     registerRigidBodyEntity(ctx, e, objectId);
 }
 
@@ -252,7 +253,8 @@ static void resetPersistentEntities(Engine &ctx)
                      setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, rotation, scale);
                  } else {
                      int32_t entityTypeValue = level.tile_entity_type[i];
-                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue);
+                     int32_t responseTypeValue = level.tile_response_type[i];
+                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue, responseTypeValue);
                  }
              }
          }
@@ -366,7 +368,8 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                     setupRenderOnlyEntity(ctx, entity, objectId, Vector3{x, y, z}, rotation, scale);
                 } else {
                     int32_t entityTypeValue = level->tile_entity_type[i];
-                    setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue);
+                    int32_t responseTypeValue = level->tile_response_type[i];
+                    setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue, responseTypeValue);
                 }
             }
         }

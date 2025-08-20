@@ -168,6 +168,7 @@ namespace madEscape {
         bool tile_persistent[MAX_TILES];  // Whether tile persists across episodes
         bool tile_render_only[MAX_TILES]; // Whether tile is render-only (no physics)
         int32_t tile_entity_type[MAX_TILES]; // EntityType value for each tile (0=None, 1=Cube, 2=Wall, 3=Agent)
+        int32_t tile_response_type[MAX_TILES]; // ResponseType value for each tile (0=Dynamic, 1=Kinematic, 2=Static)
         
         // Transform data arrays (per-tile scale and rotation)
         float tile_scale_x[MAX_TILES];    // Local X scale

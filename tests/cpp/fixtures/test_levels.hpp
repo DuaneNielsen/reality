@@ -226,6 +226,7 @@ public:
         // Initialize render-only flags for test tiles (all physics entities by default)
         for (int i = 0; i < level.num_tiles; i++) {
             level.tile_render_only[i] = false;  // Default: all physics entities
+            level.tile_response_type[i] = 2;  // Static (walls are static)
         }
         
         // Initialize entity type values for test tiles
@@ -242,6 +243,7 @@ public:
         // Initialize rest as None (default)
         for (int i = level.num_tiles; i < MER_MAX_TILES; i++) {
             level.tile_entity_type[i] = 0;  // EntityType::None
+            level.tile_response_type[i] = 2;  // Static (default)
         }
         
         return level;

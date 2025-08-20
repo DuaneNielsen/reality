@@ -124,6 +124,8 @@ MER_Result mer_create_manager(
                        sizeof(bool) * array_size);
             std::memcpy(cpp_level.tile_entity_type, c_level->tile_entity_type,
                        sizeof(int32_t) * array_size);
+            std::memcpy(cpp_level.tile_response_type, c_level->tile_response_type,
+                       sizeof(int32_t) * array_size);
             
             // Copy transform data arrays
             std::memcpy(cpp_level.tile_scale_x, c_level->tile_scale_x,

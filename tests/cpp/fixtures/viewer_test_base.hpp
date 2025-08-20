@@ -107,7 +107,8 @@ public:
                 level1.tile_rot_z[i] != level2.tile_rot_z[i] ||
                 level1.tile_persistent[i] != level2.tile_persistent[i] ||
                 level1.tile_render_only[i] != level2.tile_render_only[i] ||
-                level1.tile_entity_type[i] != level2.tile_entity_type[i]) {
+                level1.tile_entity_type[i] != level2.tile_entity_type[i] ||
+                level1.tile_response_type[i] != level2.tile_response_type[i]) {
                 return false;
             }
         }
@@ -178,6 +179,8 @@ protected:
             level.tile_persistent[i] = false;  // Default: non-persistent
             level.tile_render_only[i] = false;  // Default: physics entities
             level.tile_entity_type[i] = (i % 2) + 1;  // Match object_ids (1=Cube, 2=Wall)
+            // ResponseType values: 0=Dynamic, 1=Kinematic, 2=Static
+            level.tile_response_type[i] = 2;  // Static (walls and cubes are static in tests)
             
             // Initialize transform data with defaults matching old hardcoded logic
             level.tile_z[i] = 0.0f;  // Default ground level
@@ -242,6 +245,7 @@ protected:
                 level.tile_persistent[i] = false;  // Default: non-persistent
                 level.tile_render_only[i] = false;  // Default: physics entities
                 level.tile_entity_type[i] = 0;  // Default EntityType::None
+                level.tile_response_type[i] = 2;  // Static (default for test entities)
             }
             file.write(reinterpret_cast<const char*>(&level), sizeof(MER_CompiledLevel));
             

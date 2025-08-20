@@ -98,6 +98,7 @@ typedef struct {
     bool tile_persistent[MER_MAX_TILES]; // Whether tile persists across episodes
     bool tile_render_only[MER_MAX_TILES]; // Whether tile is render-only (no physics)
     int32_t tile_entity_type[MER_MAX_TILES]; // EntityType integer values (0=None, 1=Cube, 2=Wall, 3=Agent)
+    int32_t tile_response_type[MER_MAX_TILES]; // ResponseType values (0=Dynamic, 1=Kinematic, 2=Static)
     
     // Transform data arrays (per-tile scale and rotation)
     float tile_scale_x[MER_MAX_TILES];   // Local X scale

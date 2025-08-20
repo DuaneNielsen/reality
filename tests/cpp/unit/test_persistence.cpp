@@ -77,12 +77,21 @@ protected:
         level.tile_entity_type[4] = 0;  // AXIS_X - EntityType::None (render-only)
         level.tile_entity_type[5] = 0;  // AXIS_Y - EntityType::None (render-only)
         
+        // Initialize response type values
+        level.tile_response_type[0] = 2;  // Wall - Static
+        level.tile_response_type[1] = 2;  // Wall - Static
+        level.tile_response_type[2] = 0;  // Cube - Dynamic (can move)
+        level.tile_response_type[3] = 0;  // Cube - Dynamic (can move) 
+        level.tile_response_type[4] = 2;  // AXIS_X - Static (render-only)
+        level.tile_response_type[5] = 2;  // AXIS_Y - Static (render-only)
+        
         // Initialize rest as empty
         for (int i = 6; i < CompiledLevel::MAX_TILES; i++) {
             level.object_ids[i] = 0;
             level.tile_persistent[i] = false;
             level.tile_render_only[i] = false;  // Default: physics entities
             level.tile_entity_type[i] = 0;  // EntityType::None
+            level.tile_response_type[i] = 2;  // Static (default)
             level.tile_x[i] = 0.0f;
             level.tile_y[i] = 0.0f;
         }
