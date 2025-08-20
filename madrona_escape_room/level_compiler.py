@@ -511,6 +511,34 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
                 else:
                     f.write(struct.pack("<f", 0.0))
 
+            # tile_rand_x array - pad with 0.0 if needed (no randomization)
+            for i in range(MAX_TILES_C_API):
+                if i < array_size and "tile_rand_x" in compiled:
+                    f.write(struct.pack("<f", compiled["tile_rand_x"][i]))
+                else:
+                    f.write(struct.pack("<f", 0.0))
+
+            # tile_rand_y array - pad with 0.0 if needed (no randomization)
+            for i in range(MAX_TILES_C_API):
+                if i < array_size and "tile_rand_y" in compiled:
+                    f.write(struct.pack("<f", compiled["tile_rand_y"][i]))
+                else:
+                    f.write(struct.pack("<f", 0.0))
+
+            # tile_rand_z array - pad with 0.0 if needed (no randomization)
+            for i in range(MAX_TILES_C_API):
+                if i < array_size and "tile_rand_z" in compiled:
+                    f.write(struct.pack("<f", compiled["tile_rand_z"][i]))
+                else:
+                    f.write(struct.pack("<f", 0.0))
+
+            # tile_rand_rot_z array - pad with 0.0 if needed (no randomization)
+            for i in range(MAX_TILES_C_API):
+                if i < array_size and "tile_rand_rot_z" in compiled:
+                    f.write(struct.pack("<f", compiled["tile_rand_rot_z"][i]))
+                else:
+                    f.write(struct.pack("<f", 0.0))
+
     except IOError as e:
         raise IOError(f"Failed to write level file '{filepath}': {e}")
 
@@ -630,6 +658,35 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             for _ in range(MAX_TILES_C_API):
                 tile_rot_z.append(struct.unpack("<f", f.read(4))[0])
 
+            # Try to read new randomization fields if they exist
+            # This provides backward compatibility with old files
+            try:
+                # Read tile_rand_x array
+                tile_rand_x = []
+                for _ in range(MAX_TILES_C_API):
+                    tile_rand_x.append(struct.unpack("<f", f.read(4))[0])
+
+                # Read tile_rand_y array
+                tile_rand_y = []
+                for _ in range(MAX_TILES_C_API):
+                    tile_rand_y.append(struct.unpack("<f", f.read(4))[0])
+
+                # Read tile_rand_z array
+                tile_rand_z = []
+                for _ in range(MAX_TILES_C_API):
+                    tile_rand_z.append(struct.unpack("<f", f.read(4))[0])
+
+                # Read tile_rand_rot_z array
+                tile_rand_rot_z = []
+                for _ in range(MAX_TILES_C_API):
+                    tile_rand_rot_z.append(struct.unpack("<f", f.read(4))[0])
+            except struct.error:
+                # Old file format without randomization fields - use defaults (no randomization)
+                tile_rand_x = [0.0] * MAX_TILES_C_API
+                tile_rand_y = [0.0] * MAX_TILES_C_API
+                tile_rand_z = [0.0] * MAX_TILES_C_API
+                tile_rand_rot_z = [0.0] * MAX_TILES_C_API
+
             # Calculate expected array size for this level's dimensions
             array_size = width * height
 
@@ -661,6 +718,10 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 "tile_rot_x": tile_rot_x,
                 "tile_rot_y": tile_rot_y,
                 "tile_rot_z": tile_rot_z,
+                "tile_rand_x": tile_rand_x,
+                "tile_rand_y": tile_rand_y,
+                "tile_rand_z": tile_rand_z,
+                "tile_rand_rot_z": tile_rand_rot_z,
             }
 
             # Validate loaded data

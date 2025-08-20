@@ -53,7 +53,7 @@ namespace PhysicsProps {
     constexpr float wallInverseMass = 0.f;        // Static walls (infinite mass)
     constexpr float agentInverseMass = 1.f;       // Agent unit mass for direct control
     constexpr float planeInverseMass = 0.f;       // Static plane (infinite mass)
-    constexpr float cylinderInverseMass = 0.1f;   // Pushable cylinder with ~10kg mass
+    constexpr float cylinderInverseMass = 0.f;    // Static cylinder (infinite mass)
     
     constexpr float standardStaticFriction = 0.5f;
     constexpr float standardDynamicFriction = 0.5f;

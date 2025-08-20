@@ -178,6 +178,12 @@ namespace madEscape {
         float tile_rot_x[MAX_TILES];      // Quaternion X component
         float tile_rot_y[MAX_TILES];      // Quaternion Y component
         float tile_rot_z[MAX_TILES];      // Quaternion Z component
+        
+        // Randomization arrays (per-tile random ranges)
+        float tile_rand_x[MAX_TILES];     // Random X offset range (-range/2 to +range/2)
+        float tile_rand_y[MAX_TILES];     // Random Y offset range (-range/2 to +range/2)
+        float tile_rand_z[MAX_TILES];     // Random Z offset range (-range/2 to +range/2)
+        float tile_rand_rot_z[MAX_TILES]; // Random Z-axis rotation range in radians
     };
 
     // [GAME_SPECIFIC]

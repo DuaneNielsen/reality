@@ -31,6 +31,12 @@ int main(int argc, char* argv[]) {
         level.tile_rot_y[i] = 0.0f;
         level.tile_rot_z[i] = 0.0f;
         level.tile_response_type[i] = 2;  // Default to Static
+        
+        // Initialize randomization arrays to 0 (no randomization)
+        level.tile_rand_x[i] = 0.0f;
+        level.tile_rand_y[i] = 0.0f;
+        level.tile_rand_z[i] = 0.0f;
+        level.tile_rand_rot_z[i] = 0.0f;
     }
     
     // Set spawn point at x=0, y=-12.5
@@ -105,8 +111,10 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static (render-only)
     tile_index++;
     
-    // Add cylinders scattered around the level
+    // Add cylinders scattered around the level with 3m XY variance
     const float cylinder_z_offset = 1.5f;  // Lift cylinders so bottom is at ground level
+    const float variance_3m = 3.0f;  // 3-meter variance for XY positions
+    
     // Cylinder 1: Near top-left corner
     level.object_ids[tile_index] = AssetIDs::CYLINDER;
     level.tile_x[tile_index] = -10.0f;
@@ -114,8 +122,10 @@ int main(int argc, char* argv[]) {
     level.tile_z[tile_index] = cylinder_z_offset;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object (pushable)
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object (static obstacle)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_rand_x[tile_index] = variance_3m;  // 3m variance in X
+    level.tile_rand_y[tile_index] = variance_3m;  // 3m variance in Y
     tile_index++;
     
     // Cylinder 2: Near top-right corner
@@ -126,7 +136,9 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
     tile_index++;
     
     // Cylinder 3: Left side
@@ -137,7 +149,9 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
     tile_index++;
     
     // Cylinder 4: Right side
@@ -148,7 +162,9 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
     tile_index++;
     
     // Cylinder 5: Near center but offset
@@ -159,7 +175,9 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
     tile_index++;
     
     // Cylinder 6: Bottom-left area
@@ -170,7 +188,9 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
     tile_index++;
     
     // Cylinder 7: Bottom-right area
@@ -181,7 +201,9 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
     tile_index++;
     
     // Cylinder 8: Mid-left
@@ -192,7 +214,84 @@ int main(int argc, char* argv[]) {
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (can be pushed)
+    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
+    tile_index++;
+    
+    // Add cubes with physics, XY variance, and random rotation
+    const float cube_z_offset = 0.5f;  // Cube center height
+    const float pi = 3.14159265359f;
+    const float rotation_range = 2.0f * pi;  // Full rotation range (360 degrees)
+    
+    // Cube 1: Upper-left quadrant
+    level.object_ids[tile_index] = AssetIDs::CUBE;
+    level.tile_x[tile_index] = -8.0f;
+    level.tile_y[tile_index] = 6.0f;
+    level.tile_z[tile_index] = cube_z_offset;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;  // Has physics
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic (movable)
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_rot_z[tile_index] = rotation_range;  // Random Z-axis rotation
+    tile_index++;
+    
+    // Cube 2: Upper-right quadrant
+    level.object_ids[tile_index] = AssetIDs::CUBE;
+    level.tile_x[tile_index] = 6.0f;
+    level.tile_y[tile_index] = 8.0f;
+    level.tile_z[tile_index] = cube_z_offset;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_rot_z[tile_index] = rotation_range;
+    tile_index++;
+    
+    // Cube 3: Lower-left quadrant
+    level.object_ids[tile_index] = AssetIDs::CUBE;
+    level.tile_x[tile_index] = -10.0f;
+    level.tile_y[tile_index] = -6.0f;
+    level.tile_z[tile_index] = cube_z_offset;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_rot_z[tile_index] = rotation_range;
+    tile_index++;
+    
+    // Cube 4: Lower-right quadrant
+    level.object_ids[tile_index] = AssetIDs::CUBE;
+    level.tile_x[tile_index] = 7.0f;
+    level.tile_y[tile_index] = -5.0f;
+    level.tile_z[tile_index] = cube_z_offset;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_rot_z[tile_index] = rotation_range;
+    tile_index++;
+    
+    // Cube 5: Near center
+    level.object_ids[tile_index] = AssetIDs::CUBE;
+    level.tile_x[tile_index] = -2.0f;
+    level.tile_y[tile_index] = 1.0f;
+    level.tile_z[tile_index] = cube_z_offset;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
+    level.tile_response_type[tile_index] = 0;  // ResponseType::Dynamic
+    level.tile_rand_x[tile_index] = variance_3m;
+    level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_rot_z[tile_index] = rotation_range;
     tile_index++;
     
     // Set the actual number of tiles used

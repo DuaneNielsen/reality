@@ -218,6 +218,10 @@ class MER_CompiledLevel(Structure):
         ("tile_rot_x", c_float * MAX_TILES),
         ("tile_rot_y", c_float * MAX_TILES),
         ("tile_rot_z", c_float * MAX_TILES),
+        ("tile_rand_x", c_float * MAX_TILES),
+        ("tile_rand_y", c_float * MAX_TILES),
+        ("tile_rand_z", c_float * MAX_TILES),
+        ("tile_rand_rot_z", c_float * MAX_TILES),
     ]
 
 

@@ -108,6 +108,12 @@ typedef struct {
     float tile_rot_x[MER_MAX_TILES];     // Quaternion X component
     float tile_rot_y[MER_MAX_TILES];     // Quaternion Y component
     float tile_rot_z[MER_MAX_TILES];     // Quaternion Z component
+    
+    // Randomization arrays (per-tile random ranges)
+    float tile_rand_x[MER_MAX_TILES];    // Random X offset range (-range/2 to +range/2)
+    float tile_rand_y[MER_MAX_TILES];    // Random Y offset range (-range/2 to +range/2)
+    float tile_rand_z[MER_MAX_TILES];    // Random Z offset range (-range/2 to +range/2)
+    float tile_rand_rot_z[MER_MAX_TILES]; // Random Z-axis rotation range in radians
 } MER_CompiledLevel;
 
 // Manager configuration

@@ -10,15 +10,15 @@ using namespace madrona::phys;
 
 // Door-related constants removed - no longer needed
 
-// static inline float randInRangeCentered(Engine &ctx, float range)
-// {
-//     return ctx.data().rng.sampleUniform() * range - range / 2.f;
-// }
+static inline float randInRangeCentered(Engine &ctx, float range)
+{
+    return ctx.data().rng.sampleUniform() * range - range / 2.f;
+}
 
-// static inline float randBetween(Engine &ctx, float min, float max)
-// {
-//     return ctx.data().rng.sampleUniform() * (max - min) + min;
-// }
+static inline float randBetween(Engine &ctx, float min, float max)
+{
+    return ctx.data().rng.sampleUniform() * (max - min) + min;
+}
 
 // Initialize the basic components needed for physics rigid body entities
 static inline void setupRigidBodyEntity(
@@ -363,18 +363,39 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                 Diag3x3 scale = {level->tile_scale_x[i], level->tile_scale_y[i], level->tile_scale_z[i]};
                 float z = level->tile_z[i];
                 
+                // Apply position randomization if specified
+                Vector3 position{x, y, z};
+                if (level->tile_rand_x[i] > 0.0f) {
+                    position.x += randInRangeCentered(ctx, level->tile_rand_x[i]);
+                }
+                if (level->tile_rand_y[i] > 0.0f) {
+                    position.y += randInRangeCentered(ctx, level->tile_rand_y[i]);
+                }
+                if (level->tile_rand_z[i] > 0.0f) {
+                    position.z += randInRangeCentered(ctx, level->tile_rand_z[i]);
+                }
+                
+                // Apply rotation randomization if specified
+                Quat rotation{level->tile_rot_w[i], level->tile_rot_x[i], level->tile_rot_y[i], level->tile_rot_z[i]};
+                if (level->tile_rand_rot_z[i] > 0.0f) {
+                    // Apply random Z-axis rotation
+                    float randomAngle = randInRangeCentered(ctx, level->tile_rand_rot_z[i]);
+                    Quat randomRot = Quat::angleAxis(randomAngle, math::up);
+                    rotation = randomRot * rotation; // Combine rotations
+                }
+                
                 // Create entity and set up immediately
                 bool isRenderOnly = level->tile_render_only[i];
                 entity = isRenderOnly ?
                     ctx.makeRenderableEntity<RenderOnlyEntity>() :
                     ctx.makeRenderableEntity<PhysicsEntity>();
-                Quat rotation{level->tile_rot_w[i], level->tile_rot_x[i], level->tile_rot_y[i], level->tile_rot_z[i]};
+                
                 if (isRenderOnly) {
-                    setupRenderOnlyEntity(ctx, entity, objectId, Vector3{x, y, z}, rotation, scale);
+                    setupRenderOnlyEntity(ctx, entity, objectId, position, rotation, scale);
                 } else {
                     int32_t entityTypeValue = level->tile_entity_type[i];
                     int32_t responseTypeValue = level->tile_response_type[i];
-                    setupEntityPhysics(ctx, entity, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue, responseTypeValue);
+                    setupEntityPhysics(ctx, entity, objectId, position, rotation, scale, entityTypeValue, responseTypeValue);
                 }
             }
         }

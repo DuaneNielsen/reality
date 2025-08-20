@@ -52,6 +52,10 @@ class TestCAPIStructValidation:
                 ("tile_rot_x", ctypes.c_float * 1024),
                 ("tile_rot_y", ctypes.c_float * 1024),
                 ("tile_rot_z", ctypes.c_float * 1024),
+                ("tile_rand_x", ctypes.c_float * 1024),
+                ("tile_rand_y", ctypes.c_float * 1024),
+                ("tile_rand_z", ctypes.c_float * 1024),
+                ("tile_rand_rot_z", ctypes.c_float * 1024),
             ]
 
         # Populate struct
@@ -85,6 +89,11 @@ class TestCAPIStructValidation:
             level_struct.tile_rot_x[i] = compiled["tile_rot_x"][i]
             level_struct.tile_rot_y[i] = compiled["tile_rot_y"][i]
             level_struct.tile_rot_z[i] = compiled["tile_rot_z"][i]
+            # New randomization fields - default to 0 if not present
+            level_struct.tile_rand_x[i] = compiled.get("tile_rand_x", [0.0] * 1024)[i]
+            level_struct.tile_rand_y[i] = compiled.get("tile_rand_y", [0.0] * 1024)[i]
+            level_struct.tile_rand_z[i] = compiled.get("tile_rand_z", [0.0] * 1024)[i]
+            level_struct.tile_rand_rot_z[i] = compiled.get("tile_rand_rot_z", [0.0] * 1024)[i]
 
         # Set up C API validation
         lib.mer_validate_compiled_level.argtypes = [ctypes.POINTER(MER_CompiledLevel)]
@@ -143,6 +152,10 @@ class TestCAPIStructValidation:
                 ("tile_rot_x", ctypes.c_float * 1024),
                 ("tile_rot_y", ctypes.c_float * 1024),
                 ("tile_rot_z", ctypes.c_float * 1024),
+                ("tile_rand_x", ctypes.c_float * 1024),
+                ("tile_rand_y", ctypes.c_float * 1024),
+                ("tile_rand_z", ctypes.c_float * 1024),
+                ("tile_rand_rot_z", ctypes.c_float * 1024),
             ]
 
         class MER_ManagerConfig(ctypes.Structure):
@@ -188,6 +201,11 @@ class TestCAPIStructValidation:
             level_struct.tile_rot_x[i] = compiled["tile_rot_x"][i]
             level_struct.tile_rot_y[i] = compiled["tile_rot_y"][i]
             level_struct.tile_rot_z[i] = compiled["tile_rot_z"][i]
+            # New randomization fields - default to 0 if not present
+            level_struct.tile_rand_x[i] = compiled.get("tile_rand_x", [0.0] * 1024)[i]
+            level_struct.tile_rand_y[i] = compiled.get("tile_rand_y", [0.0] * 1024)[i]
+            level_struct.tile_rand_z[i] = compiled.get("tile_rand_z", [0.0] * 1024)[i]
+            level_struct.tile_rand_rot_z[i] = compiled.get("tile_rand_rot_z", [0.0] * 1024)[i]
 
         # Create config
         config = MER_ManagerConfig()
