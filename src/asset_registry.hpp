@@ -3,8 +3,12 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <array>
 #include <madrona/physics.hpp>
 #include <madrona/math.hpp>
+#include <madrona/heap_array.hpp>
+#include <madrona/importer.hpp>
+#include <madrona/stack_alloc.hpp>
 
 namespace madEscape {
 
@@ -89,6 +93,12 @@ public:
     std::vector<AssetInfo> getRenderAssets() const;
     uint32_t getPhysicsAssetCount() const;
     uint32_t getRenderAssetCount() const;
+    
+    // Asset loading helpers
+    static madrona::Span<madrona::imp::SourceTexture> loadTextures(madrona::StackAlloc& alloc);
+    static std::array<madrona::imp::SourceMaterial, AssetMaterials::NUM_MATERIALS> createMaterials();
+    std::vector<std::string> getRenderAssetPaths() const;
+    std::vector<std::string> getPhysicsAssetPaths() const;
     
     // Global instance accessor
     static AssetRegistry& getInstance();

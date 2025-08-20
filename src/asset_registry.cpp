@@ -1,6 +1,15 @@
 #include "asset_registry.hpp"
 #include "asset_ids.hpp"
 #include <cassert>
+#include <filesystem>
+
+// Need DATA_DIR for asset paths
+#ifndef DATA_DIR
+static_assert(false, "DATA_DIR must be defined");
+#endif
+
+using namespace madrona;
+using namespace madrona::imp;
 
 namespace madEscape {
 
@@ -372,6 +381,59 @@ uint32_t AssetRegistry::getRenderAssetCount() const {
 AssetRegistry& AssetRegistry::getInstance() {
     static AssetRegistry instance;
     return instance;
+}
+
+Span<SourceTexture> AssetRegistry::loadTextures(StackAlloc& alloc)
+{
+    ImageImporter img_importer;
+    
+    // Load textures using the static texture descriptors
+    return img_importer.importImages(
+        alloc, {
+            (std::filesystem::path(DATA_DIR) / 
+                AssetTextures::TEXTURES[0].filepath).string().c_str(),  // Green grid texture
+            (std::filesystem::path(DATA_DIR) / 
+                AssetTextures::TEXTURES[1].filepath).string().c_str(),  // Smile texture
+        });
+}
+
+std::array<SourceMaterial, AssetMaterials::NUM_MATERIALS> AssetRegistry::createMaterials()
+{
+    std::array<SourceMaterial, AssetMaterials::NUM_MATERIALS> materials;
+    
+    for (size_t i = 0; i < AssetMaterials::NUM_MATERIALS; i++) {
+        const auto& desc = AssetMaterials::MATERIALS[i];
+        materials[i] = SourceMaterial{
+            desc.color,
+            desc.textureIdx,
+            desc.roughness,
+            desc.metallic,
+        };
+    }
+    
+    return materials;
+}
+
+std::vector<std::string> AssetRegistry::getRenderAssetPaths() const
+{
+    std::vector<std::string> paths;
+    for (const auto& [name, info] : nameToAsset) {
+        if (info.hasRender && !info.meshPath.empty()) {
+            paths.push_back((std::filesystem::path(DATA_DIR) / info.meshPath).string());
+        }
+    }
+    return paths;
+}
+
+std::vector<std::string> AssetRegistry::getPhysicsAssetPaths() const
+{
+    std::vector<std::string> paths;
+    for (const auto& [name, info] : nameToAsset) {
+        if (info.hasPhysics && info.assetType == FILE_MESH && !info.filepath.empty()) {
+            paths.push_back((std::filesystem::path(DATA_DIR) / info.filepath).string());
+        }
+    }
+    return paths;
 }
 
 }

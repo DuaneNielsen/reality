@@ -240,39 +240,6 @@ struct Manager::CUDAImpl final : Manager::Impl {
 // Every Madrona environment must implement these methods
 // ============================================================================
 
-// Helper function to load textures
-static Span<imp::SourceTexture> loadTextures(StackAlloc &alloc)
-{
-    imp::ImageImporter img_importer;
-    
-    // Load textures in the same way as original code
-    return img_importer.importImages(
-        alloc, {
-            (std::filesystem::path(DATA_DIR) / 
-                madEscape::AssetTextures::TEXTURES[0].filepath).string().c_str(),  // Green grid texture
-            (std::filesystem::path(DATA_DIR) / 
-                madEscape::AssetTextures::TEXTURES[1].filepath).string().c_str(),  // Smile texture
-        });
-}
-
-// Helper function to create materials
-static std::array<imp::SourceMaterial, madEscape::AssetMaterials::NUM_MATERIALS> createMaterials()
-{
-    std::array<imp::SourceMaterial, madEscape::AssetMaterials::NUM_MATERIALS> materials;
-    
-    for (size_t i = 0; i < madEscape::AssetMaterials::NUM_MATERIALS; i++) {
-        const auto& desc = madEscape::AssetMaterials::MATERIALS[i];
-        materials[i] = imp::SourceMaterial{
-            desc.color,
-            desc.textureIdx,
-            desc.roughness,
-            desc.metallic,
-        };
-    }
-    
-    return materials;
-}
-
 // [REQUIRED_INTERFACE] Load visual assets - must be implemented by every environment
 static void loadRenderObjects(render::RenderManager &render_mgr)
 {
@@ -310,11 +277,11 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         FATAL("Failed to load render assets: %s", import_err.data());
     }
 
-    // Load textures
-    auto imported_textures = loadTextures(tmp_alloc);
+    // Load textures using AssetRegistry
+    auto imported_textures = madEscape::AssetRegistry::loadTextures(tmp_alloc);
     
-    // Create materials from descriptors
-    auto materials = createMaterials();
+    // Create materials using AssetRegistry
+    auto materials = madEscape::AssetRegistry::createMaterials();
     
     // Now we need to create a properly indexed sparse array of objects
     HeapArray<imp::SourceObject> indexed_objects(madEscape::AssetIDs::MAX_ASSETS);
