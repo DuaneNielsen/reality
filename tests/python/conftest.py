@@ -121,6 +121,8 @@ def cpu_manager(request):
                         "4",
                         "--replay",
                         str(recording_path),
+                        "--pause",
+                        "1",  # Start paused for 1 second to see initial state
                     ]
                 )
             else:
@@ -257,6 +259,8 @@ def log_and_verify_replay_cpu_manager(request):
                     "4",
                     "--replay",
                     str(debug_session.recording_path),
+                    "--pause",
+                    "1",  # Start paused for 1 second to see initial state
                 ]
             )
 
@@ -392,6 +396,8 @@ def per_test_recording_handler(request):
                         "4",
                         "--replay",
                         str(debug_session.recording_path),
+                        "--pause",
+                        "1",  # Start paused for 1 second to see initial state
                     ]
                 )
             else:
