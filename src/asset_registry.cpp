@@ -24,6 +24,7 @@ namespace AssetMaterials {
         { "button", {1.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
         { "axis_y", {0.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
         { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },
+        { "cylinder", {0.3f, 0.7f, 0.9f, 1.0f}, -1, 0.8f, 0.2f },  // Light blue cylinder
     };
 }
 
@@ -34,6 +35,7 @@ namespace {
     constexpr float wallInverseMass = 0.f;        // Static walls (infinite mass)
     constexpr float agentInverseMass = 1.f;       // Agent unit mass for direct control
     constexpr float planeInverseMass = 0.f;       // Static plane (infinite mass)
+    constexpr float cylinderInverseMass = 0.1f;    // Pushable cylinder with ~10kg mass
     
     constexpr float standardStaticFriction = 0.5f;     // Standard static friction
     constexpr float standardDynamicFriction = 0.5f;    // Standard dynamic friction
@@ -49,6 +51,7 @@ namespace {
     constexpr uint32_t materialAxisX = 5;
     constexpr uint32_t materialAxisY = 7;
     constexpr uint32_t materialAxisZ = 8;
+    constexpr uint32_t materialCylinder = 9;
     
     // Mesh counts
     constexpr uint32_t agentMeshCount = 3;
@@ -167,6 +170,24 @@ AssetRegistry::AssetRegistry() : nextId(AssetIDs::DYNAMIC_START) {
         axis_z.materialIndices = { materialAxisZ };
         axis_z.numMeshes = 1;
         registerFullAsset(axis_z);
+    }
+    
+    // Register cylinder asset
+    {
+        AssetInfo cylinder;
+        cylinder.name = "cylinder";
+        cylinder.id = AssetIDs::CYLINDER;
+        cylinder.hasPhysics = true;
+        cylinder.hasRender = true;
+        cylinder.assetType = FILE_MESH;
+        cylinder.filepath = "cylinder_collision.obj";
+        cylinder.inverseMass = cylinderInverseMass;
+        cylinder.friction = { standardStaticFriction, standardDynamicFriction };
+        cylinder.constrainRotationXY = false;
+        cylinder.meshPath = "cylinder_render.obj";
+        cylinder.materialIndices = { materialCylinder };
+        cylinder.numMeshes = 1;
+        registerFullAsset(cylinder);
     }
 }
 

@@ -99,6 +99,79 @@ int main(int argc, char* argv[]) {
     level.tile_entity_type[tile_index] = 0;  // EntityType::None
     tile_index++;
     
+    // Add cylinders scattered around the level
+    // Cylinder 1: Near top-left corner
+    level.object_ids[tile_index] = AssetIDs::CYLINDER;
+    level.tile_x[tile_index] = -10.0f;
+    level.tile_y[tile_index] = 10.0f;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object (pushable)
+    tile_index++;
+    
+    // Cylinder 2: Near top-right corner
+    level.object_ids[tile_index] = AssetIDs::CYLINDER;
+    level.tile_x[tile_index] = 8.0f;
+    level.tile_y[tile_index] = 12.0f;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    tile_index++;
+    
+    // Cylinder 3: Left side
+    level.object_ids[tile_index] = AssetIDs::CYLINDER;
+    level.tile_x[tile_index] = -12.0f;
+    level.tile_y[tile_index] = -3.0f;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    tile_index++;
+    
+    // Cylinder 4: Right side
+    level.object_ids[tile_index] = AssetIDs::CYLINDER;
+    level.tile_x[tile_index] = 11.0f;
+    level.tile_y[tile_index] = 3.0f;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    tile_index++;
+    
+    // Cylinder 5: Near center but offset
+    level.object_ids[tile_index] = AssetIDs::CYLINDER;
+    level.tile_x[tile_index] = 3.0f;
+    level.tile_y[tile_index] = -2.0f;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    tile_index++;
+    
+    // Cylinder 6: Bottom-left area
+    level.object_ids[tile_index] = AssetIDs::CYLINDER;
+    level.tile_x[tile_index] = -7.0f;
+    level.tile_y[tile_index] = -10.0f;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    tile_index++;
+    
+    // Cylinder 7: Bottom-right area
+    level.object_ids[tile_index] = AssetIDs::CYLINDER;
+    level.tile_x[tile_index] = 9.0f;
+    level.tile_y[tile_index] = -8.0f;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    tile_index++;
+    
+    // Cylinder 8: Mid-left
+    level.object_ids[tile_index] = AssetIDs::CYLINDER;
+    level.tile_x[tile_index] = -5.0f;
+    level.tile_y[tile_index] = 4.0f;
+    level.tile_persistent[tile_index] = false;
+    level.tile_render_only[tile_index] = false;
+    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
+    tile_index++;
+    
     // Set the actual number of tiles used
     level.num_tiles = tile_index;
     

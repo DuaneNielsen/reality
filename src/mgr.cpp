@@ -396,8 +396,8 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
 
     // [BOILERPLATE]
     DynArray<DynArray<SourceCollisionPrimitive>> prim_arrays(0);
-    // Only allocate space for the built-in assets we actually have (IDs 0-7)
-    constexpr CountT NUM_BUILTIN_ASSETS = 8;
+    // Only allocate space for the built-in assets we actually have (IDs 0-8)
+    constexpr CountT NUM_BUILTIN_ASSETS = 9;  // Updated to include cylinder (ID 8)
     HeapArray<SourceCollisionObject> src_objs(NUM_BUILTIN_ASSETS);
     
     // Initialize all entries to prevent accessing uninitialized memory

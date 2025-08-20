@@ -13,6 +13,7 @@ namespace AssetIDs {
     constexpr uint32_t AXIS_X = 5;
     constexpr uint32_t AXIS_Y = 6;
     constexpr uint32_t AXIS_Z = 7;
+    constexpr uint32_t CYLINDER = 8;
     
     constexpr uint32_t DYNAMIC_START = 32;
     constexpr uint32_t MAX_ASSETS = 256;
