@@ -12,13 +12,13 @@ int main(int argc, char* argv[]) {
         output_file = argv[1];
     }
     
-    // Create a 32x32 room with border walls
+    // Create a 16x16 room with border walls
     CompiledLevel level = {};
-    level.width = 32;
-    level.height = 32;
+    level.width = 16;
+    level.height = 16;
     level.scale = 1.0f;
-    level.max_entities = 150;  // Enough for walls and other objects
-    std::strcpy(level.level_name, "default_32x32_room");
+    level.max_entities = 150;  // Enough for walls (16*4 = 64) and other objects
+    std::strcpy(level.level_name, "default_16x16_room");
     
     // Initialize all transform data to defaults
     for (int i = 0; i < CompiledLevel::MAX_TILES; i++) {
@@ -39,20 +39,20 @@ int main(int argc, char* argv[]) {
         level.tile_rand_rot_z[i] = 0.0f;
     }
     
-    // Set spawn point at x=0, y=-12.5
+    // Set spawn point at x=0, y=-5.0 (adjusted for 16x16 room)
     level.num_spawns = 1;
     level.spawn_x[0] = 0.0f;
-    level.spawn_y[0] = -12.5f;
+    level.spawn_y[0] = -5.0f;
     level.spawn_facing[0] = 0.0f;
     
     // Generate border walls
-    // The room spans from -16 to 16 in both X and Y
-    // Place walls at the edges (-15.5 and 15.5) to create the border
+    // The room spans from -8 to 8 in both X and Y (16 tiles total = 16x16 units)
+    // Place walls at the edges (-7.5 to 7.5) to create the border
     int tile_index = 0;
-    const float half_size = 15.5f;  // 32/2 - 0.5 to place walls at edges
+    const float half_size = 7.5f;  // 16/2 - 0.5 to place walls at edges
     
     // Top and bottom walls
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 16; i++) {
         float x = -half_size + i;
         
         // Top wall
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
     }
     
     // Left and right walls (skip corners to avoid duplicates)
-    for (int i = 1; i < 31; i++) {
+    for (int i = 1; i < 15; i++) {
         float y = -half_size + i;
         
         // Left wall
@@ -220,7 +220,7 @@ int main(int argc, char* argv[]) {
     tile_index++;
     
     // Add cubes with physics, XY variance, and random rotation
-    const float cube_z_offset = 0.5f;  // Cube center height
+    const float cube_z_offset = 1.0f;  // Cube center height (sits on ground plane)
     const float pi = 3.14159265359f;
     const float rotation_range = 2.0f * pi;  // Full rotation range (360 degrees)
     
