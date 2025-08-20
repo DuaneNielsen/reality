@@ -6,9 +6,10 @@ Compiles ASCII level strings to CompiledLevel format for GPU processing.
 Part of the test-driven level system that allows tests to define their
 environment layouts using visual ASCII art.
 
-Supports two input formats:
+Supports three input formats:
 1. Plain ASCII strings for simple levels
-2. JSON format for levels with parameters (agent facing, scale, etc.)
+2. JSON format with ASCII and parameters (agent facing, scale, etc.)
+3. JSON format with tileset definitions for custom asset mapping
 """
 
 import argparse
@@ -62,18 +63,99 @@ MIN_LEVEL_WIDTH = 3
 MIN_LEVEL_HEIGHT = 3
 # MAX_TOTAL_TILES now comes from C API (MAX_TILES_C_API)
 
-# Character to tile type mapping
-CHAR_MAP = {
-    ".": TILE_EMPTY,
-    " ": TILE_EMPTY,  # Whitespace also means empty
-    "#": TILE_WALL,
-    "C": TILE_CUBE,
-    "S": TILE_SPAWN,
-    # Future expansions:
-    # 'D': TILE_DOOR,
-    # 'B': TILE_BUTTON,
-    # 'G': TILE_GOAL
+# Special tile type constants (for spawn and empty, which aren't assets)
+# Legacy CHAR_MAP will be built dynamically using C API asset IDs
+
+
+def _get_legacy_char_map():
+    """Build the legacy CHAR_MAP using actual asset IDs from C API"""
+    from .ctypes_bindings import get_physics_asset_object_id
+
+    # Get the actual asset IDs from the C API
+    wall_id = get_physics_asset_object_id("wall")
+    cube_id = get_physics_asset_object_id("cube")
+
+    return {
+        ".": TILE_EMPTY,
+        " ": TILE_EMPTY,  # Whitespace also means empty
+        "#": wall_id if wall_id >= 0 else 2,  # Use actual wall asset ID
+        "C": cube_id if cube_id >= 0 else 1,  # Use actual cube asset ID
+        "S": TILE_SPAWN,
+    }
+
+
+# Default tileset using asset names
+# Each entry can optionally specify scale_x, scale_y, scale_z
+DEFAULT_TILESET = {
+    "#": {"asset": "wall"},  # Will be auto-scaled to match tile spacing
+    "C": {"asset": "cube"},
+    "O": {"asset": "cylinder"},
+    "S": {"asset": "spawn"},  # Special case for agent spawn
+    ".": {"asset": "empty"},  # Special case for empty space
+    " ": {"asset": "empty"},  # Whitespace also means empty
 }
+
+
+def _get_asset_object_id(asset_name: str) -> int:
+    """
+    Get object ID for an asset by name using C API functions.
+
+    Args:
+        asset_name: Name of the asset (e.g., "wall", "cube", "cylinder")
+
+    Returns:
+        Object ID for the asset, or special values for spawn/empty
+
+    Raises:
+        ValueError: If asset name is not found
+    """
+    # Special cases
+    if asset_name == "spawn":
+        return TILE_SPAWN
+    if asset_name == "empty":
+        return TILE_EMPTY
+
+    # Always use C API to get correct asset IDs
+    from .ctypes_bindings import get_physics_asset_object_id, get_render_asset_object_id
+
+    # Try physics assets first
+    obj_id = get_physics_asset_object_id(asset_name)
+    if obj_id >= 0:
+        return obj_id
+
+    # Try render-only assets
+    obj_id = get_render_asset_object_id(asset_name)
+    if obj_id >= 0:
+        return obj_id
+
+    raise ValueError(f"Unknown asset name: '{asset_name}'")
+
+
+def _validate_tileset(tileset: Dict) -> None:
+    """
+    Validate a tileset definition.
+
+    Args:
+        tileset: Dictionary mapping characters to asset definitions
+
+    Raises:
+        ValueError: If tileset is invalid
+    """
+    if not isinstance(tileset, dict):
+        raise ValueError("Tileset must be a dictionary")
+
+    for char, tile_def in tileset.items():
+        if not isinstance(char, str) or len(char) != 1:
+            raise ValueError(f"Tileset key must be single character, got: '{char}'")
+
+        if not isinstance(tile_def, dict):
+            raise ValueError(f"Tileset value for '{char}' must be a dictionary")
+
+        if "asset" not in tile_def:
+            raise ValueError(f"Tileset entry for '{char}' must have 'asset' field")
+
+        if not isinstance(tile_def["asset"], str):
+            raise ValueError(f"Asset name for '{char}' must be a string")
 
 
 def compile_level(
@@ -81,6 +163,7 @@ def compile_level(
     scale: float = 2.5,
     agent_facing: Optional[List[float]] = None,
     level_name: str = "unknown_level",
+    tileset: Optional[Dict] = None,
 ) -> Dict:
     """
     Compile ASCII level string to dict matching MER_CompiledLevel struct.
@@ -91,6 +174,8 @@ def compile_level(
         agent_facing: List of initial facing angles in radians for each agent (optional)
                      Default is 0.0 (facing forward/north) for all agents
         level_name: Name of the level for identification (default "unknown_level")
+        tileset: Optional dictionary mapping characters to asset definitions.
+                If not provided, uses legacy CHAR_MAP with hardcoded tile types.
 
     Returns:
         Dict with fields matching MER_CompiledLevel C struct:
@@ -115,6 +200,15 @@ def compile_level(
         compiled = compile_level(level, agent_facing=[math.pi/2])  # Face right
         # compiled['num_tiles'] = 38 (wall tiles)
         # compiled['max_entities'] = 88 (walls + buffer for agents/floor/etc)
+
+        # With custom tileset:
+        tileset = {
+            "#": {"asset": "wall"},
+            "O": {"asset": "cylinder"},
+            "S": {"asset": "spawn"},
+            ".": {"asset": "empty"}
+        }
+        compiled = compile_level(level, tileset=tileset)
     """
     # Clean up input - remove leading/trailing whitespace and normalize line endings
     lines = [line.rstrip() for line in ascii_str.strip().split("\n")]
@@ -145,6 +239,21 @@ def compile_level(
             f"{MAX_TILES_C_API} max (from C API)"
         )
 
+    # Determine which character map to use
+    if tileset is not None:
+        # Validate the provided tileset
+        _validate_tileset(tileset)
+        char_to_tile = {}
+        for char, tile_def in tileset.items():
+            asset_name = tile_def["asset"]
+            try:
+                char_to_tile[char] = _get_asset_object_id(asset_name)
+            except ValueError as e:
+                raise ValueError(f"Invalid asset '{asset_name}' for character '{char}': {e}")
+    else:
+        # Use legacy CHAR_MAP with correct asset IDs from C API
+        char_to_tile = _get_legacy_char_map()
+
     tiles = []
     spawns = []
     entity_count = 0  # Count entities that need physics bodies
@@ -152,8 +261,8 @@ def compile_level(
     # Parse ASCII grid to extract tile positions and types
     for y, line in enumerate(lines):
         for x, char in enumerate(line):
-            if char in CHAR_MAP:
-                tile_type = CHAR_MAP[char]
+            if char in char_to_tile:
+                tile_type = char_to_tile[char]
 
                 # Convert grid coordinates to world coordinates (center at origin)
                 # Note: Y is inverted because ASCII Y=0 is at top, but world Y+ is up
@@ -167,8 +276,9 @@ def compile_level(
                     tiles.append((world_x, world_y, tile_type))
 
                     # Count entities that will need physics bodies and BVH slots
-                    if tile_type in [TILE_WALL, TILE_CUBE]:
-                        entity_count += 1
+                    # Note: This is a simplified count - actual requirements depend on asset
+                    # properties
+                    entity_count += 1
             else:
                 raise ValueError(f"Unknown character '{char}' at grid position ({x}, {y})")
 
@@ -230,12 +340,45 @@ def compile_level(
     tile_rot_y = [0.0] * MAX_TILES_C_API
     tile_rot_z = [0.0] * MAX_TILES_C_API
 
-    # Set entity types for known tiles
+    # Set entity types based on object IDs and apply appropriate scaling
+    # Get the correct asset IDs from the C API
+    from .ctypes_bindings import get_physics_asset_object_id
+
+    wall_id = get_physics_asset_object_id("wall")
+    cube_id = get_physics_asset_object_id("cube")
+    cylinder_id = get_physics_asset_object_id("cylinder")
+
+    # Calculate wall scale factor based on tile spacing
+    # Walls are 1x1 units but tiles are spaced at 'scale' units apart
+    # We need to scale walls to fill the gap between tiles
+    wall_scale_factor = scale  # Scale walls to match tile spacing
+
     for i, (_, _, tile_type) in enumerate(tiles):
-        if tile_type == TILE_WALL:
+        if tile_type == wall_id:
             tile_entity_type[i] = 2  # EntityType::Wall
-        elif tile_type == TILE_CUBE:
+            # Scale walls to match tile spacing
+            tile_scale_x[i] = wall_scale_factor
+            tile_scale_y[i] = wall_scale_factor
+            # Keep Z scale at 1.0 to maintain wall height
+            tile_scale_z[i] = 1.0
+        elif tile_type == cube_id:
             tile_entity_type[i] = 1  # EntityType::Cube
+            # Cubes can stay at default scale
+            tile_scale_x[i] = 1.0
+            tile_scale_y[i] = 1.0
+            tile_scale_z[i] = 1.0
+        elif tile_type == cylinder_id:
+            tile_entity_type[i] = 0  # EntityType::None (generic entity)
+            # Cylinders can stay at default scale
+            tile_scale_x[i] = 1.0
+            tile_scale_y[i] = 1.0
+            tile_scale_z[i] = 1.0
+        else:
+            # For other assets, use EntityType::None and default scale
+            tile_entity_type[i] = 0
+            tile_scale_x[i] = 1.0
+            tile_scale_y[i] = 1.0
+            tile_scale_z[i] = 1.0
 
     # Return dict with compiler-calculated array sizing
     return {
@@ -738,13 +881,28 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
     """
     Compile level from JSON format with parameters.
 
-    JSON format:
+    JSON formats supported:
+
+    1. Simple format (uses default tileset):
     {
         "ascii": "Multi-line ASCII level string",
         "name": "level_name",  // Optional, default "unknown_level"
         "scale": 2.5,  // Optional, default 2.5
         "agent_facing": [0.0, 1.57],  // Optional, radians for each agent
-        // Future parameters can be added here
+    }
+
+    2. Tileset format (custom asset mapping):
+    {
+        "ascii": "###O###\\n#S...C#\\n#######",
+        "tileset": {
+            "#": {"asset": "wall"},
+            "C": {"asset": "cube"},
+            "O": {"asset": "cylinder"},
+            "S": {"asset": "spawn"},
+            ".": {"asset": "empty"}
+        },
+        "scale": 2.5,
+        "agent_facing": [0.0]
     }
 
     Args:
@@ -757,10 +915,24 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
         ValueError: If JSON is invalid or missing required fields
 
     Example:
+        # Simple format
         json_level = {
             "ascii": "###\\n#S#\\n###",
             "scale": 1.5,
             "agent_facing": [math.pi/2]  # Face right
+        }
+        compiled = compile_level_from_json(json_level)
+
+        # Tileset format
+        json_level = {
+            "ascii": "###O###\\n#S...C#\\n#######",
+            "tileset": {
+                "#": {"asset": "wall"},
+                "C": {"asset": "cube"},
+                "O": {"asset": "cylinder"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"}
+            }
         }
         compiled = compile_level_from_json(json_level)
     """
@@ -782,6 +954,21 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
     scale = data.get("scale", 2.5)
     agent_facing = data.get("agent_facing", None)
     level_name = data.get("name", "unknown_level")
+    tileset = data.get("tileset", None)
+
+    # If no tileset provided but ASCII contains special characters, use default tileset
+    if tileset is None:
+        # Check if ASCII contains characters that require tileset (e.g., 'O' for cylinder)
+        legacy_char_map = _get_legacy_char_map()
+        special_chars = set()
+        for line in ascii_str.split("\n"):
+            for char in line:
+                if char not in legacy_char_map and char.strip():  # Non-empty, not in legacy map
+                    special_chars.add(char)
+
+        # If special characters found, use default tileset
+        if special_chars:
+            tileset = DEFAULT_TILESET
 
     # Validate parameters
     if not isinstance(scale, (int, float)) or scale <= 0:
@@ -794,8 +981,11 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
             if not isinstance(angle, (int, float)):
                 raise ValueError(f"Invalid agent_facing[{i}]: {angle} (must be number)")
 
+    if tileset is not None:
+        _validate_tileset(tileset)
+
     # Compile with parameters
-    return compile_level(ascii_str, scale, agent_facing, level_name)
+    return compile_level(ascii_str, scale, agent_facing, level_name, tileset)
 
 
 def compile_level_to_binary(ascii_input: str, binary_output: str, scale: float = 2.5) -> None:
