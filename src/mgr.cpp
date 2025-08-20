@@ -245,17 +245,19 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 {
     StackAlloc tmp_alloc;
 
-    // Get render assets from AssetRegistry
-    auto& registry = madEscape::AssetRegistry::getInstance();
-    auto render_assets_list = registry.getRenderAssets();
-
-    // Build dense arrays for the importer
+    // Get render assets from static asset table
+    std::vector<const madEscape::AssetInfo*> render_assets_list;
     std::vector<std::string> dense_paths;
     std::vector<uint32_t> asset_id_map;
     
-    for (const auto& asset : render_assets_list) {
-        dense_paths.push_back((std::filesystem::path(DATA_DIR) / asset.meshPath).string());
-        asset_id_map.push_back(asset.id);
+    // Collect all assets that have render data
+    for (uint32_t i = 0; i < madEscape::AssetIDs::MAX_ASSETS; ++i) {
+        const auto* asset = madEscape::Assets::getAssetInfo(i);
+        if (asset && asset->hasRender) {
+            render_assets_list.push_back(asset);
+            dense_paths.push_back((std::filesystem::path(DATA_DIR) / asset->meshPath).string());
+            asset_id_map.push_back(asset->id);
+        }
     }
     
     // Convert to C-strings for importer
@@ -277,11 +279,11 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         FATAL("Failed to load render assets: %s", import_err.data());
     }
 
-    // Load textures using AssetRegistry
-    auto imported_textures = madEscape::AssetRegistry::loadTextures(tmp_alloc);
+    // Load textures using static Assets functions
+    auto imported_textures = madEscape::Assets::loadTextures(tmp_alloc);
     
-    // Create materials using AssetRegistry
-    auto materials = madEscape::AssetRegistry::createMaterials();
+    // Create materials using static Assets functions
+    auto materials = madEscape::Assets::createMaterials();
     
     // Now we need to create a properly indexed sparse array of objects
     HeapArray<imp::SourceObject> indexed_objects(madEscape::AssetIDs::MAX_ASSETS);
@@ -298,13 +300,13 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
         indexed_objects[obj_id] = render_assets->objects[i];
     }
     
-    // Assign materials to each object's meshes based on AssetRegistry
-    for (const auto& asset : render_assets_list) {
-        auto& obj_meshes = indexed_objects[(CountT)asset.id].meshes;
+    // Assign materials to each object's meshes based on static asset data
+    for (const auto* asset : render_assets_list) {
+        auto& obj_meshes = indexed_objects[(CountT)asset->id].meshes;
         
-        for (uint32_t mesh_idx = 0; mesh_idx < asset.numMeshes && mesh_idx < obj_meshes.size(); mesh_idx++) {
-            if (mesh_idx < asset.materialIndices.size()) {
-                obj_meshes[mesh_idx].materialIDX = asset.materialIndices[mesh_idx];
+        for (uint32_t mesh_idx = 0; mesh_idx < asset->numMeshes && mesh_idx < obj_meshes.size(); mesh_idx++) {
+            if (mesh_idx < asset->numMaterialIndices) {
+                obj_meshes[mesh_idx].materialIDX = asset->materialIndices[mesh_idx];
             }
         }
     }
@@ -322,19 +324,20 @@ static void loadRenderObjects(render::RenderManager &render_mgr)
 // [REQUIRED_INTERFACE] Load physics assets - must be implemented by every environment
 static void loadPhysicsObjects(PhysicsLoader &loader)
 {
-    // Get physics assets from AssetRegistry
-    auto& registry = madEscape::AssetRegistry::getInstance();
-    auto physics_assets = registry.getPhysicsAssets();
-    
-    // Build dense arrays for the importer, then create sparse array for indexing
-    // First pass: count file-based assets and build dense arrays
+    // Get physics assets from static asset table
+    std::vector<const madEscape::AssetInfo*> physics_assets;
     std::vector<std::string> dense_paths;
     std::vector<uint32_t> asset_id_map;
     
-    for (const auto& asset : physics_assets) {
-        if (asset.assetType == madEscape::AssetRegistry::FILE_MESH) {
-            dense_paths.push_back((std::filesystem::path(DATA_DIR) / asset.filepath).string());
-            asset_id_map.push_back(asset.id);
+    // Collect all assets that have physics data
+    for (uint32_t i = 0; i < madEscape::AssetIDs::MAX_ASSETS; ++i) {
+        const auto* asset = madEscape::Assets::getAssetInfo(i);
+        if (asset && asset->hasPhysics) {
+            physics_assets.push_back(asset);
+            if (asset->assetType == madEscape::AssetInfo::FILE_MESH && asset->filepath) {
+                dense_paths.push_back((std::filesystem::path(DATA_DIR) / asset->filepath).string());
+                asset_id_map.push_back(asset->id);
+            }
         }
     }
     
@@ -408,27 +411,27 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         };
     };
     
-    // Process file-based assets using AssetRegistry
+    // Process file-based assets using static asset data
     size_t import_idx = 0;
-    for (const auto& asset : physics_assets) {
-        if (asset.assetType == madEscape::AssetRegistry::FILE_MESH) {
-            setupHull(asset.id, import_idx, asset.inverseMass, asset.friction);
+    for (const auto* asset : physics_assets) {
+        if (asset->assetType == madEscape::AssetInfo::FILE_MESH) {
+            setupHull(asset->id, import_idx, asset->inverseMass, asset->friction);
             import_idx++;
         }
     }
     
     // Process built-in assets (plane)
-    for (const auto& asset : physics_assets) {
-        if (asset.assetType == madEscape::AssetRegistry::BUILTIN_PLANE) {
+    for (const auto* asset : physics_assets) {
+        if (asset->assetType == madEscape::AssetInfo::BUILTIN_PLANE) {
             static SourceCollisionPrimitive plane_prim {
                 .type = CollisionPrimitive::Type::Plane,
                 .plane = {},
             };
             
-            src_objs[getPhysicsIdx(asset.id)] = {
+            src_objs[getPhysicsIdx(asset->id)] = {
                 .prims = Span<const SourceCollisionPrimitive>(&plane_prim, 1),
-                .invMass = asset.inverseMass,
-                .friction = asset.friction,
+                .invMass = asset->inverseMass,
+                .friction = asset->friction,
             };
         }
     }
@@ -450,14 +453,14 @@ static void loadPhysicsObjects(PhysicsLoader &loader)
         FATAL("Invalid collision hull input");
     }
 
-    // Apply rotation constraints using AssetRegistry
-    for (const auto& asset : physics_assets) {
-        if (asset.constrainRotationXY) {
+    // Apply rotation constraints using static asset data
+    for (const auto* asset : physics_assets) {
+        if (asset->constrainRotationXY) {
             // Setting inverse inertia to 0 makes rotation impossible around that axis
             rigid_body_assets.metadatas[
-                static_cast<CountT>(asset.id)].mass.invInertiaTensor.x = 0.f;
+                static_cast<CountT>(asset->id)].mass.invInertiaTensor.x = 0.f;
             rigid_body_assets.metadatas[
-                static_cast<CountT>(asset.id)].mass.invInertiaTensor.y = 0.f;
+                static_cast<CountT>(asset->id)].mass.invInertiaTensor.y = 0.f;
         }
     }
 

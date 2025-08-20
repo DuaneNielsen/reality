@@ -1,14 +1,12 @@
 #pragma once
 
-#include <string>
-#include <unordered_map>
-#include <vector>
 #include <array>
 #include <madrona/physics.hpp>
 #include <madrona/math.hpp>
 #include <madrona/heap_array.hpp>
 #include <madrona/importer.hpp>
 #include <madrona/stack_alloc.hpp>
+#include "asset_ids.hpp"
 
 namespace madEscape {
 
@@ -36,72 +34,116 @@ namespace AssetMaterials {
     extern const MaterialDescriptor MATERIALS[NUM_MATERIALS];
 }
 
-class AssetRegistry {
-public:
+// Asset information structure
+struct AssetInfo {
     enum AssetType {
         FILE_MESH,      // Load from .obj file
         BUILTIN_PLANE,  // Use built-in infinite plane
     };
     
-    struct AssetInfo {
-        std::string name;
-        uint32_t id;
-        bool hasPhysics;
-        bool hasRender;
-        
-        // Physics properties
-        AssetType assetType;
-        std::string filepath;  // Relative to DATA_DIR
-        float inverseMass;
-        madrona::phys::RigidBodyFrictionData friction;
-        bool constrainRotationXY;
-        
-        // Render properties
-        std::string meshPath;  // Relative to DATA_DIR
-        std::vector<uint32_t> materialIndices;
-        uint32_t numMeshes;
-    };
+    const char* name;
+    uint32_t id;
+    bool hasPhysics;
+    bool hasRender;
     
-private:
-    std::unordered_map<std::string, AssetInfo> nameToAsset;
-    std::vector<AssetInfo> idToAsset;
-    uint32_t nextId;
+    // Physics properties
+    AssetType assetType;
+    const char* filepath;  // Relative to DATA_DIR
+    float inverseMass;
+    madrona::phys::RigidBodyFrictionData friction;
+    bool constrainRotationXY;
     
-public:
-    AssetRegistry();
+    // Render properties
+    const char* meshPath;  // Relative to DATA_DIR
+    const uint32_t* materialIndices;  // Pointer to array of material indices
+    uint32_t numMaterialIndices;      // Number of material indices
+    uint32_t numMeshes;
+};
+
+// Static asset data - all assets defined at compile time
+namespace Assets {
+    // Number of statically defined assets
+    constexpr size_t NUM_ASSETS = 8;
     
-    // Register a complete asset with all properties
-    uint32_t registerFullAsset(const AssetInfo& info);
+    // The main asset table indexed by AssetID
+    extern const AssetInfo ASSET_TABLE[AssetIDs::MAX_ASSETS];
     
-    // Legacy methods for backward compatibility
-    uint32_t registerAsset(const std::string& name, 
-                          bool hasPhysics, bool hasRender);
-    uint32_t registerAssetWithId(const std::string& name, uint32_t id,
-                                bool hasPhysics, bool hasRender);
+    // Helper functions for asset queries
+    constexpr const AssetInfo* getAssetInfo(uint32_t id) {
+        if (id >= AssetIDs::MAX_ASSETS || id == AssetIDs::INVALID) {
+            return nullptr;
+        }
+        // Check if the entry is valid by checking the name
+        if (ASSET_TABLE[id].name == nullptr) {
+            return nullptr;
+        }
+        return &ASSET_TABLE[id];
+    }
     
-    uint32_t getAssetId(const std::string& name) const;
-    bool tryGetAssetId(const std::string& name, uint32_t& outId) const;
-    bool assetHasPhysics(uint32_t id) const;
-    bool assetHasRender(uint32_t id) const;
-    const std::string& getAssetName(uint32_t id) const;
-    const AssetInfo* getAssetInfo(uint32_t id) const;
-    const AssetInfo* getAssetInfoByName(const std::string& name) const;
+    constexpr bool assetHasPhysics(uint32_t id) {
+        const auto* info = getAssetInfo(id);
+        return info ? info->hasPhysics : false;
+    }
     
-    // Iteration methods
-    std::vector<AssetInfo> getAllAssets() const;
-    std::vector<AssetInfo> getPhysicsAssets() const;
-    std::vector<AssetInfo> getRenderAssets() const;
-    uint32_t getPhysicsAssetCount() const;
-    uint32_t getRenderAssetCount() const;
+    constexpr bool assetHasRender(uint32_t id) {
+        const auto* info = getAssetInfo(id);
+        return info ? info->hasRender : false;
+    }
+    
+    constexpr const char* getAssetName(uint32_t id) {
+        const auto* info = getAssetInfo(id);
+        return info ? info->name : "";
+    }
+    
+    // Get asset ID by name (compile-time for known names)
+    inline uint32_t getAssetId(const char* name) {
+        // Linear search through the table - acceptable for small fixed set
+        for (uint32_t i = 0; i < AssetIDs::MAX_ASSETS; ++i) {
+            if (ASSET_TABLE[i].name != nullptr) {
+                // Simple string comparison
+                const char* tableName = ASSET_TABLE[i].name;
+                const char* searchName = name;
+                bool match = true;
+                while (*tableName && *searchName) {
+                    if (*tableName != *searchName) {
+                        match = false;
+                        break;
+                    }
+                    tableName++;
+                    searchName++;
+                }
+                if (match && *tableName == '\0' && *searchName == '\0') {
+                    return i;
+                }
+            }
+        }
+        return AssetIDs::INVALID;
+    }
+    
+    // Count functions
+    inline uint32_t getPhysicsAssetCount() {
+        uint32_t count = 0;
+        for (uint32_t i = 0; i < AssetIDs::MAX_ASSETS; ++i) {
+            if (ASSET_TABLE[i].name != nullptr && ASSET_TABLE[i].hasPhysics) {
+                count++;
+            }
+        }
+        return count;
+    }
+    
+    inline uint32_t getRenderAssetCount() {
+        uint32_t count = 0;
+        for (uint32_t i = 0; i < AssetIDs::MAX_ASSETS; ++i) {
+            if (ASSET_TABLE[i].name != nullptr && ASSET_TABLE[i].hasRender) {
+                count++;
+            }
+        }
+        return count;
+    }
     
     // Asset loading helpers
-    static madrona::Span<madrona::imp::SourceTexture> loadTextures(madrona::StackAlloc& alloc);
-    static std::array<madrona::imp::SourceMaterial, AssetMaterials::NUM_MATERIALS> createMaterials();
-    std::vector<std::string> getRenderAssetPaths() const;
-    std::vector<std::string> getPhysicsAssetPaths() const;
-    
-    // Global instance accessor
-    static AssetRegistry& getInstance();
-};
+    madrona::Span<madrona::imp::SourceTexture> loadTextures(madrona::StackAlloc& alloc);
+    std::array<madrona::imp::SourceMaterial, AssetMaterials::NUM_MATERIALS> createMaterials();
+}
 
 }

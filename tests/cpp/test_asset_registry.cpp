@@ -6,108 +6,117 @@ using namespace madEscape;
 
 class AssetRegistryTest : public ::testing::Test {
 protected:
-    AssetRegistry registry;
+    // No longer need an instance - using static functions
 };
 
 TEST_F(AssetRegistryTest, BuiltInAssetsInitialized) {
-    EXPECT_EQ(registry.getAssetId("cube"), AssetIDs::CUBE);
-    EXPECT_EQ(registry.getAssetId("wall"), AssetIDs::WALL);
-    EXPECT_EQ(registry.getAssetId("agent"), AssetIDs::AGENT);
-    EXPECT_EQ(registry.getAssetId("plane"), AssetIDs::PLANE);
-    EXPECT_EQ(registry.getAssetId("axis_x"), AssetIDs::AXIS_X);
-    EXPECT_EQ(registry.getAssetId("axis_y"), AssetIDs::AXIS_Y);
-    EXPECT_EQ(registry.getAssetId("axis_z"), AssetIDs::AXIS_Z);
+    EXPECT_EQ(Assets::getAssetId("cube"), AssetIDs::CUBE);
+    EXPECT_EQ(Assets::getAssetId("wall"), AssetIDs::WALL);
+    EXPECT_EQ(Assets::getAssetId("agent"), AssetIDs::AGENT);
+    EXPECT_EQ(Assets::getAssetId("plane"), AssetIDs::PLANE);
+    EXPECT_EQ(Assets::getAssetId("axis_x"), AssetIDs::AXIS_X);
+    EXPECT_EQ(Assets::getAssetId("axis_y"), AssetIDs::AXIS_Y);
+    EXPECT_EQ(Assets::getAssetId("axis_z"), AssetIDs::AXIS_Z);
+    EXPECT_EQ(Assets::getAssetId("cylinder"), AssetIDs::CYLINDER);
 }
 
 TEST_F(AssetRegistryTest, BuiltInAssetCapabilities) {
-    EXPECT_TRUE(registry.assetHasPhysics(AssetIDs::CUBE));
-    EXPECT_TRUE(registry.assetHasRender(AssetIDs::CUBE));
+    EXPECT_TRUE(Assets::assetHasPhysics(AssetIDs::CUBE));
+    EXPECT_TRUE(Assets::assetHasRender(AssetIDs::CUBE));
     
-    EXPECT_TRUE(registry.assetHasPhysics(AssetIDs::WALL));
-    EXPECT_TRUE(registry.assetHasRender(AssetIDs::WALL));
+    EXPECT_TRUE(Assets::assetHasPhysics(AssetIDs::WALL));
+    EXPECT_TRUE(Assets::assetHasRender(AssetIDs::WALL));
     
-    EXPECT_TRUE(registry.assetHasPhysics(AssetIDs::PLANE));
-    EXPECT_TRUE(registry.assetHasRender(AssetIDs::PLANE));
+    EXPECT_TRUE(Assets::assetHasPhysics(AssetIDs::PLANE));
+    EXPECT_TRUE(Assets::assetHasRender(AssetIDs::PLANE));
     
-    EXPECT_FALSE(registry.assetHasPhysics(AssetIDs::AXIS_X));
-    EXPECT_TRUE(registry.assetHasRender(AssetIDs::AXIS_X));
+    EXPECT_FALSE(Assets::assetHasPhysics(AssetIDs::AXIS_X));
+    EXPECT_TRUE(Assets::assetHasRender(AssetIDs::AXIS_X));
     
-    EXPECT_FALSE(registry.assetHasPhysics(AssetIDs::AXIS_Y));
-    EXPECT_TRUE(registry.assetHasRender(AssetIDs::AXIS_Y));
+    EXPECT_FALSE(Assets::assetHasPhysics(AssetIDs::AXIS_Y));
+    EXPECT_TRUE(Assets::assetHasRender(AssetIDs::AXIS_Y));
     
-    EXPECT_FALSE(registry.assetHasPhysics(AssetIDs::AXIS_Z));
-    EXPECT_TRUE(registry.assetHasRender(AssetIDs::AXIS_Z));
-}
-
-TEST_F(AssetRegistryTest, RegisterDynamicAsset) {
-    uint32_t customId = registry.registerAsset("custom_box", true, true);
+    EXPECT_FALSE(Assets::assetHasPhysics(AssetIDs::AXIS_Z));
+    EXPECT_TRUE(Assets::assetHasRender(AssetIDs::AXIS_Z));
     
-    EXPECT_GE(customId, AssetIDs::DYNAMIC_START);
-    
-    EXPECT_EQ(registry.getAssetId("custom_box"), customId);
-    
-    EXPECT_TRUE(registry.assetHasPhysics(customId));
-    EXPECT_TRUE(registry.assetHasRender(customId));
-}
-
-TEST_F(AssetRegistryTest, RegisterMultipleDynamicAssets) {
-    uint32_t id1 = registry.registerAsset("asset1", true, false);
-    uint32_t id2 = registry.registerAsset("asset2", false, true);
-    uint32_t id3 = registry.registerAsset("asset3", true, true);
-    
-    EXPECT_EQ(id1, AssetIDs::DYNAMIC_START);
-    EXPECT_EQ(id2, AssetIDs::DYNAMIC_START + 1);
-    EXPECT_EQ(id3, AssetIDs::DYNAMIC_START + 2);
-    
-    EXPECT_TRUE(registry.assetHasPhysics(id1));
-    EXPECT_FALSE(registry.assetHasRender(id1));
-    
-    EXPECT_FALSE(registry.assetHasPhysics(id2));
-    EXPECT_TRUE(registry.assetHasRender(id2));
-    
-    EXPECT_TRUE(registry.assetHasPhysics(id3));
-    EXPECT_TRUE(registry.assetHasRender(id3));
-}
-
-TEST_F(AssetRegistryTest, RegisterWithSpecificId) {
-    uint32_t specificId = 100;
-    uint32_t returnedId = registry.registerAssetWithId("specific", specificId, true, false);
-    
-    EXPECT_EQ(returnedId, specificId);
-    EXPECT_EQ(registry.getAssetId("specific"), specificId);
-    EXPECT_TRUE(registry.assetHasPhysics(specificId));
-    EXPECT_FALSE(registry.assetHasRender(specificId));
-}
-
-TEST_F(AssetRegistryTest, DuplicateNameHandling) {
-    uint32_t id1 = registry.registerAsset("duplicate", true, true);
-    uint32_t id2 = registry.registerAsset("duplicate", false, false);
-    
-    EXPECT_EQ(id1, id2);
-    
-    EXPECT_TRUE(registry.assetHasPhysics(id1));
-    EXPECT_TRUE(registry.assetHasRender(id1));
+    EXPECT_TRUE(Assets::assetHasPhysics(AssetIDs::CYLINDER));
+    EXPECT_TRUE(Assets::assetHasRender(AssetIDs::CYLINDER));
 }
 
 TEST_F(AssetRegistryTest, InvalidAssetLookup) {
-    // Using tryGetAssetId for non-existent assets
-    uint32_t id;
-    EXPECT_FALSE(registry.tryGetAssetId("nonexistent", id));
+    // Non-existent assets return INVALID
+    EXPECT_EQ(Assets::getAssetId("nonexistent"), AssetIDs::INVALID);
 }
 
 TEST_F(AssetRegistryTest, BoundaryConditions) {
-    EXPECT_FALSE(registry.assetHasPhysics(999));
-    EXPECT_FALSE(registry.assetHasRender(999));
+    // Out of bounds IDs return false
+    EXPECT_FALSE(Assets::assetHasPhysics(999));
+    EXPECT_FALSE(Assets::assetHasRender(999));
+    EXPECT_FALSE(Assets::assetHasPhysics(AssetIDs::INVALID));
+    EXPECT_FALSE(Assets::assetHasRender(AssetIDs::INVALID));
     
-    // Empty asset name returns INVALID
-    EXPECT_EQ(registry.registerAsset("", true, true), AssetIDs::INVALID);
+    // Check valid range
+    EXPECT_FALSE(Assets::assetHasPhysics(AssetIDs::MAX_ASSETS));
+    EXPECT_FALSE(Assets::assetHasRender(AssetIDs::MAX_ASSETS));
 }
 
 TEST_F(AssetRegistryTest, GetAssetName) {
-    EXPECT_EQ(registry.getAssetName(AssetIDs::CUBE), "cube");
-    EXPECT_EQ(registry.getAssetName(AssetIDs::WALL), "wall");
-    EXPECT_EQ(registry.getAssetName(999), "");
+    EXPECT_STREQ(Assets::getAssetName(AssetIDs::CUBE), "cube");
+    EXPECT_STREQ(Assets::getAssetName(AssetIDs::WALL), "wall");
+    EXPECT_STREQ(Assets::getAssetName(AssetIDs::AGENT), "agent");
+    EXPECT_STREQ(Assets::getAssetName(AssetIDs::PLANE), "plane");
+    EXPECT_STREQ(Assets::getAssetName(AssetIDs::CYLINDER), "cylinder");
+    EXPECT_STREQ(Assets::getAssetName(999), "");
+    EXPECT_STREQ(Assets::getAssetName(AssetIDs::INVALID), "");
+}
+
+TEST_F(AssetRegistryTest, GetAssetInfo) {
+    // Test getting full asset info
+    const auto* cubeInfo = Assets::getAssetInfo(AssetIDs::CUBE);
+    ASSERT_NE(cubeInfo, nullptr);
+    EXPECT_STREQ(cubeInfo->name, "cube");
+    EXPECT_EQ(cubeInfo->id, AssetIDs::CUBE);
+    EXPECT_TRUE(cubeInfo->hasPhysics);
+    EXPECT_TRUE(cubeInfo->hasRender);
+    EXPECT_EQ(cubeInfo->assetType, AssetInfo::FILE_MESH);
     
-    uint32_t customId = registry.registerAsset("custom_name", true, false);
-    EXPECT_EQ(registry.getAssetName(customId), "custom_name");
+    const auto* planeInfo = Assets::getAssetInfo(AssetIDs::PLANE);
+    ASSERT_NE(planeInfo, nullptr);
+    EXPECT_STREQ(planeInfo->name, "plane");
+    EXPECT_EQ(planeInfo->id, AssetIDs::PLANE);
+    EXPECT_TRUE(planeInfo->hasPhysics);
+    EXPECT_TRUE(planeInfo->hasRender);
+    EXPECT_EQ(planeInfo->assetType, AssetInfo::BUILTIN_PLANE);
+    
+    // Test invalid ID
+    const auto* invalidInfo = Assets::getAssetInfo(999);
+    EXPECT_EQ(invalidInfo, nullptr);
+}
+
+TEST_F(AssetRegistryTest, AssetCounts) {
+    // Count physics assets (cube, wall, agent, plane, cylinder)
+    EXPECT_EQ(Assets::getPhysicsAssetCount(), 5);
+    
+    // Count render assets (cube, wall, agent, plane, axis_x, axis_y, axis_z, cylinder)
+    EXPECT_EQ(Assets::getRenderAssetCount(), 8);
+}
+
+TEST_F(AssetRegistryTest, AssetProperties) {
+    // Test agent has rotation constraint
+    const auto* agentInfo = Assets::getAssetInfo(AssetIDs::AGENT);
+    ASSERT_NE(agentInfo, nullptr);
+    EXPECT_TRUE(agentInfo->constrainRotationXY);
+    
+    // Test other assets don't have rotation constraint
+    const auto* cubeInfo = Assets::getAssetInfo(AssetIDs::CUBE);
+    ASSERT_NE(cubeInfo, nullptr);
+    EXPECT_FALSE(cubeInfo->constrainRotationXY);
+    
+    // Test wall has zero inverse mass (static)
+    const auto* wallInfo = Assets::getAssetInfo(AssetIDs::WALL);
+    ASSERT_NE(wallInfo, nullptr);
+    EXPECT_EQ(wallInfo->inverseMass, 0.0f);
+    
+    // Test cube has non-zero inverse mass (dynamic)
+    EXPECT_GT(cubeInfo->inverseMass, 0.0f);
 }
