@@ -45,20 +45,30 @@ int main(int argc, char* argv[]) {
     level.spawn_y[0] = -5.0f;
     level.spawn_facing[0] = 0.0f;
     
-    // Generate border walls
-    // The room spans from -8 to 8 in both X and Y (16 tiles total = 16x16 units)
-    // Place walls at the edges (-7.5 to 7.5) to create the border
+    // Generate border walls with 2.5 unit tile spacing
+    // 16x16 means 16 wall tiles by 16 wall tiles
+    // Each wall tile is 2.5 units, so room is 40x40 units total
+    // The room spans from -20 to 20 in both X and Y
     int tile_index = 0;
-    const float half_size = 7.5f;  // 16/2 - 0.5 to place walls at edges
+    const float wall_tile_size = 2.5f;
+    const int walls_per_side = 16;  // 16 wall tiles per side
+    const float room_size = walls_per_side * wall_tile_size;  // 40 units
+    const float half_room = room_size / 2.0f;  // 20.0f
+    
+    // Calculate wall edge position (walls should be at the edge of the room)
+    const float wall_edge = half_room - wall_tile_size * 0.5f;  // 18.75
     
     // Top and bottom walls
-    for (int i = 0; i < 16; i++) {
-        float x = -half_size + i;
+    for (int i = 0; i < walls_per_side; i++) {
+        float x = -wall_edge + i * wall_tile_size;  // Start from left edge and increment
         
         // Top wall
         level.object_ids[tile_index] = AssetIDs::WALL;
         level.tile_x[tile_index] = x;
-        level.tile_y[tile_index] = half_size;
+        level.tile_y[tile_index] = wall_edge;
+        level.tile_scale_x[tile_index] = wall_tile_size;
+        level.tile_scale_y[tile_index] = wall_tile_size;
+        level.tile_scale_z[tile_index] = 1.0f;
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
         level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
@@ -68,7 +78,10 @@ int main(int argc, char* argv[]) {
         // Bottom wall
         level.object_ids[tile_index] = AssetIDs::WALL;
         level.tile_x[tile_index] = x;
-        level.tile_y[tile_index] = -half_size;
+        level.tile_y[tile_index] = -wall_edge;
+        level.tile_scale_x[tile_index] = wall_tile_size;
+        level.tile_scale_y[tile_index] = wall_tile_size;
+        level.tile_scale_z[tile_index] = 1.0f;
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
         level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
@@ -76,14 +89,17 @@ int main(int argc, char* argv[]) {
         tile_index++;
     }
     
-    // Left and right walls (skip corners to avoid duplicates)
-    for (int i = 1; i < 15; i++) {
-        float y = -half_size + i;
+    // Left and right walls (skip corners to avoid overlaps)
+    for (int i = 1; i < walls_per_side - 1; i++) {
+        float y = -wall_edge + i * wall_tile_size;
         
         // Left wall
         level.object_ids[tile_index] = AssetIDs::WALL;
-        level.tile_x[tile_index] = -half_size;
+        level.tile_x[tile_index] = -wall_edge;
         level.tile_y[tile_index] = y;
+        level.tile_scale_x[tile_index] = wall_tile_size;
+        level.tile_scale_y[tile_index] = wall_tile_size;
+        level.tile_scale_z[tile_index] = 1.0f;
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
         level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
@@ -92,8 +108,11 @@ int main(int argc, char* argv[]) {
         
         // Right wall
         level.object_ids[tile_index] = AssetIDs::WALL;
-        level.tile_x[tile_index] = half_size;
+        level.tile_x[tile_index] = wall_edge;
         level.tile_y[tile_index] = y;
+        level.tile_scale_x[tile_index] = wall_tile_size;
+        level.tile_scale_y[tile_index] = wall_tile_size;
+        level.tile_scale_z[tile_index] = 1.0f;
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
         level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
