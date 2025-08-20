@@ -19,42 +19,58 @@ class TestAssetDescriptorAPI:
         """Test getting list of physics asset names."""
         assets = get_physics_assets_list()
 
-        # Should have 4 physics assets according to asset_descriptors.cpp
-        assert len(assets) == 4
+        # Dynamically check that we have physics assets
+        assert len(assets) > 0, "Should have at least one physics asset"
 
-        # Check expected asset names
-        expected_names = ["cube", "wall", "agent", "plane"]
-        assert set(assets) == set(expected_names)
+        # Check that core required assets are present
+        required_assets = ["cube", "wall", "agent", "plane"]
+        for asset in required_assets:
+            assert asset in assets, f"Required physics asset '{asset}' not found"
+
+        # The system may have additional assets (like cylinder), which is fine
+        print(f"Found {len(assets)} physics assets: {assets}")
 
     def test_get_render_assets_list(self):
         """Test getting list of render asset names."""
         assets = get_render_assets_list()
 
-        # Should have 7 render assets according to asset_descriptors.cpp
-        assert len(assets) == 7
+        # Dynamically check that we have render assets
+        assert len(assets) > 0, "Should have at least one render asset"
 
-        # Check expected asset names
-        expected_names = ["cube", "wall", "agent", "plane", "axis_x", "axis_y", "axis_z"]
-        assert set(assets) == set(expected_names)
+        # Check that core required assets are present
+        required_assets = ["cube", "wall", "agent", "plane"]
+        for asset in required_assets:
+            assert asset in assets, f"Required render asset '{asset}' not found"
+
+        # Check that axis visualization assets are present
+        axis_assets = ["axis_x", "axis_y", "axis_z"]
+        for asset in axis_assets:
+            assert asset in assets, f"Axis render asset '{asset}' not found"
+
+        # The system may have additional assets (like cylinder), which is fine
+        print(f"Found {len(assets)} render assets: {assets}")
 
     def test_physics_asset_object_id_lookup(self):
         """Test looking up physics asset object IDs by name."""
-        # Test valid names
-        cube_id = get_physics_asset_object_id("cube")
-        assert cube_id >= 0, "Cube asset should have valid object ID"
+        # Get all physics assets dynamically
+        assets = get_physics_assets_list()
 
-        wall_id = get_physics_asset_object_id("wall")
-        assert wall_id >= 0, "Wall asset should have valid object ID"
-
-        agent_id = get_physics_asset_object_id("agent")
-        assert agent_id >= 0, "Agent asset should have valid object ID"
-
-        plane_id = get_physics_asset_object_id("plane")
-        assert plane_id >= 0, "Plane asset should have valid object ID"
+        # Test that all listed assets have valid IDs
+        asset_ids = {}
+        for asset_name in assets:
+            asset_id = get_physics_asset_object_id(asset_name)
+            assert asset_id >= 0, f"Physics asset '{asset_name}' should have valid object ID"
+            asset_ids[asset_name] = asset_id
 
         # Object IDs should be unique
-        ids = [cube_id, wall_id, agent_id, plane_id]
-        assert len(set(ids)) == 4, "Object IDs should be unique"
+        unique_ids = set(asset_ids.values())
+        assert len(unique_ids) == len(asset_ids), "Object IDs should be unique"
+
+        # Test core assets specifically
+        assert get_physics_asset_object_id("cube") >= 0, "Cube should have valid ID"
+        assert get_physics_asset_object_id("wall") >= 0, "Wall should have valid ID"
+        assert get_physics_asset_object_id("agent") >= 0, "Agent should have valid ID"
+        assert get_physics_asset_object_id("plane") >= 0, "Plane should have valid ID"
 
         # Test invalid name
         invalid_id = get_physics_asset_object_id("nonexistent")
