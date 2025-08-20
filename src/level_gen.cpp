@@ -198,12 +198,8 @@ void createPersistentEntities(Engine &ctx)
     for (int32_t i = 0; i < level.num_tiles && i < CompiledLevel::MAX_TILES; i++) {
         if (level.tile_persistent[i]) {
             uint32_t objectId = level.object_ids[i];
-            float x = level.tile_x[i];
-            float y = level.tile_y[i];
             
             if (objectId != AssetIDs::INVALID && objectId != 0) {
-                Diag3x3 scale = {level.tile_scale_x[i], level.tile_scale_y[i], level.tile_scale_z[i]};
-                float z = level.tile_z[i];
                 
                 // Create persistent entity shell only - no physics setup
                 bool isRenderOnly = level.tile_render_only[i];
