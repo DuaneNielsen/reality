@@ -61,15 +61,87 @@ static void registerRigidBodyEntity(
         PhysicsSystem::registerEntity(ctx, e, obj_id);
 }
 
+
 /**
- * Creates ONLY the entity shell - no physics setup at all.
- * Used for persistent entities created at startup.
+ * Creates agent entities with initial component setup.
+ * Called once during persistent entity creation.
  */
-static Entity createEntityShell(Engine& ctx, uint32_t objectId, bool isRenderOnly) {
-    if (isRenderOnly) {
-        return ctx.makeRenderableEntity<RenderOnlyEntity>();
-    } else {
-        return ctx.makeRenderableEntity<PhysicsEntity>();
+static void createAgentEntities(Engine &ctx) {
+    for (CountT i = 0; i < consts::numAgents; ++i) {
+        Entity agent = ctx.data().agents[i] =
+            ctx.makeRenderableEntity<Agent>();
+
+        // Create a render view for the agent
+        if (ctx.data().enableRender) {
+            render::RenderingSystem::attachEntityToView(ctx,
+                    agent,
+                    consts::rendering::cameraDistance, consts::rendering::cameraOffsetZ,
+                    consts::rendering::agentHeightMultiplier * math::up);
+        }
+
+        ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };
+        ctx.get<ObjectID>(agent) = ObjectID { (int32_t)AssetIDs::AGENT };
+        ctx.get<ResponseType>(agent) = ResponseType::Dynamic;
+        ctx.get<EntityType>(agent) = EntityType::Agent;
+    }
+}
+
+/**
+ * Resets agent physics and positions for a new episode.
+ * Called during each episode reset.
+ */
+static void resetAgentPhysics(Engine &ctx) {
+    CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    
+    for (CountT i = 0; i < consts::numAgents; i++) {
+        Entity agent_entity = ctx.data().agents[i];
+        registerRigidBodyEntity(ctx, agent_entity, AssetIDs::AGENT);
+
+        // Use spawn positions from level if available, otherwise use defaults
+        Vector3 pos;
+        if (i < level.num_spawns) {
+            // Use spawn position from level data
+            pos = Vector3 {
+                level.spawn_x[i],
+                level.spawn_y[i],
+                1.0f  // Above ground
+            };
+        } else {
+            // Fallback: place agents in center with slight offset
+            pos = Vector3 {
+                i * consts::rendering::agentSpacing - 1.0f,  // Slight offset between agents
+                0.0f,              // Center of room  
+                1.0f,              // Above ground
+            };
+        }
+
+        ctx.get<Position>(agent_entity) = pos;
+        
+        // Use spawn facing from level data if available
+        float facing_angle = 0.0f;
+        if (i < level.num_spawns) {
+            facing_angle = level.spawn_facing[i];
+        }
+        
+        ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
+            facing_angle,  // Use facing angle from level data
+            math::up);
+
+        ctx.get<Progress>(agent_entity).maxY = pos.y;
+
+        ctx.get<Velocity>(agent_entity) = {
+            Vector3::zero(),
+            Vector3::zero(),
+        };
+        ctx.get<ExternalForce>(agent_entity) = Vector3::zero();
+        ctx.get<ExternalTorque>(agent_entity) = Vector3::zero();
+        ctx.get<Action>(agent_entity) = Action {
+            .moveAmount = 0,
+            .moveAngle = 0,
+            .rotate = consts::numTurnBuckets / 2,
+        };
+
+        ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;
     }
 }
 
@@ -99,8 +171,6 @@ static void setupRenderOnlyEntity(Engine& ctx, Entity e, uint32_t objectId,
     ctx.get<ObjectID>(e) = ObjectID{(int32_t)objectId};
 }
 
-// Creates floor, outer walls, and agent entities.
-// All these entities persist across all episodes.
 /**
  * Helper function to create the floor plane entity.
  * Called once from createPersistentEntities() during initialization.
@@ -169,23 +239,7 @@ void createPersistentEntities(Engine &ctx)
     // Create agent entities. Note that this leaves a lot of components
     // uninitialized, these will be set during world generation, which is
     // called for every episode.
-    for (CountT i = 0; i < consts::numAgents; ++i) {
-        Entity agent = ctx.data().agents[i] =
-            ctx.makeRenderableEntity<Agent>();
-
-        // Create a render view for the agent
-        if (ctx.data().enableRender) {
-            render::RenderingSystem::attachEntityToView(ctx,
-                    agent,
-                    consts::rendering::cameraDistance, consts::rendering::cameraOffsetZ,
-                    consts::rendering::agentHeightMultiplier * math::up);
-        }
-
-        ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };
-        ctx.get<ObjectID>(agent) = ObjectID { (int32_t)AssetIDs::AGENT };
-        ctx.get<ResponseType>(agent) = ResponseType::Dynamic;
-        ctx.get<EntityType>(agent) = EntityType::Agent;
-    }
+    createAgentEntities(ctx);
 
     // Create persistent level tiles from compiled level data
     // These entities will NOT be registered with physics yet - that happens in resetPersistentEntities()
@@ -203,7 +257,9 @@ void createPersistentEntities(Engine &ctx)
                 
                 // Create persistent entity shell only - no physics setup
                 bool isRenderOnly = level.tile_render_only[i];
-                Entity entity = createEntityShell(ctx, objectId, isRenderOnly);
+                Entity entity = isRenderOnly ? 
+                    ctx.makeRenderableEntity<RenderOnlyEntity>() : 
+                    ctx.makeRenderableEntity<PhysicsEntity>();
                 
                 // Store in persistent array
                 if (ctx.data().numPersistentLevelEntities < Sim::MAX_PERSISTENT_TILES) {
@@ -256,57 +312,8 @@ static void resetPersistentEntities(Engine &ctx)
          }
      }
 
-     for (CountT i = 0; i < consts::numAgents; i++) {
-         Entity agent_entity = ctx.data().agents[i];
-         registerRigidBodyEntity(ctx, agent_entity, AssetIDs::AGENT);
-
-         // Use spawn positions from level if available, otherwise use defaults
-         Vector3 pos;
-         if (i < level.num_spawns) {
-             // Use spawn position from level data
-             pos = Vector3 {
-                 level.spawn_x[i],
-                 level.spawn_y[i],
-                 1.0f  // Above ground
-             };
-         } else {
-             // Fallback: place agents in center with slight offset
-             pos = Vector3 {
-                 i * consts::rendering::agentSpacing - 1.0f,  // Slight offset between agents
-                 0.0f,              // Center of room  
-                 1.0f,              // Above ground
-             };
-         }
-
-         ctx.get<Position>(agent_entity) = pos;
-         
-         // Use spawn facing from level data if available
-         float facing_angle = 0.0f;
-         if (i < level.num_spawns) {
-             facing_angle = level.spawn_facing[i];
-         }
-         
-         ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
-             facing_angle,  // Use facing angle from level data
-             math::up);
-
-
-         ctx.get<Progress>(agent_entity).maxY = pos.y;
-
-         ctx.get<Velocity>(agent_entity) = {
-             Vector3::zero(),
-             Vector3::zero(),
-         };
-         ctx.get<ExternalForce>(agent_entity) = Vector3::zero();
-         ctx.get<ExternalTorque>(agent_entity) = Vector3::zero();
-         ctx.get<Action>(agent_entity) = Action {
-             .moveAmount = 0,
-             .moveAngle = 0,
-             .rotate = consts::numTurnBuckets / 2,
-         };
-
-         ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;
-     }
+     // Reset agent physics and positions for the new episode
+     resetAgentPhysics(ctx);
 }
 
 
@@ -358,7 +365,9 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                 
                 // Create entity and set up immediately
                 bool isRenderOnly = level->tile_render_only[i];
-                entity = createEntityShell(ctx, objectId, isRenderOnly);
+                entity = isRenderOnly ?
+                    ctx.makeRenderableEntity<RenderOnlyEntity>() :
+                    ctx.makeRenderableEntity<PhysicsEntity>();
                 Quat rotation{level->tile_rot_w[i], level->tile_rot_x[i], level->tile_rot_y[i], level->tile_rot_z[i]};
                 if (isRenderOnly) {
                     setupRenderOnlyEntity(ctx, entity, objectId, Vector3{x, y, z}, rotation, scale);
