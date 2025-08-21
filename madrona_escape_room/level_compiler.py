@@ -380,6 +380,29 @@ def compile_level(
             tile_scale_y[i] = 1.0
             tile_scale_z[i] = 1.0
 
+    # Calculate world boundaries based on actual tile placement
+    # Tiles are placed at: (grid_pos - width/2 + 0.5) * scale
+    # For a grid from 0 to width-1, this gives tile centers from:
+    #   (0 - width/2 + 0.5) * scale to (width-1 - width/2 + 0.5) * scale
+    # Which simplifies to: (-(width-1)/2) * scale to ((width-1)/2) * scale
+
+    # Calculate min/max positions of tile centers
+    min_tile_center_x = -(width - 1) / 2.0 * scale
+    max_tile_center_x = (width - 1) / 2.0 * scale
+    min_tile_center_y = -(height - 1) / 2.0 * scale
+    max_tile_center_y = (height - 1) / 2.0 * scale
+
+    # Walls are scaled to 'scale' units, so they extend scale/2 from their center
+    # Add this extent to get the actual world boundaries
+    tile_half_extent = scale / 2.0
+
+    world_min_x = min_tile_center_x - tile_half_extent
+    world_max_x = max_tile_center_x + tile_half_extent
+    world_min_y = min_tile_center_y - tile_half_extent
+    world_max_y = max_tile_center_y + tile_half_extent
+    world_min_z = 0.0  # Floor level
+    world_max_z = 10.0 * scale  # Reasonable max height based on scale
+
     # Return dict with compiler-calculated array sizing
     return {
         "num_tiles": len(tiles),
@@ -388,6 +411,12 @@ def compile_level(
         "height": height,
         "scale": scale,
         "level_name": level_name,
+        "world_min_x": world_min_x,
+        "world_max_x": world_max_x,
+        "world_min_y": world_min_y,
+        "world_max_y": world_max_y,
+        "world_min_z": world_min_z,
+        "world_max_z": world_max_z,
         "num_spawns": num_spawns,
         "spawn_x": spawn_x,
         "spawn_y": spawn_y,
@@ -527,6 +556,14 @@ def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
             level_name = compiled["level_name"][:63]  # Ensure null termination
             level_name_bytes = level_name.encode("utf-8").ljust(64, b"\0")[:64]
             f.write(level_name_bytes)
+
+            # World boundaries (6 floats)
+            f.write(struct.pack("<f", compiled.get("world_min_x", 0.0)))
+            f.write(struct.pack("<f", compiled.get("world_max_x", 0.0)))
+            f.write(struct.pack("<f", compiled.get("world_min_y", 0.0)))
+            f.write(struct.pack("<f", compiled.get("world_max_y", 0.0)))
+            f.write(struct.pack("<f", compiled.get("world_min_z", 0.0)))
+            f.write(struct.pack("<f", compiled.get("world_max_z", 0.0)))
 
             # Spawn data
             f.write(struct.pack("<i", compiled["num_spawns"]))
@@ -713,6 +750,14 @@ def load_compiled_level_binary(filepath: str) -> Dict:
             level_name_bytes = f.read(64)
             level_name = level_name_bytes.rstrip(b"\0").decode("utf-8")
 
+            # Read world boundaries (6 floats)
+            world_min_x = struct.unpack("<f", f.read(4))[0]
+            world_max_x = struct.unpack("<f", f.read(4))[0]
+            world_min_y = struct.unpack("<f", f.read(4))[0]
+            world_max_y = struct.unpack("<f", f.read(4))[0]
+            world_min_z = struct.unpack("<f", f.read(4))[0]
+            world_max_z = struct.unpack("<f", f.read(4))[0]
+
             # Read spawn data
             num_spawns = struct.unpack("<i", f.read(4))[0]
 
@@ -841,6 +886,12 @@ def load_compiled_level_binary(filepath: str) -> Dict:
                 "height": height,
                 "scale": scale,
                 "level_name": level_name,
+                "world_min_x": world_min_x,
+                "world_max_x": world_max_x,
+                "world_min_y": world_min_y,
+                "world_max_y": world_max_y,
+                "world_min_z": world_min_z,
+                "world_max_z": world_max_z,
                 "num_spawns": num_spawns,
                 "spawn_x": spawn_x,
                 "spawn_y": spawn_y,

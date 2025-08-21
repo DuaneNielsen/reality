@@ -16,6 +16,13 @@ protected:
         level.width = 16;
         level.height = 16;
         level.scale = 1.0f;
+        // Initialize world boundaries
+        level.world_min_x = -20.0f;
+        level.world_max_x = 20.0f;
+        level.world_min_y = -20.0f;
+        level.world_max_y = 20.0f;
+        level.world_min_z = 0.0f;
+        level.world_max_z = 25.0f;
         level.num_tiles = 6;
         level.max_entities = level.num_tiles + 6 + 30;
         

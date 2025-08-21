@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Learning from existing code** - Study and plan before implementing
 - **Pragmatic over dogmatic** - Adapt to project reality
 - **Clear intent over clever code** - Be boring and obvious
+- Engineering safety:  Never fail to mention failing tests, even if they are incidental to the current object, failing tests are always a problem and should never be overlooked.
 
 ### Simplicity Means
 
@@ -22,6 +23,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 #includes
 @docs/README.md
+
+
 
 ## Overview
 
@@ -89,6 +92,8 @@ IMPORTANT: NEVER use sys.path.insert(..) ALWAYS place modules in the correct loc
 This project uses pytest for python tests and GoogleTest for C++ tests
 The pytests are documented in [TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)
 c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/CPP_TESTING_GUIDE.md)
+
+IMPORTANT:  Whenever tests fail, ALWAYS report it.  We may decide to take no action, but we should ALWAYS ALWAYS mention the failure.
 
 ### Unit test best practice
 

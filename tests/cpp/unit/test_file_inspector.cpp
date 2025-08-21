@@ -76,6 +76,14 @@ protected:
         level.scale = 2.5f;
         std::strcpy(level.level_name, "test_compiled_level");
         
+        // Initialize world boundaries
+        level.world_min_x = -10.0f;  // (8/2) * 2.5
+        level.world_max_x = 10.0f;
+        level.world_min_y = -6.25f;  // (5/2) * 2.5
+        level.world_max_y = 6.25f;
+        level.world_min_z = 0.0f;
+        level.world_max_z = 25.0f;  // 10 * 2.5
+        
         level.num_spawns = 1;
         level.spawn_x[0] = -6.25f;
         level.spawn_y[0] = 2.5f;

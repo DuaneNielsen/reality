@@ -33,6 +33,13 @@ class TestCAPIStructValidation:
                 ("height", ctypes.c_int32),
                 ("scale", ctypes.c_float),
                 ("level_name", ctypes.c_char * 64),  # MAX_LEVEL_NAME_LENGTH
+                # World boundaries
+                ("world_min_x", ctypes.c_float),
+                ("world_max_x", ctypes.c_float),
+                ("world_min_y", ctypes.c_float),
+                ("world_max_y", ctypes.c_float),
+                ("world_min_z", ctypes.c_float),
+                ("world_max_z", ctypes.c_float),
                 ("num_spawns", ctypes.c_int32),
                 ("spawn_x", ctypes.c_float * 8),  # MAX_SPAWNS
                 ("spawn_y", ctypes.c_float * 8),
@@ -66,6 +73,13 @@ class TestCAPIStructValidation:
         level_struct.height = compiled["height"]
         level_struct.scale = compiled["scale"]
         level_struct.level_name = compiled["level_name"].encode("utf-8")
+        # Set world boundaries
+        level_struct.world_min_x = compiled.get("world_min_x", -20.0)
+        level_struct.world_max_x = compiled.get("world_max_x", 20.0)
+        level_struct.world_min_y = compiled.get("world_min_y", -20.0)
+        level_struct.world_max_y = compiled.get("world_max_y", 20.0)
+        level_struct.world_min_z = compiled.get("world_min_z", 0.0)
+        level_struct.world_max_z = compiled.get("world_max_z", 25.0)
         level_struct.num_spawns = compiled["num_spawns"]
 
         for i in range(8):  # MAX_SPAWNS
@@ -133,6 +147,13 @@ class TestCAPIStructValidation:
                 ("height", ctypes.c_int32),
                 ("scale", ctypes.c_float),
                 ("level_name", ctypes.c_char * 64),  # MAX_LEVEL_NAME_LENGTH
+                # World boundaries
+                ("world_min_x", ctypes.c_float),
+                ("world_max_x", ctypes.c_float),
+                ("world_min_y", ctypes.c_float),
+                ("world_max_y", ctypes.c_float),
+                ("world_min_z", ctypes.c_float),
+                ("world_max_z", ctypes.c_float),
                 ("num_spawns", ctypes.c_int32),
                 ("spawn_x", ctypes.c_float * 8),  # MAX_SPAWNS
                 ("spawn_y", ctypes.c_float * 8),
@@ -178,6 +199,13 @@ class TestCAPIStructValidation:
         level_struct.height = compiled["height"]
         level_struct.scale = compiled["scale"]
         level_struct.level_name = compiled["level_name"].encode("utf-8")
+        # Set world boundaries
+        level_struct.world_min_x = compiled.get("world_min_x", -20.0)
+        level_struct.world_max_x = compiled.get("world_max_x", 20.0)
+        level_struct.world_min_y = compiled.get("world_min_y", -20.0)
+        level_struct.world_max_y = compiled.get("world_max_y", 20.0)
+        level_struct.world_min_z = compiled.get("world_min_z", 0.0)
+        level_struct.world_max_z = compiled.get("world_max_z", 25.0)
         level_struct.num_spawns = compiled["num_spawns"]
 
         for i in range(8):  # MAX_SPAWNS

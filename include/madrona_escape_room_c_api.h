@@ -84,6 +84,14 @@ typedef struct {
     float scale;               // World scale factor
     char level_name[MER_MAX_NAME_LENGTH];       // Level name for identification
     
+    // World boundaries in world units (calculated from grid dimensions * scale)
+    float world_min_x;         // Minimum X boundary in world units
+    float world_max_x;         // Maximum X boundary in world units
+    float world_min_y;         // Minimum Y boundary in world units
+    float world_max_y;         // Maximum Y boundary in world units
+    float world_min_z;         // Minimum Z boundary in world units
+    float world_max_z;         // Maximum Z boundary in world units
+    
     // Spawn data
     int32_t num_spawns;        // Number of spawn points
     float spawn_x[8];          // Spawn X positions (MAX_SPAWNS buffer)

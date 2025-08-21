@@ -20,6 +20,15 @@ int main(int argc, char* argv[]) {
     level.max_entities = 150;  // Enough for walls (16*4 = 64) and other objects
     std::strcpy(level.level_name, "default_16x16_room");
     
+    // World boundaries for 16x16 room with 2.5 unit spacing per tile
+    // Room is 40x40 units total, centered at origin
+    level.world_min_x = -20.0f;  // -16/2 * 2.5
+    level.world_max_x = 20.0f;   // 16/2 * 2.5
+    level.world_min_y = -20.0f;  // -16/2 * 2.5
+    level.world_max_y = 20.0f;   // 16/2 * 2.5
+    level.world_min_z = 0.0f;    // Floor level
+    level.world_max_z = 25.0f;   // 10 * 2.5 (reasonable max height)
+    
     // Initialize all transform data to defaults
     for (int i = 0; i < CompiledLevel::MAX_TILES; i++) {
         level.tile_z[i] = 0.0f;

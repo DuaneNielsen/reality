@@ -57,7 +57,40 @@ class MER_CompiledLevel(Structure):
     ]
 ```
 
-### Step 4: Update Binary I/O Functions Only
+Also update `dict_to_compiled_level()` function to copy the new field:
+```python
+def dict_to_compiled_level(compiled_dict):
+    # ... existing code ...
+    level.new_field_name = compiled_dict.get("new_field_name", default_value)
+    # ... rest of function ...
+```
+
+### Step 4: CRITICAL - Update C API Field Copy
+**⚠️ THIS STEP IS CRITICAL AND OFTEN MISSED! ⚠️**
+
+In `src/madrona_escape_room_c_api.cpp`, you MUST update the `mer_create_manager()` function to copy the new field from the C structure to the C++ structure. Look for the loop that copies fields from `MER_CompiledLevel` to `CompiledLevel`:
+
+```cpp
+// Around line 88-147, in the loop that processes compiled levels:
+for (uint32_t i = 0; i < num_compiled_levels; i++) {
+    const MER_CompiledLevel* c_level = &compiled_levels[i];
+    
+    CompiledLevel cpp_level;
+    // ... existing field copies ...
+    
+    // ADD THIS LINE to copy your new field:
+    cpp_level.new_field_name = c_level->new_field_name;  // For single values
+    // OR for arrays:
+    std::memcpy(cpp_level.new_field_name, c_level->new_field_name, 
+                sizeof(type) * array_size);
+    
+    // ... rest of copying ...
+}
+```
+
+**If you skip this step, the C++ simulation will receive default/zero values for your new field, even though Python correctly sets them!**
+
+### Step 5: Update Binary I/O Functions
 In `madrona_escape_room/level_compiler.py`:
 
 #### Update `save_compiled_level_binary()`:
@@ -87,7 +120,7 @@ for _ in range(MAX_TILES_C_API):
 compiled["new_field_name"] = new_field_name
 ```
 
-### Step 5: Update Level Generation (if needed)
+### Step 6: Update Level Generation (if needed)
 In `src/level_gen.cpp`, use the new field if it affects entity creation:
 ```cpp
 // Access new field from CompiledLevel
@@ -95,7 +128,7 @@ int32_t value = level->new_field_name[i];
 // Use value in entity setup...
 ```
 
-### Step 6: Update Default Level (REQUIRED)
+### Step 7: Update Default Level (REQUIRED)
 In `src/default_level.cpp`, initialize the new field in the embedded default level:
 ```cpp
 // In the default level initialization
@@ -122,6 +155,21 @@ for (int i = 0; i < MAX_TILES; i++) {
 
 ### Must Update:
 1. **test_c_api_struct_validation.py** - Update struct definition and size validation
+   - Update BOTH MER_CompiledLevel class definitions in the file (there are usually 2-3 copies)
+   - Add new field(s) to _fields_ list in correct position (must match C++ struct order exactly)
+   - If new field needs initialization, add it after level_name assignment with .get() for safety
+   - Example for boundary fields:
+     ```python
+     # In _fields_ list, after level_name:
+     ("world_min_x", ctypes.c_float),
+     ("world_max_x", ctypes.c_float),
+     # etc...
+     
+     # In initialization, after level_name:
+     level_struct.world_min_x = compiled.get("world_min_x", -20.0)
+     level_struct.world_max_x = compiled.get("world_max_x", 20.0)
+     # etc...
+     ```
 2. **test_level_compiler_c_api.py** - Test binary save/load with new field
 
 ## Recording Format Impact
@@ -132,9 +180,78 @@ for (int i = 0; i < MAX_TILES; i++) {
 
 **Size changes break compatibility** - Old files cannot be read after adding fields.
 
+## Accessing CompiledLevel in System Calls
+
+Once the CompiledLevel is properly initialized, it can be accessed from any system call in the simulation as a singleton:
+
+### In System Functions (sim.cpp)
+```cpp
+// Access as const reference in system functions
+inline void mySystem(Engine &ctx, /* other components */) {
+    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    
+    // Now you can access your fields:
+    float boundary = level.world_max_y - level.world_min_y;
+    int32_t value = level.new_field_name;
+    // etc...
+}
+```
+
+### In Level Generation (level_gen.cpp)
+```cpp
+// Access as non-const reference during level generation
+static void generateLevel(Engine &ctx) {
+    CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    
+    // Can read and modify during generation:
+    level.some_field = calculated_value;
+}
+```
+
+### Registration Requirements
+The CompiledLevel must be registered as a singleton in `Sim::registerTypes()`:
+```cpp
+static void registerTypes(ECSRegistry &registry) {
+    // This registration is already done in sim.cpp:
+    registry.registerSingleton<CompiledLevel>();
+    // ... other registrations ...
+}
+```
+
+### Initialization
+The CompiledLevel singleton is populated in the `Sim` constructor:
+```cpp
+Sim::Sim(Engine &ctx, const Config &cfg, const WorldInit &world_init) {
+    // This is already done in sim.cpp:
+    CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
+    compiled_level = world_init.compiledLevel;  // Copy from per-world init data
+    // ... rest of initialization ...
+}
+```
+
+### Common Usage Examples
+```cpp
+// Example: Normalizing positions using world boundaries
+inline void computeObservations(Engine &ctx, Position pos, SelfObservation &obs) {
+    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    float world_length = level.world_max_y - level.world_min_y;
+    obs.globalY = pos.y / world_length;  // Normalized position
+}
+
+// Example: Checking level properties
+inline void checkLevelProperties(Engine &ctx) {
+    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    if (level.width > 32 || level.height > 32) {
+        // Large level, adjust algorithm
+    }
+}
+```
+
 ## Validation Checklist
 - [ ] C++ and C structures have identical memory layout
 - [ ] Python ctypes structure matches C layout exactly  
+- [ ] **C API copies new field from C to C++ struct (CRITICAL!)**
+- [ ] Python dict_to_compiled_level() copies new field
 - [ ] Binary save/load functions handle new field
 - [ ] Default level initializes new field
 - [ ] File inspector validates new struct size automatically

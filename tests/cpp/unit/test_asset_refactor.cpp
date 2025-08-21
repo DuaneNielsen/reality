@@ -12,6 +12,13 @@ protected:
         level.width = 16;
         level.height = 16;
         level.scale = 1.0f;
+        // Initialize world boundaries
+        level.world_min_x = -20.0f;
+        level.world_max_x = 20.0f;
+        level.world_min_y = -20.0f;
+        level.world_max_y = 20.0f;
+        level.world_min_z = 0.0f;
+        level.world_max_z = 25.0f;
         level.num_tiles = 3;
         level.max_entities = level.num_tiles + 6 + 30;
         
@@ -85,6 +92,13 @@ TEST_F(AssetRefactorTest, EmptyTilesHandled) {
     level.width = 4;
     level.height = 4;
     level.scale = 1.0f;
+    // Initialize world boundaries
+    level.world_min_x = -5.0f;
+    level.world_max_x = 5.0f;
+    level.world_min_y = -5.0f;
+    level.world_max_y = 5.0f;
+    level.world_min_z = 0.0f;
+    level.world_max_z = 10.0f;
     level.num_tiles = 16;
     level.max_entities = level.num_tiles + 6 + 30;
     
@@ -120,6 +134,13 @@ TEST_F(AssetRefactorTest, AllBuiltInAssetTypes) {
     level.width = 8;
     level.height = 8;
     level.scale = 1.0f;
+    // Initialize world boundaries
+    level.world_min_x = -10.0f;
+    level.world_max_x = 10.0f;
+    level.world_min_y = -10.0f;
+    level.world_max_y = 10.0f;
+    level.world_min_z = 0.0f;
+    level.world_max_z = 20.0f;
     level.num_tiles = 7;  // One of each asset type
     level.max_entities = level.num_tiles + 6 + 30;
     

@@ -199,6 +199,13 @@ class MER_CompiledLevel(Structure):
         ("height", c_int32),
         ("scale", c_float),
         ("level_name", c_char * 64),  # MAX_LEVEL_NAME_LENGTH = 64
+        # World boundaries in world units
+        ("world_min_x", c_float),
+        ("world_max_x", c_float),
+        ("world_min_y", c_float),
+        ("world_max_y", c_float),
+        ("world_min_z", c_float),
+        ("world_max_z", c_float),
         ("num_spawns", c_int32),
         ("spawn_x", c_float * 8),  # MAX_SPAWNS = 8
         ("spawn_y", c_float * 8),  # MAX_SPAWNS = 8
@@ -426,6 +433,14 @@ def dict_to_compiled_level(compiled_dict):
     level_name = compiled_dict.get("level_name", "unknown_level")
     level_name_bytes = level_name.encode("utf-8")[:63]  # Leave room for null terminator
     level.level_name = level_name_bytes
+
+    # Copy world boundaries
+    level.world_min_x = compiled_dict.get("world_min_x", -20.0)
+    level.world_max_x = compiled_dict.get("world_max_x", 20.0)
+    level.world_min_y = compiled_dict.get("world_min_y", -20.0)
+    level.world_max_y = compiled_dict.get("world_max_y", 20.0)
+    level.world_min_z = compiled_dict.get("world_min_z", 0.0)
+    level.world_max_z = compiled_dict.get("world_max_z", 25.0)
 
     # Copy spawn data
     level.num_spawns = compiled_dict["num_spawns"]

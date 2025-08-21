@@ -99,6 +99,14 @@ MER_Result mer_create_manager(
                         CompiledLevel::MAX_LEVEL_NAME_LENGTH - 1);
             cpp_level.level_name[CompiledLevel::MAX_LEVEL_NAME_LENGTH - 1] = '\0';
             
+            // Copy world boundaries
+            cpp_level.world_min_x = c_level->world_min_x;
+            cpp_level.world_max_x = c_level->world_max_x;
+            cpp_level.world_min_y = c_level->world_min_y;
+            cpp_level.world_max_y = c_level->world_max_y;
+            cpp_level.world_min_z = c_level->world_min_z;
+            cpp_level.world_max_z = c_level->world_max_z;
+            
             // Copy spawn data
             cpp_level.num_spawns = c_level->num_spawns;
             std::memcpy(cpp_level.spawn_x, c_level->spawn_x, sizeof(float) * CompiledLevel::MAX_SPAWNS);

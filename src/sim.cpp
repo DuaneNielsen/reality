@@ -202,15 +202,8 @@ inline void agentZeroVelSystem(Engine &,
 }
 
 // [GAME_SPECIFIC] Helper functions for observation normalization
-// static inline float distObs(float v)
-// {
-//     return v / consts::worldLength;
-// }
-
-static inline float globalPosObs(float v)
-{
-    return v / consts::worldLength;
-}
+// NOTE: These functions now take the level boundaries as parameters
+// to support dynamic level sizes
 
 static inline float angleObs(float v)
 {
@@ -245,23 +238,36 @@ static inline float computeZAngle(Quat q)
 // [REQUIRED_INTERFACE] This system packages all the egocentric observations together 
 // for the policy inputs. Every environment must implement observation collection.
 // [GAME_SPECIFIC] The specific observations collected and their format.
-inline void collectObservationsSystem(Engine & /* ctx */,
+inline void collectObservationsSystem(Engine &ctx,
                                       Position pos,
                                       Rotation rot,
                                       const Progress &progress,
                                       SelfObservation &self_obs)
 {
-    self_obs.globalX = globalPosObs(pos.x);
-    self_obs.globalY = globalPosObs(pos.y);
-    self_obs.globalZ = globalPosObs(pos.z);
-    self_obs.maxY = globalPosObs(progress.maxY);
+    // Get world boundaries from the compiled level singleton
+    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    
+    // Normalize positions based on actual world boundaries
+    // Use the Y-axis range as the primary normalization factor (world length)
+    float world_length = level.world_max_y - level.world_min_y;
+    
+    if (world_length <= 0.0f) {
+        printf("ERROR: Invalid world boundaries - world_length = %f (min_y=%f, max_y=%f)\n",
+               world_length, level.world_min_y, level.world_max_y);
+    }
+    
+    // Normalize all positions consistently using world length
+    self_obs.globalX = pos.x / world_length;
+    self_obs.globalY = pos.y / world_length;
+    self_obs.globalZ = pos.z / world_length;
+    self_obs.maxY = progress.maxY / world_length;
     self_obs.theta = angleObs(computeZAngle(rot));
 }
 
 
 // [REQUIRED_INTERFACE] Computes reward for each agent - every environment needs a reward system
 // [GAME_SPECIFIC] Tracks max Y position reached, but only gives reward at episode end
-inline void rewardSystem(Engine &,
+inline void rewardSystem(Engine &ctx,
                          Position pos,
                          Progress &progress,
                          Reward &out_reward,
@@ -275,12 +281,18 @@ inline void rewardSystem(Engine &,
 
     // Only give reward at the end of the episode
     if (done.v == 1 || steps_remaining.t == 0) {
-        // Maximum possible Y is the world length (40.f)
-        // Agent can theoretically reach from near 0 to worldLength
-        float max_possible_y = consts::worldLength;
+        // Get world boundaries from the compiled level singleton
+        const CompiledLevel& level = ctx.singleton<CompiledLevel>();
         
-        // Calculate normalized progress (0 to 1)
-        float normalized_progress = progress.maxY / max_possible_y;
+        // Use actual world boundaries for normalization
+        float world_length = level.world_max_y - level.world_min_y;
+        
+        if (world_length <= 0.0f) {
+            printf("ERROR: Invalid world boundaries in reward calculation - world_length = %f\n", world_length);
+        }
+        
+        float adjusted_progress = progress.maxY - level.world_min_y;
+        float normalized_progress = adjusted_progress / world_length;
         
         out_reward.v = normalized_progress;
     } else {
