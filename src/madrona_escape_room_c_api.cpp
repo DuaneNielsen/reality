@@ -74,6 +74,14 @@ MER_Result mer_create_manager(
                   "MER_CompiledLevel and CompiledLevel sizes must match");
     static_assert(offsetof(MER_CompiledLevel, max_entities) == offsetof(CompiledLevel, max_entities),
                   "max_entities field offset mismatch between C API and C++");
+    static_assert(offsetof(MER_CompiledLevel, tile_rand_x) == offsetof(CompiledLevel, tile_rand_x),
+                  "tile_rand_x offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, tile_rand_y) == offsetof(CompiledLevel, tile_rand_y),
+                  "tile_rand_y offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, tile_rand_z) == offsetof(CompiledLevel, tile_rand_z),
+                  "tile_rand_z offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, tile_rand_rot_z) == offsetof(CompiledLevel, tile_rand_rot_z),
+                  "tile_rand_rot_z offset mismatch");
     
     // Convert array of C compiled levels to C++ vector (if provided)
     std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;
@@ -88,68 +96,9 @@ MER_Result mer_create_manager(
         for (uint32_t i = 0; i < num_compiled_levels; i++) {
             const MER_CompiledLevel* c_level = &compiled_levels[i];
             
-            CompiledLevel cpp_level;
-            cpp_level.num_tiles = c_level->num_tiles;
-            cpp_level.max_entities = c_level->max_entities;
-            cpp_level.width = c_level->width;
-            cpp_level.height = c_level->height;
-            cpp_level.scale = c_level->scale;
-            // Copy level name (ensure null termination)
-            std::strncpy(cpp_level.level_name, c_level->level_name, 
-                        CompiledLevel::MAX_LEVEL_NAME_LENGTH - 1);
-            cpp_level.level_name[CompiledLevel::MAX_LEVEL_NAME_LENGTH - 1] = '\0';
-            
-            // Copy world boundaries
-            cpp_level.world_min_x = c_level->world_min_x;
-            cpp_level.world_max_x = c_level->world_max_x;
-            cpp_level.world_min_y = c_level->world_min_y;
-            cpp_level.world_max_y = c_level->world_max_y;
-            cpp_level.world_min_z = c_level->world_min_z;
-            cpp_level.world_max_z = c_level->world_max_z;
-            
-            // Copy spawn data
-            cpp_level.num_spawns = c_level->num_spawns;
-            std::memcpy(cpp_level.spawn_x, c_level->spawn_x, sizeof(float) * CompiledLevel::MAX_SPAWNS);
-            std::memcpy(cpp_level.spawn_y, c_level->spawn_y, sizeof(float) * CompiledLevel::MAX_SPAWNS);
-            std::memcpy(cpp_level.spawn_facing, c_level->spawn_facing, sizeof(float) * CompiledLevel::MAX_SPAWNS);
-            
-            // Calculate actual array size for this level
-            int32_t array_size = c_level->width * c_level->height;
-            
-            // Copy arrays (full array size for proper GPU indexing)
-            // The arrays contain meaningful data up to num_tiles, rest is zero-filled
-            std::memcpy(cpp_level.object_ids, c_level->object_ids,
-                       sizeof(int32_t) * array_size);
-            std::memcpy(cpp_level.tile_x, c_level->tile_x,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_y, c_level->tile_y,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_z, c_level->tile_z,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_persistent, c_level->tile_persistent,
-                       sizeof(bool) * array_size);
-            std::memcpy(cpp_level.tile_render_only, c_level->tile_render_only,
-                       sizeof(bool) * array_size);
-            std::memcpy(cpp_level.tile_entity_type, c_level->tile_entity_type,
-                       sizeof(int32_t) * array_size);
-            std::memcpy(cpp_level.tile_response_type, c_level->tile_response_type,
-                       sizeof(int32_t) * array_size);
-            
-            // Copy transform data arrays
-            std::memcpy(cpp_level.tile_scale_x, c_level->tile_scale_x,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_scale_y, c_level->tile_scale_y,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_scale_z, c_level->tile_scale_z,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_rot_w, c_level->tile_rot_w,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_rot_x, c_level->tile_rot_x,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_rot_y, c_level->tile_rot_y,
-                       sizeof(float) * array_size);
-            std::memcpy(cpp_level.tile_rot_z, c_level->tile_rot_z,
-                       sizeof(float) * array_size);
+            // Since structs are binary compatible (verified by static_assert above),
+            // we can directly copy the entire struct
+            CompiledLevel cpp_level = *reinterpret_cast<const CompiledLevel*>(c_level);
             
             cpp_per_world_levels.push_back(cpp_level);
         }
