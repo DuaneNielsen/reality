@@ -7,6 +7,7 @@
 #include <cstring>
 #include <new>
 #include <vector>
+#include <cstdio>
 
 using namespace madEscape;
 
@@ -557,6 +558,44 @@ int32_t mer_get_render_asset_object_id(const char* name) {
         return static_cast<int32_t>(id);
     }
     return -1;  // Not found or doesn't have render
+}
+
+MER_Result mer_write_compiled_level(
+    const char* filepath, 
+    const MER_CompiledLevel* level
+) {
+    if (!filepath || !level) {
+        return MER_ERROR_NULL_POINTER;
+    }
+    
+    FILE* f = fopen(filepath, "wb");
+    if (!f) {
+        return MER_ERROR_FILE_IO;
+    }
+    
+    size_t written = fwrite(level, sizeof(MER_CompiledLevel), 1, f);
+    fclose(f);
+    
+    return (written == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
+}
+
+MER_Result mer_read_compiled_level(
+    const char* filepath, 
+    MER_CompiledLevel* level
+) {
+    if (!filepath || !level) {
+        return MER_ERROR_NULL_POINTER;
+    }
+    
+    FILE* f = fopen(filepath, "rb");
+    if (!f) {
+        return MER_ERROR_FILE_IO;
+    }
+    
+    size_t read = fread(level, sizeof(MER_CompiledLevel), 1, f);
+    fclose(f);
+    
+    return (read == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
 }
 
 } // extern "C"

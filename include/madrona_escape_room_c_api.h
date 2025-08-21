@@ -31,6 +31,7 @@ typedef enum {
     MER_ERROR_CUDA_FAILURE = -5,
     MER_ERROR_FILE_NOT_FOUND = -6,
     MER_ERROR_INVALID_FILE = -7,
+    MER_ERROR_FILE_IO = -8,
 } MER_Result;
 
 // Opaque handle for the Manager
@@ -246,6 +247,17 @@ MER_EXPORT MER_Result mer_get_replay_step_count(
 
 // Utility functions
 MER_EXPORT const char* mer_result_to_string(MER_Result result);
+
+// Binary I/O functions for CompiledLevel
+MER_EXPORT MER_Result mer_write_compiled_level(
+    const char* filepath,
+    const MER_CompiledLevel* level
+);
+
+MER_EXPORT MER_Result mer_read_compiled_level(
+    const char* filepath,
+    MER_CompiledLevel* level
+);
 
 // Get CompiledLevel constants
 MER_EXPORT int32_t mer_get_max_tiles(void);

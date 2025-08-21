@@ -527,205 +527,29 @@ def validate_compiled_level(compiled: Dict) -> None:
 
 def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
     """
-    Save compiled level dictionary to binary .lvl file.
+    Save compiled level dictionary to binary .lvl file using C API.
 
     Args:
         compiled: Output from compile_level()
         filepath: Path to save .lvl file
 
     Raises:
-        ValueError: If compiled level is invalid
         IOError: If file cannot be written
     """
-    # Validate first
-    validate_compiled_level(compiled)
+    import ctypes
 
-    try:
-        with open(filepath, "wb") as f:
-            # Write header fields (matching MER_CompiledLevel struct layout)
-            # int32_t num_tiles, max_entities, width, height
-            f.write(struct.pack("<i", compiled["num_tiles"]))
-            f.write(struct.pack("<i", compiled["max_entities"]))
-            f.write(struct.pack("<i", compiled["width"]))
-            f.write(struct.pack("<i", compiled["height"]))
+    from .ctypes_bindings import MER_SUCCESS, dict_to_compiled_level, lib
 
-            # float scale
-            f.write(struct.pack("<f", compiled["scale"]))
+    level = dict_to_compiled_level(compiled)
+    result = lib.mer_write_compiled_level(filepath.encode("utf-8"), ctypes.byref(level))
 
-            # char level_name[64] - truncate or pad to 64 bytes
-            level_name = compiled["level_name"][:63]  # Ensure null termination
-            level_name_bytes = level_name.encode("utf-8").ljust(64, b"\0")[:64]
-            f.write(level_name_bytes)
-
-            # World boundaries (6 floats)
-            f.write(struct.pack("<f", compiled.get("world_min_x", 0.0)))
-            f.write(struct.pack("<f", compiled.get("world_max_x", 0.0)))
-            f.write(struct.pack("<f", compiled.get("world_min_y", 0.0)))
-            f.write(struct.pack("<f", compiled.get("world_max_y", 0.0)))
-            f.write(struct.pack("<f", compiled.get("world_min_z", 0.0)))
-            f.write(struct.pack("<f", compiled.get("world_max_z", 0.0)))
-
-            # Spawn data
-            f.write(struct.pack("<i", compiled["num_spawns"]))
-
-            # spawn_x array - always write MAX_SPAWNS_C_API elements
-            for i in range(MAX_SPAWNS_C_API):
-                f.write(struct.pack("<f", compiled["spawn_x"][i]))
-
-            # spawn_y array - always write MAX_SPAWNS_C_API elements
-            for i in range(MAX_SPAWNS_C_API):
-                f.write(struct.pack("<f", compiled["spawn_y"][i]))
-
-            # spawn_facing array - always write MAX_SPAWNS_C_API elements
-            for i in range(MAX_SPAWNS_C_API):
-                f.write(struct.pack("<f", compiled["spawn_facing"][i]))
-
-            # Arrays: Write fixed-size arrays for C++ compatibility
-            # Always write MAX_TILES_C_API elements regardless of actual array size
-            array_size = compiled["array_size"]
-
-            # object_ids array - pad with zeros if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size:
-                    f.write(struct.pack("<i", compiled["object_ids"][i]))
-                else:
-                    f.write(struct.pack("<i", 0))  # TILE_EMPTY
-
-            # tile_x array - pad with zeros if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size:
-                    f.write(struct.pack("<f", compiled["tile_x"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_y array - pad with zeros if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size:
-                    f.write(struct.pack("<f", compiled["tile_y"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_z array - pad with zeros if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_z" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_z"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_persistent array - pad with false if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_persistent" in compiled:
-                    # Write as bool (1 byte)
-                    f.write(struct.pack("<B", 1 if compiled["tile_persistent"][i] else 0))
-                else:
-                    f.write(struct.pack("<B", 0))  # Default: non-persistent
-
-            # tile_render_only array - pad with false if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_render_only" in compiled:
-                    # Write as bool (1 byte)
-                    f.write(struct.pack("<B", 1 if compiled["tile_render_only"][i] else 0))
-                else:
-                    f.write(struct.pack("<B", 0))  # Default: has physics
-
-            # tile_entity_type array - pad with zeros if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_entity_type" in compiled:
-                    f.write(struct.pack("<i", compiled["tile_entity_type"][i]))
-                else:
-                    f.write(struct.pack("<i", 0))  # Default: EntityType::None
-
-            # tile_response_type array - pad with zeros if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_response_type" in compiled:
-                    f.write(struct.pack("<i", compiled["tile_response_type"][i]))
-                else:
-                    f.write(struct.pack("<i", 2))  # Default: ResponseType::Static
-
-            # tile_scale_x array - pad with 1.0 if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_scale_x" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_scale_x"][i]))
-                else:
-                    f.write(struct.pack("<f", 1.0))
-
-            # tile_scale_y array - pad with 1.0 if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_scale_y" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_scale_y"][i]))
-                else:
-                    f.write(struct.pack("<f", 1.0))
-
-            # tile_scale_z array - pad with 1.0 if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_scale_z" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_scale_z"][i]))
-                else:
-                    f.write(struct.pack("<f", 1.0))
-
-            # tile_rot_w array - pad with 1.0 (identity quaternion) if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_rot_w" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_rot_w"][i]))
-                else:
-                    f.write(struct.pack("<f", 1.0))  # Identity quaternion W component
-
-            # tile_rot_x array - pad with 0.0 if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_rot_x" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_rot_x"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_rot_y array - pad with 0.0 if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_rot_y" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_rot_y"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_rot_z array - pad with 0.0 if needed
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_rot_z" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_rot_z"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_rand_x array - pad with 0.0 if needed (no randomization)
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_rand_x" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_rand_x"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_rand_y array - pad with 0.0 if needed (no randomization)
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_rand_y" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_rand_y"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_rand_z array - pad with 0.0 if needed (no randomization)
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_rand_z" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_rand_z"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-            # tile_rand_rot_z array - pad with 0.0 if needed (no randomization)
-            for i in range(MAX_TILES_C_API):
-                if i < array_size and "tile_rand_rot_z" in compiled:
-                    f.write(struct.pack("<f", compiled["tile_rand_rot_z"][i]))
-                else:
-                    f.write(struct.pack("<f", 0.0))
-
-    except IOError as e:
-        raise IOError(f"Failed to write level file '{filepath}': {e}")
+    if result != MER_SUCCESS:
+        raise IOError(f"Failed to write level file: {filepath} (error code: {result})")
 
 
 def load_compiled_level_binary(filepath: str) -> Dict:
     """
-    Load compiled level dictionary from binary .lvl file.
+    Load compiled level dictionary from binary .lvl file using C API.
 
     Args:
         filepath: Path to .lvl file
@@ -735,197 +559,18 @@ def load_compiled_level_binary(filepath: str) -> Dict:
 
     Raises:
         IOError: If file cannot be read
-        ValueError: If file format is invalid
     """
-    try:
-        with open(filepath, "rb") as f:
-            # Read header fields
-            num_tiles = struct.unpack("<i", f.read(4))[0]
-            max_entities = struct.unpack("<i", f.read(4))[0]
-            width = struct.unpack("<i", f.read(4))[0]
-            height = struct.unpack("<i", f.read(4))[0]
-            scale = struct.unpack("<f", f.read(4))[0]
+    import ctypes
 
-            # Read level_name (64 bytes, null-terminated)
-            level_name_bytes = f.read(64)
-            level_name = level_name_bytes.rstrip(b"\0").decode("utf-8")
+    from .ctypes_bindings import MER_SUCCESS, MER_CompiledLevel, compiled_level_to_dict, lib
 
-            # Read world boundaries (6 floats)
-            world_min_x = struct.unpack("<f", f.read(4))[0]
-            world_max_x = struct.unpack("<f", f.read(4))[0]
-            world_min_y = struct.unpack("<f", f.read(4))[0]
-            world_max_y = struct.unpack("<f", f.read(4))[0]
-            world_min_z = struct.unpack("<f", f.read(4))[0]
-            world_max_z = struct.unpack("<f", f.read(4))[0]
+    level = MER_CompiledLevel()
+    result = lib.mer_read_compiled_level(filepath.encode("utf-8"), ctypes.byref(level))
 
-            # Read spawn data
-            num_spawns = struct.unpack("<i", f.read(4))[0]
+    if result != MER_SUCCESS:
+        raise IOError(f"Failed to read level file: {filepath} (error code: {result})")
 
-            spawn_x = []
-            for _ in range(MAX_SPAWNS_C_API):
-                spawn_x.append(struct.unpack("<f", f.read(4))[0])
-
-            spawn_y = []
-            for _ in range(MAX_SPAWNS_C_API):
-                spawn_y.append(struct.unpack("<f", f.read(4))[0])
-
-            spawn_facing = []
-            for _ in range(MAX_SPAWNS_C_API):
-                spawn_facing.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read fixed-size arrays (always MAX_TILES_C_API elements for C++ compatibility)
-            object_ids = []
-            for _ in range(MAX_TILES_C_API):
-                object_ids.append(struct.unpack("<i", f.read(4))[0])
-
-            tile_x = []
-            for _ in range(MAX_TILES_C_API):
-                tile_x.append(struct.unpack("<f", f.read(4))[0])
-
-            tile_y = []
-            for _ in range(MAX_TILES_C_API):
-                tile_y.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read tile_z array
-            tile_z = []
-            for _ in range(MAX_TILES_C_API):
-                tile_z.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read tile_persistent array
-            tile_persistent = []
-            for _ in range(MAX_TILES_C_API):
-                tile_persistent.append(struct.unpack("<B", f.read(1))[0] != 0)
-
-            # Read tile_render_only array
-            tile_render_only = []
-            for _ in range(MAX_TILES_C_API):
-                tile_render_only.append(struct.unpack("<B", f.read(1))[0] != 0)
-
-            # Read tile_entity_type array
-            tile_entity_type = []
-            for _ in range(MAX_TILES_C_API):
-                tile_entity_type.append(struct.unpack("<i", f.read(4))[0])
-
-            # Read tile_response_type array
-            tile_response_type = []
-            for _ in range(MAX_TILES_C_API):
-                tile_response_type.append(struct.unpack("<i", f.read(4))[0])
-
-            # Read tile_scale_x array
-            tile_scale_x = []
-            for _ in range(MAX_TILES_C_API):
-                tile_scale_x.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read tile_scale_y array
-            tile_scale_y = []
-            for _ in range(MAX_TILES_C_API):
-                tile_scale_y.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read tile_scale_z array
-            tile_scale_z = []
-            for _ in range(MAX_TILES_C_API):
-                tile_scale_z.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read tile_rot_w array
-            tile_rot_w = []
-            for _ in range(MAX_TILES_C_API):
-                tile_rot_w.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read tile_rot_x array
-            tile_rot_x = []
-            for _ in range(MAX_TILES_C_API):
-                tile_rot_x.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read tile_rot_y array
-            tile_rot_y = []
-            for _ in range(MAX_TILES_C_API):
-                tile_rot_y.append(struct.unpack("<f", f.read(4))[0])
-
-            # Read tile_rot_z array
-            tile_rot_z = []
-            for _ in range(MAX_TILES_C_API):
-                tile_rot_z.append(struct.unpack("<f", f.read(4))[0])
-
-            # Try to read new randomization fields if they exist
-            # This provides backward compatibility with old files
-            try:
-                # Read tile_rand_x array
-                tile_rand_x = []
-                for _ in range(MAX_TILES_C_API):
-                    tile_rand_x.append(struct.unpack("<f", f.read(4))[0])
-
-                # Read tile_rand_y array
-                tile_rand_y = []
-                for _ in range(MAX_TILES_C_API):
-                    tile_rand_y.append(struct.unpack("<f", f.read(4))[0])
-
-                # Read tile_rand_z array
-                tile_rand_z = []
-                for _ in range(MAX_TILES_C_API):
-                    tile_rand_z.append(struct.unpack("<f", f.read(4))[0])
-
-                # Read tile_rand_rot_z array
-                tile_rand_rot_z = []
-                for _ in range(MAX_TILES_C_API):
-                    tile_rand_rot_z.append(struct.unpack("<f", f.read(4))[0])
-            except struct.error:
-                # Old file format without randomization fields - use defaults (no randomization)
-                tile_rand_x = [0.0] * MAX_TILES_C_API
-                tile_rand_y = [0.0] * MAX_TILES_C_API
-                tile_rand_z = [0.0] * MAX_TILES_C_API
-                tile_rand_rot_z = [0.0] * MAX_TILES_C_API
-
-            # Calculate expected array size for this level's dimensions
-            array_size = width * height
-
-            # Construct dictionary matching compile_level() output
-            compiled = {
-                "num_tiles": num_tiles,
-                "max_entities": max_entities,
-                "width": width,
-                "height": height,
-                "scale": scale,
-                "level_name": level_name,
-                "world_min_x": world_min_x,
-                "world_max_x": world_max_x,
-                "world_min_y": world_min_y,
-                "world_max_y": world_max_y,
-                "world_min_z": world_min_z,
-                "world_max_z": world_max_z,
-                "num_spawns": num_spawns,
-                "spawn_x": spawn_x,
-                "spawn_y": spawn_y,
-                "spawn_facing": spawn_facing,
-                "array_size": array_size,  # Add calculated array size
-                "object_ids": object_ids,
-                "tile_x": tile_x,
-                "tile_y": tile_y,
-                "tile_z": tile_z,
-                "tile_persistent": tile_persistent,
-                "tile_render_only": tile_render_only,
-                "tile_entity_type": tile_entity_type,
-                "tile_response_type": tile_response_type,
-                "tile_scale_x": tile_scale_x,
-                "tile_scale_y": tile_scale_y,
-                "tile_scale_z": tile_scale_z,
-                "tile_rot_w": tile_rot_w,
-                "tile_rot_x": tile_rot_x,
-                "tile_rot_y": tile_rot_y,
-                "tile_rot_z": tile_rot_z,
-                "tile_rand_x": tile_rand_x,
-                "tile_rand_y": tile_rand_y,
-                "tile_rand_z": tile_rand_z,
-                "tile_rand_rot_z": tile_rand_rot_z,
-            }
-
-            # Validate loaded data
-            validate_compiled_level(compiled)
-            return compiled
-
-    except IOError as e:
-        raise IOError(f"Failed to read level file '{filepath}': {e}")
-    except struct.error as e:
-        raise ValueError(f"Invalid level file format '{filepath}': {e}")
+    return compiled_level_to_dict(level)
 
 
 def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:

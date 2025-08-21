@@ -361,6 +361,13 @@ lib.mer_get_replay_step_count.restype = c_int
 lib.mer_result_to_string.argtypes = [c_int]
 lib.mer_result_to_string.restype = c_char_p
 
+# Binary I/O functions
+lib.mer_write_compiled_level.argtypes = [c_char_p, POINTER(MER_CompiledLevel)]
+lib.mer_write_compiled_level.restype = c_int
+
+lib.mer_read_compiled_level.argtypes = [c_char_p, POINTER(MER_CompiledLevel)]
+lib.mer_read_compiled_level.restype = c_int
+
 
 class CTypesLib:
     """Wrapper class to provide CFFI-like interface for easier migration"""
@@ -461,14 +468,127 @@ def dict_to_compiled_level(compiled_dict):
         level.object_ids[i] = compiled_dict["object_ids"][i]
         level.tile_x[i] = compiled_dict["tile_x"][i]
         level.tile_y[i] = compiled_dict["tile_y"][i]
+        level.tile_z[i] = compiled_dict["tile_z"][i]
+        level.tile_persistent[i] = compiled_dict["tile_persistent"][i]
+        level.tile_render_only[i] = compiled_dict["tile_render_only"][i]
+        level.tile_entity_type[i] = compiled_dict["tile_entity_type"][i]
+        level.tile_response_type[i] = compiled_dict["tile_response_type"][i]
+
+        # Transform data
+        level.tile_scale_x[i] = compiled_dict["tile_scale_x"][i]
+        level.tile_scale_y[i] = compiled_dict["tile_scale_y"][i]
+        level.tile_scale_z[i] = compiled_dict["tile_scale_z"][i]
+        level.tile_rot_w[i] = compiled_dict["tile_rot_w"][i]
+        level.tile_rot_x[i] = compiled_dict["tile_rot_x"][i]
+        level.tile_rot_y[i] = compiled_dict["tile_rot_y"][i]
+        level.tile_rot_z[i] = compiled_dict["tile_rot_z"][i]
+
+        # Randomization data (optional - default to 0 if not present)
+        level.tile_rand_x[i] = (
+            compiled_dict.get("tile_rand_x", [0.0] * array_size)[i]
+            if "tile_rand_x" in compiled_dict
+            else 0.0
+        )
+        level.tile_rand_y[i] = (
+            compiled_dict.get("tile_rand_y", [0.0] * array_size)[i]
+            if "tile_rand_y" in compiled_dict
+            else 0.0
+        )
+        level.tile_rand_z[i] = (
+            compiled_dict.get("tile_rand_z", [0.0] * array_size)[i]
+            if "tile_rand_z" in compiled_dict
+            else 0.0
+        )
+        level.tile_rand_rot_z[i] = (
+            compiled_dict.get("tile_rand_rot_z", [0.0] * array_size)[i]
+            if "tile_rand_rot_z" in compiled_dict
+            else 0.0
+        )
 
     # Zero-fill remaining slots (important for deterministic behavior)
     for i in range(array_size, MAX_TILES):
         level.object_ids[i] = 0  # TILE_EMPTY
         level.tile_x[i] = 0.0
         level.tile_y[i] = 0.0
+        level.tile_z[i] = 0.0
+        level.tile_persistent[i] = False
+        level.tile_render_only[i] = False
+        level.tile_entity_type[i] = 0
+        level.tile_response_type[i] = 0
+        level.tile_scale_x[i] = 1.0
+        level.tile_scale_y[i] = 1.0
+        level.tile_scale_z[i] = 1.0
+        level.tile_rot_w[i] = 1.0
+        level.tile_rot_x[i] = 0.0
+        level.tile_rot_y[i] = 0.0
+        level.tile_rot_z[i] = 0.0
+        level.tile_rand_x[i] = 0.0
+        level.tile_rand_y[i] = 0.0
+        level.tile_rand_z[i] = 0.0
+        level.tile_rand_rot_z[i] = 0.0
 
     return level
+
+
+def compiled_level_to_dict(level):
+    """
+    Convert MER_CompiledLevel ctypes structure to dictionary.
+    Reverse of dict_to_compiled_level.
+
+    Args:
+        level: MER_CompiledLevel ctypes structure
+
+    Returns:
+        Dict matching compile_level() output format
+    """
+    # Get actual array size for this level
+    array_size = level.width * level.height
+
+    return {
+        # Header fields
+        "num_tiles": level.num_tiles,
+        "max_entities": level.max_entities,
+        "width": level.width,
+        "height": level.height,
+        "scale": level.scale,
+        "level_name": level.level_name.decode("utf-8").rstrip("\x00"),
+        # World boundaries
+        "world_min_x": level.world_min_x,
+        "world_max_x": level.world_max_x,
+        "world_min_y": level.world_min_y,
+        "world_max_y": level.world_max_y,
+        "world_min_z": level.world_min_z,
+        "world_max_z": level.world_max_z,
+        # Spawn data
+        "num_spawns": level.num_spawns,
+        "spawn_x": list(level.spawn_x),
+        "spawn_y": list(level.spawn_y),
+        "spawn_facing": list(level.spawn_facing),
+        # Tile arrays (only copy actual data, not padding)
+        "object_ids": list(level.object_ids[:array_size]),
+        "tile_x": list(level.tile_x[:array_size]),
+        "tile_y": list(level.tile_y[:array_size]),
+        "tile_z": list(level.tile_z[:array_size]),
+        "tile_persistent": list(level.tile_persistent[:array_size]),
+        "tile_render_only": list(level.tile_render_only[:array_size]),
+        "tile_entity_type": list(level.tile_entity_type[:array_size]),
+        "tile_response_type": list(level.tile_response_type[:array_size]),
+        # Transform arrays
+        "tile_scale_x": list(level.tile_scale_x[:array_size]),
+        "tile_scale_y": list(level.tile_scale_y[:array_size]),
+        "tile_scale_z": list(level.tile_scale_z[:array_size]),
+        "tile_rot_w": list(level.tile_rot_w[:array_size]),
+        "tile_rot_x": list(level.tile_rot_x[:array_size]),
+        "tile_rot_y": list(level.tile_rot_y[:array_size]),
+        "tile_rot_z": list(level.tile_rot_z[:array_size]),
+        # Randomization arrays
+        "tile_rand_x": list(level.tile_rand_x[:array_size]),
+        "tile_rand_y": list(level.tile_rand_y[:array_size]),
+        "tile_rand_z": list(level.tile_rand_z[:array_size]),
+        "tile_rand_rot_z": list(level.tile_rand_rot_z[:array_size]),
+        # Metadata
+        "array_size": array_size,
+    }
 
 
 def validate_compiled_level_ctypes(level):
