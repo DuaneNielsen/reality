@@ -330,7 +330,6 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
     viewer.setCurrentWorld(2);
     input.releaseAll();
     input.hitKey(MockViewer::KeyboardKey::T);
-    input.nextFrame();
     
     viewer.setFrameLimit(1);
     viewer.loop(
@@ -354,7 +353,6 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
     // Reset world 2
     input.releaseAll();
     input.hitKey(MockViewer::KeyboardKey::R);
-    input.nextFrame();
     
     viewer.setFrameLimit(1);
     viewer.loop(
@@ -375,7 +373,6 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
     // Disable tracking
     input.releaseAll();
     input.hitKey(MockViewer::KeyboardKey::T);
-    input.nextFrame();
     
     viewer.setFrameLimit(1);
     viewer.loop(
@@ -467,7 +464,6 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerMultiWorldRecording) {
         viewer.setCurrentWorld(world);
         input.releaseAll();
         input.hitKey(MockViewer::KeyboardKey::R);
-        input.nextFrame();
         
         viewer.setFrameLimit(1);
         viewer.loop(
