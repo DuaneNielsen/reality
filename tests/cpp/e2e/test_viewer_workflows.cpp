@@ -2,8 +2,10 @@
 #include "viewer_test_base.hpp"
 #include "mock_components.hpp"
 #include "test_levels.hpp"
+#include "replay_metadata.hpp"
 #include <thread>
 #include <chrono>
+#include <cstring>
 
 // These tests simulate viewer-like workflows but primarily test Manager API
 // Only a few tests actually exercise viewer-specific behavior
@@ -187,13 +189,15 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerRecordingSession) {
 // Full replay verification workflow
 TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
     // Phase 1: Record a session
-    createTestLevelFile("original.lvl", 8, 8);
-    file_manager_->addFile("original.lvl");
-    // Note: Don't add demo.rec to cleanup yet - we need it after TearDown()
+    // Use the properly generated default level with correct world boundaries
+    const char* level_path = "build/default_level.lvl";
+    
+    // Add all test files to cleanup - they'll be deleted when test ends
+    file_manager_->addFile("demo.rec");
     file_manager_->addFile("trajectory_record.csv");
     file_manager_->addFile("trajectory_replay.csv");
     
-    auto level = LevelComparer::loadLevelFromFile("original.lvl");
+    auto level = LevelComparer::loadLevelFromFile(level_path);
     
     std::vector<ActionRecorder::RecordedAction> original_actions;
     
@@ -225,9 +229,9 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
         mgr.disableTrajectoryLogging();
     }
     
-    // Clean up first manager
-    TearDown();
-    SetUp();
+    // Clean up first manager without deleting files
+    mer_destroy_manager(handle);
+    handle = nullptr;
     
     // Phase 2: Replay and verify
     {
@@ -235,12 +239,20 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
         MER_ReplayMetadata metadata;
         ASSERT_EQ(mer_read_replay_metadata("demo.rec", &metadata), MER_SUCCESS);
         
+        // Load embedded level from replay file
+        auto embedded_level = madrona::escape_room::ReplayLoader::loadEmbeddedLevel("demo.rec");
+        ASSERT_TRUE(embedded_level.has_value()) << "Failed to load embedded level from replay";
+        
+        // Convert to C API format
+        MER_CompiledLevel c_level;
+        std::memcpy(&c_level, &embedded_level.value(), sizeof(MER_CompiledLevel));
+        
         // Create manager for replay
         config.num_worlds = metadata.num_worlds;
         config.auto_reset = true;
         config.rand_seed = metadata.seed;
         
-        ASSERT_TRUE(CreateManager(nullptr, 0));  // Level embedded in recording
+        ASSERT_TRUE(CreateManager(&c_level, 1));  // Use level from recording
         
         TestManagerWrapper mgr(handle);
         MockViewer viewer(1);
@@ -287,9 +299,6 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
             EXPECT_NEAR(original_trajectory[i].rotation, replay_trajectory[i].rotation, 0.1f);
         }
     }
-    
-    // Now we can safely clean up the recording file
-    file_manager_->addFile("demo.rec");
 }
 
 // Live simulation with tracking workflow
