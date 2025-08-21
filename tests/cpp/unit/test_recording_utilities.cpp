@@ -227,11 +227,8 @@ TEST_F(RecordingUtilitiesTest, CreatesPerWorldTrajectoryFiles) {
 
 // Test that level comparer can verify embedded level matches source
 TEST_F(RecordingUtilitiesTest, LevelComparerVerifiesEmbeddedMatchesSource) {
-    // Create original level
-    const std::string level_file = "tests/cpp/test_data/levels/original.lvl";
-    createTestLevelFile(level_file, 24, 24);
-    
-    MER_CompiledLevel original_level = LevelComparer::loadLevelFromFile(level_file);
+    // Use the default level
+    MER_CompiledLevel original_level = LevelComparer::getDefaultLevel();
     
     // Create recording with this level embedded
     const std::string record_file = "tests/cpp/test_data/recordings/with_orig_level.rec";

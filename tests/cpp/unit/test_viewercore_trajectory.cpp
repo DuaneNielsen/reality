@@ -4,6 +4,7 @@
 #include "mgr.hpp"
 #include "viewer_core.hpp"
 #include "replay_metadata.hpp"
+#include "test_level_helper.hpp"
 #include <fstream>
 #include <filesystem>
 #include <thread>
@@ -41,18 +42,8 @@ protected:
     
     // Helper to load the test level
     CompiledLevel loadTestLevel() {
-        CompiledLevel level = {};
-        std::string level_path = "./tests/cpp/test_levels/quick_test.lvl";
-        
-        std::ifstream file(level_path, std::ios::binary);
-        EXPECT_TRUE(file.is_open()) << "Failed to open test level: " << level_path;
-        
-        if (file.is_open()) {
-            file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
-            file.close();
-        }
-        
-        return level;
+        // Use the embedded default level
+        return DefaultLevelProvider::GetDefaultLevel();
     }
 };
 

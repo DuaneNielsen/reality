@@ -174,10 +174,7 @@ TEST_F(ManagerIntegrationTest, ManagerTrajectoryLogging) {
 
 // Test pause/resume functionality
 TEST_F(ManagerIntegrationTest, MockViewerPauseResume) {
-    createTestLevelFile("test.lvl", 16, 16);
-    file_manager_->addFile("test.lvl");
-    
-    auto level = LevelComparer::loadLevelFromFile("test.lvl");
+    auto level = LevelComparer::getDefaultLevel();
     config.num_worlds = 1;
     
     ASSERT_TRUE(CreateManager(&level, 1));
@@ -253,10 +250,7 @@ TEST_F(ManagerIntegrationTest, MockViewerPauseResume) {
 
 // Test reset functionality
 TEST_F(ManagerIntegrationTest, MockViewerResetInput) {
-    createTestLevelFile("test.lvl", 16, 16);
-    file_manager_->addFile("test.lvl");
-    
-    auto level = LevelComparer::loadLevelFromFile("test.lvl");
+    auto level = LevelComparer::getDefaultLevel();
     config.num_worlds = 2;
     
     ASSERT_TRUE(CreateManager(&level, 1));
@@ -304,10 +298,7 @@ TEST_F(ManagerIntegrationTest, MockViewerResetInput) {
 
 // Test trajectory toggle functionality
 TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
-    createTestLevelFile("test.lvl", 16, 16);
-    file_manager_->addFile("test.lvl");
-    
-    auto level = LevelComparer::loadLevelFromFile("test.lvl");
+    auto level = LevelComparer::getDefaultLevel();
     config.num_worlds = 3;
     
     ASSERT_TRUE(CreateManager(&level, 1));
@@ -374,11 +365,9 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
 
 // Test recording with embedded level
 TEST_F(ManagerIntegrationTest, ManagerEmbeddedLevelRecording) {
-    createTestLevelFile("test.lvl", 8, 8);
-    file_manager_->addFile("test.lvl");
     file_manager_->addFile("embedded.rec");
     
-    auto level = LevelComparer::loadLevelFromFile("test.lvl");
+    auto level = LevelComparer::getDefaultLevel();
     config.num_worlds = 1;
     config.auto_reset = true;
     

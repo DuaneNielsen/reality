@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "types.hpp"
 #include "replay_metadata.hpp"
+#include "test_level_helper.hpp"
 #include <fstream>
 #include <filesystem>
 #include <cstdlib>
@@ -65,36 +66,8 @@ protected:
     }
     
     void createTestLevelFile() {
-        // Create a CompiledLevel structure for testing
-        CompiledLevel level = {};
-        
-        // Fill with test data
-        level.num_tiles = 22;
-        level.max_entities = 58;
-        level.width = 8;
-        level.height = 5;
-        level.scale = 2.5f;
-        std::strcpy(level.level_name, "test_compiled_level");
-        
-        // Initialize world boundaries
-        level.world_min_x = -10.0f;  // (8/2) * 2.5
-        level.world_max_x = 10.0f;
-        level.world_min_y = -6.25f;  // (5/2) * 2.5
-        level.world_max_y = 6.25f;
-        level.world_min_z = 0.0f;
-        level.world_max_z = 25.0f;  // 10 * 2.5
-        
-        level.num_spawns = 1;
-        level.spawn_x[0] = -6.25f;
-        level.spawn_y[0] = 2.5f;
-        level.spawn_facing[0] = 0.0f;
-        
-        // Add some basic tile data
-        for (int i = 0; i < level.num_tiles; i++) {
-            level.object_ids[i] = 2; // Wall (AssetIDs::WALL = 2)
-            level.tile_x[i] = static_cast<float>(i % level.width) * level.scale;
-            level.tile_y[i] = static_cast<float>(i / level.width) * level.scale;
-        }
+        // Use the default level for consistency
+        CompiledLevel level = DefaultLevelProvider::GetDefaultLevel();
         
         // Write to file
         std::ofstream file(testLevelFile, std::ios::binary);

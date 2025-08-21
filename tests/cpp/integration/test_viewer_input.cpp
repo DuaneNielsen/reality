@@ -10,9 +10,8 @@ protected:
     void SetUp() override {
         ViewerTestBase::SetUp();
         
-        // Create a simple test level
-        createTestLevelFile("test.lvl", 16, 16);
-        auto level = LevelComparer::loadLevelFromFile("test.lvl");
+        // Use the default level
+        auto level = LevelComparer::getDefaultLevel();
         
         config.num_worlds = 1;
         ASSERT_TRUE(CreateManager(&level, 1));
@@ -23,7 +22,7 @@ protected:
     void TearDown() override {
         mgr_.reset();
         ViewerTestBase::TearDown();
-        std::remove("test.lvl");
+        // No test file to remove anymore
     }
     
     // Helper to process input and return resulting action

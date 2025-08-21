@@ -39,6 +39,7 @@ target_include_directories(mad_escape_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/external/optionparser
+    ${CMAKE_BINARY_DIR}  # For default_level_data.h
 )
 
 # Link libraries

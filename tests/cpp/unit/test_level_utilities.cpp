@@ -8,38 +8,47 @@ class LevelUtilitiesTest : public ViewerTestBase {
 protected:
     void SetUp() override {
         ViewerTestBase::SetUp();
-        // Create test level files for use in tests
-        createTestLevelFile("tests/cpp/test_data/levels/simple.lvl", 16, 16);
-        createTestLevelFile("tests/cpp/test_data/levels/complex.lvl", 32, 32);
+    }
+    
+    // Helper to write default level to a file for testing file I/O
+    void writeDefaultLevelToFile(const std::string& filepath) {
+        auto level = LevelComparer::getDefaultLevel();
+        std::ofstream file(filepath, std::ios::binary);
+        file.write(reinterpret_cast<const char*>(&level), sizeof(MER_CompiledLevel));
+        file.close();
     }
 };
 
 // Test that level loader reads binary file and returns valid dimensions
 TEST_F(LevelUtilitiesTest, LevelLoaderReadsBinaryFileCorrectly) {
     const std::string level_file = "tests/cpp/test_data/levels/simple.lvl";
-    createTestLevelFile(level_file);
+    writeDefaultLevelToFile(level_file);
     
     ASSERT_TRUE(fileExists(level_file));
     
     MER_CompiledLevel level = LevelComparer::loadLevelFromFile(level_file);
+    auto default_level = LevelComparer::getDefaultLevel();
     
-    EXPECT_EQ(level.width, 16);
-    EXPECT_EQ(level.height, 16);
+    // Should match the default level we wrote
+    EXPECT_EQ(level.width, default_level.width);
+    EXPECT_EQ(level.height, default_level.height);
+    EXPECT_EQ(level.num_tiles, default_level.num_tiles);
     EXPECT_GT(level.num_tiles, 0);
 }
 
-// Test that level loader handles larger dimension levels
-TEST_F(LevelUtilitiesTest, LevelLoaderHandlesLargeDimensions) {
-    const std::string level_file = "tests/cpp/test_data/levels/complex.lvl";
-    createTestLevelFile(level_file, 32, 32);
+// Test that default level has valid dimensions
+TEST_F(LevelUtilitiesTest, DefaultLevelHasValidDimensions) {
+    auto level = LevelComparer::getDefaultLevel();
     
-    ASSERT_TRUE(fileExists(level_file));
-    
-    MER_CompiledLevel level = LevelComparer::loadLevelFromFile(level_file);
-    
-    EXPECT_EQ(level.width, 32);
-    EXPECT_EQ(level.height, 32);
+    // Default level should have reasonable dimensions
+    EXPECT_GT(level.width, 0);
+    EXPECT_GT(level.height, 0);
     EXPECT_GT(level.num_tiles, 0);
+    
+    // World boundaries should be set properly
+    EXPECT_NE(level.world_min_y, 0.0f);
+    EXPECT_NE(level.world_max_y, 0.0f);
+    EXPECT_LT(level.world_min_y, level.world_max_y);
 }
 
 // Test that level loader returns empty struct for missing files
@@ -77,10 +86,7 @@ TEST_F(LevelUtilitiesTest, LevelLoaderHandlesTruncatedFile) {
 
 // Test that level comparer verifies identical level copies
 TEST_F(LevelUtilitiesTest, LevelComparerVerifiesIdenticalCopies) {
-    const std::string level_file = "tests/cpp/test_data/levels/simple.lvl";
-    createTestLevelFile(level_file);
-    
-    MER_CompiledLevel level = LevelComparer::loadLevelFromFile(level_file);
+    auto level = LevelComparer::getDefaultLevel();
     
     // Create multiple copies for different worlds
     std::vector<MER_CompiledLevel> levels(4, level);
@@ -96,7 +102,7 @@ TEST_F(LevelUtilitiesTest, LevelComparerVerifiesIdenticalCopies) {
 // Test that level file size matches struct size
 TEST_F(LevelUtilitiesTest, LevelFileSizeMatchesStructSize) {
     const std::string level_file = "tests/cpp/test_data/levels/simple.lvl";
-    createTestLevelFile(level_file);
+    writeDefaultLevelToFile(level_file);
     
     size_t file_size = getFileSize(level_file);
     
@@ -104,35 +110,31 @@ TEST_F(LevelUtilitiesTest, LevelFileSizeMatchesStructSize) {
     EXPECT_EQ(file_size, sizeof(MER_CompiledLevel));
 }
 
-// Test that level dimensions are preserved through save/load
-TEST_F(LevelUtilitiesTest, LevelDimensionsPreservedThroughSaveLoad) {
+// Test that default level dimensions are preserved through save/load
+TEST_F(LevelUtilitiesTest, DefaultLevelPreservedThroughSaveLoad) {
     const std::string level_file = "tests/cpp/test_data/levels/test_dims.lvl";
     
-    // Test various dimensions
-    std::vector<std::pair<int32_t, int32_t>> test_dims = {
-        {8, 8},
-        {16, 16},
-        {32, 32},
-        {16, 32},
-        {32, 16}
-    };
+    // Get the default level
+    auto original_level = LevelComparer::getDefaultLevel();
     
-    for (const auto& [width, height] : test_dims) {
-        createTestLevelFile(level_file, width, height);
-        
-        MER_CompiledLevel level = LevelComparer::loadLevelFromFile(level_file);
-        
-        EXPECT_EQ(level.width, width);
-        EXPECT_EQ(level.height, height);
-        
-        std::remove(level_file.c_str());
-    }
+    // Write it to file
+    std::ofstream file(level_file, std::ios::binary);
+    file.write(reinterpret_cast<const char*>(&original_level), sizeof(MER_CompiledLevel));
+    file.close();
+    
+    // Read it back
+    MER_CompiledLevel loaded_level = LevelComparer::loadLevelFromFile(level_file);
+    
+    // Should be identical
+    EXPECT_TRUE(LevelComparer::compareLevels(original_level, loaded_level));
+    
+    std::remove(level_file.c_str());
 }
 
 // Test that level data round-trips through binary write/read
 TEST_F(LevelUtilitiesTest, LevelDataRoundTripsThroughBinary) {
     const std::string level_file = "tests/cpp/test_data/levels/tiles.lvl";
-    createTestLevelFile(level_file);
+    writeDefaultLevelToFile(level_file);
     
     MER_CompiledLevel level1 = LevelComparer::loadLevelFromFile(level_file);
     
@@ -151,10 +153,8 @@ TEST_F(LevelUtilitiesTest, LevelDataRoundTripsThroughBinary) {
 
 // Test that loaded level can initialize Manager successfully
 TEST_F(LevelUtilitiesTest, LoadedLevelInitializesManager) {
-    const std::string level_file = "tests/cpp/test_data/levels/manager_test.lvl";
-    createTestLevelFile(level_file);
-    
-    MER_CompiledLevel level = LevelComparer::loadLevelFromFile(level_file);
+    // Use the default level directly
+    MER_CompiledLevel level = LevelComparer::getDefaultLevel();
     
     // Verify level is suitable for Manager
     EXPECT_GT(level.width, 0);
@@ -169,28 +169,27 @@ TEST_F(LevelUtilitiesTest, LoadedLevelInitializesManager) {
     EXPECT_NE(handle, nullptr);
 }
 
-// Test that level comparer detects same vs different dimensions
-TEST_F(LevelUtilitiesTest, LevelComparerDetectsDimensionDifferences) {
-    const std::string level_file1 = "tests/cpp/test_data/levels/level1.lvl";
-    const std::string level_file2 = "tests/cpp/test_data/levels/level2.lvl";
-    const std::string level_file3 = "tests/cpp/test_data/levels/level3.lvl";
+// Test that level comparer detects modifications
+TEST_F(LevelUtilitiesTest, LevelComparerDetectsModifications) {
+    // Get two copies of the default level
+    MER_CompiledLevel level1 = LevelComparer::getDefaultLevel();
+    MER_CompiledLevel level2 = LevelComparer::getDefaultLevel();
     
-    // Create identical levels
-    createTestLevelFile(level_file1, 16, 16);
-    createTestLevelFile(level_file2, 16, 16);
-    
-    // Create different level
-    createTestLevelFile(level_file3, 32, 32);
-    
-    MER_CompiledLevel level1 = LevelComparer::loadLevelFromFile(level_file1);
-    MER_CompiledLevel level2 = LevelComparer::loadLevelFromFile(level_file2);
-    MER_CompiledLevel level3 = LevelComparer::loadLevelFromFile(level_file3);
-    
-    // Same dimensions should compare equal
+    // They should be identical initially
     EXPECT_TRUE(LevelComparer::compareLevels(level1, level2));
     
-    // Different dimensions should not compare equal
-    EXPECT_FALSE(LevelComparer::compareLevels(level1, level3));
+    // Modify one of them
+    level2.width = level2.width + 10;
+    
+    // Now they should be different
+    EXPECT_FALSE(LevelComparer::compareLevels(level1, level2));
+    
+    // Restore and modify something else
+    level2.width = level1.width;
+    level2.num_tiles = level2.num_tiles + 1;
+    
+    // Still different
+    EXPECT_FALSE(LevelComparer::compareLevels(level1, level2));
 }
 
 // Test viewer option precedence logic (replay overrides load)

@@ -355,6 +355,41 @@ The test architecture supports two approaches:
 - Levels use `std::optional<CompiledLevel>` for per-world configuration
 - Test levels are minimal (empty tiles) to reduce overhead
 
+#### DefaultLevelProvider
+The `DefaultLevelProvider` class (in `tests/cpp/fixtures/test_level_helper.hpp`) provides access to the embedded default level data for tests. This solves the problem of tests needing a valid level with proper world boundaries set.
+
+**Usage:**
+```cpp
+#include "test_level_helper.hpp"
+
+// For C++ tests using madEscape::CompiledLevel
+CompiledLevel level = DefaultLevelProvider::GetDefaultLevel();
+
+// For C API tests using MER_CompiledLevel  
+MER_CompiledLevel c_level = DefaultLevelProvider::GetDefaultLevelC();
+```
+
+**How it works:**
+- Includes `default_level_data.h` (generated from `build/default_level.lvl`)
+- Provides static methods to convert the byte array to proper level structs
+- Ensures only one copy of the level data exists (avoids duplicate symbol errors)
+- Returns a level with valid world boundaries (min_y/max_y) set properly
+
+**Example in test fixtures:**
+```cpp
+class MadronaCppTestBase {
+    void CreateTestLevels() {
+        CompiledLevel default_level = DefaultLevelProvider::GetDefaultLevel();
+        testLevels.clear();
+        for (int i = 0; i < 4; i++) {
+            testLevels.push_back(std::make_optional(default_level));
+        }
+    }
+};
+```
+
+This approach ensures all tests use a valid level with proper physics boundaries, avoiding "Invalid world boundaries" errors that occur when world_length = 0.
+
 #### Tensor Shape Expectations
 - Action tensor: 2D `[numWorlds * numAgents, actionDims]` where:
   - numAgents = 1 (from `consts.hpp`)

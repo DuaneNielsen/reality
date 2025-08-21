@@ -4,6 +4,7 @@
 #include "mgr.hpp"
 #include "viewer_core.hpp"
 #include "types.hpp"
+#include "test_level_helper.hpp"
 #include <memory>
 #include <vector>
 #include <string>
@@ -47,61 +48,13 @@ protected:
     
     // Helper to create simple test levels
     void CreateTestLevels() {
-        // Create a simple 16x16 level for testing
-        CompiledLevel level {};
-        level.width = 16;
-        level.height = 16;
-        level.scale = 1.0f;
-        level.num_tiles = 256;
-        level.max_entities = level.num_tiles + 6 + 30; // tiles + persistent + buffer
-        std::strncpy(level.level_name, "test_level", sizeof(level.level_name));
-        
-        // Initialize spawn data
-        level.num_spawns = 1;
-        for (int i = 0; i < CompiledLevel::MAX_SPAWNS; i++) {
-            level.spawn_x[i] = 0.0f;
-            level.spawn_y[i] = 0.0f;
-            level.spawn_facing[i] = 0.0f;
-        }
-        
-        // Initialize all tile arrays
-        for (int i = 0; i < CompiledLevel::MAX_TILES; i++) {
-            // Basic tile data
-            if (i < level.num_tiles) {
-                level.object_ids[i] = 0;  // Empty
-                level.tile_x[i] = (i % 16) * level.scale;
-                level.tile_y[i] = (i / 16) * level.scale;
-            } else {
-                level.object_ids[i] = 0;
-                level.tile_x[i] = 0.0f;
-                level.tile_y[i] = 0.0f;
-            }
-            
-            // Z position
-            level.tile_z[i] = 0.0f;
-            
-            // Flags
-            level.tile_persistent[i] = false;
-            level.tile_render_only[i] = false;
-            
-            // Entity metadata
-            level.tile_entity_type[i] = 0;  // EntityType::None
-            level.tile_response_type[i] = 2;  // ResponseType::Static
-            
-            // Transform data (identity)
-            level.tile_scale_x[i] = 1.0f;
-            level.tile_scale_y[i] = 1.0f;
-            level.tile_scale_z[i] = 1.0f;
-            level.tile_rot_w[i] = 1.0f;  // Identity quaternion
-            level.tile_rot_x[i] = 0.0f;
-            level.tile_rot_y[i] = 0.0f;
-            level.tile_rot_z[i] = 0.0f;
-        }
+        // Use the embedded default level
+        CompiledLevel default_level = DefaultLevelProvider::GetDefaultLevel();
         
         // Create levels for all worlds (default 4)
         testLevels.clear();
         for (int i = 0; i < 4; i++) {
-            testLevels.push_back(std::make_optional(level));
+            testLevels.push_back(std::make_optional(default_level));
         }
     }
     
@@ -109,58 +62,11 @@ protected:
     ::testing::AssertionResult CreateManager() {
         // Ensure we have the right number of levels for the configured worlds
         if (testLevels.size() != static_cast<size_t>(config.numWorlds)) {
+            CompiledLevel default_level = DefaultLevelProvider::GetDefaultLevel();
+            
             testLevels.clear();
             for (int i = 0; i < config.numWorlds; i++) {
-                CompiledLevel level {};
-                level.width = 16;
-                level.height = 16;
-                level.scale = 1.0f;
-                level.num_tiles = 256;
-                level.max_entities = level.num_tiles + 6 + 30;
-                std::strncpy(level.level_name, "test_level", sizeof(level.level_name));
-                
-                // Initialize spawn data
-                level.num_spawns = 1;
-                for (int k = 0; k < CompiledLevel::MAX_SPAWNS; k++) {
-                    level.spawn_x[k] = 0.0f;
-                    level.spawn_y[k] = 0.0f;
-                    level.spawn_facing[k] = 0.0f;
-                }
-                
-                // Initialize all tile arrays
-                for (int j = 0; j < CompiledLevel::MAX_TILES; j++) {
-                    // Basic tile data
-                    if (j < level.num_tiles) {
-                        level.object_ids[j] = 0;  // Empty
-                        level.tile_x[j] = (j % 16) * level.scale;
-                        level.tile_y[j] = (j / 16) * level.scale;
-                    } else {
-                        level.object_ids[j] = 0;
-                        level.tile_x[j] = 0.0f;
-                        level.tile_y[j] = 0.0f;
-                    }
-                    
-                    // Z position
-                    level.tile_z[j] = 0.0f;
-                    
-                    // Flags
-                    level.tile_persistent[j] = false;
-                    level.tile_render_only[j] = false;
-                    
-                    // Entity metadata
-                    level.tile_entity_type[j] = 0;  // EntityType::None
-                    level.tile_response_type[j] = 2;  // ResponseType::Static
-                    
-                    // Transform data (identity)
-                    level.tile_scale_x[j] = 1.0f;
-                    level.tile_scale_y[j] = 1.0f;
-                    level.tile_scale_z[j] = 1.0f;
-                    level.tile_rot_w[j] = 1.0f;  // Identity quaternion
-                    level.tile_rot_x[j] = 0.0f;
-                    level.tile_rot_y[j] = 0.0f;
-                    level.tile_rot_z[j] = 0.0f;
-                }
-                testLevels.push_back(std::make_optional(level));
+                testLevels.push_back(std::make_optional(default_level));
             }
             config.perWorldCompiledLevels = testLevels;
         }

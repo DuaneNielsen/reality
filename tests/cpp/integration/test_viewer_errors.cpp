@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "viewer_test_base.hpp"
 #include "mock_components.hpp"
+#include "test_level_helper.hpp"
 #include "optionparser.h"
 #include <fstream>
 
@@ -96,16 +97,8 @@ TEST_F(OptionParsingAndFileErrorTest, MissingLevelFile) {
     std::ifstream test_file(missing_file, std::ios::binary);
     EXPECT_FALSE(test_file.is_open());
     
-    // Load a valid level from the test data directory
-    const char* valid_level_file = "tests/cpp/data/simple_test.lvl";
-    MER_CompiledLevel level = {};
-    
-    std::ifstream lvl_file(valid_level_file, std::ios::binary);
-    ASSERT_TRUE(lvl_file.is_open()) << "Test level file not found: " << valid_level_file;
-    
-    lvl_file.read(reinterpret_cast<char*>(&level), sizeof(MER_CompiledLevel));
-    ASSERT_TRUE(lvl_file.good()) << "Failed to read test level file";
-    lvl_file.close();
+    // Use the embedded default level
+    MER_CompiledLevel level = DefaultLevelProvider::GetDefaultLevelC();
     
     // Manager creation should succeed with valid level data
     MER_Result result = mer_create_manager(&handle, &config, &level, 1);
@@ -287,11 +280,9 @@ TEST_F(OptionParsingAndFileErrorTest, FileExtensionValidation) {
 // Test replay metadata mismatch
 TEST_F(OptionParsingAndFileErrorTest, ReplayMetadataMismatch) {
     // Create a valid recording with specific metadata
-    createTestLevelFile("test.lvl", 16, 16);
-    file_manager_->addFile("test.lvl");
     // Note: Don't add test.rec to cleanup yet - we need it after TearDown()
     
-    auto level = LevelComparer::loadLevelFromFile("test.lvl");
+    auto level = LevelComparer::getDefaultLevel();
     
     // Create recording with 4 worlds
     {
@@ -350,10 +341,7 @@ TEST_F(OptionParsingAndFileErrorTest, ManagerGPUInitFailure) {
 
 // Test trajectory file write errors
 TEST_F(OptionParsingAndFileErrorTest, TrajectoryFileWriteError) {
-    createTestLevelFile("test.lvl", 16, 16);
-    file_manager_->addFile("test.lvl");
-    
-    auto level = LevelComparer::loadLevelFromFile("test.lvl");
+    auto level = LevelComparer::getDefaultLevel();
     config.num_worlds = 1;
     
     ASSERT_TRUE(CreateManager(&level, 1));
@@ -381,11 +369,9 @@ TEST_F(OptionParsingAndFileErrorTest, TrajectoryFileWriteError) {
 
 // Test recording file size limits
 TEST_F(OptionParsingAndFileErrorTest, LargeRecordingFileCreation) {
-    createTestLevelFile("test.lvl", 16, 16);
-    file_manager_->addFile("test.lvl");
     file_manager_->addFile("huge.rec");
     
-    auto level = LevelComparer::loadLevelFromFile("test.lvl");
+    auto level = LevelComparer::getDefaultLevel();
     config.num_worlds = 100;  // Large number of worlds
     config.auto_reset = true;
     
