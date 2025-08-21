@@ -1,27 +1,27 @@
 #include <gtest/gtest.h>
 #include "test_base.hpp"
-#include "test_levels.hpp"
+#include "test_level_helper.hpp"
 
 // Test fixture for GPU-specific tests
 class CApiGPUTest : public MadronaGPUTest {};
 
 // Basic GPU manager creation test
 TEST_F(CApiGPUTest, ManagerCreation) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
 }
 
 // Test GPU manager creation with embedded levels
 TEST_F(CApiGPUTest, ManagerCreationWithEmbeddedLevels) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
 }
 
 // Test GPU tensor properties
 TEST_F(CApiGPUTest, GPUTensorProperties) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     
     MER_Tensor action_tensor;
@@ -38,7 +38,7 @@ TEST_F(CApiGPUTest, GPUTensorProperties) {
 
 // Test all GPU tensor getters
 TEST_F(CApiGPUTest, AllGPUTensorGetters) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     
     // Test action tensor
@@ -76,7 +76,7 @@ TEST_F(CApiGPUTest, AllGPUTensorGetters) {
 
 // Test GPU simulation step
 TEST_F(CApiGPUTest, SimulationStep) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     
     // Run a single step
@@ -86,7 +86,7 @@ TEST_F(CApiGPUTest, SimulationStep) {
 
 // Test multiple GPU steps
 TEST_F(CApiGPUTest, MultipleSteps) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     
     const int num_steps = 10;
@@ -100,7 +100,7 @@ TEST_F(CApiGPUTest, MultipleSteps) {
 TEST_F(CApiGPUTest, LargeWorldCount) {
     config.num_worlds = 1024;  // Large world count for GPU
     
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
     
@@ -129,7 +129,7 @@ protected:
 };
 
 TEST_P(CApiGPUWorldCountTest, VariousGPUWorldCounts) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
     
@@ -152,7 +152,7 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_F(CApiGPUTest, InvalidGPUDevice) {
     config.gpu_id = 999;  // Invalid GPU ID
     
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     MER_Result result = mer_create_manager(&handle, &config, levels.data(), levels.size());
     
     // Should fail with invalid GPU ID
@@ -166,7 +166,7 @@ TEST_F(CApiGPUTest, GPUMemoryStress) {
     
     for (int i = 0; i < iterations; i++) {
         config.num_worlds = 256;
-        auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+        auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
         
         ASSERT_TRUE(CreateManager(levels.data(), levels.size())) 
             << "Failed at iteration " << i;

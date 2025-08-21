@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "test_base.hpp"
-#include "test_levels.hpp"
+#include "test_level_helper.hpp"
 
 // Test fixture for CPU-specific tests
 class CApiCPUTest : public MadronaTestBase {
@@ -14,7 +14,7 @@ protected:
 // Basic manager creation test
 TEST_F(CApiCPUTest, ManagerCreation) {
     // Always provide test levels since manager requires them
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
 }
@@ -22,46 +22,36 @@ TEST_F(CApiCPUTest, ManagerCreation) {
 // Test manager creation with loaded levels
 TEST_F(CApiCPUTest, ManagerCreationWithLoadedLevels) {
     config.num_worlds = 4;
-    MER_CompiledLevel level = TestLevelHelper::LoadLevelFromFile("tests/cpp/test_levels/quick_test.lvl");
-    
-    // Use loaded level if valid, otherwise use generated test level
-    if (level.width > 0 && level.height > 0) {
-        std::vector<MER_CompiledLevel> levels(config.num_worlds, level);
-        ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
-    } else {
-        auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
-        ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
-    }
+    // Use the default level for all worlds
+    std::vector<MER_CompiledLevel> levels(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
+    ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
 }
 
 // Test manager creation with custom levels
 TEST_F(CApiCPUTest, ManagerCreationWithCustomLevels) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
 }
 
 // Test loading level from file
 TEST_F(CApiCPUTest, LevelLoading) {
-    MER_CompiledLevel level = TestLevelHelper::LoadLevelFromFile("tests/cpp/test_levels/quick_test.lvl");
+    // Use the default level which has proper boundaries
+    MER_CompiledLevel level = DefaultLevelProvider::GetDefaultLevelC();
     
-    // Check if level was loaded (width/height should be non-zero for valid level)
-    if (level.width > 0 && level.height > 0) {
-        std::vector<MER_CompiledLevel> levels(config.num_worlds, level);
-        ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
-        EXPECT_NE(handle, nullptr);
-    } else {
-        // If file doesn't exist, use embedded level
-        auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
-        ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
-        EXPECT_NE(handle, nullptr);
-    }
+    // Verify level is valid
+    EXPECT_GT(level.width, 0);
+    EXPECT_GT(level.height, 0);
+    
+    std::vector<MER_CompiledLevel> levels(config.num_worlds, level);
+    ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
+    EXPECT_NE(handle, nullptr);
 }
 
 // Test tensor access
 TEST_F(CApiCPUTest, TensorAccess) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     
     MER_Tensor action_tensor;
@@ -79,7 +69,7 @@ TEST_F(CApiCPUTest, TensorAccess) {
 
 // Test all tensor getters
 TEST_F(CApiCPUTest, AllTensorGetters) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     
     // Test action tensor
@@ -117,7 +107,7 @@ TEST_F(CApiCPUTest, AllTensorGetters) {
 
 // Test simulation step
 TEST_F(CApiCPUTest, SimulationStep) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     
     // Run a single step
@@ -127,7 +117,7 @@ TEST_F(CApiCPUTest, SimulationStep) {
 
 // Test multiple steps
 TEST_F(CApiCPUTest, MultipleSteps) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     
     const int num_steps = 10;
@@ -141,7 +131,7 @@ TEST_F(CApiCPUTest, MultipleSteps) {
 class CApiCPUWorldCountTest : public MadronaWorldCountTest {};
 
 TEST_P(CApiCPUWorldCountTest, VariousWorldCounts) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
     
@@ -167,7 +157,7 @@ TEST_F(CApiCPUTest, NullHandleError) {
 }
 
 TEST_F(CApiCPUTest, NullTensorError) {
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     MER_Result result = mer_get_action_tensor(handle, nullptr);
     EXPECT_NE(result, MER_SUCCESS);
@@ -176,7 +166,7 @@ TEST_F(CApiCPUTest, NullTensorError) {
 // Test manager destruction and recreation
 TEST_F(CApiCPUTest, ManagerRecreation) {
     // Create first manager
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels.data(), levels.size()));
     EXPECT_NE(handle, nullptr);
     
@@ -185,14 +175,14 @@ TEST_F(CApiCPUTest, ManagerRecreation) {
     handle = nullptr;
     
     // Create another one
-    auto levels2 = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels2 = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     ASSERT_TRUE(CreateManager(levels2.data(), levels2.size()));
     EXPECT_NE(handle, nullptr);
 }
 
 TEST_F(CApiCPUTest, RenderOnlyEntitiesInLevel) {
     // Create level with render-only entities
-    auto levels = TestLevelHelper::CreateTestLevels(config.num_worlds);
+    auto levels = std::vector<MER_CompiledLevel>(config.num_worlds, DefaultLevelProvider::GetDefaultLevelC());
     
     // Mark some entities as render-only
     levels[0].tile_render_only[0] = true;  // First tile render-only

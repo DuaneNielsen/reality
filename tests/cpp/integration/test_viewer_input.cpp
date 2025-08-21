@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include "viewer_test_base.hpp"
 #include "mock_components.hpp"
-#include "test_levels.hpp"
 
 // These tests simulate viewer input processing logic
 // They test the keyboard-to-action mapping that mirrors viewer.cpp behavior
