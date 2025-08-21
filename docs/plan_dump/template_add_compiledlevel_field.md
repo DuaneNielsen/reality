@@ -65,30 +65,33 @@ def dict_to_compiled_level(compiled_dict):
     # ... rest of function ...
 ```
 
-### Step 4: CRITICAL - Update C API Field Copy
-**⚠️ THIS STEP IS CRITICAL AND OFTEN MISSED! ⚠️**
+### Step 4: Add Static Assert for New Field
+**⚠️ IMPORTANT: Verify binary compatibility! ⚠️**
 
-In `src/madrona_escape_room_c_api.cpp`, you MUST update the `mer_create_manager()` function to copy the new field from the C structure to the C++ structure. Look for the loop that copies fields from `MER_CompiledLevel` to `CompiledLevel`:
+In `src/madrona_escape_room_c_api.cpp`, add a static_assert to verify the new field has the same offset in both structs. This ensures the direct struct copy will work correctly:
 
 ```cpp
-// Around line 88-147, in the loop that processes compiled levels:
-for (uint32_t i = 0; i < num_compiled_levels; i++) {
-    const MER_CompiledLevel* c_level = &compiled_levels[i];
-    
-    CompiledLevel cpp_level;
-    // ... existing field copies ...
-    
-    // ADD THIS LINE to copy your new field:
-    cpp_level.new_field_name = c_level->new_field_name;  // For single values
-    // OR for arrays:
-    std::memcpy(cpp_level.new_field_name, c_level->new_field_name, 
-                sizeof(type) * array_size);
-    
-    // ... rest of copying ...
-}
+// Around line 77-84, with the other static_assert checks:
+static_assert(offsetof(MER_CompiledLevel, new_field_name) == offsetof(CompiledLevel, new_field_name),
+              "new_field_name offset mismatch");
 ```
 
-**If you skip this step, the C++ simulation will receive default/zero values for your new field, even though Python correctly sets them!**
+**Note:** As of commit `cae1332`, the C API uses direct struct assignment via `reinterpret_cast` instead of manual field copying:
+
+```cpp
+// The actual copying is now just this single line:
+CompiledLevel cpp_level = *reinterpret_cast<const CompiledLevel*>(c_level);
+```
+
+This means:
+- **You don't need to manually copy the new field** - it's automatically included
+- **The structs must remain binary compatible** - verified by static_assert checks
+- **Any new field is automatically copied** as long as it exists in both structs at the same offset
+
+**If the static_assert fails**, it means the structs are not binary compatible and you need to:
+1. Ensure the field is in the same position in both structs
+2. Ensure the field has the same type and size in both structs
+3. Check for any alignment/padding differences
 
 ### Step 5: Update Binary I/O Functions
 In `madrona_escape_room/level_compiler.py`:
@@ -250,11 +253,11 @@ inline void checkLevelProperties(Engine &ctx) {
 ## Validation Checklist
 - [ ] C++ and C structures have identical memory layout
 - [ ] Python ctypes structure matches C layout exactly  
-- [ ] **C API copies new field from C to C++ struct (CRITICAL!)**
+- [ ] **Static assert added for new field offset in C API (CRITICAL!)**
 - [ ] Python dict_to_compiled_level() copies new field
 - [ ] Binary save/load functions handle new field
 - [ ] Default level initializes new field
 - [ ] File inspector validates new struct size automatically
 - [ ] Tests initialize new field properly
-- [ ] Recording/replay works with new field
+- [ ] Recording/replay works with new field (automatic with direct struct copy)
 - [ ] Level files (.lvl) can be written/read by Python

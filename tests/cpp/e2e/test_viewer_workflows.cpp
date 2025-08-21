@@ -118,12 +118,10 @@ protected:
 
 // Complete recording workflow
 TEST_F(SimulatedViewerWorkflowTest, MockViewerRecordingSession) {
-    // 1. Create level
-    createTestLevelFile("game.lvl", 16, 16);
-    file_manager_->addFile("game.lvl");
+    // 1. Use default level
     file_manager_->addFile("session.rec");
     
-    auto level = LevelComparer::loadLevelFromFile("game.lvl");
+    auto level = LevelComparer::loadLevelFromFile("./build/default_level.lvl");
     
     // 2. Setup manager for recording
     config.num_worlds = 2;
@@ -303,11 +301,10 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
 
 // Live simulation with tracking workflow
 TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
-    createTestLevelFile("world.lvl", 16, 16);
-    file_manager_->addFile("world.lvl");
+    // Use default level for trajectory tracking
     file_manager_->addFile("live_trajectory.csv");
     
-    auto level = LevelComparer::loadLevelFromFile("world.lvl");
+    auto level = LevelComparer::loadLevelFromFile("./build/default_level.lvl");
     
     config.num_worlds = 4;
     config.auto_reset = false;  // Manual reset
@@ -420,11 +417,10 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
 
 // Complex multi-world scenario
 TEST_F(SimulatedViewerWorkflowTest, ManagerMultiWorldRecording) {
-    createTestLevelFile("complex.lvl", 32, 32);
-    file_manager_->addFile("complex.lvl");
+    // Use default level for complex test
     file_manager_->addFile("complex.rec");
     
-    auto level = LevelComparer::loadLevelFromFile("complex.lvl");
+    auto level = LevelComparer::loadLevelFromFile("./build/default_level.lvl");
     
     config.num_worlds = 8;
     config.auto_reset = true;
@@ -511,11 +507,10 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerMultiWorldRecording) {
 
 // Pause/resume during recording
 TEST_F(SimulatedViewerWorkflowTest, MockViewerPauseDuringRecording) {
-    createTestLevelFile("pause_test.lvl", 16, 16);
-    file_manager_->addFile("pause_test.lvl");
+    // Use default level for pause test
     file_manager_->addFile("pause_test.rec");
     
-    auto level = LevelComparer::loadLevelFromFile("pause_test.lvl");
+    auto level = LevelComparer::loadLevelFromFile("./build/default_level.lvl");
     
     config.num_worlds = 2;
     config.auto_reset = true;
