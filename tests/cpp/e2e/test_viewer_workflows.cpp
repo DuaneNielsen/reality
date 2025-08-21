@@ -478,9 +478,14 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerMultiWorldRecording) {
         );
     }
     
-    // Continue simulation
-    input.simulateMovement(0, 1);
-    runViewerSession(viewer, mgr, input, 10, is_paused, is_recording);
+    // Continue simulation - set actions for ALL worlds
+    for (int step = 0; step < 10; step++) {
+        for (int world = 0; world < 8; world++) {
+            viewer.setCurrentWorld(world);
+            input.simulateMovement(0, 1);
+            runViewerSession(viewer, mgr, input, 1, is_paused, is_recording);
+        }
+    }
     
     // Stop recording
     mgr.stopRecording();
@@ -550,9 +555,14 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerPauseDuringRecording) {
     is_paused = false;
     steps_while_paused = 0;
     
-    // Run while unpaused
-    input.simulateMovement(1, 1);
-    runViewerSession(viewer, mgr, input, 10, is_paused, is_recording);
+    // Run while unpaused - set actions for both worlds
+    for (int step = 0; step < 10; step++) {
+        for (int world = 0; world < 2; world++) {
+            viewer.setCurrentWorld(world);
+            input.simulateMovement(1, 1);
+            runViewerSession(viewer, mgr, input, 1, is_paused, is_recording);
+        }
+    }
     
     // Pause again
     is_paused = true;
@@ -573,10 +583,15 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerPauseDuringRecording) {
         []() {}
     );
     
-    // Resume and finish
+    // Resume and finish - set actions for both worlds
     is_paused = false;
-    input.simulateMovement(0, 1);
-    runViewerSession(viewer, mgr, input, 5, is_paused, is_recording);
+    for (int step = 0; step < 5; step++) {
+        for (int world = 0; world < 2; world++) {
+            viewer.setCurrentWorld(world);
+            input.simulateMovement(0, 1);
+            runViewerSession(viewer, mgr, input, 1, is_paused, is_recording);
+        }
+    }
     
     mgr.stopRecording();
     
