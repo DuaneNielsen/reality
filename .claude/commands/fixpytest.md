@@ -9,8 +9,8 @@ Use the following process to fix the test:
 * Read the test code and create a summary
 * Validate Test Premise
 * Formulate Working Hypothesis
-* Test Hypothesis
 * Start Debug Loop
+* Decision Point - Reject/Accept Working Hypothesis
 
 ## 1. Run the test to verify the error message
 
@@ -71,16 +71,14 @@ Read the code and think. When sufficient information is gathered, formulate a hy
 
 **Assertion:** When `mgr.step()` in `madrona_escape_room/__init__.py:245` is called, `rewards[0,0]` should be > 0.0 after forward movement
 
-## 5. Test Hypothesis
+Verify the working hypothesis by looking for evidence of the assertion using the debug loop.
 
-Assume the hypothesis is false until the assertion is found to support it.
-
-## 6. Debug Loop
-
-### a. Add the debug loop task list
+Add the debug loop task list
 * Start the test and set the breakpoint
-* Run to the breakpoint and inspect variables
+* Run to the breakpoint and inspect variables to verify the assertion as true or false
 * Reject or accept the hypothesis
+
+## 5. Debug Loop
 
 Add the following to the task list
 
@@ -147,12 +145,16 @@ mcp__python-debugger-mcp__send_pdb_command(command="a")
 mcp__python-debugger-mcp__send_pdb_command(command="w")
 ```
 
-### f. Decision Point
+### f. Decision Point - validate assertions
 
 - **If hypothesis assertion is TRUE:** Create a plan for a fix and propose it to the user
-- **If hypothesis assertion is FALSE:** Reformulate a new working hypothesis
+- **If hypothesis assertion is FALSE:** Add the following task list
 
-### g. Reformulate Working Hypothesis (if needed)
+* Formulate Working Hypothesis
+* Start Debug Loop
+* Decision Point - Reject/Accept Working Hypothesis
+
+### Reformulate
 
 Read the code and think. When sufficient information is gathered, formulate a new hypothesis:
 
@@ -162,7 +164,23 @@ Read the code and think. When sufficient information is gathered, formulate a ne
 
 ### h. iterate in the Debug Loop until working hypothesis is supported
 
-## 7. Additional Debug Techniques for Python Tests
+## 9. Fix Verification
+
+After implementing the fix:
+
+```bash
+# Run the specific test
+uv run --group dev pytest tests/python/$ARGUMENTS -v
+
+# Run related tests to ensure no regression
+uv run --group dev pytest tests/python/ -v --no-gpu
+
+# If GPU test was fixed, verify GPU tests
+uv run --group dev pytest tests/python/ -v -k "gpu"
+```
+
+
+## Additional Debug Techniques for Python Tests
 
 ### Managing Debug Sessions
 
@@ -224,7 +242,7 @@ mcp__madrona_repl__list_variables()
 mcp__madrona_repl__execute_python(code="", reset=true)
 ```
 
-## 8. Common Python Test Issues
+## Common Python Test Issues
 
 ### GPU Manager Constraint
 - Only one GPU manager per process
@@ -248,19 +266,4 @@ make -C build -j8 -s
 
 # Reinstall Python package
 uv pip install -e .
-```
-
-## 9. Fix Verification
-
-After implementing the fix:
-
-```bash
-# Run the specific test
-uv run --group dev pytest tests/python/$ARGUMENTS -v
-
-# Run related tests to ensure no regression
-uv run --group dev pytest tests/python/ -v --no-gpu
-
-# If GPU test was fixed, verify GPU tests
-uv run --group dev pytest tests/python/ -v -k "gpu"
 ```

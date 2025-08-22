@@ -257,10 +257,11 @@ inline void collectObservationsSystem(Engine &ctx,
     }
     
     // Normalize all positions consistently using world length
-    self_obs.globalX = pos.x / world_length;
-    self_obs.globalY = pos.y / world_length;
-    self_obs.globalZ = pos.z / world_length;
-    self_obs.maxY = progress.maxY / world_length;
+    // Adjust for world origin to match reward calculation
+    self_obs.globalX = (pos.x - level.world_min_x) / world_length;
+    self_obs.globalY = (pos.y - level.world_min_y) / world_length;
+    self_obs.globalZ = (pos.z - level.world_min_z) / world_length;
+    self_obs.maxY = (progress.maxY - level.world_min_y) / world_length;
     self_obs.theta = angleObs(computeZAngle(rot));
 }
 

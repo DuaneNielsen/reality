@@ -113,15 +113,17 @@ def test_reward_normalization(cpu_manager):
     print(f"  Max Y (normalized): {max_y:.3f}")
     print(f"  Reward: {final_reward:.3f}")
 
-    # Since world length is 40 (from consts), reward should be Y/40
-    # The normalized observation and reward should be similar
+    # Rewards are normalized to [0, 1] based on Y progress through the world
     assert 0.0 < final_reward <= 1.0, "Reward should be normalized between 0 and 1"
 
-    # With the wall blocking at row 4, the agent can progress through the gap
-    # The gap allows movement and the agent can reach about 44% of the world
+    # The observation maxY and reward should now be consistent after the C++ fix
+    assert abs(final_reward - max_y) < 0.01, "Reward and observation maxY should match"
+
+    # With the gap in the wall at row 4, the agent can pass through and reach
+    # nearly the end of the level (about 90% progress)
     assert (
-        0.05 < final_reward < 0.50
-    ), "Reward should reflect limited but substantial progress through gap"
+        0.85 < final_reward < 0.95
+    ), "Reward should reflect nearly complete progress through the gap"
 
 
 # NOTE: Removed test_recorded_actions_reward - replaced by comprehensive native recording tests
