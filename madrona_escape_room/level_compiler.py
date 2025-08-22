@@ -156,6 +156,17 @@ def _validate_tileset(tileset: Dict) -> None:
         if not isinstance(tile_def["asset"], str):
             raise ValueError(f"Asset name for '{char}' must be a string")
 
+        # Validate optional randomization parameters
+        for rand_field in ["rand_x", "rand_y", "rand_z", "rand_rot_z"]:
+            if rand_field in tile_def:
+                value = tile_def[rand_field]
+                if not isinstance(value, (int, float)):
+                    raise ValueError(
+                        f"{rand_field} for '{char}' must be a number, got {type(value)}"
+                    )
+                if value < 0:
+                    raise ValueError(f"{rand_field} for '{char}' must be non-negative, got {value}")
+
 
 def compile_level(
     ascii_str: str,
@@ -245,14 +256,23 @@ def compile_level(
     # Validate the tileset
     _validate_tileset(tileset)
 
-    # Build character to object ID mapping
+    # Build character to object ID mapping and randomization parameters
     char_to_tile = {}
+    char_to_rand = {}  # Store randomization parameters per character
     for char, tile_def in tileset.items():
         asset_name = tile_def["asset"]
         try:
             char_to_tile[char] = _get_asset_object_id(asset_name)
         except ValueError as e:
             raise ValueError(f"Invalid asset '{asset_name}' for character '{char}': {e}")
+
+        # Extract randomization parameters
+        char_to_rand[char] = {
+            "rand_x": tile_def.get("rand_x", 0.0),
+            "rand_y": tile_def.get("rand_y", 0.0),
+            "rand_z": tile_def.get("rand_z", 0.0),
+            "rand_rot_z": tile_def.get("rand_rot_z", 0.0),
+        }
 
     tiles = []
     spawns = []
@@ -273,7 +293,7 @@ def compile_level(
                     spawns.append((world_x, world_y))
                     # Don't add spawn tiles to tile array - handled by agent placement
                 elif tile_type != TILE_EMPTY:
-                    tiles.append((world_x, world_y, tile_type))
+                    tiles.append((world_x, world_y, tile_type, char))  # Add char to track source
 
                     # Count entities that will need physics bodies and BVH slots
                     # Note: This is a simplified count - actual requirements depend on asset
@@ -305,7 +325,7 @@ def compile_level(
     tile_persistent = [False] * MAX_TILES_C_API  # Default: all tiles non-persistent
 
     # Fill arrays with actual tile data
-    for i, (world_x, world_y, tile_type) in enumerate(tiles):
+    for i, (world_x, world_y, tile_type, char) in enumerate(tiles):
         object_ids[i] = tile_type
         tile_x[i] = world_x
         tile_y[i] = world_y
@@ -340,6 +360,12 @@ def compile_level(
     tile_rot_y = [0.0] * MAX_TILES_C_API
     tile_rot_z = [0.0] * MAX_TILES_C_API
 
+    # Initialize randomization arrays
+    tile_rand_x = [0.0] * MAX_TILES_C_API
+    tile_rand_y = [0.0] * MAX_TILES_C_API
+    tile_rand_z = [0.0] * MAX_TILES_C_API
+    tile_rand_rot_z = [0.0] * MAX_TILES_C_API
+
     # Set entity types based on object IDs and apply appropriate scaling
     # Get the correct asset IDs from the C API
     from .ctypes_bindings import get_physics_asset_object_id
@@ -353,7 +379,14 @@ def compile_level(
     # We need to scale walls to fill the gap between tiles
     wall_scale_factor = scale  # Scale walls to match tile spacing
 
-    for i, (_, _, tile_type) in enumerate(tiles):
+    for i, (_, _, tile_type, char) in enumerate(tiles):
+        # Set randomization parameters from tileset
+        rand_params = char_to_rand.get(char, {})
+        tile_rand_x[i] = rand_params.get("rand_x", 0.0)
+        tile_rand_y[i] = rand_params.get("rand_y", 0.0)
+        tile_rand_z[i] = rand_params.get("rand_z", 0.0)
+        tile_rand_rot_z[i] = rand_params.get("rand_rot_z", 0.0)
+
         if tile_type == wall_id:
             tile_entity_type[i] = 2  # EntityType::Wall
             # Scale walls to match tile spacing
@@ -437,6 +470,10 @@ def compile_level(
         "tile_rot_x": tile_rot_x,
         "tile_rot_y": tile_rot_y,
         "tile_rot_z": tile_rot_z,
+        "tile_rand_x": tile_rand_x,  # Randomization arrays
+        "tile_rand_y": tile_rand_y,
+        "tile_rand_z": tile_rand_z,
+        "tile_rand_rot_z": tile_rand_rot_z,
         # Metadata for debugging/validation (not part of C struct)
         "_spawn_points": spawns,
         "_entity_count": entity_count,
@@ -480,6 +517,10 @@ def validate_compiled_level(compiled: Dict) -> None:
         "tile_rot_x",
         "tile_rot_y",
         "tile_rot_z",
+        "tile_rand_x",
+        "tile_rand_y",
+        "tile_rand_z",
+        "tile_rand_rot_z",
     ]
     for field in required_fields:
         if field not in compiled:
@@ -516,6 +557,10 @@ def validate_compiled_level(compiled: Dict) -> None:
         "tile_rot_x",
         "tile_rot_y",
         "tile_rot_z",
+        "tile_rand_x",
+        "tile_rand_y",
+        "tile_rand_z",
+        "tile_rand_rot_z",
     ]
     for array_name in tile_arrays:
         if len(compiled[array_name]) != MAX_TILES_C_API:

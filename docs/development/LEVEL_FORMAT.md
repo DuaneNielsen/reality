@@ -58,7 +58,10 @@ world_y = -(y - height / 2.0 + 0.5) * scale
 ### Dimension Limits
 - **Width**: 3-64 characters
 - **Height**: 3-64 characters  
-- **Total tiles**: Limited by `MAX_TILES_C_API` (default 1024)
+- **Total tiles**: Limited by `CompiledLevel::MAX_TILES` (1024)
+- **Max grid**: 32×32 (1024 tiles)
+- **Spawn points**: Maximum 8 (CompiledLevel::MAX_SPAWNS)
+- **Level name**: Maximum 64 characters
 
 ## JSON Formats
 
@@ -78,7 +81,13 @@ world_y = -(y - height / 2.0 + 0.5) * scale
     "ascii": "###O###\n#S...C#\n#######",
     "tileset": {
         "#": {"asset": "wall"},
-        "C": {"asset": "cube"},
+        "C": {
+            "asset": "cube",
+            "rand_x": 1.0,      // Optional: Random X offset range
+            "rand_y": 1.0,      // Optional: Random Y offset range
+            "rand_z": 0.5,      // Optional: Random Z offset range
+            "rand_rot_z": 3.14  // Optional: Random Z rotation range (radians)
+        },
         "O": {"asset": "cylinder"},
         "S": {"asset": "spawn"},
         ".": {"asset": "empty"}
@@ -107,48 +116,82 @@ Array of initial facing angles in radians for each agent:
 - `3π/2` - West (left)
 
 #### `tileset` (optional)
-Dictionary mapping single characters to asset definitions:
+Dictionary mapping single characters to asset definitions with optional randomization:
 ```json
 "tileset": {
-    "<char>": {"asset": "<asset_name>"}
+    "<char>": {
+        "asset": "<asset_name>",
+        "rand_x": <float>,      // Optional: Random X offset range (0.0 to value)
+        "rand_y": <float>,      // Optional: Random Y offset range (0.0 to value)
+        "rand_z": <float>,      // Optional: Random Z offset range (0.0 to value)
+        "rand_rot_z": <float>   // Optional: Random Z rotation range in radians (0.0 to value)
+    }
 }
 ```
-Asset names must match registered physics or render assets in the C API.
+- Asset names must match registered physics or render assets in the C API
+- Randomization values specify the total range; actual offsets are -range/2 to +range/2
+- Randomization is applied per episode reset, creating variety without changing level layout
 
 ## Compiled Level Structure
 
-The compiler outputs a dictionary matching the C++ `MER_CompiledLevel` struct:
+The compiler outputs a dictionary matching the C++ `CompiledLevel` struct (types.hpp):
 
-### Core Fields
-- `num_tiles`: Number of entities to create
-- `max_entities`: BVH size hint (includes persistent entities)
+### Header Fields
+- `num_tiles`: Number of entities to create (actual tiles used)
+- `max_entities`: BVH size hint for physics system (includes persistent entities)
 - `width`, `height`: Grid dimensions
-- `scale`: World scale factor
-- `level_name`: Level identifier string
-- `array_size`: Compiler-calculated size (width × height)
+- `scale`: World scale factor (units per ASCII character)
+- `level_name`: Level identifier string (max 64 characters)
+- `array_size`: Compiler-calculated size (width × height) - for validation
 
 ### World Boundaries
-- `world_min_x/y/z`, `world_max_x/y/z`: Calculated world space boundaries
+Calculated from grid dimensions × scale:
+- `world_min_x`, `world_max_x`: X-axis boundaries in world units
+- `world_min_y`, `world_max_y`: Y-axis boundaries in world units
+- `world_min_z`, `world_max_z`: Z-axis boundaries in world units
 
-### Tile Arrays (fixed size: `MAX_TILES_C_API`)
-- `object_ids[]`: Asset object IDs from C API
-- `tile_x/y/z[]`: World coordinates
-- `tile_persistent[]`: Persistence flags (all false by default)
-- `tile_render_only[]`: Render-only flags (all false by default)
-- `tile_entity_type[]`: EntityType values (Wall=2, Cube=1, None=0)
-- `tile_response_type[]`: ResponseType values (Static=2 by default)
-- `tile_scale_x/y/z[]`: Per-tile scale factors
-- `tile_rot_w/x/y/z[]`: Rotation quaternion components
-
-### Spawn Arrays (fixed size: `MAX_SPAWNS_C_API`) 
+### Spawn Arrays (fixed size: MAX_SPAWNS = 8)
 - `num_spawns`: Number of spawn points found
-- `spawn_x[]`: Spawn X coordinates
-- `spawn_y[]`: Spawn Y coordinates  
-- `spawn_facing[]`: Agent facing angles in radians
+- `spawn_x[MAX_SPAWNS]`: Spawn X positions in world units
+- `spawn_y[MAX_SPAWNS]`: Spawn Y positions in world units
+- `spawn_facing[MAX_SPAWNS]`: Agent facing angles in radians
 
-### Special Scaling Behavior
-- **Walls**: Automatically scaled to match tile spacing (`scale` parameter)
-- **Other assets**: Keep default scale (1.0) unless modified
+### Tile Data Arrays (fixed size: MAX_TILES = 1024)
+All arrays are packed for GPU efficiency:
+
+#### Position & Identity
+- `object_ids[MAX_TILES]`: Asset ID for each tile (from AssetIDs namespace)
+- `tile_x[MAX_TILES]`: World X position
+- `tile_y[MAX_TILES]`: World Y position
+- `tile_z[MAX_TILES]`: World Z position
+
+#### Flags & Types
+- `tile_persistent[MAX_TILES]`: Whether tile persists across episodes (bool)
+- `tile_render_only[MAX_TILES]`: Whether tile is render-only without physics (bool)
+- `tile_entity_type[MAX_TILES]`: EntityType enum values
+  - 0 = EntityType::None
+  - 1 = EntityType::Cube
+  - 2 = EntityType::Wall
+  - 3 = EntityType::Agent
+- `tile_response_type[MAX_TILES]`: Physics ResponseType values
+  - 0 = Dynamic (movable)
+  - 1 = Kinematic (scripted motion)
+  - 2 = Static (immovable, default)
+
+#### Transform Arrays
+- `tile_scale_x/y/z[MAX_TILES]`: Local scale factors per axis
+- `tile_rot_w/x/y/z[MAX_TILES]`: Rotation quaternion components (w,x,y,z)
+
+#### Randomization Arrays
+Enable procedural variation per episode reset:
+- `tile_rand_x/y/z[MAX_TILES]`: Random position offset ranges (-range/2 to +range/2)
+- `tile_rand_rot_z[MAX_TILES]`: Random Z-axis rotation range in radians
+
+When non-zero, the simulation applies random offsets within these ranges each episode, creating variety while maintaining the same logical level layout. This is particularly useful for RL training to prevent overfitting to exact positions.
+
+### Special Behaviors
+- **Wall Scaling**: Walls are automatically scaled to match tile spacing (scale parameter)
+- **Default Values**: Non-specified tiles use identity transforms and static physics
 
 ## Usage Examples
 
@@ -189,6 +232,24 @@ json_level = {
         ".": {"asset": "empty"}
     },
     "scale": 2.0
+}
+compiled = compile_level_from_json(json_level)
+
+# Tileset with randomization for dynamic environments
+json_level = {
+    "ascii": "###\n#SC#\n###",
+    "tileset": {
+        "#": {"asset": "wall"},
+        "C": {
+            "asset": "cube",
+            "rand_x": 1.0,       # ±0.5 units X offset per episode
+            "rand_y": 1.0,       # ±0.5 units Y offset per episode
+            "rand_rot_z": 3.14   # ±90° rotation per episode
+        },
+        "S": {"asset": "spawn"},
+        ".": {"asset": "empty"}
+    },
+    "scale": 2.5
 }
 compiled = compile_level_from_json(json_level)
 
@@ -235,14 +296,15 @@ The binary format is handled entirely by the C API through:
 - `mer_read_compiled_level()` - Read level from file
 
 ### Constants from C API
-The compiler dynamically fetches these values:
-- `MAX_TILES_C_API` - Maximum tiles per level (default: 1024)
-- `MAX_SPAWNS_C_API` - Maximum spawn points (default: 8)
+The compiler dynamically fetches these values to match the C++ CompiledLevel struct:
+- `MAX_TILES_C_API` - Maximum tiles per level (1024 - supports up to 32x32 grid)
+- `MAX_SPAWNS_C_API` - Maximum spawn points (8)
+- `MAX_LEVEL_NAME_LENGTH` - Maximum level name length (64 characters)
 
 These values are retrieved at runtime using:
 ```python
-MAX_TILES_C_API = _get_max_tiles_from_c_api()
-MAX_SPAWNS_C_API = _get_max_spawns_from_c_api()
+MAX_TILES_C_API = _get_max_tiles_from_c_api()   # CompiledLevel::MAX_TILES
+MAX_SPAWNS_C_API = _get_max_spawns_from_c_api()  # CompiledLevel::MAX_SPAWNS
 ```
 
 ## Entity Allocation
@@ -261,9 +323,10 @@ max_entities = entity_count + persistent_entities + buffer
 All persistent entities have ObjectID components and consume BVH slots.
 
 ### Entity Type Assignment
-Based on asset object IDs:
+Based on asset object IDs (matching EntityType enum in types.hpp):
 - Wall assets → EntityType::Wall (2)
 - Cube assets → EntityType::Cube (1)
+- Agent spawn → EntityType::Agent (3) - set during agent creation
 - Other assets → EntityType::None (0)
 
 ### Asset ID Resolution
@@ -338,6 +401,27 @@ def test_custom_assets():
     compiled = compile_level_from_json(json_level)
     mgr = SimManager(compiled_level=compiled)
     # Test interaction with cylinder asset
+
+def test_randomized_level():
+    # Test with randomized cube positions
+    json_level = {
+        "ascii": "###\n#SC#\n###",
+        "tileset": {
+            "#": {"asset": "wall"},
+            "C": {
+                "asset": "cube",
+                "rand_x": 0.8,       # Cube position varies by ±0.4 units
+                "rand_y": 0.8,
+                "rand_rot_z": 1.57   # Cube rotation varies by ±45°
+            },
+            "S": {"asset": "spawn"},
+            ".": {"asset": "empty"}
+        },
+        "scale": 2.0
+    }
+    compiled = compile_level_from_json(json_level)
+    mgr = SimManager(compiled_level=compiled)
+    # Each episode reset will place cube at slightly different position
 ```
 
 This allows tests to:

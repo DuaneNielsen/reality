@@ -48,6 +48,146 @@ class TestTilesetFunctionality:
         wall_id = _get_asset_object_id("wall")
         assert wall_id > 0, f"Wall should have valid ID, got {wall_id}"
 
+    def test_tileset_with_randomization(self):
+        """Test tileset with randomization parameters"""
+        tileset = {
+            "#": {"asset": "wall"},
+            "C": {
+                "asset": "cube",
+                "rand_x": 1.0,
+                "rand_y": 0.5,
+                "rand_z": 0.25,
+                "rand_rot_z": 3.14159,
+            },
+            "S": {"asset": "spawn"},
+            ".": {"asset": "empty"},
+        }
+
+        level = """###
+#SC#
+###"""
+
+        compiled = compile_level(level, tileset=tileset)
+        validate_compiled_level(compiled)
+
+        # Find the cube tile and verify randomization
+        cube_id = _get_asset_object_id("cube")
+        cube_found = False
+        for i in range(compiled["num_tiles"]):
+            if compiled["object_ids"][i] == cube_id:
+                assert (
+                    compiled["tile_rand_x"][i] == 1.0
+                ), f"Expected rand_x=1.0, got {compiled['tile_rand_x'][i]}"
+                assert (
+                    compiled["tile_rand_y"][i] == 0.5
+                ), f"Expected rand_y=0.5, got {compiled['tile_rand_y'][i]}"
+                assert (
+                    compiled["tile_rand_z"][i] == 0.25
+                ), f"Expected rand_z=0.25, got {compiled['tile_rand_z'][i]}"
+                assert (
+                    abs(compiled["tile_rand_rot_z"][i] - 3.14159) < 0.001
+                ), f"Expected rand_rot_z≈π, got {compiled['tile_rand_rot_z'][i]}"
+                cube_found = True
+                break
+
+        assert cube_found, "Cube tile not found in compiled level"
+
+        # Verify walls have no randomization
+        wall_id = _get_asset_object_id("wall")
+        for i in range(compiled["num_tiles"]):
+            if compiled["object_ids"][i] == wall_id:
+                assert (
+                    compiled["tile_rand_x"][i] == 0.0
+                ), f"Wall should have rand_x=0, got {compiled['tile_rand_x'][i]}"
+                assert (
+                    compiled["tile_rand_y"][i] == 0.0
+                ), f"Wall should have rand_y=0, got {compiled['tile_rand_y'][i]}"
+                assert (
+                    compiled["tile_rand_z"][i] == 0.0
+                ), f"Wall should have rand_z=0, got {compiled['tile_rand_z'][i]}"
+                assert (
+                    compiled["tile_rand_rot_z"][i] == 0.0
+                ), f"Wall should have rand_rot_z=0, got {compiled['tile_rand_rot_z'][i]}"
+                break  # Check just one wall
+
+    def test_json_level_with_randomization(self):
+        """Test JSON level format with randomization parameters"""
+        json_level = {
+            "ascii": "###O###\n#S...C#\n#######",
+            "tileset": {
+                "#": {"asset": "wall"},
+                "C": {
+                    "asset": "cube",
+                    "rand_x": 2.0,
+                    "rand_rot_z": 1.57,  # π/2 radians
+                },
+                "O": {"asset": "cylinder", "rand_y": 0.3},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "scale": 2.0,
+        }
+
+        compiled = compile_level_from_json(json_level)
+        validate_compiled_level(compiled)
+
+        # Verify cube randomization
+        cube_id = _get_asset_object_id("cube")
+        for i in range(compiled["num_tiles"]):
+            if compiled["object_ids"][i] == cube_id:
+                assert (
+                    compiled["tile_rand_x"][i] == 2.0
+                ), f"Cube rand_x should be 2.0, got {compiled['tile_rand_x'][i]}"
+                assert (
+                    compiled["tile_rand_y"][i] == 0.0
+                ), f"Cube rand_y should be 0.0, got {compiled['tile_rand_y'][i]}"
+                assert (
+                    abs(compiled["tile_rand_rot_z"][i] - 1.57) < 0.01
+                ), f"Cube rand_rot_z should be ~1.57, got {compiled['tile_rand_rot_z'][i]}"
+                break
+
+        # Verify cylinder randomization
+        cylinder_id = _get_asset_object_id("cylinder")
+        for i in range(compiled["num_tiles"]):
+            if compiled["object_ids"][i] == cylinder_id:
+                assert (
+                    compiled["tile_rand_x"][i] == 0.0
+                ), f"Cylinder rand_x should be 0.0, got {compiled['tile_rand_x'][i]}"
+                assert (
+                    compiled["tile_rand_y"][i] == 0.3
+                ), f"Cylinder rand_y should be 0.3, got {compiled['tile_rand_y'][i]}"
+                assert (
+                    compiled["tile_rand_z"][i] == 0.0
+                ), f"Cylinder rand_z should be 0.0, got {compiled['tile_rand_z'][i]}"
+                assert (
+                    compiled["tile_rand_rot_z"][i] == 0.0
+                ), f"Cylinder rand_rot_z should be 0.0, got {compiled['tile_rand_rot_z'][i]}"
+                break
+
+    def test_validate_tileset_with_invalid_randomization(self):
+        """Test that tileset validation catches invalid randomization parameters"""
+        # Test negative randomization value
+        tileset = {
+            "C": {
+                "asset": "cube",
+                "rand_x": -1.0,  # Invalid: negative
+            }
+        }
+
+        with pytest.raises(ValueError, match="rand_x.*must be non-negative"):
+            _validate_tileset(tileset)
+
+        # Test non-numeric randomization value
+        tileset = {
+            "C": {
+                "asset": "cube",
+                "rand_rot_z": "invalid",  # Invalid: not a number
+            }
+        }
+
+        with pytest.raises(ValueError, match="rand_rot_z.*must be a number"):
+            _validate_tileset(tileset)
+
         cube_id = _get_asset_object_id("cube")
         assert cube_id > 0, f"Cube should have valid ID, got {cube_id}"
 
