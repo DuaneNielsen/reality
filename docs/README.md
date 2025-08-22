@@ -1,6 +1,6 @@
 # Madrona Escape Room Documentation
 
-This documentation covers the Madrona Escape Room - a high-performance 3D multi-agent reinforcement learning environment built on the Madrona Engine.
+This documentation covers the Madrona Escape Room - a high-performance 3D single-agent reinforcement learning environment built on the Madrona Engine.
 
 ## Documentation Structure
 
