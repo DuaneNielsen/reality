@@ -75,11 +75,16 @@ Remove build artifacts, temporary files, and binary data from version control.
 - `*.png` (temporary screenshots)
 - `*.txt` (temporary notes, except CMakeLists.txt)
 - `*.mp4` (video recordings)
+- `*.cpp` (test/debug files - source should be in src/)
+
+**Binary Files to Remove:**
+- `*.lvl` (compiled level files - these are build artifacts)
+- Level files should be generated from ASCII format or code
 
 **Keep These Files:**
 - `CMakeLists.txt` (build system)
 - `README.md`, `*.md` (documentation)
-- `*.py`, `*.cpp`, `*.hpp` (source code)
+- `setup.py`, `setup_build.py` (Python package setup files only)
 
 ### Cleanup Steps
 
@@ -169,9 +174,11 @@ The .gitignore should include these patterns:
 /*.xml
 /*.bin
 /*.txt    # Add if needed
+/*.cpp    # Test/debug files in root
 
 # Binary files globally
 *.bin
+*.lvl     # Compiled level files
 
 # Build artifacts
 /build

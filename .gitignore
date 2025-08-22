@@ -40,6 +40,7 @@ imgui.ini
 /*.csv
 /*.xml
 /*.bin
+/*.cpp
 
 
 # IDE configuration
@@ -52,6 +53,9 @@ imgui.ini
 
 # Temporary/scratch files
 scratch/
+
+# Compiled level files (build artifacts)
+*.lvl
 
 # Test artifacts (except test data)
 tests/python/data/*.bin
