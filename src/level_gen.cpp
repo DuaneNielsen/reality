@@ -15,10 +15,11 @@ static inline float randInRangeCentered(Engine &ctx, float range)
     return ctx.data().rng.sampleUniform() * range - range / 2.f;
 }
 
-static inline float randBetween(Engine &ctx, float min, float max)
-{
-    return ctx.data().rng.sampleUniform() * (max - min) + min;
-}
+// Commented out - currently unused but may be useful in future
+// static inline float randBetween(Engine &ctx, float min, float max)
+// {
+//     return ctx.data().rng.sampleUniform() * (max - min) + min;
+// }
 
 // Initialize the basic components needed for physics rigid body entities
 static inline void setupRigidBodyEntity(
@@ -246,7 +247,7 @@ void createPersistentEntities(Engine &ctx)
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
     
     // Use the scale from the compiled level to size tiles properly
-    float tile_scale = level.scale;
+    // float tile_scale = level.scale;  // Currently unused
     
     // Create persistent tiles
     for (int32_t i = 0; i < level.num_tiles && i < CompiledLevel::MAX_TILES; i++) {
@@ -284,7 +285,7 @@ static void resetPersistentEntities(Engine &ctx)
 
      // Get compiled level for persistent entity setup
      CompiledLevel& level = ctx.singleton<CompiledLevel>();
-     float tile_scale = level.scale;
+     // float tile_scale = level.scale;  // Currently unused
      
      // Set up physics for persistent level entities
      CountT persistent_idx = 0;
@@ -330,7 +331,7 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
     CountT entity_count = 0;
     
     // Use the scale from the compiled level to size tiles properly
-    float tile_scale = level->scale;
+    // float tile_scale = level->scale;  // Currently unused
     
     // Generate tiles from compiled data
     for (int32_t i = 0; i < level->num_tiles && entity_count < CompiledLevel::MAX_TILES; i++) {
