@@ -88,7 +88,11 @@
       "Bash(./tests/cpp/mad_escape_tests:*)",
       "Bash(git -C external/madrona status)",
       "Bash(git -C external/madrona clean -fd)",
-      "Bash(git -C external/madrona/external/meshoptimizer status --short)"
+      "Bash(git -C external/madrona/external/meshoptimizer status --short)",
+      "Bash(git -C external/mcp-gdb status)",
+      "Bash(git -C external/madrona status --short)",
+      "Bash(git -C external/madrona diff HEAD)",
+      "Bash(git -C external/mcp-gdb status --short)"
     ],
     "deny": []
   },
