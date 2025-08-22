@@ -101,103 +101,107 @@ def test_replay_metadata_complete_structure(cpu_manager):
 
 
 def test_compiled_level_structure_validation(cpu_manager):
-    """Test CompiledLevel structure validation and embedded data integrity"""
-    mgr = cpu_manager
+    """Test CompiledLevel binary read/write round-trip - what goes in should come out"""
+    import ctypes
 
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
-        recording_path = f.name
+    from madrona_escape_room.ctypes_bindings import (
+        MER_SUCCESS,
+        MER_CompiledLevel,
+        compiled_level_to_dict,
+        dict_to_compiled_level,
+        lib,
+    )
+    from madrona_escape_room.level_compiler import compile_level
+
+    # Create a test level with known values
+    test_level = """
+    ####
+    #SS#
+    #  #
+    ####
+    """
+
+    # Compile the level to get a dictionary
+    compiled_dict = compile_level(test_level, scale=3.5, level_name="test_roundtrip")
+
+    # Convert to ctypes structure
+    level_write = dict_to_compiled_level(compiled_dict)
+
+    with tempfile.NamedTemporaryFile(suffix=".lvl", delete=False) as f:
+        level_path = f.name
 
     try:
-        # Create recording
-        mgr.start_recording(recording_path, seed=999)
+        # Write the compiled level to binary file
+        result = lib.mer_write_compiled_level(level_path.encode("utf-8"), ctypes.byref(level_write))
+        assert result == MER_SUCCESS, f"Failed to write compiled level: {result}"
 
-        action_tensor = mgr.action_tensor().to_torch()
+        # Read it back
+        level_read = MER_CompiledLevel()
+        result = lib.mer_read_compiled_level(level_path.encode("utf-8"), ctypes.byref(level_read))
+        assert result == MER_SUCCESS, f"Failed to read compiled level: {result}"
 
-        # Run a single step
-        action_tensor.fill_(0)
-        action_tensor[:, 0] = 1
-        action_tensor[:, 1] = 0
-        action_tensor[:, 2] = 2
-        mgr.step()
+        # Note: Direct field validation is sufficient for round-trip testing
+        # read_dict = compiled_level_to_dict(level_read)
 
-        mgr.stop_recording()
+        # Verify key fields match
+        assert (
+            level_read.num_tiles == level_write.num_tiles
+        ), f"num_tiles mismatch: {level_read.num_tiles} != {level_write.num_tiles}"
+        assert (
+            level_read.width == level_write.width
+        ), f"width mismatch: {level_read.width} != {level_write.width}"
+        assert (
+            level_read.height == level_write.height
+        ), f"height mismatch: {level_read.height} != {level_write.height}"
+        assert (
+            abs(level_read.scale - level_write.scale) < 0.001
+        ), f"scale mismatch: {level_read.scale} != {level_write.scale}"
+        assert (
+            level_read.num_spawns == level_write.num_spawns
+        ), f"num_spawns mismatch: {level_read.num_spawns} != {level_write.num_spawns}"
 
-        # Read file structure
-        with open(recording_path, "rb") as f:
-            # Skip ReplayMetadata (192 bytes for version 2)
-            f.seek(192)
+        # Verify level name
+        level_name_read = level_read.level_name.decode("utf-8").rstrip("\x00")
+        level_name_write = level_write.level_name.decode("utf-8").rstrip("\x00")
+        assert (
+            level_name_read == level_name_write
+        ), f"level_name mismatch: '{level_name_read}' != '{level_name_write}'"
 
-            level_start = f.tell()
-            print(f"=== CompiledLevel at offset {level_start} ===")
+        # Verify world boundaries
+        assert abs(level_read.world_min_x - level_write.world_min_x) < 0.001
+        assert abs(level_read.world_max_x - level_write.world_max_x) < 0.001
+        assert abs(level_read.world_min_y - level_write.world_min_y) < 0.001
+        assert abs(level_read.world_max_y - level_write.world_max_y) < 0.001
 
-            # Read CompiledLevel header fields
-            num_tiles = struct.unpack("<i", f.read(4))[0]
-            max_entities = struct.unpack("<i", f.read(4))[0]
-            width = struct.unpack("<i", f.read(4))[0]
-            height = struct.unpack("<i", f.read(4))[0]
-            scale = struct.unpack("<f", f.read(4))[0]
-            level_name_bytes = f.read(64)
-            # Handle potential non-ASCII characters in level_name
-            try:
-                level_name = level_name_bytes.decode("ascii").rstrip("\x00")
-            except UnicodeDecodeError:
-                # If ASCII decode fails, try to extract null-terminated string
-                null_pos = level_name_bytes.find(b"\x00")
-                if null_pos >= 0:
-                    level_name = level_name_bytes[:null_pos].decode("ascii", errors="replace")
-                else:
-                    level_name = level_name_bytes.decode("ascii", errors="replace").rstrip("\x00")
-
-            print("CompiledLevel header:")
-            print(f"  num_tiles: {num_tiles}")
-            print(f"  max_entities: {max_entities}")
-            print(f"  width: {width}")
-            print(f"  height: {height}")
-            print(f"  scale: {scale}")
-            print(f"  level_name: '{level_name}'")
-
-            # Validate CompiledLevel constraints
-            assert 0 <= num_tiles <= 1024, f"num_tiles {num_tiles} not in valid range [0, 1024]"
-            assert max_entities > 0, f"max_entities should be positive, got {max_entities}"
-            assert width > 0, f"width should be positive, got {width}"
-            assert height > 0, f"height should be positive, got {height}"
-            assert scale > 0, f"scale should be positive, got {scale}"
-            assert level_name, "level_name should not be empty"
-
-            # Read spawn data
-            num_spawns = struct.unpack("<i", f.read(4))[0]
-            assert 0 <= num_spawns <= 8, f"num_spawns {num_spawns} not in valid range [0, 8]"
-
-            # Skip spawn arrays (8 * 4 * 3 = 96 bytes)
-            f.read(96)
-
-            # Skip tile data arrays (1024 * 4 * 3 = 12288 bytes)
-            f.read(12288)
-
-            # Verify we read exactly CompiledLevel size
-            level_end = f.tell()
-            compiled_level_size = level_end - level_start
-
-            # Expected size calculation:
-            # Header: 4+4+4+4+4+64 = 84 bytes
-            # Spawn data: 4 + (8*4*3) = 100 bytes
-            # Tile data: 1024*4*3 = 12288 bytes
-            # Total: 84 + 100 + 12288 = 12472 bytes
-            expected_size = 84 + 100 + 12288
-
-            print(f"CompiledLevel size: {compiled_level_size} bytes")
-            print(f"Expected size: {expected_size} bytes")
-
-            # Note: Actual size might differ due to struct padding
+        # Verify spawn positions match
+        for i in range(level_read.num_spawns):
             assert (
-                compiled_level_size >= expected_size
-            ), f"CompiledLevel too small: {compiled_level_size} < {expected_size}"
+                abs(level_read.spawn_x[i] - level_write.spawn_x[i]) < 0.001
+            ), f"spawn_x[{i}] mismatch"
+            assert (
+                abs(level_read.spawn_y[i] - level_write.spawn_y[i]) < 0.001
+            ), f"spawn_y[{i}] mismatch"
 
-            print("✓ CompiledLevel structure validation passed")
+        # Verify some tile data (just check first few active tiles)
+        for i in range(min(10, level_read.num_tiles)):
+            assert (
+                level_read.object_ids[i] == level_write.object_ids[i]
+            ), f"object_ids[{i}] mismatch"
+            assert (
+                abs(level_read.tile_x[i] - level_write.tile_x[i]) < 0.001
+            ), f"tile_x[{i}] mismatch"
+            assert (
+                abs(level_read.tile_y[i] - level_write.tile_y[i]) < 0.001
+            ), f"tile_y[{i}] mismatch"
+
+        print("✓ CompiledLevel binary round-trip validation passed")
+        print(f"  Successfully wrote and read back level '{level_name_read}'")
+        print(f"  Dimensions: {level_read.width}x{level_read.height}, scale: {level_read.scale}")
+        print(f"  Tiles: {level_read.num_tiles}, Spawns: {level_read.num_spawns}")
 
     finally:
-        if os.path.exists(recording_path):
-            os.unlink(recording_path)
+        if os.path.exists(level_path):
+            os.unlink(level_path)
 
 
 def test_action_data_verification_step_by_step(cpu_manager):
