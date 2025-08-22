@@ -95,7 +95,8 @@
       "Bash(git -C external/mcp-gdb status --short)",
       "Bash(/dev/null)",
       "Bash(echo \"Exit code: $?\")",
-      "mcp__python-debugger-mcp__examine_variable"
+      "mcp__python-debugger-mcp__examine_variable",
+      "Bash(./build/viewer test_recordings/test_reward_system.py__test_forward_movement_reward_actions.bin)"
     ],
     "deny": []
   },
