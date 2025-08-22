@@ -19,80 +19,67 @@ Your core responsibilities:
 
 Your workflow process:
 
-1. **IMPORTANT**: First verify you're in the project root directory:
+1. **Initial Repository Analysis** - Run these commands in parallel to gather all needed information:
    
    ```bash
-   pwd  # Should show /home/duane/madrona_escape_room
-   ```
+   # Check current directory
+   pwd
    
-   If not in project root, navigate there first:
-   
-   ```bash
-   cd /home/duane/madrona_escape_room
-   ```
-
-2. Check for all changes including submodules:
-   
-   ```bash
+   # Check repository status
    git status
+   
+   # Check current branch
+   git branch --show-current
+   
+   # Check submodule status
+   git -C external/madrona status --short 2>/dev/null || echo "No madrona submodule"
+   
+   # Check recent commits
+   git log --oneline -5
    ```
    
-   Look for "modified: external/madrona" to identify submodule changes.
+   If not in `/home/duane/madrona_escape_room`, navigate there first before proceeding.
 
-3. if cpp files have changed run ./scripts/run-clangd-tidyd.sh if any warnings or errors, return and report the errors to main program
-
-4. **IMPORTANT**: You should stage all files that git status reflects as changed. If you think a modified file does not belong in the commit, prompt the user to request clarification on if the file should be staged.
+2. **Review Changes** - If you need to review specific files you're unsure about:
    
    ```bash
    git diff <file>  # Review changes for any file you're unsure about
    ```
+   
+   **IMPORTANT**: You should stage all files that git status reflects as changed. If you think a modified file does not belong in the commit, prompt the user to request clarification on if the file should be staged.
 
-5. If there are submodule changes (files within external/madrona), commit them first:
+3. **Handle Submodule Changes** (if external/madrona has changes):
    
    ```bash
-   # Ensure git config is set in submodule (one-time setup, safe to run multiple times)
-   git -C external/madrona config user.name "$(git config user.name)" 2>/dev/null || true
-   git -C external/madrona config user.email "$(git config user.email)" 2>/dev/null || true
-   
-   # Stage and commit changes in the submodule
-   git -C external/madrona add -u
-   git -C external/madrona commit -m "[Your submodule change description]"
+   # Configure git in submodule and commit changes in one execution
+   cd /home/duane/madrona_escape_room && \
+   git -C external/madrona config user.name "$(git config user.name)" 2>/dev/null && \
+   git -C external/madrona config user.email "$(git config user.email)" 2>/dev/null && \
+   git -C external/madrona add -u && \
+   git -C external/madrona commit -m "[Your submodule change description]" && \
    git -C external/madrona push origin main
    ```
    
    Note: Ignore warnings about nested submodules (external/SPIRV-Reflect, etc.) unless specifically working on those dependencies.
 
-6. Add all modified files in the main project:
+4. **Commit Main Repository Changes**:
    
    ```bash
-   git add -u
-   ```
-
-7. If the submodule pointer changed (after committing in step 4), also add it:
-   
-   ```bash
-   git add external/madrona 2>/dev/null || true
-   ```
-
-8. Create a commit in the main project:
-   
-   ```bash
+   # Stage all changes and commit in one execution
+   cd /home/duane/madrona_escape_room && \
+   git add -u && \
+   git add external/madrona 2>/dev/null || true && \
    git commit -m "[Your change description]"
    ```
 
-9. If linters raise any errors, fix ALL the linting errors, even if there are many
-
-10. Push to remote:
-    
-    ```bash
-    git push
-    ```
-
-11. Verify the commit:
-    
-    ```bash
-    git log --oneline -1
-    ```
+5. **Push and Verify**:
+   
+   ```bash
+   # Push changes and show the commit
+   cd /home/duane/madrona_escape_room && \
+   git push && \
+   git log --oneline -1
+   ```
 
 **Key Rules:**
 

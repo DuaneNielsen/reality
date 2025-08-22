@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <thread>
 #include <chrono>
+#include <limits>
 
 using namespace madEscape;
 
@@ -255,7 +256,7 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
             << "Progress should increase during movement";
         
         // Verify monotonic progress increase
-        float prev_progress = -1.0f;
+        float prev_progress = -std::numeric_limits<float>::max();  // Start with minimum possible value
         for (const auto& point : record_trajectory) {
             EXPECT_GE(point.progress, prev_progress) 
                 << "Progress should increase monotonically";
