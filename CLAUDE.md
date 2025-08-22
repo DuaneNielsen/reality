@@ -93,11 +93,13 @@ This project uses pytest for python tests and GoogleTest for C++ tests
 The pytests are documented in [TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)
 c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/CPP_TESTING_GUIDE.md)
 
-IMPORTANT:  Whenever tests fail, ALWAYS report it.  We may decide to take no action, but we should ALWAYS ALWAYS mention the failure.
+IMPORTANT:  Whenever tests fail, ALWAYS report it using the standardized format below.  We may decide to take no action, but we should ALWAYS ALWAYS mention the failure in the correct format first.
 
 ### Test Output Format
 
-When reporting test results from the unit-test-runner agent, present them in this structured format:
+**CRITICAL FOR CONTEXT PRESERVATION**: This exact format enables test identification and debugging after context resets. Without precise test paths (`test_file.py::test_name`) and reproduction commands, failing tests cannot be located or fixed in future sessions.
+
+When reporting test results, use this exact format immediately:
 
 ## Test Results Summary
 
@@ -129,6 +131,14 @@ uv run --group dev pytest tests/python/test_file.py::test_name -v
 uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
 uv run --group dev pytest tests/python/test_spawn_locations.py::test_single_spawn_center -v
 ```
+
+### Why This Format Is Mandatory
+
+1. **Context Reset Recovery**: After context resets, only exact test paths allow continuation of debugging work
+2. **Direct Reproduction**: The bash commands can be copied and run without modification
+3. **150+ Test Navigation**: With 150+ Python tests and 18 C++ tests, vague descriptions like "tensor tests failed" are useless
+
+**Without this format**: Information needed to fix tests is permanently lost when context resets occur.
 
 ### Unit test best practice
 

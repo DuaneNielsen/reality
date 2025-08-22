@@ -228,15 +228,8 @@ class madrona:
             try:
                 import _madrona_escape_room_dlpack as dlpack_ext
             except ImportError:
-                # Fallback to to_torch() if DLPack extension not available
-                import warnings
-
-                warnings.warn(
-                    "DLPack extension not available, falling back to to_torch(). "
-                    "Install DLPack extension for optimal performance.",
-                    UserWarning,
-                )
-                return self.to_torch()
+                # Raise ImportError so tests can properly skip
+                raise ImportError("DLPack extension module not found")
 
             # Get tensor parameters
             data_ptr = ctypes.cast(self._tensor.data, ctypes.c_void_p).value
