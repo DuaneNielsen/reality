@@ -51,8 +51,9 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
 7. **Output Formatting**:
    - Clearly report number of tests passed, failed, and skipped
    - **IMPORTANT**: When presenting the results of GoogleTests, output the failed tests, and an example command how to run one of them
+   - **IMPORTANT**: For Python tests, always include the full test name format: `test_file.py::test_name` (not just `test_name`)
    - **IMPORTANT**: clearly provide the output formatting of the agent so they can be reproduced
-   eg: uv run --group dev pytest tests/python/test_00_ctypes_cpu_only.py -v
+   eg: uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
 
    eg: for c++ tests
 

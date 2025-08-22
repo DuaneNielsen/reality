@@ -105,8 +105,8 @@ When reporting test results from the unit-test-runner agent, present them in thi
 ### ❌ Python Tests: X passed, X failed, X skipped
 
 **Failed Tests:**
-- ❌ `test_name` - Brief error description
-- ❌ `test_name` - Brief error description
+- ❌ `test_file.py::test_name` - Brief error description
+- ❌ `test_file.py::test_name` - Brief error description
 
 **Reproduction:**
 ```bash
@@ -121,8 +121,8 @@ uv run --group dev pytest tests/python/test_file.py::test_name -v
 ### ❌ Python Tests: 145 passed, 2 failed, 15 skipped
 
 **Failed Tests:**
-- ❌ `test_deterministic_actions` - Position comparison failure
-- ❌ `test_single_spawn_center` - Wrong spawn X: -20.0 (expected -6.25)
+- ❌ `test_bindings.py::test_deterministic_actions` - Position comparison failure
+- ❌ `test_spawn_locations.py::test_single_spawn_center` - Wrong spawn X: -20.0 (expected -6.25)
 
 **Reproduction:**
 ```bash
