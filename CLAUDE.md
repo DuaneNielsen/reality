@@ -95,6 +95,41 @@ c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/CPP_TES
 
 IMPORTANT:  Whenever tests fail, ALWAYS report it.  We may decide to take no action, but we should ALWAYS ALWAYS mention the failure.
 
+### Test Output Format
+
+When reporting test results from the unit-test-runner agent, present them in this structured format:
+
+## Test Results Summary
+
+### ✅ C++ Tests: X/X passed
+### ❌ Python Tests: X passed, X failed, X skipped
+
+**Failed Tests:**
+- ❌ `test_name` - Brief error description
+- ❌ `test_name` - Brief error description
+
+**Reproduction:**
+```bash
+uv run --group dev pytest tests/python/test_file.py::test_name -v
+```
+
+### Example Test Output:
+
+## Test Results Summary
+
+### ✅ C++ Tests: 18/18 passed
+### ❌ Python Tests: 145 passed, 2 failed, 15 skipped
+
+**Failed Tests:**
+- ❌ `test_deterministic_actions` - Position comparison failure
+- ❌ `test_single_spawn_center` - Wrong spawn X: -20.0 (expected -6.25)
+
+**Reproduction:**
+```bash
+uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
+uv run --group dev pytest tests/python/test_spawn_locations.py::test_single_spawn_center -v
+```
+
 ### Unit test best practice
 
 **IMPORTANT**: when writing unit tests use the cpu_manger fixtures in conftest.py, DO NOT call the SimManager directly, unless you are specfically testing the SimManager initialization itself
