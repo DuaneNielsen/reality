@@ -32,7 +32,6 @@ uv.lock
 *.pyo
 *.pyd
 .Python
-*.so
 imgui.ini
 
 # Root-level media and result files
@@ -42,8 +41,6 @@ imgui.ini
 /*.xml
 /*.bin
 
-# Binary files
-*.bin
 
 # IDE configuration
 .idea/
@@ -55,6 +52,10 @@ imgui.ini
 
 # Temporary/scratch files
 scratch/
+
+# Test artifacts (except test data)
+tests/python/data/*.bin
+tests/python/test_recordings/
 
 # Python build artifacts
 *.egg-info/
