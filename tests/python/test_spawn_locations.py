@@ -83,24 +83,36 @@ def test_single_spawn_center(cpu_manager):
     mgr = cpu_manager
     observer = ObservationReader(mgr)
 
+    # Compile the level to get the actual world boundaries
+    from madrona_escape_room.level_compiler import compile_level
+
+    compiled = compile_level(SINGLE_SPAWN_CENTER["ascii"], scale=SINGLE_SPAWN_CENTER["scale"])
+
+    # Get world boundaries for proper denormalization
+    world_min_x = compiled["world_min_x"]
+    world_min_y = compiled["world_min_y"]
+    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+
     # Reset to apply spawn position
     reset_world(mgr, 0)
 
-    # Get agent position
-    pos = observer.get_position(0, agent_idx=0)
+    # Get normalized position and denormalize correctly
+    norm_pos = observer.get_normalized_position(0, agent_idx=0)
+    pos_x = norm_pos[0] * world_length + world_min_x
+    pos_y = norm_pos[1] * world_length + world_min_y
 
     # Expected position: S is at grid (4, 3) in a 10x7 grid
     # With fixed coordinate transformation:
-    # Grid (4, 3) -> World ((4 - 5 + 0.5) * 2, -(3 - 3.5 + 0.5) * 2) = (-1, 0)
+    # Grid (4, 3) -> World ((4 - 5 + 0.5) * 2.5, -(3 - 3.5 + 0.5) * 2.5) = (-1.25, 0)
     expected_x = (4 - 10 / 2.0 + 0.5) * 2.5  # -1.25
     expected_y = -(3 - 7 / 2.0 + 0.5) * 2.5  # 0
 
-    print(f"Agent spawned at: X={pos[0]:.2f}, Y={pos[1]:.2f}")
+    print(f"Agent spawned at: X={pos_x:.2f}, Y={pos_y:.2f}")
     print(f"Expected spawn: X={expected_x:.2f}, Y={expected_y:.2f}")
 
-    # NOTE: This currently fails because C++ uses hardcoded positions
-    assert abs(pos[0] - expected_x) < 0.1, f"X position {pos[0]} should be near {expected_x}"
-    assert abs(pos[1] - expected_y) < 0.1, f"Y position {pos[1]} should be near {expected_y}"
+    # Now this should pass with the correct denormalization
+    assert abs(pos_x - expected_x) < 0.1, f"X position {pos_x} should be near {expected_x}"
+    assert abs(pos_y - expected_y) < 0.1, f"Y position {pos_y} should be near {expected_y}"
 
 
 @pytest.mark.custom_level(SINGLE_SPAWN_CORNER)
@@ -109,21 +121,34 @@ def test_single_spawn_corner(cpu_manager):
     mgr = cpu_manager
     observer = ObservationReader(mgr)
 
+    # Compile the level to get the actual world boundaries
+    from madrona_escape_room.level_compiler import compile_level
+
+    compiled = compile_level(SINGLE_SPAWN_CORNER["ascii"], scale=SINGLE_SPAWN_CORNER["scale"])
+
+    # Get world boundaries for proper denormalization
+    world_min_x = compiled["world_min_x"]
+    world_min_y = compiled["world_min_y"]
+    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+
     reset_world(mgr, 0)
 
-    pos = observer.get_position(0, agent_idx=0)
+    # Get normalized position and denormalize correctly
+    norm_pos = observer.get_normalized_position(0, agent_idx=0)
+    pos_x = norm_pos[0] * world_length + world_min_x
+    pos_y = norm_pos[1] * world_length + world_min_y
 
     # S is at grid (1, 1) in a 10x7 grid
     # With fixed coordinate transformation:
-    # Grid (1, 1) -> World ((1 - 5 + 0.5) * 2, -(1 - 3.5 + 0.5) * 2) = (-7, 4)
+    # Grid (1, 1) -> World ((1 - 5 + 0.5) * 2.5, -(1 - 3.5 + 0.5) * 2.5) = (-8.75, 5)
     expected_x = (1 - 10 / 2.0 + 0.5) * 2.5  # -8.75
     expected_y = -(1 - 7 / 2.0 + 0.5) * 2.5  # 5
 
-    print(f"Agent spawned at: X={pos[0]:.2f}, Y={pos[1]:.2f}")
+    print(f"Agent spawned at: X={pos_x:.2f}, Y={pos_y:.2f}")
     print(f"Expected spawn: X={expected_x:.2f}, Y={expected_y:.2f}")
 
-    assert abs(pos[0] - expected_x) < 0.1, f"X position {pos[0]} should be near {expected_x}"
-    assert abs(pos[1] - expected_y) < 0.1, f"Y position {pos[1]} should be near {expected_y}"
+    assert abs(pos_x - expected_x) < 0.1, f"X position {pos_x} should be near {expected_x}"
+    assert abs(pos_y - expected_y) < 0.1, f"Y position {pos_y} should be near {expected_y}"
 
 
 @pytest.mark.custom_level(MULTIPLE_SPAWNS)
@@ -132,27 +157,39 @@ def test_multiple_spawn_locations(cpu_manager):
     mgr = cpu_manager
     observer = ObservationReader(mgr)
 
+    # Compile the level to get the actual world boundaries
+    from madrona_escape_room.level_compiler import compile_level
+
+    compiled = compile_level(MULTIPLE_SPAWNS["ascii"], scale=MULTIPLE_SPAWNS["scale"])
+
+    # Get world boundaries for proper denormalization
+    world_min_x = compiled["world_min_x"]
+    world_min_y = compiled["world_min_y"]
+    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+
     reset_world(mgr, 0)
 
-    # Get position for the single agent (only 1 agent per world currently)
-    pos0 = observer.get_position(0, agent_idx=0)
+    # Get normalized position and denormalize correctly
+    norm_pos0 = observer.get_normalized_position(0, agent_idx=0)
+    pos0_x = norm_pos0[0] * world_length + world_min_x
+    pos0_y = norm_pos0[1] * world_length + world_min_y
 
     # First S at (1, 1), second S at (8, 5)
     # With the fixed coordinate transformation:
-    # Grid (1, 1) -> World ((1 - 5 + 0.5) * 2, -(1 - 3.5 + 0.5) * 2) = (-7, 4)
+    # Grid (1, 1) -> World ((1 - 5 + 0.5) * 2.5, -(1 - 3.5 + 0.5) * 2.5) = (-8.75, 5)
     expected_x0 = (1 - 10 / 2.0 + 0.5) * 2.5  # -8.75
     expected_y0 = -(1 - 7 / 2.0 + 0.5) * 2.5  # 5
 
-    print(f"Agent 0 spawned at: X={pos0[0]:.2f}, Y={pos0[1]:.2f}")
+    print(f"Agent 0 spawned at: X={pos0_x:.2f}, Y={pos0_y:.2f}")
     print(f"Expected spawn 0: X={expected_x0:.2f}, Y={expected_y0:.2f}")
 
     # First agent should use first spawn point
     assert (
-        abs(pos0[0] - expected_x0) < 0.1
-    ), f"Agent 0 X position {pos0[0]} should be near {expected_x0}"
+        abs(pos0_x - expected_x0) < 0.1
+    ), f"Agent 0 X position {pos0_x} should be near {expected_x0}"
     assert (
-        abs(pos0[1] - expected_y0) < 0.1
-    ), f"Agent 0 Y position {pos0[1]} should be near {expected_y0}"
+        abs(pos0_y - expected_y0) < 0.1
+    ), f"Agent 0 Y position {pos0_y} should be near {expected_y0}"
 
     # NOTE: When 2 agents per world are supported, the second agent would use
     # the second spawn at (8, 5)
@@ -164,9 +201,22 @@ def test_spawn_near_wall(cpu_manager):
     mgr = cpu_manager
     observer = ObservationReader(mgr)
 
+    # Compile the level to get the actual world boundaries
+    from madrona_escape_room.level_compiler import compile_level
+
+    compiled = compile_level(SPAWN_NEAR_WALL["ascii"], scale=SPAWN_NEAR_WALL["scale"])
+
+    # Get world boundaries for proper denormalization
+    world_min_x = compiled["world_min_x"]
+    world_min_y = compiled["world_min_y"]
+    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+
     reset_world(mgr, 0)
 
-    pos = observer.get_position(0, agent_idx=0)
+    # Get normalized position and denormalize correctly
+    norm_pos = observer.get_normalized_position(0, agent_idx=0)
+    pos_x = norm_pos[0] * world_length + world_min_x
+    pos_y = norm_pos[1] * world_length + world_min_y
 
     # S is at grid (2, 1) - next to wall at (1, 1)
     # With coordinate transformation:
@@ -174,16 +224,16 @@ def test_spawn_near_wall(cpu_manager):
     expected_x = (2 - 10 / 2.0 + 0.5) * 2.5  # -6.25
     expected_y = -(1 - 7 / 2.0 + 0.5) * 2.5  # 5
 
-    print(f"Agent spawned at: X={pos[0]:.2f}, Y={pos[1]:.2f}")
+    print(f"Agent spawned at: X={pos_x:.2f}, Y={pos_y:.2f}")
     print(f"Expected spawn near wall: X={expected_x:.2f}, Y={expected_y:.2f}")
 
     # Verify spawn position
-    assert abs(pos[0] - expected_x) < 0.1, f"X position {pos[0]} should be near {expected_x}"
-    assert abs(pos[1] - expected_y) < 0.1, f"Y position {pos[1]} should be near {expected_y}"
+    assert abs(pos_x - expected_x) < 0.1, f"X position {pos_x} should be near {expected_x}"
+    assert abs(pos_y - expected_y) < 0.1, f"Y position {pos_y} should be near {expected_y}"
 
     # Verify it's close to wall - wall at grid (1,1) is at world (-8.75, 5)
     wall_x = (1 - 10 / 2.0 + 0.5) * 2.5  # Wall position at x=-8.75
-    distance_to_wall = abs(pos[0] - wall_x)
+    distance_to_wall = abs(pos_x - wall_x)
     print(f"Distance to wall: {distance_to_wall:.2f} units")
     assert distance_to_wall < 3.0, "Agent should be close to wall"
 
@@ -194,8 +244,22 @@ def test_spawn_coordinate_transformation(cpu_manager):
     mgr = cpu_manager
     observer = ObservationReader(mgr)
 
+    # Compile the level to get the actual world boundaries
+    from madrona_escape_room.level_compiler import compile_level
+
+    compiled = compile_level(COORDINATE_TEST_LEVEL["ascii"], scale=COORDINATE_TEST_LEVEL["scale"])
+
+    # Get world boundaries for proper denormalization
+    world_min_x = compiled["world_min_x"]
+    world_min_y = compiled["world_min_y"]
+    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+
     reset_world(mgr, 0)
-    pos = observer.get_position(0, agent_idx=0)
+
+    # Get normalized position and denormalize correctly
+    norm_pos = observer.get_normalized_position(0, agent_idx=0)
+    pos_x = norm_pos[0] * world_length + world_min_x
+    pos_y = norm_pos[1] * world_length + world_min_y
 
     # S is at grid position (2, 2) in a 5x5 grid
     # With coordinate transformation:
@@ -203,11 +267,11 @@ def test_spawn_coordinate_transformation(cpu_manager):
     expected_x = (2 - 5 / 2.0 + 0.5) * 2.5  # 0
     expected_y = -(2 - 5 / 2.0 + 0.5) * 2.5  # 0
 
-    print(f"Agent spawned at: X={pos[0]:.2f}, Y={pos[1]:.2f}")
+    print(f"Agent spawned at: X={pos_x:.2f}, Y={pos_y:.2f}")
     print(f"Expected spawn: X={expected_x:.2f}, Y={expected_y:.2f}")
 
-    assert abs(pos[0] - expected_x) < 0.01, f"Spawn X {pos[0]} should be {expected_x}"
-    assert abs(pos[1] - expected_y) < 0.01, f"Spawn Y {pos[1]} should be {expected_y}"
+    assert abs(pos_x - expected_x) < 0.01, f"Spawn X {pos_x} should be {expected_x}"
+    assert abs(pos_y - expected_y) < 0.01, f"Spawn Y {pos_y} should be {expected_y}"
 
 
 def test_no_spawn_marker():

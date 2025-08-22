@@ -109,9 +109,17 @@ class ObservationReader:
         self.mgr = manager
 
     def get_position(self, world_idx: int, agent_idx: int = 0) -> np.ndarray:
-        """Get agent's current position (x, y, z) - denormalized to world coordinates"""
+        """Get agent's current position (x, y, z) - denormalized to world coordinates
+
+        NOTE: This denormalization is incorrect for custom levels with different world sizes.
+        The C++ code normalizes using (pos - world_min) / world_length where world_length
+        is the Y-axis range. This method incorrectly assumes a fixed world size of 40.0.
+
+        For custom levels, use get_normalized_position() and denormalize manually using
+        the actual world boundaries from your compiled level.
+        """
         obs = self.mgr.self_observation_tensor().to_torch()
-        # Observations are normalized by worldLength (40.0) - denormalize them
+        # WARNING: This assumes default world size - incorrect for custom levels!
         normalized_pos = obs[world_idx, agent_idx, :3].cpu().numpy()
         return normalized_pos * 40.0  # worldLength = 40.0
 

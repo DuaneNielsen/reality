@@ -2,6 +2,15 @@
 
 The pytest `$ARGUMENTS` is failing and we need to fix it.
 
+**IMPORTANT: Test Selection Strategy**
+- Always start by working on the actual failing unit test
+- If the failing test doesn't adequately cover the scenario, you have options:
+  1. **Enhance the existing test** - Add assertions or steps to make it more comprehensive
+  2. **Add a new test function** - Create a properly structured test in the same file
+  3. **Create a debug test** - For quick debugging only, write a minimal throwaway test that you can reliably execute in one shot
+
+**Key Principle:** Production tests can be complex and thorough. Debug/throwaway tests must be simple and reliable - if you can't write it correctly on the first try, it's too complex for a debug test.
+
 Use the following process to fix the test:
 
 ## 0. Add the following task list
@@ -84,7 +93,16 @@ Add the following to the task list
 
 While hypothesis is false, repeat the following steps:
 
-### a. Start the test in the Python debugger
+### Choose Debug Method Based on Code Location
+
+**For Python variables:** Use Python debugger (PDB)
+**For C++ variables:** Use GDB debugger
+
+---
+
+### Option A: Python Debugging (for Python variables)
+
+#### a. Start the test in the Python debugger
 
 ```tool
 mcp__python-debugger-mcp__start_debug(file_path="tests/python/test_reward_system.py", use_pytest=true, args="--pdb -x test_reward_system.py::test_forward_movement_reward")
@@ -95,7 +113,7 @@ Alternative for single test function:
 mcp__python-debugger-mcp__start_debug(file_path="tests/python/test_reward_system.py::test_forward_movement_reward", use_pytest=true)
 ```
 
-### b. Set the breakpoint
+#### b. Set the breakpoint
 
 ```tool
 mcp__python-debugger-mcp__set_breakpoint(file_path="madrona_escape_room/__init__.py", line_number=245)
@@ -106,13 +124,13 @@ Or use relative path from project root:
 mcp__python-debugger-mcp__set_breakpoint(file_path="tests/python/test_reward_system.py", line_number=50)
 ```
 
-### c. Run to the breakpoint
+#### c. Run to the breakpoint
 
 ```tool
 mcp__python-debugger-mcp__send_pdb_command(command="c")
 ```
 
-### d. Examine variables at breakpoint
+#### d. Examine variables at breakpoint
 
 ```tool
 mcp__python-debugger-mcp__examine_variable(variable_name="rewards")
@@ -120,7 +138,7 @@ mcp__python-debugger-mcp__examine_variable(variable_name="self.numWorlds")
 mcp__python-debugger-mcp__examine_variable(variable_name="obs[0, 0, :3]")
 ```
 
-### e. Step through code
+#### e. Step through code
 
 ```tool
 # Next line (step over)
@@ -144,6 +162,129 @@ mcp__python-debugger-mcp__send_pdb_command(command="a")
 # Print stack trace
 mcp__python-debugger-mcp__send_pdb_command(command="w")
 ```
+
+---
+
+### Option B: C++ Debugging with GDB (for C++ variables)
+
+#### a. Start GDB session
+
+```tool
+mcp__gdb__gdb_start(gdbPath="gdb", workingDir="/home/duane/madrona_escape_room")
+```
+
+#### b. Configure GDB for Python test execution
+
+```tool
+# Enable pending breakpoints (for shared libraries loaded later)
+mcp__gdb__gdb_command(sessionId="<session_id>", command="set breakpoint pending on")
+
+# Load Python executable
+mcp__gdb__gdb_command(sessionId="<session_id>", command="file /home/duane/madrona_escape_room/.venv/bin/python")
+
+# Set arguments for pytest
+mcp__gdb__gdb_command(sessionId="<session_id>", command="set args -m pytest tests/python/$ARGUMENTS -v --tb=short")
+```
+
+#### c. Set C++ breakpoints
+
+```tool
+# Set breakpoint by function name
+mcp__gdb__gdb_set_breakpoint(sessionId="<session_id>", location="resetAgentPhysics")
+
+# Or by file:line
+mcp__gdb__gdb_set_breakpoint(sessionId="<session_id>", location="level_gen.cpp:118")
+
+# Or by class::method
+mcp__gdb__gdb_set_breakpoint(sessionId="<session_id>", location="madEscape::Sim::Sim")
+```
+
+#### d. Run the test
+
+```tool
+mcp__gdb__gdb_command(sessionId="<session_id>", command="run")
+```
+
+#### e. Examine C++ variables at breakpoint
+
+```tool
+# Print variable values
+mcp__gdb__gdb_print(sessionId="<session_id>", expression="level.num_spawns")
+mcp__gdb__gdb_print(sessionId="<session_id>", expression="level.spawn_x[0]")
+mcp__gdb__gdb_print(sessionId="<session_id>", expression="pos.x")
+
+# Print complex structures (may need to increase max-value-size)
+mcp__gdb__gdb_command(sessionId="<session_id>", command="set max-value-size unlimited")
+mcp__gdb__gdb_print(sessionId="<session_id>", expression="ctx.singleton<CompiledLevel>()")
+
+# Show local variables
+mcp__gdb__gdb_command(sessionId="<session_id>", command="info locals")
+
+# Show function arguments
+mcp__gdb__gdb_command(sessionId="<session_id>", command="info args")
+```
+
+#### f. Step through C++ code
+
+```tool
+# Step to next line (step over)
+mcp__gdb__gdb_next(sessionId="<session_id>")
+
+# Step into function
+mcp__gdb__gdb_step(sessionId="<session_id>")
+
+# Continue to next breakpoint
+mcp__gdb__gdb_continue(sessionId="<session_id>")
+
+# Finish current function
+mcp__gdb__gdb_finish(sessionId="<session_id>")
+
+# Show current code
+mcp__gdb__gdb_command(sessionId="<session_id>", command="list")
+
+# Show call stack
+mcp__gdb__gdb_backtrace(sessionId="<session_id>")
+
+# Show current location
+mcp__gdb__gdb_command(sessionId="<session_id>", command="where")
+```
+
+#### g. Managing GDB session
+
+```tool
+# Check all breakpoints
+mcp__gdb__gdb_command(sessionId="<session_id>", command="info breakpoints")
+
+# Disable/enable breakpoints
+mcp__gdb__gdb_command(sessionId="<session_id>", command="disable 1")
+mcp__gdb__gdb_command(sessionId="<session_id>", command="enable 1")
+
+# Delete breakpoints
+mcp__gdb__gdb_command(sessionId="<session_id>", command="delete 1")
+
+# Check thread state
+mcp__gdb__gdb_command(sessionId="<session_id>", command="info threads")
+
+# Terminate GDB session when done
+mcp__gdb__gdb_terminate(sessionId="<session_id>")
+```
+
+### Common GDB Tips for Python Tests
+
+1. **Optimized variables**: If you see `<optimized out>`, try:
+   - Rebuild with debug symbols: `cmake -DCMAKE_BUILD_TYPE=Debug ..`
+   - Step forward/backward to where the variable is actively used
+   - Print the memory address directly
+
+2. **Finding the right breakpoint during initialization vs reset**:
+   - Many functions are called during both world creation and reset
+   - You may need to disable early breakpoints to reach the actual test execution
+   - Use conditional breakpoints: `break level_gen.cpp:118 if i == 0`
+
+3. **Navigating Python/C++ boundary**:
+   - The call stack will show Python frames mixed with C++ frames
+   - Focus on the C++ frames for debugging C++ variables
+   - Use `frame <n>` to switch between stack frames
 
 ### f. Decision Point - validate assertions
 
