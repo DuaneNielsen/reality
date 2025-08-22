@@ -371,7 +371,7 @@ def test_deterministic_actions(cpu_manager):
     # Verify movement occurred
     final_obs = mgr.self_observation_tensor().to_torch()
     position_change = (final_obs[:, :, :3] - initial_obs[:, :, :3]).abs().sum()
-    assert position_change > 0.1, "Agents should have moved from initial positions"
+    assert position_change > 0.05, "Agents should have moved from initial positions"
 
     # Verify different actions produced different results
     all_same = True

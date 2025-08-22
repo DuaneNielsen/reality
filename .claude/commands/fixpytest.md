@@ -4,6 +4,14 @@ The pytest `$ARGUMENTS` is failing and we need to fix it.
 
 Use the following process to fix the test:
 
+## 0. Add the following task list
+* Run the test to verify the error message
+* Read the test code and create a summary
+* Validate Test Premise
+* Formulate Working Hypothesis
+* Test Hypothesis
+* Start Debug Loop
+
 ## 1. Run the test to verify the error message
 
 ```bash
@@ -68,6 +76,13 @@ Read the code and think. When sufficient information is gathered, formulate a hy
 Assume the hypothesis is false until the assertion is found to support it.
 
 ## 6. Debug Loop
+
+### a. Add the debug loop task list
+* Start the test and set the breakpoint
+* Run to the breakpoint and inspect variables
+* Reject or accept the hypothesis
+
+Add the following to the task list
 
 While hypothesis is false, repeat the following steps:
 
@@ -145,7 +160,7 @@ Read the code and think. When sufficient information is gathered, formulate a ne
 
 **Assertion:** When `[method]` in `[filename]:[lineno]` is called, `[variable]` is expected to be `[value]`
 
-### h. Return to step a and repeat until working hypothesis is correct
+### h. iterate in the Debug Loop until working hypothesis is supported
 
 ## 7. Additional Debug Techniques for Python Tests
 
