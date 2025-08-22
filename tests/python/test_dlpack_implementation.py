@@ -182,17 +182,9 @@ def test_fallback_behavior():
     sys.modules["_madrona_escape_room_dlpack"] = None
 
     try:
-        # This should trigger the fallback behavior and issue a warning
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            _result = action_tensor.__dlpack__()
-
-            # Should have issued a warning about fallback
-            assert len(w) >= 1
-            assert "DLPack extension not available" in str(w[0].message)
-
-            # Result should still be a tensor (from to_torch fallback)
-            # But we can't test torch here due to import issues
+        # This should raise an ImportError when DLPack extension is not available
+        with pytest.raises(ImportError, match="DLPack extension module not found"):
+            action_tensor.__dlpack__()
 
     finally:
         # Restore the original module state
