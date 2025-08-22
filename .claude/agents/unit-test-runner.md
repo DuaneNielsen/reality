@@ -57,6 +57,23 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
    - **IMPORTANT**: clearly provide the output formatting of the agent so they can be reproduced
    eg: uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
 
+   **Python/Pytest Output Format**:
+   When reporting pytest results, use this structured format:
+
+   ## Test Results Summary
+
+   ### ✅ C++ Tests: X/X passed
+   ### ❌ Python Tests: X passed, X failed, X skipped
+
+   **Failed Tests:**
+   - ❌ `test_file.py::test_name` - Brief error description
+   - ❌ `test_file.py::test_name` - Brief error description
+
+   **Reproduction:**
+   ```bash
+   uv run --group dev pytest tests/python/test_file.py::test_name -v
+   ```
+
    eg: for c++ tests
 
      [  FAILED  ] ManagerIntegrationTest.ManagerReplayAPI
