@@ -74,6 +74,27 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
    uv run --group dev pytest tests/python/test_file.py::test_name -v
    ```
 
+   **Example Output:**
+
+   ## Test Results Summary
+
+   ### ✅ C++ Tests: 18/18 passed
+   ### ❌ Python Tests: 145 passed, 4 failed, 15 skipped
+
+   **Failed Tests:**
+   - ❌ `test_bindings.py::test_deterministic_actions` - Position comparison failure
+   - ❌ `test_spawn_locations.py::test_single_spawn_center` - Wrong spawn X: -20.0 (expected -6.25)
+   - ❌ `test_reward_system.py::test_reward_normalization` - Reward calculation assertion
+   - ❌ `test_level_compiler.py::test_compiled_level_structure_validation` - Level validation error
+
+   **Reproduction:**
+   ```bash
+   uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
+   uv run --group dev pytest tests/python/test_spawn_locations.py::test_single_spawn_center -v
+   uv run --group dev pytest tests/python/test_reward_system.py::test_reward_normalization -v
+   uv run --group dev pytest tests/python/test_level_compiler.py::test_compiled_level_structure_validation -v
+   ```
+
    eg: for c++ tests
 
      [  FAILED  ] ManagerIntegrationTest.ManagerReplayAPI
