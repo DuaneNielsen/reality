@@ -66,8 +66,21 @@ protected:
     }
     
     void createTestLevelFile() {
-        // Use the default level for consistency
+        // Start with the default level as a base
         CompiledLevel level = DefaultLevelProvider::GetDefaultLevel();
+        
+        // Overwrite with test-specific values
+        std::strcpy(level.level_name, "test_compiled_level");
+        level.width = 8;
+        level.height = 5;
+        level.scale = 2.5f;
+        level.num_tiles = 22;
+        level.max_entities = 58;
+        
+        // Update spawn data for test
+        level.spawn_x[0] = -6.25f;
+        level.spawn_y[0] = 2.5f;
+        level.spawn_facing[0] = 0.0f; // 0 degrees
         
         // Write to file
         std::ofstream file(testLevelFile, std::ios::binary);
