@@ -97,7 +97,10 @@
       "Bash(echo \"Exit code: $?\")",
       "mcp__python-debugger-mcp__examine_variable",
       "Bash(./build/viewer test_recordings/test_reward_system.py__test_forward_movement_reward_actions.bin)",
-      "Bash(./build/viewer:*)"
+      "Bash(./build/viewer:*)",
+      "Bash(ALLOW_GPU_TESTS_IN_SUITE=1 ./build/mad_escape_tests --gtest_filter=\"CApiGPUTest.ManagerCreation\")",
+      "Bash(ALLOW_GPU_TESTS_IN_SUITE=1 ./build/mad_escape_tests --gtest_filter=\"CApiGPUTest.TensorOperations\")",
+      "Bash(ALLOW_GPU_TESTS_IN_SUITE=1 ./build/mad_escape_tests --gtest_filter=\"CApiGPUTest.GPUTensorProperties\")"
     ],
     "deny": []
   },
