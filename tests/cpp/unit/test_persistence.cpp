@@ -16,9 +16,6 @@ protected:
         level.width = 16;
         level.height = 16;
         level.world_scale = 1.0f;
-        level.world_scale_x = 1.0f;
-        level.world_scale_y = 1.0f;
-        level.world_scale_z = 1.0f;
         level.done_on_collide = false;
         // Initialize world boundaries
         level.world_min_x = -20.0f;

@@ -83,12 +83,6 @@ MER_Result mer_create_manager(
                   "tile_rand_z offset mismatch");
     static_assert(offsetof(MER_CompiledLevel, tile_rand_rot_z) == offsetof(CompiledLevel, tile_rand_rot_z),
                   "tile_rand_rot_z offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, world_scale_x) == offsetof(CompiledLevel, world_scale_x),
-                  "world_scale_x offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, world_scale_y) == offsetof(CompiledLevel, world_scale_y),
-                  "world_scale_y offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, world_scale_z) == offsetof(CompiledLevel, world_scale_z),
-                  "world_scale_z offset mismatch");
     static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_x) == offsetof(CompiledLevel, tile_rand_scale_x),
                   "tile_rand_scale_x offset mismatch");
     static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_y) == offsetof(CompiledLevel, tile_rand_scale_y),

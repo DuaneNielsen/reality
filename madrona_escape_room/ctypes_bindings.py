@@ -198,9 +198,6 @@ class MER_CompiledLevel(Structure):
         ("width", c_int32),
         ("height", c_int32),
         ("world_scale", c_float),
-        ("world_scale_x", c_float),
-        ("world_scale_y", c_float),
-        ("world_scale_z", c_float),
         ("done_on_collide", c_bool),
         ("level_name", c_char * 64),  # MAX_LEVEL_NAME_LENGTH = 64
         # World boundaries in world units
@@ -444,9 +441,6 @@ def dict_to_compiled_level(compiled_dict):
     level.world_scale = compiled_dict.get(
         "scale", compiled_dict.get("world_scale", 1.0)
     )  # Support both old and new names
-    level.world_scale_x = compiled_dict.get("x_scale", compiled_dict.get("world_scale_x", 1.0))
-    level.world_scale_y = compiled_dict.get("y_scale", compiled_dict.get("world_scale_y", 1.0))
-    level.world_scale_z = compiled_dict.get("z_scale", compiled_dict.get("world_scale_z", 1.0))
     level.done_on_collide = compiled_dict.get("done_on_collide", False)
 
     # Copy level name (ensure it's null-terminated and fits in 64 bytes)
@@ -582,14 +576,8 @@ def compiled_level_to_dict(level):
         "width": level.width,
         "height": level.height,
         "world_scale": level.world_scale,
-        "world_scale_x": level.world_scale_x,
-        "world_scale_y": level.world_scale_y,
-        "world_scale_z": level.world_scale_z,
-        # Keep old names for backward compatibility
+        # Keep old name for backward compatibility
         "scale": level.world_scale,
-        "x_scale": level.world_scale_x,
-        "y_scale": level.world_scale_y,
-        "z_scale": level.world_scale_z,
         "done_on_collide": level.done_on_collide,
         "level_name": level.level_name.decode("utf-8").rstrip("\x00"),
         # World boundaries

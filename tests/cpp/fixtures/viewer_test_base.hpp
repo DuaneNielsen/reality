@@ -173,9 +173,6 @@ protected:
         level.width = width;
         level.height = height;
         level.world_scale = 1.0f;
-        level.world_scale_x = 1.0f;
-        level.world_scale_y = 1.0f;
-        level.world_scale_z = 1.0f;
         level.done_on_collide = false;
         level.num_tiles = width * height;
         // Calculate max_entities using same formula as level_compiler.py:
@@ -246,9 +243,6 @@ protected:
             level.width = 16;
             level.height = 16;
             level.world_scale = 1.0f;
-            level.world_scale_x = 1.0f;
-            level.world_scale_y = 1.0f;
-            level.world_scale_z = 1.0f;
             level.done_on_collide = false;
             level.num_tiles = 256;
             // Calculate max_entities using same formula as level_compiler.py

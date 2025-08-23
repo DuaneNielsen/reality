@@ -32,9 +32,6 @@ class TestCAPIStructValidation:
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
                 ("world_scale", ctypes.c_float),
-                ("world_scale_x", ctypes.c_float),
-                ("world_scale_y", ctypes.c_float),
-                ("world_scale_z", ctypes.c_float),
                 ("done_on_collide", ctypes.c_bool),
                 ("level_name", ctypes.c_char * 64),  # MAX_LEVEL_NAME_LENGTH
                 # World boundaries
@@ -79,9 +76,6 @@ class TestCAPIStructValidation:
         level_struct.width = compiled["width"]
         level_struct.height = compiled["height"]
         level_struct.world_scale = compiled.get("scale", compiled.get("world_scale", 1.0))
-        level_struct.world_scale_x = compiled.get("x_scale", compiled.get("world_scale_x", 1.0))
-        level_struct.world_scale_y = compiled.get("y_scale", compiled.get("world_scale_y", 1.0))
-        level_struct.world_scale_z = compiled.get("z_scale", compiled.get("world_scale_z", 1.0))
         level_struct.done_on_collide = compiled.get("done_on_collide", False)
         level_struct.level_name = compiled["level_name"].encode("utf-8")
         # Set world boundaries
@@ -160,9 +154,6 @@ class TestCAPIStructValidation:
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
                 ("world_scale", ctypes.c_float),
-                ("world_scale_x", ctypes.c_float),
-                ("world_scale_y", ctypes.c_float),
-                ("world_scale_z", ctypes.c_float),
                 ("done_on_collide", ctypes.c_bool),
                 ("level_name", ctypes.c_char * 64),  # MAX_LEVEL_NAME_LENGTH
                 # World boundaries
@@ -219,9 +210,6 @@ class TestCAPIStructValidation:
         level_struct.width = compiled["width"]
         level_struct.height = compiled["height"]
         level_struct.world_scale = compiled.get("scale", compiled.get("world_scale", 1.0))
-        level_struct.world_scale_x = compiled.get("x_scale", compiled.get("world_scale_x", 1.0))
-        level_struct.world_scale_y = compiled.get("y_scale", compiled.get("world_scale_y", 1.0))
-        level_struct.world_scale_z = compiled.get("z_scale", compiled.get("world_scale_z", 1.0))
         level_struct.done_on_collide = compiled.get("done_on_collide", False)
         level_struct.level_name = compiled["level_name"].encode("utf-8")
         # Set world boundaries
@@ -380,9 +368,6 @@ class TestCAPIStructValidation:
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
                 ("world_scale", ctypes.c_float),
-                ("world_scale_x", ctypes.c_float),
-                ("world_scale_y", ctypes.c_float),
-                ("world_scale_z", ctypes.c_float),
                 ("done_on_collide", ctypes.c_bool),
                 ("object_ids", ctypes.c_int32 * 256),
                 ("tile_x", ctypes.c_float * 256),
