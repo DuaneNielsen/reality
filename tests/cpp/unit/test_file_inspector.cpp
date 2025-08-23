@@ -74,6 +74,10 @@ protected:
         level.width = 8;
         level.height = 5;
         level.scale = 2.5f;
+        level.x_scale = 1.0f;
+        level.y_scale = 1.0f;
+        level.z_scale = 1.0f;
+        level.done_on_collide = false;
         level.num_tiles = 22;
         level.max_entities = 58;
         
@@ -104,6 +108,10 @@ protected:
         level.width = 5;
         level.height = 4;
         level.scale = 1.5f;
+        level.x_scale = 1.0f;
+        level.y_scale = 1.0f;
+        level.z_scale = 1.0f;
+        level.done_on_collide = false;
         std::strcpy(level.level_name, "embedded_test_level");
         level.num_spawns = 1;
         level.spawn_x[0] = 0.0f;

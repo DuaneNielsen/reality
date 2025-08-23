@@ -83,6 +83,14 @@ MER_Result mer_create_manager(
                   "tile_rand_z offset mismatch");
     static_assert(offsetof(MER_CompiledLevel, tile_rand_rot_z) == offsetof(CompiledLevel, tile_rand_rot_z),
                   "tile_rand_rot_z offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, x_scale) == offsetof(CompiledLevel, x_scale),
+                  "x_scale offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, y_scale) == offsetof(CompiledLevel, y_scale),
+                  "y_scale offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, z_scale) == offsetof(CompiledLevel, z_scale),
+                  "z_scale offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, done_on_collide) == offsetof(CompiledLevel, done_on_collide),
+                  "done_on_collide offset mismatch");
     
     // Convert array of C compiled levels to C++ vector (if provided)
     std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;

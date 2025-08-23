@@ -2,6 +2,7 @@
 #include "viewer_test_base.hpp"
 #include "madrona_escape_room_c_api.h"
 #include <fstream>
+#include <filesystem>
 
 // Test fixture for level loading functionality
 class LevelUtilitiesTest : public ViewerTestBase {
@@ -12,6 +13,10 @@ protected:
     
     // Helper to write default level to a file for testing file I/O
     void writeDefaultLevelToFile(const std::string& filepath) {
+        // Ensure parent directory exists
+        std::filesystem::path path(filepath);
+        std::filesystem::create_directories(path.parent_path());
+        
         auto level = LevelComparer::getDefaultLevel();
         std::ofstream file(filepath, std::ios::binary);
         file.write(reinterpret_cast<const char*>(&level), sizeof(MER_CompiledLevel));

@@ -198,6 +198,10 @@ class MER_CompiledLevel(Structure):
         ("width", c_int32),
         ("height", c_int32),
         ("scale", c_float),
+        ("x_scale", c_float),
+        ("y_scale", c_float),
+        ("z_scale", c_float),
+        ("done_on_collide", c_bool),
         ("level_name", c_char * 64),  # MAX_LEVEL_NAME_LENGTH = 64
         # World boundaries in world units
         ("world_min_x", c_float),
@@ -435,6 +439,10 @@ def dict_to_compiled_level(compiled_dict):
     level.width = compiled_dict["width"]
     level.height = compiled_dict["height"]
     level.scale = compiled_dict["scale"]
+    level.x_scale = compiled_dict.get("x_scale", 1.0)
+    level.y_scale = compiled_dict.get("y_scale", 1.0)
+    level.z_scale = compiled_dict.get("z_scale", 1.0)
+    level.done_on_collide = compiled_dict.get("done_on_collide", False)
 
     # Copy level name (ensure it's null-terminated and fits in 64 bytes)
     level_name = compiled_dict.get("level_name", "unknown_level")
@@ -551,6 +559,10 @@ def compiled_level_to_dict(level):
         "width": level.width,
         "height": level.height,
         "scale": level.scale,
+        "x_scale": level.x_scale,
+        "y_scale": level.y_scale,
+        "z_scale": level.z_scale,
+        "done_on_collide": level.done_on_collide,
         "level_name": level.level_name.decode("utf-8").rstrip("\x00"),
         # World boundaries
         "world_min_x": level.world_min_x,

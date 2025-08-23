@@ -12,6 +12,10 @@ protected:
         level.width = 16;
         level.height = 16;
         level.scale = 1.0f;
+        level.x_scale = 1.0f;
+        level.y_scale = 1.0f;
+        level.z_scale = 1.0f;
+        level.done_on_collide = false;
         // Initialize world boundaries
         level.world_min_x = -20.0f;
         level.world_max_x = 20.0f;
@@ -92,6 +96,10 @@ TEST_F(AssetRefactorTest, EmptyTilesHandled) {
     level.width = 4;
     level.height = 4;
     level.scale = 1.0f;
+    level.x_scale = 1.0f;
+    level.y_scale = 1.0f;
+    level.z_scale = 1.0f;
+    level.done_on_collide = false;
     // Initialize world boundaries
     level.world_min_x = -5.0f;
     level.world_max_x = 5.0f;
@@ -134,6 +142,10 @@ TEST_F(AssetRefactorTest, AllBuiltInAssetTypes) {
     level.width = 8;
     level.height = 8;
     level.scale = 1.0f;
+    level.x_scale = 1.0f;
+    level.y_scale = 1.0f;
+    level.z_scale = 1.0f;
+    level.done_on_collide = false;
     // Initialize world boundaries
     level.world_min_x = -10.0f;
     level.world_max_x = 10.0f;

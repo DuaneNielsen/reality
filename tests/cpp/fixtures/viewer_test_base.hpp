@@ -170,6 +170,10 @@ protected:
         level.width = width;
         level.height = height;
         level.scale = 1.0f;
+        level.x_scale = 1.0f;
+        level.y_scale = 1.0f;
+        level.z_scale = 1.0f;
+        level.done_on_collide = false;
         level.num_tiles = width * height;
         // Calculate max_entities using same formula as level_compiler.py:
         // entity_count (tiles that need physics bodies) + 6 persistent + 30 buffer
@@ -239,6 +243,10 @@ protected:
             level.width = 16;
             level.height = 16;
             level.scale = 1.0f;
+            level.x_scale = 1.0f;
+            level.y_scale = 1.0f;
+            level.z_scale = 1.0f;
+            level.done_on_collide = false;
             level.num_tiles = 256;
             // Calculate max_entities using same formula as level_compiler.py
             level.max_entities = level.num_tiles + 6 + 30;

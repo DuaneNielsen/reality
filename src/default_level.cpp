@@ -17,6 +17,10 @@ int main(int argc, char* argv[]) {
     level.width = 16;
     level.height = 16;
     level.scale = 1.0f;
+    level.x_scale = 1.0f;
+    level.y_scale = 1.0f;
+    level.z_scale = 1.0f;
+    level.done_on_collide = false;
     level.max_entities = 150;  // Enough for walls (16*4 = 64) and other objects
     std::strcpy(level.level_name, "default_16x16_room");
     

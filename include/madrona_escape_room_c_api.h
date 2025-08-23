@@ -83,6 +83,10 @@ typedef struct {
     int32_t width;             // Grid width
     int32_t height;            // Grid height
     float scale;               // World scale factor
+    float x_scale;             // Global X-axis scale factor
+    float y_scale;             // Global Y-axis scale factor
+    float z_scale;             // Global Z-axis scale factor
+    bool done_on_collide;      // Episode ends on collision
     char level_name[MER_MAX_NAME_LENGTH];       // Level name for identification
     
     // World boundaries in world units (calculated from grid dimensions * scale)
