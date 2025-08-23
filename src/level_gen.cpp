@@ -385,6 +385,26 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                     rotation = randomRot * rotation; // Combine rotations
                 }
                 
+                // Apply scale randomization if specified (as percentage of base scale)
+                if (level->tile_rand_scale_x[i] > 0.0f) {
+                    float variation = randInRangeCentered(ctx, level->tile_rand_scale_x[i]);
+                    scale.d0 *= (1.0f + variation);
+                    // Ensure scale doesn't go negative or too small
+                    if (scale.d0 < 0.1f) scale.d0 = 0.1f;
+                }
+                if (level->tile_rand_scale_y[i] > 0.0f) {
+                    float variation = randInRangeCentered(ctx, level->tile_rand_scale_y[i]);
+                    scale.d1 *= (1.0f + variation);
+                    // Ensure scale doesn't go negative or too small
+                    if (scale.d1 < 0.1f) scale.d1 = 0.1f;
+                }
+                if (level->tile_rand_scale_z[i] > 0.0f) {
+                    float variation = randInRangeCentered(ctx, level->tile_rand_scale_z[i]);
+                    scale.d2 *= (1.0f + variation);
+                    // Ensure scale doesn't go negative or too small
+                    if (scale.d2 < 0.1f) scale.d2 = 0.1f;
+                }
+                
                 // Create entity and set up immediately
                 bool isRenderOnly = level->tile_render_only[i];
                 entity = isRenderOnly ?

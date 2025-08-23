@@ -158,6 +158,8 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;  // 3m variance in X
     level.tile_rand_y[tile_index] = variance_3m;  // 3m variance in Y
+    level.tile_rand_scale_x[tile_index] = 0.3f;  // ±30% scale variation in X
+    level.tile_rand_scale_y[tile_index] = 0.3f;  // ±30% scale variation in Y
     tile_index++;
     
     // Cylinder 2: Near top-right corner
@@ -171,6 +173,8 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_scale_x[tile_index] = 0.3f;  // ±30% scale variation in X
+    level.tile_rand_scale_y[tile_index] = 0.3f;  // ±30% scale variation in Y
     tile_index++;
     
     // Cylinder 3: Left side
@@ -184,6 +188,8 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_scale_x[tile_index] = 0.3f;  // ±30% scale variation in X
+    level.tile_rand_scale_y[tile_index] = 0.3f;  // ±30% scale variation in Y
     tile_index++;
     
     // Cylinder 4: Right side
@@ -197,6 +203,8 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_scale_x[tile_index] = 0.3f;  // ±30% scale variation in X
+    level.tile_rand_scale_y[tile_index] = 0.3f;  // ±30% scale variation in Y
     tile_index++;
     
     // Cylinder 5: Near center but offset
@@ -210,6 +218,8 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_scale_x[tile_index] = 0.3f;  // ±30% scale variation in X
+    level.tile_rand_scale_y[tile_index] = 0.3f;  // ±30% scale variation in Y
     tile_index++;
     
     // Cylinder 6: Bottom-left area
@@ -223,6 +233,8 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_scale_x[tile_index] = 0.3f;  // ±30% scale variation in X
+    level.tile_rand_scale_y[tile_index] = 0.3f;  // ±30% scale variation in Y
     tile_index++;
     
     // Cylinder 7: Bottom-right area
@@ -236,6 +248,8 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_scale_x[tile_index] = 0.3f;  // ±30% scale variation in X
+    level.tile_rand_scale_y[tile_index] = 0.3f;  // ±30% scale variation in Y
     tile_index++;
     
     // Cylinder 8: Mid-left
@@ -249,10 +263,12 @@ int main(int argc, char* argv[]) {
     level.tile_response_type[tile_index] = 2;  // ResponseType::Static
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
+    level.tile_rand_scale_x[tile_index] = 0.3f;  // ±30% scale variation in X
+    level.tile_rand_scale_y[tile_index] = 0.3f;  // ±30% scale variation in Y
     tile_index++;
     
     // Add cubes with physics, XY variance, and random rotation
-    const float cube_z_offset = 1.0f;  // Cube center height (sits on ground plane)
+    const float cube_z_offset = 1.5f;  // Increased to account for larger cube scale
     const float pi = 3.14159265359f;
     const float rotation_range = 2.0f * pi;  // Full rotation range (360 degrees)
     
@@ -261,6 +277,9 @@ int main(int argc, char* argv[]) {
     level.tile_x[tile_index] = -8.0f;
     level.tile_y[tile_index] = 6.0f;
     level.tile_z[tile_index] = cube_z_offset;
+    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
+    level.tile_scale_y[tile_index] = 1.5f;
+    level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;  // Has physics
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
@@ -268,6 +287,9 @@ int main(int argc, char* argv[]) {
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;  // Random Z-axis rotation
+    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
+    level.tile_rand_scale_y[tile_index] = 0.4f;
+    level.tile_rand_scale_z[tile_index] = 0.4f;
     tile_index++;
     
     // Cube 2: Upper-right quadrant
@@ -275,6 +297,9 @@ int main(int argc, char* argv[]) {
     level.tile_x[tile_index] = 6.0f;
     level.tile_y[tile_index] = 8.0f;
     level.tile_z[tile_index] = cube_z_offset;
+    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
+    level.tile_scale_y[tile_index] = 1.5f;
+    level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
@@ -282,6 +307,9 @@ int main(int argc, char* argv[]) {
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
+    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
+    level.tile_rand_scale_y[tile_index] = 0.4f;
+    level.tile_rand_scale_z[tile_index] = 0.4f;
     tile_index++;
     
     // Cube 3: Lower-left quadrant
@@ -289,6 +317,9 @@ int main(int argc, char* argv[]) {
     level.tile_x[tile_index] = -10.0f;
     level.tile_y[tile_index] = -6.0f;
     level.tile_z[tile_index] = cube_z_offset;
+    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
+    level.tile_scale_y[tile_index] = 1.5f;
+    level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
@@ -296,6 +327,9 @@ int main(int argc, char* argv[]) {
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
+    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
+    level.tile_rand_scale_y[tile_index] = 0.4f;
+    level.tile_rand_scale_z[tile_index] = 0.4f;
     tile_index++;
     
     // Cube 4: Lower-right quadrant
@@ -303,6 +337,9 @@ int main(int argc, char* argv[]) {
     level.tile_x[tile_index] = 7.0f;
     level.tile_y[tile_index] = -5.0f;
     level.tile_z[tile_index] = cube_z_offset;
+    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
+    level.tile_scale_y[tile_index] = 1.5f;
+    level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
@@ -310,6 +347,9 @@ int main(int argc, char* argv[]) {
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
+    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
+    level.tile_rand_scale_y[tile_index] = 0.4f;
+    level.tile_rand_scale_z[tile_index] = 0.4f;
     tile_index++;
     
     // Cube 5: Near center
@@ -317,6 +357,9 @@ int main(int argc, char* argv[]) {
     level.tile_x[tile_index] = -2.0f;
     level.tile_y[tile_index] = 1.0f;
     level.tile_z[tile_index] = cube_z_offset;
+    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
+    level.tile_scale_y[tile_index] = 1.5f;
+    level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
     level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
@@ -324,6 +367,9 @@ int main(int argc, char* argv[]) {
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
+    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
+    level.tile_rand_scale_y[tile_index] = 0.4f;
+    level.tile_rand_scale_z[tile_index] = 0.4f;
     tile_index++;
     
     // Set the actual number of tiles used
