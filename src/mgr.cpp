@@ -720,6 +720,7 @@ void Manager::step()
         // Get tensor data
         auto self_obs = selfObservationTensor();
         auto progress = progressTensor();
+        auto done = doneTensor();
         
         // Calculate index for the specific agent
         int32_t idx = impl_->trackWorldIdx * madEscape::consts::numAgents + impl_->trackAgentIdx;
@@ -727,12 +728,14 @@ void Manager::step()
         // Get data pointers based on execution mode
         const SelfObservation* obs_data;
         const float* progress_data;
+        const int32_t* done_data;
         
         if (impl_->cfg.execMode == ExecMode::CUDA) {
 #ifdef MADRONA_CUDA_SUPPORT
             // For CUDA, we need to copy data to host
             SelfObservation host_obs;
             float host_progress;
+            int32_t host_done;
             
             cudaMemcpy(&host_obs, 
                       ((const SelfObservation*)self_obs.devicePtr()) + idx,
@@ -742,19 +745,25 @@ void Manager::step()
                       ((const float*)progress.devicePtr()) + idx,
                       sizeof(float),
                       cudaMemcpyDeviceToHost);
+            cudaMemcpy(&host_done,
+                      ((const int32_t*)done.devicePtr()) + idx,
+                      sizeof(int32_t),
+                      cudaMemcpyDeviceToHost);
             
             obs_data = &host_obs;
             progress_data = &host_progress;
+            done_data = &host_done;
 #endif
         } else {
             // For CPU, direct access
             obs_data = ((const SelfObservation*)self_obs.devicePtr()) + idx;
             progress_data = ((const float*)progress.devicePtr()) + idx;
+            done_data = ((const int32_t*)done.devicePtr()) + idx;
         }
         
         // Log trajectory to file or stdout
         FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
-        fprintf(output, "Step %4u: World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f\n",
+        fprintf(output, "Step %4u: World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f done=%d\n",
                 impl_->stepCount++,
                 impl_->trackWorldIdx,
                 impl_->trackAgentIdx,
@@ -762,7 +771,8 @@ void Manager::step()
                 obs_data->globalY,
                 obs_data->globalZ,
                 obs_data->theta * madEscape::consts::math::degreesInHalfCircle / M_PI,
-                *progress_data);
+                *progress_data,
+                *done_data);
         fflush(output);  // Ensure output is written immediately
     }
     
