@@ -16,10 +16,10 @@ int main(int argc, char* argv[]) {
     CompiledLevel level = {};
     level.width = 16;
     level.height = 16;
-    level.scale = 1.0f;
-    level.x_scale = 1.0f;
-    level.y_scale = 1.0f;
-    level.z_scale = 1.0f;
+    level.world_scale = 1.0f;
+    level.world_scale_x = 1.0f;
+    level.world_scale_y = 1.0f;
+    level.world_scale_z = 1.0f;
     level.done_on_collide = false;
     level.max_entities = 150;  // Enough for walls (16*4 = 64) and other objects
     std::strcpy(level.level_name, "default_16x16_room");
@@ -50,6 +50,9 @@ int main(int argc, char* argv[]) {
         level.tile_rand_y[i] = 0.0f;
         level.tile_rand_z[i] = 0.0f;
         level.tile_rand_rot_z[i] = 0.0f;
+        level.tile_rand_scale_x[i] = 0.0f;
+        level.tile_rand_scale_y[i] = 0.0f;
+        level.tile_rand_scale_z[i] = 0.0f;
     }
     
     // Set spawn point at x=0, y=-17.0 (near southern wall)

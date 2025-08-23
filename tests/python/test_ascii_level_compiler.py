@@ -110,7 +110,7 @@ class TestCTypesIntegration:
         assert struct.max_entities == compiled["max_entities"]
         assert struct.width == compiled["width"]
         assert struct.height == compiled["height"]
-        assert abs(struct.scale - compiled["scale"]) < 0.001
+        assert abs(struct.world_scale - compiled["scale"]) < 0.001
 
         # Verify arrays copied correctly
         for i in range(compiled["num_tiles"]):

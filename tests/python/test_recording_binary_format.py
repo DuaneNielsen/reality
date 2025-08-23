@@ -154,8 +154,8 @@ def test_compiled_level_structure_validation(cpu_manager):
             level_read.height == level_write.height
         ), f"height mismatch: {level_read.height} != {level_write.height}"
         assert (
-            abs(level_read.scale - level_write.scale) < 0.001
-        ), f"scale mismatch: {level_read.scale} != {level_write.scale}"
+            abs(level_read.world_scale - level_write.world_scale) < 0.001
+        ), f"scale mismatch: {level_read.world_scale} != {level_write.world_scale}"
         assert (
             level_read.num_spawns == level_write.num_spawns
         ), f"num_spawns mismatch: {level_read.num_spawns} != {level_write.num_spawns}"
@@ -196,7 +196,9 @@ def test_compiled_level_structure_validation(cpu_manager):
 
         print("✓ CompiledLevel binary round-trip validation passed")
         print(f"  Successfully wrote and read back level '{level_name_read}'")
-        print(f"  Dimensions: {level_read.width}x{level_read.height}, scale: {level_read.scale}")
+        print(
+            f"  Dimensions: {level_read.width}x{level_read.height}, scale: {level_read.world_scale}"
+        )
         print(f"  Tiles: {level_read.num_tiles}, Spawns: {level_read.num_spawns}")
 
     finally:

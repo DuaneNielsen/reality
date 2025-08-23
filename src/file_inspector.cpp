@@ -130,7 +130,7 @@ bool validateReplayFile(const FileInfo& info) {
         const auto& level = level_opt.value();
         std::cout << "\nEmbedded Level:\n";
         std::cout << "  Name: " << level.level_name << "\n";
-        std::cout << "  Dimensions: " << level.width << "x" << level.height << " grid, Scale: " << level.scale << "\n";
+        std::cout << "  Dimensions: " << level.width << "x" << level.height << " grid, Scale: " << level.world_scale << "\n";
         std::cout << "  Tiles: " << level.num_tiles << ", Spawns: " << level.num_spawns << "\n";
         std::cout << "  File size: " << info.file_size << " bytes (matches expected)\n";
     } else {
@@ -178,8 +178,8 @@ bool validateLevelFile(const FileInfo& info) {
         std::cout << "✗ Invalid height: " << level.height << "\n";
         ranges_valid = false;
     }
-    if (level.scale <= 0.0f || level.scale > consts::capi::maxScale) {
-        std::cout << "✗ Invalid scale: " << level.scale << "\n";
+    if (level.world_scale <= 0.0f || level.world_scale > consts::capi::maxScale) {
+        std::cout << "✗ Invalid world_scale: " << level.world_scale << "\n";
         ranges_valid = false;
     }
     if (level.num_tiles < 0 || level.num_tiles > CompiledLevel::MAX_TILES) {
@@ -213,7 +213,7 @@ bool validateLevelFile(const FileInfo& info) {
     
     std::cout << "\nLevel Details:\n";
     std::cout << "  Name: " << level.level_name << "\n";
-    std::cout << "  Dimensions: " << level.width << "x" << level.height << " grid, Scale: " << level.scale << "\n";
+    std::cout << "  Dimensions: " << level.width << "x" << level.height << " grid, Scale: " << level.world_scale << "\n";
     std::cout << "  Tiles: " << level.num_tiles << ", Max entities: " << level.max_entities << "\n";
     
     // Show spawn information

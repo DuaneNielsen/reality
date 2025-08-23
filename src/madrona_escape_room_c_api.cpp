@@ -83,12 +83,18 @@ MER_Result mer_create_manager(
                   "tile_rand_z offset mismatch");
     static_assert(offsetof(MER_CompiledLevel, tile_rand_rot_z) == offsetof(CompiledLevel, tile_rand_rot_z),
                   "tile_rand_rot_z offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, x_scale) == offsetof(CompiledLevel, x_scale),
-                  "x_scale offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, y_scale) == offsetof(CompiledLevel, y_scale),
-                  "y_scale offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, z_scale) == offsetof(CompiledLevel, z_scale),
-                  "z_scale offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, world_scale_x) == offsetof(CompiledLevel, world_scale_x),
+                  "world_scale_x offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, world_scale_y) == offsetof(CompiledLevel, world_scale_y),
+                  "world_scale_y offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, world_scale_z) == offsetof(CompiledLevel, world_scale_z),
+                  "world_scale_z offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_x) == offsetof(CompiledLevel, tile_rand_scale_x),
+                  "tile_rand_scale_x offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_y) == offsetof(CompiledLevel, tile_rand_scale_y),
+                  "tile_rand_scale_y offset mismatch");
+    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_z) == offsetof(CompiledLevel, tile_rand_scale_z),
+                  "tile_rand_scale_z offset mismatch");
     static_assert(offsetof(MER_CompiledLevel, done_on_collide) == offsetof(CompiledLevel, done_on_collide),
                   "done_on_collide offset mismatch");
     
@@ -157,7 +163,7 @@ MER_Result mer_validate_compiled_level(const MER_CompiledLevel* level) {
     if (level->num_tiles < 0 || level->num_tiles > expected_array_size) return MER_ERROR_INVALID_PARAMETER;
     if (level->max_entities < 0) return MER_ERROR_INVALID_PARAMETER;
     if (level->width <= 0 || level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
-    if (level->scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
+    if (level->world_scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
     
     // Validate array size doesn't exceed our fixed buffer limits
     if (expected_array_size > CompiledLevel::MAX_TILES) return MER_ERROR_INVALID_PARAMETER;

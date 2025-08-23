@@ -197,10 +197,10 @@ class MER_CompiledLevel(Structure):
         ("max_entities", c_int32),
         ("width", c_int32),
         ("height", c_int32),
-        ("scale", c_float),
-        ("x_scale", c_float),
-        ("y_scale", c_float),
-        ("z_scale", c_float),
+        ("world_scale", c_float),
+        ("world_scale_x", c_float),
+        ("world_scale_y", c_float),
+        ("world_scale_z", c_float),
         ("done_on_collide", c_bool),
         ("level_name", c_char * 64),  # MAX_LEVEL_NAME_LENGTH = 64
         # World boundaries in world units
@@ -233,6 +233,9 @@ class MER_CompiledLevel(Structure):
         ("tile_rand_y", c_float * MAX_TILES),
         ("tile_rand_z", c_float * MAX_TILES),
         ("tile_rand_rot_z", c_float * MAX_TILES),
+        ("tile_rand_scale_x", c_float * MAX_TILES),
+        ("tile_rand_scale_y", c_float * MAX_TILES),
+        ("tile_rand_scale_z", c_float * MAX_TILES),
     ]
 
 
@@ -438,10 +441,12 @@ def dict_to_compiled_level(compiled_dict):
     level.max_entities = compiled_dict["max_entities"]
     level.width = compiled_dict["width"]
     level.height = compiled_dict["height"]
-    level.scale = compiled_dict["scale"]
-    level.x_scale = compiled_dict.get("x_scale", 1.0)
-    level.y_scale = compiled_dict.get("y_scale", 1.0)
-    level.z_scale = compiled_dict.get("z_scale", 1.0)
+    level.world_scale = compiled_dict.get(
+        "scale", compiled_dict.get("world_scale", 1.0)
+    )  # Support both old and new names
+    level.world_scale_x = compiled_dict.get("x_scale", compiled_dict.get("world_scale_x", 1.0))
+    level.world_scale_y = compiled_dict.get("y_scale", compiled_dict.get("world_scale_y", 1.0))
+    level.world_scale_z = compiled_dict.get("z_scale", compiled_dict.get("world_scale_z", 1.0))
     level.done_on_collide = compiled_dict.get("done_on_collide", False)
 
     # Copy level name (ensure it's null-terminated and fits in 64 bytes)
@@ -512,6 +517,21 @@ def dict_to_compiled_level(compiled_dict):
             if "tile_rand_rot_z" in compiled_dict
             else 0.0
         )
+        level.tile_rand_scale_x[i] = (
+            compiled_dict.get("tile_rand_scale_x", [0.0] * array_size)[i]
+            if "tile_rand_scale_x" in compiled_dict
+            else 0.0
+        )
+        level.tile_rand_scale_y[i] = (
+            compiled_dict.get("tile_rand_scale_y", [0.0] * array_size)[i]
+            if "tile_rand_scale_y" in compiled_dict
+            else 0.0
+        )
+        level.tile_rand_scale_z[i] = (
+            compiled_dict.get("tile_rand_scale_z", [0.0] * array_size)[i]
+            if "tile_rand_scale_z" in compiled_dict
+            else 0.0
+        )
 
     # Zero-fill remaining slots (important for deterministic behavior)
     for i in range(array_size, MAX_TILES):
@@ -534,6 +554,9 @@ def dict_to_compiled_level(compiled_dict):
         level.tile_rand_y[i] = 0.0
         level.tile_rand_z[i] = 0.0
         level.tile_rand_rot_z[i] = 0.0
+        level.tile_rand_scale_x[i] = 0.0
+        level.tile_rand_scale_y[i] = 0.0
+        level.tile_rand_scale_z[i] = 0.0
 
     return level
 
@@ -558,10 +581,15 @@ def compiled_level_to_dict(level):
         "max_entities": level.max_entities,
         "width": level.width,
         "height": level.height,
-        "scale": level.scale,
-        "x_scale": level.x_scale,
-        "y_scale": level.y_scale,
-        "z_scale": level.z_scale,
+        "world_scale": level.world_scale,
+        "world_scale_x": level.world_scale_x,
+        "world_scale_y": level.world_scale_y,
+        "world_scale_z": level.world_scale_z,
+        # Keep old names for backward compatibility
+        "scale": level.world_scale,
+        "x_scale": level.world_scale_x,
+        "y_scale": level.world_scale_y,
+        "z_scale": level.world_scale_z,
         "done_on_collide": level.done_on_collide,
         "level_name": level.level_name.decode("utf-8").rstrip("\x00"),
         # World boundaries
@@ -598,6 +626,9 @@ def compiled_level_to_dict(level):
         "tile_rand_y": list(level.tile_rand_y),
         "tile_rand_z": list(level.tile_rand_z),
         "tile_rand_rot_z": list(level.tile_rand_rot_z),
+        "tile_rand_scale_x": list(level.tile_rand_scale_x),
+        "tile_rand_scale_y": list(level.tile_rand_scale_y),
+        "tile_rand_scale_z": list(level.tile_rand_scale_z),
         # Metadata
         "array_size": array_size,
     }

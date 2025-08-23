@@ -108,7 +108,10 @@ public:
                 level1.tile_persistent[i] != level2.tile_persistent[i] ||
                 level1.tile_render_only[i] != level2.tile_render_only[i] ||
                 level1.tile_entity_type[i] != level2.tile_entity_type[i] ||
-                level1.tile_response_type[i] != level2.tile_response_type[i]) {
+                level1.tile_response_type[i] != level2.tile_response_type[i] ||
+                level1.tile_rand_scale_x[i] != level2.tile_rand_scale_x[i] ||
+                level1.tile_rand_scale_y[i] != level2.tile_rand_scale_y[i] ||
+                level1.tile_rand_scale_z[i] != level2.tile_rand_scale_z[i]) {
                 return false;
             }
         }
@@ -169,10 +172,10 @@ protected:
         MER_CompiledLevel level = {};
         level.width = width;
         level.height = height;
-        level.scale = 1.0f;
-        level.x_scale = 1.0f;
-        level.y_scale = 1.0f;
-        level.z_scale = 1.0f;
+        level.world_scale = 1.0f;
+        level.world_scale_x = 1.0f;
+        level.world_scale_y = 1.0f;
+        level.world_scale_z = 1.0f;
         level.done_on_collide = false;
         level.num_tiles = width * height;
         // Calculate max_entities using same formula as level_compiler.py:
@@ -183,8 +186,8 @@ protected:
         // Fill with simple tile pattern
         for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
             level.object_ids[i] = (i % 2) + 1;  // Cycle between CUBE (1) and WALL (2)
-            level.tile_x[i] = (i % width) * level.scale;
-            level.tile_y[i] = (i / width) * level.scale;
+            level.tile_x[i] = (i % width) * level.world_scale;
+            level.tile_y[i] = (i / width) * level.world_scale;
             level.tile_persistent[i] = false;  // Default: non-persistent
             level.tile_render_only[i] = false;  // Default: physics entities
             level.tile_entity_type[i] = (i % 2) + 1;  // Match object_ids (1=Cube, 2=Wall)
@@ -193,20 +196,20 @@ protected:
             
             // Initialize transform data with defaults matching old hardcoded logic
             level.tile_z[i] = 0.0f;  // Default ground level
-            level.tile_scale_x[i] = level.scale;
-            level.tile_scale_y[i] = level.scale;
+            level.tile_scale_x[i] = level.world_scale;
+            level.tile_scale_y[i] = level.world_scale;
             
             // Apply object-specific defaults to match old behavior
             if (level.object_ids[i] == 2) {  // WALL (AssetIDs::WALL)
                 level.tile_scale_z[i] = 2.0f;  // wallHeight constant from consts.hpp
             } else if (level.object_ids[i] == 1) {  // CUBE (AssetIDs::CUBE)
-                float s = 1.5f * level.scale / 2.0f;  // cubeHeightRatio * scale / cubeScaleFactor
+                float s = 1.5f * level.world_scale / 2.0f;  // cubeHeightRatio * scale / cubeScaleFactor
                 level.tile_scale_x[i] = s;
                 level.tile_scale_y[i] = s;
                 level.tile_scale_z[i] = s;
                 level.tile_z[i] = s;  // Cubes float above ground
             } else {
-                level.tile_scale_z[i] = level.scale;
+                level.tile_scale_z[i] = level.world_scale;
             }
             
             // Identity rotation quaternion
@@ -242,10 +245,10 @@ protected:
             MER_CompiledLevel level = {};
             level.width = 16;
             level.height = 16;
-            level.scale = 1.0f;
-            level.x_scale = 1.0f;
-            level.y_scale = 1.0f;
-            level.z_scale = 1.0f;
+            level.world_scale = 1.0f;
+            level.world_scale_x = 1.0f;
+            level.world_scale_y = 1.0f;
+            level.world_scale_z = 1.0f;
             level.done_on_collide = false;
             level.num_tiles = 256;
             // Calculate max_entities using same formula as level_compiler.py
@@ -253,8 +256,8 @@ protected:
             // Initialize tile data
             for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
                 level.object_ids[i] = 0;
-                level.tile_x[i] = (i % 16) * level.scale;
-                level.tile_y[i] = (i / 16) * level.scale;
+                level.tile_x[i] = (i % 16) * level.world_scale;
+                level.tile_y[i] = (i / 16) * level.world_scale;
                 level.tile_persistent[i] = false;  // Default: non-persistent
                 level.tile_render_only[i] = false;  // Default: physics entities
                 level.tile_entity_type[i] = 0;  // Default EntityType::None

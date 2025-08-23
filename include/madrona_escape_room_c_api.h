@@ -82,10 +82,10 @@ typedef struct {
     int32_t max_entities;      // BVH sizing - calculated during level compilation  
     int32_t width;             // Grid width
     int32_t height;            // Grid height
-    float scale;               // World scale factor
-    float x_scale;             // Global X-axis scale factor
-    float y_scale;             // Global Y-axis scale factor
-    float z_scale;             // Global Z-axis scale factor
+    float world_scale;         // World scale factor
+    float world_scale_x;       // Global X-axis scale factor
+    float world_scale_y;       // Global Y-axis scale factor
+    float world_scale_z;       // Global Z-axis scale factor
     bool done_on_collide;      // Episode ends on collision
     char level_name[MER_MAX_NAME_LENGTH];       // Level name for identification
     
@@ -127,6 +127,9 @@ typedef struct {
     float tile_rand_y[MER_MAX_TILES];    // Random Y offset range (-range/2 to +range/2)
     float tile_rand_z[MER_MAX_TILES];    // Random Z offset range (-range/2 to +range/2)
     float tile_rand_rot_z[MER_MAX_TILES]; // Random Z-axis rotation range in radians
+    float tile_rand_scale_x[MER_MAX_TILES]; // Random X scale variation range
+    float tile_rand_scale_y[MER_MAX_TILES]; // Random Y scale variation range
+    float tile_rand_scale_z[MER_MAX_TILES]; // Random Z scale variation range
 } MER_CompiledLevel;
 
 // Manager configuration

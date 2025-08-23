@@ -247,7 +247,7 @@ void createPersistentEntities(Engine &ctx)
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
     
     // Use the scale from the compiled level to size tiles properly
-    // float tile_scale = level.scale;  // Currently unused
+    // float tile_scale = level.world_scale;  // Currently unused
     
     // Create persistent tiles
     for (int32_t i = 0; i < level.num_tiles && i < CompiledLevel::MAX_TILES; i++) {
@@ -285,7 +285,7 @@ static void resetPersistentEntities(Engine &ctx)
 
      // Get compiled level for persistent entity setup
      CompiledLevel& level = ctx.singleton<CompiledLevel>();
-     // float tile_scale = level.scale;  // Currently unused
+     // float tile_scale = level.world_scale;  // Currently unused
      
      // Set up physics for persistent level entities
      CountT persistent_idx = 0;

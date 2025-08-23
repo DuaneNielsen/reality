@@ -31,10 +31,10 @@ class TestCAPIStructValidation:
                 ("max_entities", ctypes.c_int32),
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
-                ("scale", ctypes.c_float),
-                ("x_scale", ctypes.c_float),
-                ("y_scale", ctypes.c_float),
-                ("z_scale", ctypes.c_float),
+                ("world_scale", ctypes.c_float),
+                ("world_scale_x", ctypes.c_float),
+                ("world_scale_y", ctypes.c_float),
+                ("world_scale_z", ctypes.c_float),
                 ("done_on_collide", ctypes.c_bool),
                 ("level_name", ctypes.c_char * 64),  # MAX_LEVEL_NAME_LENGTH
                 # World boundaries
@@ -67,6 +67,9 @@ class TestCAPIStructValidation:
                 ("tile_rand_y", ctypes.c_float * 1024),
                 ("tile_rand_z", ctypes.c_float * 1024),
                 ("tile_rand_rot_z", ctypes.c_float * 1024),
+                ("tile_rand_scale_x", ctypes.c_float * 1024),
+                ("tile_rand_scale_y", ctypes.c_float * 1024),
+                ("tile_rand_scale_z", ctypes.c_float * 1024),
             ]
 
         # Populate struct
@@ -75,10 +78,10 @@ class TestCAPIStructValidation:
         level_struct.max_entities = compiled["max_entities"]
         level_struct.width = compiled["width"]
         level_struct.height = compiled["height"]
-        level_struct.scale = compiled["scale"]
-        level_struct.x_scale = compiled.get("x_scale", 1.0)
-        level_struct.y_scale = compiled.get("y_scale", 1.0)
-        level_struct.z_scale = compiled.get("z_scale", 1.0)
+        level_struct.world_scale = compiled.get("scale", compiled.get("world_scale", 1.0))
+        level_struct.world_scale_x = compiled.get("x_scale", compiled.get("world_scale_x", 1.0))
+        level_struct.world_scale_y = compiled.get("y_scale", compiled.get("world_scale_y", 1.0))
+        level_struct.world_scale_z = compiled.get("z_scale", compiled.get("world_scale_z", 1.0))
         level_struct.done_on_collide = compiled.get("done_on_collide", False)
         level_struct.level_name = compiled["level_name"].encode("utf-8")
         # Set world boundaries
@@ -116,6 +119,9 @@ class TestCAPIStructValidation:
             level_struct.tile_rand_y[i] = compiled.get("tile_rand_y", [0.0] * 1024)[i]
             level_struct.tile_rand_z[i] = compiled.get("tile_rand_z", [0.0] * 1024)[i]
             level_struct.tile_rand_rot_z[i] = compiled.get("tile_rand_rot_z", [0.0] * 1024)[i]
+            level_struct.tile_rand_scale_x[i] = compiled.get("tile_rand_scale_x", [0.0] * 1024)[i]
+            level_struct.tile_rand_scale_y[i] = compiled.get("tile_rand_scale_y", [0.0] * 1024)[i]
+            level_struct.tile_rand_scale_z[i] = compiled.get("tile_rand_scale_z", [0.0] * 1024)[i]
 
         # Set up C API validation
         lib.mer_validate_compiled_level.argtypes = [ctypes.POINTER(MER_CompiledLevel)]
@@ -153,10 +159,10 @@ class TestCAPIStructValidation:
                 ("max_entities", ctypes.c_int32),
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
-                ("scale", ctypes.c_float),
-                ("x_scale", ctypes.c_float),
-                ("y_scale", ctypes.c_float),
-                ("z_scale", ctypes.c_float),
+                ("world_scale", ctypes.c_float),
+                ("world_scale_x", ctypes.c_float),
+                ("world_scale_y", ctypes.c_float),
+                ("world_scale_z", ctypes.c_float),
                 ("done_on_collide", ctypes.c_bool),
                 ("level_name", ctypes.c_char * 64),  # MAX_LEVEL_NAME_LENGTH
                 # World boundaries
@@ -189,6 +195,9 @@ class TestCAPIStructValidation:
                 ("tile_rand_y", ctypes.c_float * 1024),
                 ("tile_rand_z", ctypes.c_float * 1024),
                 ("tile_rand_rot_z", ctypes.c_float * 1024),
+                ("tile_rand_scale_x", ctypes.c_float * 1024),
+                ("tile_rand_scale_y", ctypes.c_float * 1024),
+                ("tile_rand_scale_z", ctypes.c_float * 1024),
             ]
 
         class MER_ManagerConfig(ctypes.Structure):
@@ -209,10 +218,10 @@ class TestCAPIStructValidation:
         level_struct.max_entities = compiled["max_entities"]
         level_struct.width = compiled["width"]
         level_struct.height = compiled["height"]
-        level_struct.scale = compiled["scale"]
-        level_struct.x_scale = compiled.get("x_scale", 1.0)
-        level_struct.y_scale = compiled.get("y_scale", 1.0)
-        level_struct.z_scale = compiled.get("z_scale", 1.0)
+        level_struct.world_scale = compiled.get("scale", compiled.get("world_scale", 1.0))
+        level_struct.world_scale_x = compiled.get("x_scale", compiled.get("world_scale_x", 1.0))
+        level_struct.world_scale_y = compiled.get("y_scale", compiled.get("world_scale_y", 1.0))
+        level_struct.world_scale_z = compiled.get("z_scale", compiled.get("world_scale_z", 1.0))
         level_struct.done_on_collide = compiled.get("done_on_collide", False)
         level_struct.level_name = compiled["level_name"].encode("utf-8")
         # Set world boundaries
@@ -250,6 +259,9 @@ class TestCAPIStructValidation:
             level_struct.tile_rand_y[i] = compiled.get("tile_rand_y", [0.0] * 1024)[i]
             level_struct.tile_rand_z[i] = compiled.get("tile_rand_z", [0.0] * 1024)[i]
             level_struct.tile_rand_rot_z[i] = compiled.get("tile_rand_rot_z", [0.0] * 1024)[i]
+            level_struct.tile_rand_scale_x[i] = compiled.get("tile_rand_scale_x", [0.0] * 1024)[i]
+            level_struct.tile_rand_scale_y[i] = compiled.get("tile_rand_scale_y", [0.0] * 1024)[i]
+            level_struct.tile_rand_scale_z[i] = compiled.get("tile_rand_scale_z", [0.0] * 1024)[i]
 
         # Create config
         config = MER_ManagerConfig()
@@ -316,13 +328,13 @@ class TestCAPIStructValidation:
         struct.max_entities = 100
         struct.width = 10
         struct.height = 8
-        struct.scale = 1.5
+        struct.world_scale = 1.5
 
         assert struct.num_tiles == 42
         assert struct.max_entities == 100
         assert struct.width == 10
         assert struct.height == 8
-        assert abs(struct.scale - 1.5) < 0.001
+        assert abs(struct.world_scale - 1.5) < 0.001
 
         # Test array bounds
         struct.object_ids[0] = 1
@@ -367,10 +379,10 @@ class TestCAPIStructValidation:
                 ("max_entities", ctypes.c_int32),
                 ("width", ctypes.c_int32),
                 ("height", ctypes.c_int32),
-                ("scale", ctypes.c_float),
-                ("x_scale", ctypes.c_float),
-                ("y_scale", ctypes.c_float),
-                ("z_scale", ctypes.c_float),
+                ("world_scale", ctypes.c_float),
+                ("world_scale_x", ctypes.c_float),
+                ("world_scale_y", ctypes.c_float),
+                ("world_scale_z", ctypes.c_float),
                 ("done_on_collide", ctypes.c_bool),
                 ("object_ids", ctypes.c_int32 * 256),
                 ("tile_x", ctypes.c_float * 256),
@@ -389,7 +401,7 @@ class TestCAPIStructValidation:
             struct.max_entities = compiled["max_entities"]
             struct.width = compiled["width"]
             struct.height = compiled["height"]
-            struct.scale = compiled["scale"]
+            struct.world_scale = compiled.get("scale", compiled.get("world_scale", 1.0))
 
             for j in range(256):
                 struct.object_ids[j] = compiled["object_ids"][j]

@@ -11,10 +11,10 @@ protected:
         CompiledLevel level {};
         level.width = 16;
         level.height = 16;
-        level.scale = 1.0f;
-        level.x_scale = 1.0f;
-        level.y_scale = 1.0f;
-        level.z_scale = 1.0f;
+        level.world_scale = 1.0f;
+        level.world_scale_x = 1.0f;
+        level.world_scale_y = 1.0f;
+        level.world_scale_z = 1.0f;
         level.done_on_collide = false;
         // Initialize world boundaries
         level.world_min_x = -20.0f;
@@ -95,10 +95,10 @@ TEST_F(AssetRefactorTest, EmptyTilesHandled) {
     CompiledLevel level {};
     level.width = 4;
     level.height = 4;
-    level.scale = 1.0f;
-    level.x_scale = 1.0f;
-    level.y_scale = 1.0f;
-    level.z_scale = 1.0f;
+    level.world_scale = 1.0f;
+    level.world_scale_x = 1.0f;
+    level.world_scale_y = 1.0f;
+    level.world_scale_z = 1.0f;
     level.done_on_collide = false;
     // Initialize world boundaries
     level.world_min_x = -5.0f;
@@ -117,8 +117,8 @@ TEST_F(AssetRefactorTest, EmptyTilesHandled) {
     
     for (int i = 1; i < 16; i++) {
         level.object_ids[i] = AssetIDs::INVALID;  // Explicitly empty
-        level.tile_x[i] = (i % 4) * level.scale;
-        level.tile_y[i] = (i / 4) * level.scale;
+        level.tile_x[i] = (i % 4) * level.world_scale;
+        level.tile_y[i] = (i / 4) * level.world_scale;
     }
     
     level.num_spawns = 1;
@@ -141,10 +141,10 @@ TEST_F(AssetRefactorTest, AllBuiltInAssetTypes) {
     CompiledLevel level {};
     level.width = 8;
     level.height = 8;
-    level.scale = 1.0f;
-    level.x_scale = 1.0f;
-    level.y_scale = 1.0f;
-    level.z_scale = 1.0f;
+    level.world_scale = 1.0f;
+    level.world_scale_x = 1.0f;
+    level.world_scale_y = 1.0f;
+    level.world_scale_z = 1.0f;
     level.done_on_collide = false;
     // Initialize world boundaries
     level.world_min_x = -10.0f;
