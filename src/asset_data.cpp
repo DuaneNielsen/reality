@@ -14,24 +14,24 @@ namespace madEscape {
 // Texture definitions
 namespace AssetTextures {
     const TextureDescriptor TEXTURES[NUM_TEXTURES] = {
-        { "green_grid", "green_grid.png" },
+        { "tron_grid", "tron_grid.png" },
         { "smile", "smile.png" },
     };
 }
 
-// Material definitions
+// Material definitions - 80s Tron color palette
 namespace AssetMaterials {
     const MaterialDescriptor MATERIALS[NUM_MATERIALS] = {
-        { "cube", {139.f/255.f, 69.f/255.f, 19.f/255.f, 1.0f}, -1, 0.8f, 0.2f },
-        { "wall", {0.5f, 0.5f, 0.5f, 1.0f}, -1, 0.8f, 0.2f },  // No texture
-        { "agent_body", {1.0f, 1.0f, 1.0f, 1.0f}, 1, 0.5f, 1.0f },  // Uses smile texture  
-        { "agent_parts", {0.7f, 0.7f, 0.7f, 1.0f}, -1, 0.8f, 0.2f },
-        { "floor", {0.2f, 0.6f, 0.2f, 1.0f}, 0, 0.8f, 0.2f },  // Uses green_grid texture
-        { "axis_x", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
-        { "button", {1.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
-        { "axis_y", {0.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },
-        { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },
-        { "cylinder", {0.3f, 0.7f, 0.9f, 1.0f}, -1, 0.8f, 0.2f },  // Light blue cylinder
+        { "cube", {1.0f, 102.f/255.f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },  // Tron orange
+        { "wall", {0.0f, 51.f/255.f, 102.f/255.f, 1.0f}, -1, 0.8f, 0.2f },  // Grid blue
+        { "agent_body", {0.0f, 1.0f, 1.0f, 1.0f}, 1, 0.5f, 1.0f },  // Cyan, uses smile texture  
+        { "agent_parts", {1.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Magenta
+        { "floor", {0.3f, 0.3f, 0.3f, 1.0f}, 0, 0.8f, 0.2f },  // Dark gray to darken texture, uses tron_grid texture
+        { "axis_x", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },  // Red
+        { "button", {1.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },  // Yellow
+        { "axis_y", {0.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },  // Green
+        { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Blue
+        { "cylinder", {0.0f, 1.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Cyan
     };
 }
 
@@ -214,7 +214,7 @@ Span<SourceTexture> loadTextures(StackAlloc& alloc)
     return img_importer.importImages(
         alloc, {
             (std::filesystem::path(DATA_DIR) / 
-                AssetTextures::TEXTURES[0].filepath).string().c_str(),  // Green grid texture
+                AssetTextures::TEXTURES[0].filepath).string().c_str(),  // Tron grid texture
             (std::filesystem::path(DATA_DIR) / 
                 AssetTextures::TEXTURES[1].filepath).string().c_str(),  // Smile texture
         });
