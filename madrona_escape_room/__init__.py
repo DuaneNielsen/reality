@@ -25,31 +25,10 @@ except ImportError as e:
         f"Original error: {e}"
     )
 
-# Import constants from ctypes_bindings
+# Import system constants from ctypes_bindings
 from .ctypes_bindings import (
-    MER_AGENT_ID_SIZE,
     MER_EXEC_MODE_CPU,
     MER_EXEC_MODE_CUDA,
-    MER_MOVE_BACKWARD,
-    MER_MOVE_BACKWARD_LEFT,
-    MER_MOVE_BACKWARD_RIGHT,
-    MER_MOVE_FAST,
-    MER_MOVE_FORWARD,
-    MER_MOVE_FORWARD_LEFT,
-    MER_MOVE_FORWARD_RIGHT,
-    MER_MOVE_LEFT,
-    MER_MOVE_MEDIUM,
-    MER_MOVE_RIGHT,
-    MER_MOVE_SLOW,
-    MER_MOVE_STOP,
-    MER_NUM_AGENTS,
-    MER_ROTATE_FAST_LEFT,
-    MER_ROTATE_FAST_RIGHT,
-    MER_ROTATE_NONE,
-    MER_ROTATE_SLOW_LEFT,
-    MER_ROTATE_SLOW_RIGHT,
-    MER_SELF_OBSERVATION_SIZE,
-    MER_STEPS_REMAINING_SIZE,
     MER_SUCCESS,
     MER_TENSOR_TYPE_FLOAT16,
     MER_TENSOR_TYPE_FLOAT32,
@@ -58,41 +37,17 @@ from .ctypes_bindings import (
     MER_TENSOR_TYPE_INT32,
     MER_TENSOR_TYPE_INT64,
     MER_TENSOR_TYPE_UINT8,
-    MER_TOTAL_OBSERVATION_SIZE,
 )
 
-# Export constants
-SELF_OBSERVATION_SIZE = MER_SELF_OBSERVATION_SIZE
-STEPS_REMAINING_SIZE = MER_STEPS_REMAINING_SIZE
-AGENT_ID_SIZE = MER_AGENT_ID_SIZE
-TOTAL_OBSERVATION_SIZE = MER_TOTAL_OBSERVATION_SIZE
-NUM_AGENTS = MER_NUM_AGENTS
+# Import generated constants with clean namespace structure
+from .generated_constants import action, consts, math, physics, rendering, types
 
-
-# Create action submodule equivalents
-class action:
-    class move_amount:
-        STOP = MER_MOVE_STOP
-        SLOW = MER_MOVE_SLOW
-        MEDIUM = MER_MOVE_MEDIUM
-        FAST = MER_MOVE_FAST
-
-    class move_angle:
-        FORWARD = MER_MOVE_FORWARD
-        FORWARD_RIGHT = MER_MOVE_FORWARD_RIGHT
-        RIGHT = MER_MOVE_RIGHT
-        BACKWARD_RIGHT = MER_MOVE_BACKWARD_RIGHT
-        BACKWARD = MER_MOVE_BACKWARD
-        BACKWARD_LEFT = MER_MOVE_BACKWARD_LEFT
-        LEFT = MER_MOVE_LEFT
-        FORWARD_LEFT = MER_MOVE_FORWARD_LEFT
-
-    class rotate:
-        FAST_LEFT = MER_ROTATE_FAST_LEFT
-        SLOW_LEFT = MER_ROTATE_SLOW_LEFT
-        NONE = MER_ROTATE_NONE
-        SLOW_RIGHT = MER_ROTATE_SLOW_RIGHT
-        FAST_RIGHT = MER_ROTATE_FAST_RIGHT
+# Export constants for backward compatibility (can be removed later)
+SELF_OBSERVATION_SIZE = types.SELF_OBSERVATION_SIZE
+STEPS_REMAINING_SIZE = types.STEPS_REMAINING_SIZE
+AGENT_ID_SIZE = types.AGENT_ID_SIZE
+TOTAL_OBSERVATION_SIZE = types.TOTAL_OBSERVATION_SIZE
+NUM_AGENTS = consts.numAgents
 
 
 # Madrona submodule for compatibility

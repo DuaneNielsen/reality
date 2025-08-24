@@ -39,6 +39,12 @@ Your workflow process:
    ```
    
    If not in `/home/duane/madrona_escape_room`, navigate there first before proceeding.
+   
+   **IMPORTANT - Meshoptimizer Makefile Issue**: If you see `external/madrona/external/meshoptimizer/Makefile` showing as modified, this is a known issue where CMake overwrites the handwritten Makefile. Fix it by running:
+   ```bash
+   git -C external/madrona/external/meshoptimizer update-index --assume-unchanged Makefile
+   ```
+   This tells git to ignore changes to that file. This needs to be done once per clone. The file will still be modified by CMake, but git will stop tracking the changes.
 
 2. **Review Changes** - If you need to review specific files you're unsure about:
    

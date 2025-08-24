@@ -85,7 +85,10 @@ except OSError as e:
         f"Original error: {e}"
     )
 
-# Error codes enum
+# Import all constants from generated file
+from .generated_constants import action, consts, math, physics, rendering, types
+
+# Keep error codes and system enums that aren't in C++ headers
 MER_SUCCESS = 0
 MER_ERROR_NULL_POINTER = -1
 MER_ERROR_INVALID_PARAMETER = -2
@@ -107,43 +110,6 @@ MER_TENSOR_TYPE_INT32 = 3
 MER_TENSOR_TYPE_INT64 = 4
 MER_TENSOR_TYPE_FLOAT16 = 5
 MER_TENSOR_TYPE_FLOAT32 = 6
-
-# Observation size constants
-MER_SELF_OBSERVATION_SIZE = 5
-MER_STEPS_REMAINING_SIZE = 1
-MER_AGENT_ID_SIZE = 1
-MER_TOTAL_OBSERVATION_SIZE = (
-    MER_SELF_OBSERVATION_SIZE + MER_STEPS_REMAINING_SIZE + MER_AGENT_ID_SIZE
-)
-
-# Simulation parameter constants
-MER_NUM_AGENTS = 1
-MER_NUM_ROOMS = 1
-MER_MAX_ENTITIES_PER_ROOM = 6
-MER_EPISODE_LENGTH = 200
-
-# Action constants - Move amount
-MER_MOVE_STOP = 0
-MER_MOVE_SLOW = 1
-MER_MOVE_MEDIUM = 2
-MER_MOVE_FAST = 3
-
-# Action constants - Move angle (8 directions)
-MER_MOVE_FORWARD = 0
-MER_MOVE_FORWARD_RIGHT = 1
-MER_MOVE_RIGHT = 2
-MER_MOVE_BACKWARD_RIGHT = 3
-MER_MOVE_BACKWARD = 4
-MER_MOVE_BACKWARD_LEFT = 5
-MER_MOVE_LEFT = 6
-MER_MOVE_FORWARD_LEFT = 7
-
-# Action constants - Rotation
-MER_ROTATE_FAST_LEFT = 0
-MER_ROTATE_SLOW_LEFT = 1
-MER_ROTATE_NONE = 2
-MER_ROTATE_SLOW_RIGHT = 3
-MER_ROTATE_FAST_RIGHT = 4
 
 # Manager handle type (opaque pointer)
 MER_ManagerHandle = c_void_p
