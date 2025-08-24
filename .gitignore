@@ -77,3 +77,7 @@ env/
 
 # Benchmark profile outputs
 /tmp/sim_bench_profile_*.html
+
+# Ignore CMake-generated Makefile in meshoptimizer submodule
+# (meshoptimizer has both a handwritten Makefile and CMakeLists.txt)
+external/madrona/external/meshoptimizer/Makefile
