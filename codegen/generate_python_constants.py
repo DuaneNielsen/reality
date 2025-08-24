@@ -49,6 +49,7 @@ class ConstantExtractor:
     def __init__(self):
         self.index = clang.cindex.Index.create()
         self.root = NamespaceNode("root")
+        self.verbose = False  # Will be set by main()
 
     def extract_value(self, cursor) -> Optional[Any]:
         """Extract the literal value from a variable declaration."""
@@ -199,6 +200,9 @@ class ConstantExtractor:
 
     def parse_headers(self, consts_path: str, types_path: str):
         """Parse the C++ headers and extract constants."""
+        # Store verbose flag for use in diagnostics
+        verbose = getattr(self, "verbose", False)
+
         # Get the Madrona include directory from environment
         madrona_include = os.environ.get("MADRONA_INCLUDE_DIR", "")
 
@@ -230,8 +234,8 @@ namespace madrona {{ using CountT = int32_t; }}
             "wrapper.cpp", include_args, unsaved_files=[("wrapper.cpp", wrapper_code)]
         )
 
-        # Check for parse errors
-        if tu.diagnostics:
+        # Check for parse errors (only show if verbose flag is set)
+        if tu.diagnostics and verbose:
             for diag in tu.diagnostics:
                 if diag.severity >= clang.cindex.Diagnostic.Error:
                     print(f"Parse error: {diag}", file=sys.stderr)
@@ -391,9 +395,14 @@ class PythonGenerator:
 
 def main():
     """Main entry point."""
+    # Check for verbose flag
+    verbose = "--verbose" in sys.argv
+    if verbose:
+        sys.argv.remove("--verbose")
+
     if len(sys.argv) != 4:
         print(
-            "Usage: generate_python_constants.py <consts.hpp> <types.hpp> <output.py>",
+            "Usage: generate_python_constants.py [--verbose] <consts.hpp> <types.hpp> <output.py>",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -415,6 +424,8 @@ def main():
 
     # Extract constants
     extractor = ConstantExtractor()
+    # Pass verbose flag to parse_headers
+    extractor.verbose = verbose
     extractor.parse_headers(consts_path, types_path)
 
     # Generate Python code
