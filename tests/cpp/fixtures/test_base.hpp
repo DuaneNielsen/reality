@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include "compiled_level_compat.hpp"
 #include "madrona_escape_room_c_api.h"
 #include <memory>
 #include <cstring>
