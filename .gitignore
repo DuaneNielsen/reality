@@ -67,6 +67,10 @@ dist/
 .eggs/
 *.egg
 
+# Generated Python bindings (created during build)
+madrona_escape_room/generated_structs.py
+madrona_escape_room/generated_constants.py
+
 # Virtual environments
 .venv/
 venv/
