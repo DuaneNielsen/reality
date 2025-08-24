@@ -15,6 +15,7 @@ from ctypes import (
     c_int,
     c_int32,
     c_int64,
+    c_size_t,
     c_uint32,
     c_uint64,
     c_void_p,
@@ -187,53 +188,43 @@ def _get_max_spawns():
     return 8
 
 
-MAX_TILES = _get_max_tiles()
-MAX_SPAWNS = _get_max_spawns()
+# Try to import auto-generated structs first
+try:
+    from .generated_structs import (
+        MAX_TILES,
+        Action,
+        CompiledLevel,
+        Done,
+        Progress,
+        Reward,
+        SelfObservation,
+        StepsRemaining,
+    )
 
+    print("Using auto-generated structs from pahole")
+except ImportError:
+    # Fallback: Define a minimal CompiledLevel for compatibility
+    # This should only happen before the first build
+    print("Warning: generated_structs.py not found, using fallback struct definition")
+    print("Run 'make' to generate proper struct definitions from binary")
 
-class MER_CompiledLevel(Structure):
-    _fields_ = [
-        ("num_tiles", c_int32),
-        ("max_entities", c_int32),
-        ("width", c_int32),
-        ("height", c_int32),
-        ("world_scale", c_float),
-        ("done_on_collide", c_bool),
-        ("level_name", c_char * 64),  # MAX_LEVEL_NAME_LENGTH = 64
-        # World boundaries in world units
-        ("world_min_x", c_float),
-        ("world_max_x", c_float),
-        ("world_min_y", c_float),
-        ("world_max_y", c_float),
-        ("world_min_z", c_float),
-        ("world_max_z", c_float),
-        ("num_spawns", c_int32),
-        ("spawn_x", c_float * 8),  # MAX_SPAWNS = 8
-        ("spawn_y", c_float * 8),  # MAX_SPAWNS = 8
-        ("spawn_facing", c_float * 8),  # MAX_SPAWNS = 8, agent facing angles in radians
-        ("object_ids", c_int32 * MAX_TILES),
-        ("tile_x", c_float * MAX_TILES),
-        ("tile_y", c_float * MAX_TILES),
-        ("tile_z", c_float * MAX_TILES),
-        ("tile_persistent", c_bool * MAX_TILES),
-        ("tile_render_only", c_bool * MAX_TILES),
-        ("tile_entity_type", c_int32 * MAX_TILES),
-        ("tile_response_type", c_int32 * MAX_TILES),
-        ("tile_scale_x", c_float * MAX_TILES),
-        ("tile_scale_y", c_float * MAX_TILES),
-        ("tile_scale_z", c_float * MAX_TILES),
-        ("tile_rot_w", c_float * MAX_TILES),
-        ("tile_rot_x", c_float * MAX_TILES),
-        ("tile_rot_y", c_float * MAX_TILES),
-        ("tile_rot_z", c_float * MAX_TILES),
-        ("tile_rand_x", c_float * MAX_TILES),
-        ("tile_rand_y", c_float * MAX_TILES),
-        ("tile_rand_z", c_float * MAX_TILES),
-        ("tile_rand_rot_z", c_float * MAX_TILES),
-        ("tile_rand_scale_x", c_float * MAX_TILES),
-        ("tile_rand_scale_y", c_float * MAX_TILES),
-        ("tile_rand_scale_z", c_float * MAX_TILES),
-    ]
+    MAX_TILES = _get_max_tiles()
+    MAX_SPAWNS = _get_max_spawns()
+
+    class CompiledLevel(Structure):
+        """Fallback struct - will be replaced by auto-generated version after build"""
+
+        _fields_ = [
+            ("num_tiles", c_int32),
+            ("max_entities", c_int32),
+            ("width", c_int32),
+            ("height", c_int32),
+            ("world_scale", c_float),
+            ("done_on_collide", c_bool),
+            ("level_name", c_char * 64),
+            # Add padding to match expected size
+            ("_padding", c_char * (84180 - 4 * 4 - 4 - 1 - 64)),
+        ]
 
 
 # Manager configuration structure
@@ -267,13 +258,13 @@ class MER_Tensor(Structure):
 lib.mer_create_manager.argtypes = [
     POINTER(MER_ManagerHandle),
     POINTER(MER_ManagerConfig),
-    POINTER(MER_CompiledLevel),  # Array of compiled levels (one per world), NULL for default
+    c_void_p,  # Direct CompiledLevel pointer from Python (NULL for default)
     c_uint32,  # Length of compiled_levels array
 ]
 lib.mer_create_manager.restype = c_int
 
 # Level validation functions
-lib.mer_validate_compiled_level.argtypes = [POINTER(MER_CompiledLevel)]
+lib.mer_validate_compiled_level.argtypes = [c_void_p]  # Direct CompiledLevel pointer
 lib.mer_validate_compiled_level.restype = c_int
 
 lib.mer_destroy_manager.argtypes = [MER_ManagerHandle]
@@ -366,11 +357,15 @@ lib.mer_result_to_string.argtypes = [c_int]
 lib.mer_result_to_string.restype = c_char_p
 
 # Binary I/O functions
-lib.mer_write_compiled_level.argtypes = [c_char_p, POINTER(MER_CompiledLevel)]
+lib.mer_write_compiled_level.argtypes = [c_char_p, c_void_p]  # Direct CompiledLevel pointer
 lib.mer_write_compiled_level.restype = c_int
 
-lib.mer_read_compiled_level.argtypes = [c_char_p, POINTER(MER_CompiledLevel)]
+lib.mer_read_compiled_level.argtypes = [c_char_p, c_void_p]  # Direct CompiledLevel pointer
 lib.mer_read_compiled_level.restype = c_int
+
+# Get CompiledLevel size for validation
+lib.mer_get_compiled_level_size.argtypes = []
+lib.mer_get_compiled_level_size.restype = c_size_t
 
 
 class CTypesLib:
@@ -388,7 +383,7 @@ class CTypesLib:
         elif type_name == "MER_Tensor*":
             return POINTER(MER_Tensor)(MER_Tensor())
         elif type_name == "MER_CompiledLevel*":
-            return POINTER(MER_CompiledLevel)(MER_CompiledLevel())
+            return POINTER(CompiledLevel)(CompiledLevel())
         else:
             raise ValueError(f"Unknown type: {type_name}")
 
@@ -421,7 +416,7 @@ class CTypesLib:
 # Helper functions for compiled level integration
 def dict_to_compiled_level(compiled_dict):
     """
-    Convert compiled level dictionary to MER_CompiledLevel ctypes structure.
+    Convert compiled level dictionary to CompiledLevel ctypes structure.
 
     The compiled_dict contains arrays sized exactly for the level's dimensions
     (width × height), but the ctypes structure uses fixed MAX_TILES arrays.
@@ -431,9 +426,9 @@ def dict_to_compiled_level(compiled_dict):
         compiled_dict: Output from level_compiler.compile_level()
 
     Returns:
-        MER_CompiledLevel: ctypes structure ready for C API
+        CompiledLevel: ctypes structure ready for C API (auto-generated from binary)
     """
-    level = MER_CompiledLevel()
+    level = CompiledLevel()
     level.num_tiles = compiled_dict["num_tiles"]
     level.max_entities = compiled_dict["max_entities"]
     level.width = compiled_dict["width"]
@@ -557,11 +552,11 @@ def dict_to_compiled_level(compiled_dict):
 
 def compiled_level_to_dict(level):
     """
-    Convert MER_CompiledLevel ctypes structure to dictionary.
+    Convert CompiledLevel ctypes structure to dictionary.
     Reverse of dict_to_compiled_level.
 
     Args:
-        level: MER_CompiledLevel ctypes structure
+        level: CompiledLevel ctypes structure (auto-generated from binary)
 
     Returns:
         Dict matching compile_level() output format
@@ -627,7 +622,7 @@ def validate_compiled_level_ctypes(level):
     Validate compiled level using C API validation function.
 
     Args:
-        level: MER_CompiledLevel structure
+        level: CompiledLevel structure (auto-generated from binary)
 
     Raises:
         ValueError: If validation fails
@@ -663,7 +658,7 @@ def create_compiled_levels_array(compiled_level_dicts):
         levels.append(level)
 
     # Create ctypes array
-    ArrayType = MER_CompiledLevel * len(levels)
+    ArrayType = CompiledLevel * len(levels)
     levels_array = ArrayType(*levels)
 
     return levels_array, len(levels)

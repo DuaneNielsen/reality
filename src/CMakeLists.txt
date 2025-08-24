@@ -251,3 +251,15 @@ else()
     )
 endif()
 
+# Generate Python struct definitions from the compiled library using pahole
+# This ensures Python ctypes structures exactly match C++ memory layout
+add_custom_command(
+    TARGET madrona_escape_room_c_api POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "Generating Python struct definitions from binary..."
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/generate_python_structs.py
+            $<TARGET_FILE:madrona_escape_room_c_api>
+            ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_structs.py
+    COMMENT "Auto-generating Python ctypes structures using pahole"
+    VERBATIM
+)
+

@@ -1,6 +1,6 @@
+#include "types.hpp"
 #include "madrona_escape_room_c_api.h"
 #include "mgr.hpp"
-#include "types.hpp"
 #include "asset_registry.hpp"
 #include "asset_ids.hpp"
 
@@ -60,7 +60,7 @@ extern "C" {
 MER_Result mer_create_manager(
     MER_ManagerHandle* out_handle,
     const MER_ManagerConfig* config,
-    const MER_CompiledLevel* compiled_levels,
+    const void* compiled_levels,
     uint32_t num_compiled_levels
 ) {
     if (!out_handle || !config) {
@@ -69,32 +69,13 @@ MER_Result mer_create_manager(
     
     *out_handle = nullptr;
     
-    // Verify struct layout matches between C API and C++ at compile time
+    // Direct cast from void* - Python passes the exact C++ struct via ctypes
     using namespace madEscape;
-    static_assert(sizeof(MER_CompiledLevel) == sizeof(CompiledLevel), 
-                  "MER_CompiledLevel and CompiledLevel sizes must match");
-    static_assert(offsetof(MER_CompiledLevel, max_entities) == offsetof(CompiledLevel, max_entities),
-                  "max_entities field offset mismatch between C API and C++");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_x) == offsetof(CompiledLevel, tile_rand_x),
-                  "tile_rand_x offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_y) == offsetof(CompiledLevel, tile_rand_y),
-                  "tile_rand_y offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_z) == offsetof(CompiledLevel, tile_rand_z),
-                  "tile_rand_z offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_rot_z) == offsetof(CompiledLevel, tile_rand_rot_z),
-                  "tile_rand_rot_z offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_x) == offsetof(CompiledLevel, tile_rand_scale_x),
-                  "tile_rand_scale_x offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_y) == offsetof(CompiledLevel, tile_rand_scale_y),
-                  "tile_rand_scale_y offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_z) == offsetof(CompiledLevel, tile_rand_scale_z),
-                  "tile_rand_scale_z offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, done_on_collide) == offsetof(CompiledLevel, done_on_collide),
-                  "done_on_collide offset mismatch");
+    const CompiledLevel* cpp_levels = reinterpret_cast<const CompiledLevel*>(compiled_levels);
     
-    // Convert array of C compiled levels to C++ vector (if provided)
+    // Convert array of compiled levels to C++ vector (if provided)
     std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;
-    if (compiled_levels != nullptr && num_compiled_levels > 0) {
+    if (cpp_levels != nullptr && num_compiled_levels > 0) {
         // Validate array size doesn't exceed number of worlds
         if (num_compiled_levels > config->num_worlds) {
             return MER_ERROR_INVALID_PARAMETER;
@@ -103,13 +84,8 @@ MER_Result mer_create_manager(
         cpp_per_world_levels.reserve(config->num_worlds);
         
         for (uint32_t i = 0; i < num_compiled_levels; i++) {
-            const MER_CompiledLevel* c_level = &compiled_levels[i];
-            
-            // Since structs are binary compatible (verified by static_assert above),
-            // we can directly copy the entire struct
-            CompiledLevel cpp_level = *reinterpret_cast<const CompiledLevel*>(c_level);
-            
-            cpp_per_world_levels.push_back(cpp_level);
+            // Direct copy of the CompiledLevel struct
+            cpp_per_world_levels.push_back(cpp_levels[i]);
         }
         
         // Fill remaining worlds with nullopt if array is smaller than num_worlds
@@ -147,17 +123,20 @@ MER_Result mer_create_manager(
     return MER_SUCCESS;
 }
 
-MER_Result mer_validate_compiled_level(const MER_CompiledLevel* level) {
+MER_Result mer_validate_compiled_level(const void* level) {
     if (!level) return MER_ERROR_NULL_POINTER;
     
+    // Direct cast from void* - Python passes the exact C++ struct
+    const CompiledLevel* compiled_level = reinterpret_cast<const CompiledLevel*>(level);
+    
     // Calculate expected array size from dimensions
-    int32_t expected_array_size = level->width * level->height;
+    int32_t expected_array_size = compiled_level->width * compiled_level->height;
     
     // Validate basic constraints
-    if (level->num_tiles < 0 || level->num_tiles > expected_array_size) return MER_ERROR_INVALID_PARAMETER;
-    if (level->max_entities < 0) return MER_ERROR_INVALID_PARAMETER;
-    if (level->width <= 0 || level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
-    if (level->world_scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
+    if (compiled_level->num_tiles < 0 || compiled_level->num_tiles > expected_array_size) return MER_ERROR_INVALID_PARAMETER;
+    if (compiled_level->max_entities < 0) return MER_ERROR_INVALID_PARAMETER;
+    if (compiled_level->width <= 0 || compiled_level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
+    if (compiled_level->world_scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
     
     // Validate array size doesn't exceed our fixed buffer limits
     if (expected_array_size > CompiledLevel::MAX_TILES) return MER_ERROR_INVALID_PARAMETER;
@@ -480,6 +459,10 @@ int32_t mer_get_max_spawns(void) {
     return CompiledLevel::MAX_SPAWNS;
 }
 
+size_t mer_get_compiled_level_size(void) {
+    return sizeof(CompiledLevel);
+}
+
 const char* mer_result_to_string(MER_Result result) {
     switch (result) {
         case MER_SUCCESS:
@@ -570,18 +553,21 @@ int32_t mer_get_render_asset_object_id(const char* name) {
 
 MER_Result mer_write_compiled_level(
     const char* filepath, 
-    const MER_CompiledLevel* level
+    const void* level
 ) {
     if (!filepath || !level) {
         return MER_ERROR_NULL_POINTER;
     }
+    
+    // Direct cast from void* - Python passes the exact C++ struct
+    const CompiledLevel* compiled_level = reinterpret_cast<const CompiledLevel*>(level);
     
     FILE* f = fopen(filepath, "wb");
     if (!f) {
         return MER_ERROR_FILE_IO;
     }
     
-    size_t written = fwrite(level, sizeof(MER_CompiledLevel), 1, f);
+    size_t written = fwrite(compiled_level, sizeof(CompiledLevel), 1, f);
     fclose(f);
     
     return (written == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
@@ -589,18 +575,21 @@ MER_Result mer_write_compiled_level(
 
 MER_Result mer_read_compiled_level(
     const char* filepath, 
-    MER_CompiledLevel* level
+    void* level
 ) {
     if (!filepath || !level) {
         return MER_ERROR_NULL_POINTER;
     }
+    
+    // Direct cast from void* - Python passes the exact C++ struct
+    CompiledLevel* compiled_level = reinterpret_cast<CompiledLevel*>(level);
     
     FILE* f = fopen(filepath, "rb");
     if (!f) {
         return MER_ERROR_FILE_IO;
     }
     
-    size_t read = fread(level, sizeof(MER_CompiledLevel), 1, f);
+    size_t read = fread(compiled_level, sizeof(CompiledLevel), 1, f);
     fclose(f);
     
     return (read == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
