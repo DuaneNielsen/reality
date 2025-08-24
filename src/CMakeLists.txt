@@ -251,6 +251,27 @@ else()
     )
 endif()
 
+# Check for uv (Python package manager) which is required for code generation
+find_program(UV_EXECUTABLE uv)
+if(NOT UV_EXECUTABLE)
+    message(FATAL_ERROR 
+        "\n"
+        "uv (Python package manager) not found but is required for code generation.\n"
+        "\n"
+        "To install uv, run one of the following:\n"
+        "  - Linux/macOS: curl -LsSf https://astral.sh/uv/install.sh | sh\n"
+        "  - Windows: powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"\n"
+        "  - Using pip: pip install uv\n"
+        "\n"
+        "For more installation options, see: https://docs.astral.sh/uv/getting-started/installation/\n"
+        "\n"
+        "After installation, you may need to:\n"
+        "  1. Restart your terminal or run: source ~/.bashrc (or ~/.zshrc)\n"
+        "  2. Re-run CMake configuration\n"
+    )
+endif()
+message(STATUS "Found uv: ${UV_EXECUTABLE}")
+
 # Generate Python struct definitions from the compiled library using pahole
 # This ensures Python ctypes structures exactly match C++ memory layout
 add_custom_command(
@@ -260,7 +281,7 @@ add_custom_command(
             $<TARGET_FILE:madrona_escape_room_c_api>
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_structs.py
     COMMAND ${CMAKE_COMMAND} -E echo "Generating Python constants from headers..."
-    COMMAND uv run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
+    COMMAND ${UV_EXECUTABLE} run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
             ${CMAKE_CURRENT_SOURCE_DIR}/consts.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/types.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_constants.py

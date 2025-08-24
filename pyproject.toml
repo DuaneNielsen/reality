@@ -9,7 +9,8 @@ requires-python = ">=3.10"
 dependencies = [
     "torch>=2.7.0",
     "numpy>=1.20.0",
-    "clangd-tidy>=1.1.0.post2",
+    "libclang>=18.1.1",  # Required for Python code generation from C++ headers
+    "clangd-tidy>=1.1.0.post2",  # Used in git post-commit hooks
 ]
 
 

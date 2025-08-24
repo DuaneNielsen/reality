@@ -49,20 +49,50 @@ git clone --recursive https://github.com/shacklettbp/madrona_escape_room.git
 cd madrona_escape_room
 ```
 
+### Prerequisites
+
+#### System Dependencies
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install build-essential cmake python3-dev pahole
+
+# macOS (with Homebrew)
+brew install cmake
+```
+
+#### Python Package Manager (uv)
+
+This project uses [uv](https://github.com/astral-sh/uv) for fast Python package management. Install it using one of these methods:
+
+```bash
+# Linux/macOS (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Alternative: using pip
+pip install uv
+```
+
+After installation, restart your terminal or run `source ~/.bashrc` (or `~/.zshrc` on macOS).
+
 ### Building the Project
 
 Use the project-builder agent in Claude Code to build the project, or manually:
 
 ```bash
-# Install dependencies (Ubuntu/Debian)
-sudo apt update
-sudo apt install build-essential cmake python3-dev
-
 # Build the simulation
 mkdir -p build
 cmake -B build
 make -C build -j$(nproc)
 ```
+
+The build process will:
+- Compile the C++ simulation engine
+- Generate Python bindings automatically using pahole and libclang
+- Create the shared library for Python integration
 
 ### Running the Simulation
 
