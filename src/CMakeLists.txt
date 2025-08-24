@@ -259,7 +259,12 @@ add_custom_command(
     COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_structs.py
             $<TARGET_FILE:madrona_escape_room_c_api>
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_structs.py
-    COMMENT "Auto-generating Python ctypes structures using pahole"
+    COMMAND ${CMAKE_COMMAND} -E echo "Generating Python constants from headers..."
+    COMMAND uv run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/consts.hpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/types.hpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_constants.py
+    COMMENT "Auto-generating Python bindings using pahole and libclang"
     VERBATIM
 )
 
