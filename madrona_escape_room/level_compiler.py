@@ -20,43 +20,21 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+# Get the authoritative values from generated constants
+from .generated_constants import limits
 
-def _get_max_tiles_from_c_api():
-    """Get MAX_TILES from C API - returns the actual CompiledLevel::MAX_TILES value"""
-    try:
-        from .ctypes_bindings import _get_max_tiles
-
-        return _get_max_tiles()
-    except ImportError:
-        # Fallback if ctypes bindings not available
-        return 1024
-
-
-def _get_max_spawns_from_c_api():
-    """Get MAX_SPAWNS from C API - returns the actual CompiledLevel::MAX_SPAWNS value"""
-    try:
-        from .ctypes_bindings import _get_max_spawns
-
-        return _get_max_spawns()
-    except ImportError:
-        # Fallback if ctypes bindings not available
-        return 8
-
-
-# Get the authoritative values from C++
-MAX_TILES_C_API = _get_max_tiles_from_c_api()
-MAX_SPAWNS_C_API = _get_max_spawns_from_c_api()
+MAX_TILES_C_API = limits.maxTiles
+MAX_SPAWNS_C_API = limits.maxSpawns
 
 # Special values for non-asset tiles
 TILE_EMPTY = 0  # Empty space (no object)
 TILE_SPAWN = -1  # Spawn point marker (agent will be placed here)
 
 # Level dimension limits for validation
-MAX_LEVEL_WIDTH = 64
-MAX_LEVEL_HEIGHT = 64
+MAX_LEVEL_WIDTH = limits.maxGridSize  # From consts.hpp
+MAX_LEVEL_HEIGHT = limits.maxGridSize
 MIN_LEVEL_WIDTH = 3
 MIN_LEVEL_HEIGHT = 3
-# MAX_TOTAL_TILES now comes from C API (MAX_TILES_C_API)
 
 # Special tile type constants (for spawn and empty, which aren't assets)
 # Legacy CHAR_MAP will be built dynamically using C API asset IDs
