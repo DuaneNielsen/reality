@@ -114,7 +114,7 @@ namespace madEscape {
     // This enum is used to track the type of each entity for the purposes of
     // classifying the objects hit by each lidar sample.
     enum class EntityType : uint32_t {
-        None,
+        NoEntity,  // Renamed from None to avoid Python keyword conflict
         Cube,
         Wall,
         Agent,

@@ -185,7 +185,7 @@ static void createFloorPlane(Engine &ctx)
         Vector3 { 0, 0, 0 },
         Quat { 1, 0, 0, 0 },
         AssetIDs::PLANE,
-        EntityType::None, // Floor plane type should never be queried
+        EntityType::NoEntity, // Floor plane type should never be queried
         ResponseType::Static);
 }
 
