@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "types.hpp"
-#include "replay_metadata.hpp"
+#include "replay_loader.hpp"
 #include "test_level_helper.hpp"
 #include <fstream>
 #include <filesystem>

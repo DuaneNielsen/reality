@@ -3,7 +3,7 @@
 #include "mock_components.hpp"
 #include "mgr.hpp"
 #include "viewer_core.hpp"
-#include "replay_metadata.hpp"
+#include "replay_loader.hpp"
 #include "test_level_helper.hpp"
 #include <fstream>
 #include <filesystem>

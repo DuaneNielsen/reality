@@ -10,7 +10,7 @@
 #include <madrona/heap_array.hpp>
 
 #include <madrona/render/render_mgr.hpp>
-#include "replay_metadata.hpp"
+#include "replay_loader.hpp"
 #include "types.hpp"  // For CompiledLevel
 
 namespace madEscape {

@@ -1,5 +1,5 @@
 #include "mgr.hpp"
-#include "replay_metadata.hpp"
+#include "replay_loader.hpp"
 #include "types.hpp"
 #include <iostream>
 #include <fstream>
