@@ -115,16 +115,7 @@ MER_TENSOR_TYPE_FLOAT32 = 6
 MER_ManagerHandle = c_void_p
 
 
-# Replay metadata structure
-class MER_ReplayMetadata(Structure):
-    _fields_ = [
-        ("num_worlds", c_uint32),
-        ("num_agents_per_world", c_uint32),
-        ("num_steps", c_uint32),
-        ("seed", c_uint32),
-        ("sim_name", c_char * 64),
-        ("timestamp", c_uint64),
-    ]
+# ReplayMetadata is now auto-generated in generated_structs.py
 
 
 # Get MAX_TILES from C API - now returns the current C++ constant
@@ -162,10 +153,14 @@ try:
         CompiledLevel,
         Done,
         Progress,
+        ReplayMetadata,
         Reward,
         SelfObservation,
         StepsRemaining,
     )
+
+    # Alias for backward compatibility
+    MER_ReplayMetadata = ReplayMetadata
 
     print("Using auto-generated structs from pahole")
 except ImportError:
@@ -191,6 +186,10 @@ except ImportError:
             # Add padding to match expected size
             ("_padding", c_char * (84180 - 4 * 4 - 4 - 1 - 64)),
         ]
+
+    # ReplayMetadata must be generated - no fallback
+    print("Error: ReplayMetadata not found in generated_structs.py")
+    print("Run 'make' to generate struct definitions")
 
 
 # Manager configuration structure
@@ -298,7 +297,7 @@ lib.mer_is_recording.argtypes = [MER_ManagerHandle, POINTER(c_bool)]
 lib.mer_is_recording.restype = c_int
 
 # Replay metadata reading (static function)
-lib.mer_read_replay_metadata.argtypes = [c_char_p, POINTER(MER_ReplayMetadata)]
+lib.mer_read_replay_metadata.argtypes = [c_char_p, c_void_p]  # Direct ReplayMetadata pointer
 lib.mer_read_replay_metadata.restype = c_int
 
 # Replay functionality

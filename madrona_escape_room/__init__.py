@@ -556,21 +556,45 @@ class SimManager:
         """
         from ctypes import byref
 
-        from .ctypes_bindings import MER_ReplayMetadata
+        try:
+            from .generated_structs import ReplayMetadata
+        except ImportError:
+            from .ctypes_bindings import MER_ReplayMetadata as ReplayMetadata
 
-        metadata = MER_ReplayMetadata()
+        metadata = ReplayMetadata()
         filepath_bytes = filepath.encode("utf-8")
         result = lib.mer_read_replay_metadata(filepath_bytes, byref(metadata))
         _check_result(result)
 
-        return {
+        result_dict = {
             "num_worlds": metadata.num_worlds,
             "num_agents_per_world": metadata.num_agents_per_world,
             "num_steps": metadata.num_steps,
             "seed": metadata.seed,
-            "sim_name": metadata.sim_name.decode("utf-8"),
             "timestamp": metadata.timestamp,
         }
+
+        # Add string fields if they exist
+        if hasattr(metadata, "sim_name"):
+            result_dict["sim_name"] = (
+                metadata.sim_name.decode("utf-8")
+                if isinstance(metadata.sim_name, bytes)
+                else metadata.sim_name
+            )
+        if hasattr(metadata, "level_name"):
+            result_dict["level_name"] = (
+                metadata.level_name.decode("utf-8")
+                if isinstance(metadata.level_name, bytes)
+                else metadata.level_name
+            )
+        if hasattr(metadata, "magic"):
+            result_dict["magic"] = metadata.magic
+        if hasattr(metadata, "version"):
+            result_dict["version"] = metadata.version
+        if hasattr(metadata, "actions_per_step"):
+            result_dict["actions_per_step"] = metadata.actions_per_step
+
+        return result_dict
 
     @classmethod
     def from_replay(cls, replay_filepath, exec_mode, gpu_id=0, enable_batch_renderer=False):

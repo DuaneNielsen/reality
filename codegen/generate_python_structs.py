@@ -165,6 +165,7 @@ def generate_python_bindings(library_path: str, output_path: str):
         "Reward",
         "Progress",
         "StepsRemaining",
+        "ReplayMetadata",
     ]
 
     # Start building the output file
