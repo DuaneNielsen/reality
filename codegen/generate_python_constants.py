@@ -6,17 +6,35 @@ a Python module with nested classes matching the C++ namespace structure.
 """
 
 import os
-import re
 import sys
-from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import clang.cindex
 import clang.native
 
-# Set libclang path (mirror POC approach)
+# Set libclang path
 libclang_path = os.path.join(os.path.dirname(clang.native.__file__), "libclang.so")
 clang.cindex.Config.set_library_file(libclang_path)
+
+# Generation configuration - specifies what to generate and how
+GENERATION_CONFIG = {
+    # Namespace classes to generate as Python classes
+    "namespace_classes": [
+        {
+            "path": ["madEscape", "consts"],  # Path through namespace tree
+            "class_name": "consts",  # Name of Python class to generate
+        },
+        {"path": ["types"], "class_name": "types"},
+    ],
+    # Convenience aliases to create at module level
+    "aliases": [
+        {
+            "name": "action",  # Alias name
+            "target": "consts.action",  # What it points to
+            "condition_path": ["madEscape", "consts", "action"],  # Only create if this path exists
+        }
+    ],
+}
 
 
 class NamespaceNode:
@@ -46,10 +64,10 @@ class NamespaceNode:
 class ConstantExtractor:
     """Extracts constants from C++ headers using libclang."""
 
-    def __init__(self):
+    def __init__(self, verbose: bool = False):
         self.index = clang.cindex.Index.create()
         self.root = NamespaceNode("root")
-        self.verbose = False  # Will be set by main()
+        self.verbose = verbose
 
     def extract_value(self, cursor) -> Optional[Any]:
         """Extract the literal value from a variable declaration."""
@@ -79,11 +97,7 @@ class ConstantExtractor:
                 # Handle common expressions
                 if "-" in value and not value.startswith("-"):
                     # This is likely an expression like "numBuckets - 1"
-                    # Try to resolve it from context if possible
-                    parts = value.split("-")
-                    if len(parts) == 2:
-                        # For now, return the raw expression
-                        return value
+                    return value
 
                 # Try to convert to appropriate type
                 if "." in value:
@@ -100,10 +114,15 @@ class ConstantExtractor:
         """Process an enum declaration."""
         enum_name = cursor.spelling
         if not enum_name:
+            if self.verbose:
+                print(f"DEBUG: Skipping unnamed enum in {namespace_path}", file=sys.stderr)
             return
 
-        # Remove 'class' from enum class declarations
-        enum_name = enum_name.replace("class ", "")
+        if self.verbose:
+            print(
+                f"DEBUG: Processing enum '{enum_name}' type: {cursor.type.spelling}",
+                file=sys.stderr,
+            )
 
         values = {}
         current_value = 0
@@ -117,11 +136,18 @@ class ConstantExtractor:
                 values[name] = current_value
                 current_value += 1
 
-        # Add enum to appropriate namespace
+        if not values and self.verbose:
+            print(f"DEBUG: Enum {enum_name} has no values!", file=sys.stderr)
+
+        # Add enum to appropriate namespace (no conversion)
         node = self.root
         for ns in namespace_path:
             node = node.add_child(ns)
         node.add_enum(enum_name, values)
+        print(
+            f"Generated enum {'.'.join(namespace_path)}.{enum_name} with {len(values)} values",
+            file=sys.stderr,
+        )
 
     def process_variable(self, cursor, namespace_path: List[str]):
         """Process a variable declaration (constexpr or const)."""
@@ -140,6 +166,9 @@ class ConstantExtractor:
             for ns in namespace_path:
                 node = node.add_child(ns)
             node.add_constant(var_name, value)
+            print(
+                f"Generated const {'.'.join(namespace_path)}.{var_name} = {value}", file=sys.stderr
+            )
 
     def process_struct_constants(self, cursor, namespace_path: List[str]):
         """Extract static constants from struct definitions."""
@@ -147,8 +176,22 @@ class ConstantExtractor:
         if not struct_name:
             return
 
+        if self.verbose:
+            print(
+                f"DEBUG: Processing struct {struct_name} with "
+                f"{len(list(cursor.get_children()))} children",
+                file=sys.stderr,
+            )
+
         # Look for static constexpr members
         for child in cursor.get_children():
+            if self.verbose and child.kind == clang.cindex.CursorKind.VAR_DECL:
+                print(
+                    f"DEBUG: Found VAR_DECL '{child.spelling}' in struct {struct_name}, "
+                    f"const={child.type.is_const_qualified()}",
+                    file=sys.stderr,
+                )
+
             if child.kind == clang.cindex.CursorKind.VAR_DECL:
                 # Check if it's static constexpr
                 if child.type.is_const_qualified():
@@ -161,67 +204,120 @@ class ConstantExtractor:
                             node = node.add_child(ns)
                         struct_node = node.add_child(struct_name)
                         struct_node.add_constant(var_name, value)
+                        print(
+                            f"Generated struct const "
+                            f"{'.'.join(namespace_path)}.{struct_name}.{var_name} = {value}",
+                            file=sys.stderr,
+                        )
 
-    def traverse(self, cursor, namespace_path: List[str] = None, in_target_file: bool = True):
+    def traverse(self, cursor, namespace_path: List[str] = None):
         """Traverse the AST and extract constants."""
         if namespace_path is None:
             namespace_path = []
 
         for child in cursor.get_children():
-            # Check if we're still in the target file
+            # Verbose output
+            if self.verbose and child.kind == clang.cindex.CursorKind.NAMESPACE:
+                print(
+                    f"DEBUG: Found namespace '{child.spelling}' at path {namespace_path}",
+                    file=sys.stderr,
+                )
+
+            # Determine if we should process this node
+            should_process = False
             if child.location.file:
                 filename = child.location.file.name
-                child_in_target = in_target_file and (
-                    "consts.hpp" in filename or "types.hpp" in filename
+                # Process if in our target files OR in madrona namespace (could be under std)
+                should_process = (
+                    "consts.hpp" in filename
+                    or "types.hpp" in filename
+                    or (namespace_path and namespace_path[0] == "madrona")
+                    or (
+                        len(namespace_path) >= 2
+                        and namespace_path[0] == "std"
+                        and namespace_path[1] == "madrona"
+                    )
                 )
             else:
-                child_in_target = in_target_file
+                # If no file location, inherit from parent context
+                should_process = (namespace_path and namespace_path[0] == "madrona") or (
+                    len(namespace_path) >= 2
+                    and namespace_path[0] == "std"
+                    and namespace_path[1] == "madrona"
+                )
 
             if child.kind == clang.cindex.CursorKind.NAMESPACE:
                 # Enter namespace
                 new_path = namespace_path + [child.spelling]
-                self.traverse(child, new_path, child_in_target)
+                if self.verbose and child.spelling == "madrona":
+                    print(
+                        f"DEBUG: Entering madrona namespace from path {namespace_path}",
+                        file=sys.stderr,
+                    )
+                    print(f"DEBUG: New path will be {new_path}", file=sys.stderr)
+                self.traverse(child, new_path)
 
-            elif child.kind == clang.cindex.CursorKind.VAR_DECL and child_in_target:
-                # Process variable declaration
-                self.process_variable(child, namespace_path)
+            elif should_process:
+                if self.verbose:
+                    print(
+                        f"DEBUG: Processing {child.kind.name} '{child.spelling}' "
+                        f"in namespace {namespace_path}",
+                        file=sys.stderr,
+                    )
 
-            elif child.kind == clang.cindex.CursorKind.ENUM_DECL and child_in_target:
-                # Process enum
-                self.process_enum(child, namespace_path)
+                if child.kind == clang.cindex.CursorKind.VAR_DECL:
+                    # Process variable declaration
+                    self.process_variable(child, namespace_path)
 
-            elif child.kind == clang.cindex.CursorKind.STRUCT_DECL and child_in_target:
-                # Process struct for static constants
-                self.process_struct_constants(child, namespace_path)
+                elif child.kind == clang.cindex.CursorKind.ENUM_DECL:
+                    # Process enum
+                    self.process_enum(child, namespace_path)
 
+                elif child.kind == clang.cindex.CursorKind.STRUCT_DECL:
+                    # Process struct for static constants
+                    self.process_struct_constants(child, namespace_path)
+
+                # Note: USING_DECLARATION doesn't work reliably with libclang
+                # We now include the Madrona headers directly instead
+            elif child.kind == clang.cindex.CursorKind.ENUM_DECL:
+                # Log all enums we see even if not processing
+                if self.verbose:
+                    print(
+                        f"DEBUG: Saw enum '{child.spelling}' in namespace "
+                        f"{namespace_path} (not processing)",
+                        file=sys.stderr,
+                    )
             else:
                 # Continue traversing
-                self.traverse(child, namespace_path, child_in_target)
+                self.traverse(child, namespace_path)
 
     def parse_headers(self, consts_path: str, types_path: str):
         """Parse the C++ headers and extract constants."""
-        # Store verbose flag for use in diagnostics
-        verbose = getattr(self, "verbose", False)
-
         # Get the Madrona include directory from environment
         madrona_include = os.environ.get("MADRONA_INCLUDE_DIR", "")
 
-        # Create wrapper that includes both headers
+        # Create wrapper that includes headers directly
+        # Include Madrona headers directly to avoid parse errors from types.hpp
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         wrapper_code = f"""
 #include <cstdint>
 #include <cstddef>
 
-// Define Madrona types that might be used
-namespace madrona {{ using CountT = int32_t; }}
+// Include Madrona headers directly for better parsing
+#include "{os.path.join(project_root, 'external/madrona/include/madrona/exec_mode.hpp')}"
+#include "{os.path.join(project_root, 'external/madrona/include/madrona/py/utils.hpp')}"
 
-// Include the headers
+// Include our project headers
 #include "{os.path.abspath(consts_path)}"
 #include "{os.path.abspath(types_path)}"
 """
 
+        if self.verbose:
+            print(f"DEBUG: Wrapper code:\n{wrapper_code}", file=sys.stderr)
+
         # Build include paths
         include_args = [
-            "-std=c++20",  # Changed to C++20 to support concepts, bit_cast, etc.
+            "-std=c++20",
             "-xc++",
             f"-I{os.path.dirname(consts_path)}",
         ]
@@ -229,13 +325,13 @@ namespace madrona {{ using CountT = int32_t; }}
         if madrona_include:
             include_args.append(f"-I{madrona_include}")
 
-        # Parse with C++17 standard
+        # Parse
         tu = self.index.parse(
             "wrapper.cpp", include_args, unsaved_files=[("wrapper.cpp", wrapper_code)]
         )
 
         # Check for parse errors (only show if verbose flag is set)
-        if tu.diagnostics and verbose:
+        if tu.diagnostics and self.verbose:
             for diag in tu.diagnostics:
                 if diag.severity >= clang.cindex.Diagnostic.Error:
                     print(f"Parse error: {diag}", file=sys.stderr)
@@ -244,23 +340,12 @@ namespace madrona {{ using CountT = int32_t; }}
         self.traverse(tu.cursor)
 
         # Also extract CompiledLevel constants from types.hpp
-        self.extract_compiled_level_constants(types_path)
+        self.extract_compiled_level_constants()
 
-    def extract_compiled_level_constants(self, types_path: str):
-        """Extract MAX_TILES and other constants from CompiledLevel struct."""
-        # For now, hardcode these as they're template parameters
-        # In the future, could parse more carefully
-        types_node = self.root.add_child("types")
-        compiled_level = types_node.add_child("CompiledLevel")
-        compiled_level.add_constant("MAX_TILES", 1024)
-        compiled_level.add_constant("MAX_SPAWNS", 8)
-        compiled_level.add_constant("MAX_LEVEL_NAME_LENGTH", 64)
-
-        # Add observation sizes
-        types_node.add_constant("SELF_OBSERVATION_SIZE", 5)
-        types_node.add_constant("STEPS_REMAINING_SIZE", 1)
-        types_node.add_constant("AGENT_ID_SIZE", 1)
-        types_node.add_constant("TOTAL_OBSERVATION_SIZE", 7)
+    def extract_compiled_level_constants(self):
+        """CompiledLevel constants extracted from types.hpp via process_struct_constants."""
+        # This method is now deprecated - constants are extracted directly from the AST
+        pass
 
 
 class PythonGenerator:
@@ -314,8 +399,12 @@ class PythonGenerator:
             if node.children or node.enums:
                 self.add_line()
 
-        # Generate enums
+        # Generate enums as classes
         for enum_name, values in sorted(node.enums.items()):
+            # Skip empty enums
+            if not values:
+                continue
+
             self.add_line(f"class {enum_name}:")
             self.indent_level += 1
             self.add_line(f'"""Enum values for {enum_name}"""')
@@ -323,16 +412,14 @@ class PythonGenerator:
             self.add_line()
 
             for name, value in values.items():
-                # Convert enum names to UPPER_CASE
-                python_name = name.upper() if name != "None" else "NONE"
-                self.add_line(f"{python_name} = {value}")
+                self.add_line(f"{name} = {value}")
 
             self.indent_level -= 1
             self.add_line()
 
         # Generate child namespaces
         for child_name, child_node in sorted(node.children.items()):
-            if child_name and child_name != "madEscape":  # Skip root madEscape namespace
+            if child_name:
                 self.generate_node(child_node, child_name)
 
         if class_name:
@@ -354,40 +441,112 @@ class PythonGenerator:
             "",
         ]
 
-        # Process madEscape namespace
-        if "madEscape" in self.root.children:
-            mad_escape = self.root.children["madEscape"]
+        # Check what we have and generate appropriately
 
-            # Generate consts namespace
-            if "consts" in mad_escape.children:
-                self.generate_node(mad_escape.children["consts"], "consts")
+        # Generate ALL enums found, recursively through namespace tree
+        def generate_all_enums(node, path=""):
+            """Recursively generate all enums as top-level classes."""
+            # Generate enums at this level
+            for enum_name, enum_values in node.enums.items():
+                self.add_line(f"class {enum_name}:")
+                self.indent_level += 1
+                self.add_line(f'"""Enum from {path if path else "root"}"""')
+                self.add_line()
+                self.add_line("__slots__ = ()")
+                self.add_line()
+                for name, value in enum_values.items():
+                    self.add_line(f"{name} = {value}")
+                self.indent_level -= 1
+                self.add_line()
 
-        # Generate types namespace
-        if "types" in self.root.children:
-            self.generate_node(self.root.children["types"], "types")
-        elif (
-            "madEscape" in self.root.children
-            and "types" in self.root.children["madEscape"].children
-        ):
-            # Sometimes types might be under madEscape
-            self.generate_node(self.root.children["madEscape"].children["types"], "types")
+            # Recurse into child namespaces
+            for child_name, child_node in node.children.items():
+                child_path = f"{path}.{child_name}" if path else child_name
+                generate_all_enums(child_node, child_path)
 
-        # Add convenience aliases at module level
-        self.add_line("# Convenience aliases for common use")
-        self.add_line("action = consts.action")
-        self.add_line("physics = consts.physics")
-        self.add_line("rendering = consts.rendering")
-        self.add_line("math = consts.math")
-        self.add_line()
+        # Generate all enums from all namespaces
+        generate_all_enums(self.root)
 
-        # Add __all__ export
+        # Generate namespace classes based on configuration
+        for ns_config in GENERATION_CONFIG["namespace_classes"]:
+            # Navigate to the specified node
+            node = self.root
+            for part in ns_config["path"]:
+                if part in node.children:
+                    node = node.children[part]
+                else:
+                    node = None
+                    break
+
+            # Generate if found
+            if node:
+                self.generate_node(node, ns_config["class_name"])
+
+        # Add convenience aliases based on configuration
+        aliases_added = False
+        for alias_config in GENERATION_CONFIG["aliases"]:
+            # Check if condition path exists
+            node = self.root
+            for part in alias_config["condition_path"]:
+                if part in node.children:
+                    node = node.children[part]
+                else:
+                    node = None
+                    break
+
+            # Add alias if condition met
+            if node:
+                if not aliases_added:
+                    self.add_line("# Convenience aliases for common use")
+                    aliases_added = True
+                self.add_line(f"{alias_config['name']} = {alias_config['target']}")
+
+        if aliases_added:
+            self.add_line()
+
+        # Build __all__ export list dynamically
+        all_exports = []
+
+        # Collect all enum names that were generated
+        def collect_enum_names(node):
+            names = []
+            for enum_name in node.enums.keys():
+                names.append(enum_name)
+            for child in node.children.values():
+                names.extend(collect_enum_names(child))
+            return names
+
+        all_exports.extend(collect_enum_names(self.root))
+
+        # Add namespace classes from configuration
+        for ns_config in GENERATION_CONFIG["namespace_classes"]:
+            # Check if the namespace exists
+            node = self.root
+            for part in ns_config["path"]:
+                if part in node.children:
+                    node = node.children[part]
+                else:
+                    node = None
+                    break
+            if node:
+                all_exports.append(ns_config["class_name"])
+
+        # Add aliases from configuration
+        for alias_config in GENERATION_CONFIG["aliases"]:
+            # Check if condition path exists
+            node = self.root
+            for part in alias_config["condition_path"]:
+                if part in node.children:
+                    node = node.children[part]
+                else:
+                    node = None
+                    break
+            if node:
+                all_exports.append(alias_config["name"])
+
         self.add_line("__all__ = [")
-        self.add_line('    "consts",')
-        self.add_line('    "types",')
-        self.add_line('    "action",')
-        self.add_line('    "physics",')
-        self.add_line('    "rendering",')
-        self.add_line('    "math",')
+        for export in all_exports:
+            self.add_line(f'    "{export}",')
         self.add_line("]")
 
         return "\n".join(self.lines)
@@ -423,9 +582,7 @@ def main():
     print(f"Parsing {consts_path} and {types_path}...", file=sys.stderr)
 
     # Extract constants
-    extractor = ConstantExtractor()
-    # Pass verbose flag to parse_headers
-    extractor.verbose = verbose
+    extractor = ConstantExtractor(verbose=verbose)
     extractor.parse_headers(consts_path, types_path)
 
     # Generate Python code
