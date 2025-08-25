@@ -16,13 +16,14 @@ Automatically generates Python ctypes structures from compiled C++ binaries usin
 - `pahole` (install with: `sudo apt install dwarves`)
 - Debug symbols in the compiled binary (`-g` flag)
 
-**Generated Output**: `madrona_escape_room/generated_structs.py`
+**Generated Output**: `madrona_escape_room/generated_structs.py` (tracked in git)
 
 **How it works**:
 1. Extracts struct layouts from the compiled `.so` file using `pahole`
 2. Parses the pahole output to get field offsets and sizes
 3. Generates Python ctypes.Structure classes with correct padding
 4. Includes size assertions to validate the layout matches
+5. Imports constants (MAX_TILES, MAX_SPAWNS) from generated_constants for consistency
 
 ### `generate_python_constants.py`
 
@@ -36,22 +37,24 @@ Automatically generates Python constants from C++ headers using libclang AST par
 - `libclang` Python bindings (install with: `pip install libclang` or `uv pip install libclang`)
 - System libclang library (typically installed with clang)
 
-**Generated Output**: `madrona_escape_room/generated_constants.py`
+**Generated Output**: `madrona_escape_room/generated_constants.py` (tracked in git)
 
 **How it works**:
 1. Parses `consts.hpp` and `types.hpp` using libclang's AST parser
 2. Traverses the AST to extract:
-   - `constexpr` constants from all namespaces
+   - `constexpr` constants from all namespaces (including the new `limits` namespace)
    - Enum values from enum declarations
    - Static constants from struct definitions
 3. Builds a namespace tree matching the C++ structure
 4. Generates nested Python classes that mirror the C++ namespace hierarchy
-5. Provides convenience aliases for common namespaces (action, physics, rendering, etc.)
+5. Handles Python keyword conflicts (e.g., "None" becomes "None_")
+6. Provides convenience aliases for common namespaces (action, physics, rendering, etc.)
 
 **Python API**:
 ```python
 # Access constants using the same structure as C++
-from madrona_escape_room import consts, types, action
+from madrona_escape_room import consts, action, ExecMode
+from madrona_escape_room.generated_constants import limits
 
 # Examples:
 consts.episodeLen           # 200
@@ -59,8 +62,28 @@ consts.worldLength          # 40.0
 action.move_amount.FAST     # 3
 action.rotate.SLOW_LEFT     # 1
 consts.physics.gravityAcceleration  # 9.8
-types.CompiledLevel.MAX_TILES       # 1024
+limits.maxTiles             # 1024 (from consts::limits namespace)
+limits.maxSpawns            # 8
+ExecMode.CPU                # 0 (enum value)
+ExecMode.CUDA               # 1
 ```
+
+## Architectural Notes
+
+### Dependency Management
+- `generated_structs.py` imports constants from `generated_constants.py` to avoid hardcoding values
+- Constants like `MAX_TILES` and `MAX_SPAWNS` are defined in `consts.hpp` under the `limits` namespace
+- This ensures a single source of truth for all structural limits
+
+### File Tracking Strategy
+- Both `generated_constants.py` and `generated_structs.py` are tracked in git
+- This ensures stable imports and consistent Python module behavior
+- Regeneration during build keeps them in sync with C++ definitions
+
+### Python Module Organization
+- Constants are directly exported from the main module: `from madrona_escape_room import ExecMode, consts`
+- No intermediate `madrona` class wrapper - cleaner API
+- Tensor class moved to separate `tensor.py` file for better code organization
 
 ## Adding New Code Generation Scripts
 
