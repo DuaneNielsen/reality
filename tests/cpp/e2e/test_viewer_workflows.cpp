@@ -5,6 +5,9 @@
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include "../../../src/consts.hpp"
+
+using namespace madEscape::consts::action;
 
 // These tests simulate viewer-like workflows but primarily test Manager API
 // Only a few tests actually exercise viewer-specific behavior
@@ -532,7 +535,7 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerPauseDuringRecording) {
     viewer.loop(
         [](int32_t, const MockViewer::UserInput&) {},
         [&](int32_t world_idx, int32_t, const MockViewer::UserInput&) {
-            mgr.setAction(world_idx, MER_MOVE_SLOW, MER_MOVE_FORWARD, MER_ROTATE_NONE);
+            mgr.setAction(world_idx, move_amount::SLOW, move_angle::FORWARD, rotate::NONE);
         },
         [&]() {
             if (!is_paused) {
@@ -570,7 +573,7 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerPauseDuringRecording) {
     viewer.loop(
         [](int32_t, const MockViewer::UserInput&) {},
         [&](int32_t world_idx, int32_t, const MockViewer::UserInput&) {
-            mgr.setAction(world_idx, MER_MOVE_FAST, MER_MOVE_BACKWARD_LEFT, MER_ROTATE_NONE);
+            mgr.setAction(world_idx, move_amount::FAST, move_angle::BACKWARD_LEFT, rotate::NONE);
         },
         [&]() {
             if (!is_paused) {

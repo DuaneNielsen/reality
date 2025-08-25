@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 #include "viewer_test_base.hpp"
 #include "mock_components.hpp"
+#include "../../../src/consts.hpp"
+
+using namespace madEscape::consts::action;
 
 // These tests simulate viewer input processing logic
 // They test the keyboard-to-action mapping that mirrors viewer.cpp behavior
@@ -59,9 +62,9 @@ protected:
                 if (x == 0 && y == 0) {
                     move_amount = 0;
                 } else if (shift_pressed) {
-                    move_amount = 3;  // MER_MOVE_FAST
+                    move_amount = 3;  // move_amount::FAST
                 } else {
-                    move_amount = 1;  // MER_MOVE_SLOW
+                    move_amount = 1;  // move_amount::SLOW
                 }
                 
                 // Calculate move_angle
@@ -108,26 +111,26 @@ TEST_F(ViewerInputMappingTest, WASDToMovementActions) {
     // Test forward (W)
     input.simulateMovement(0, 1);
     auto action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_FORWARD);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::FORWARD);
     
     // Test backward (S)
     input.simulateMovement(0, -1);
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_BACKWARD);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::BACKWARD);
     
     // Test right (D)
     input.simulateMovement(1, 0);
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_RIGHT);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::RIGHT);
     
     // Test left (A)
     input.simulateMovement(-1, 0);
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_LEFT);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::LEFT);
 }
 
 // Test diagonal movement
@@ -137,26 +140,26 @@ TEST_F(ViewerInputMappingTest, DiagonalInputMapping) {
     // Test forward-right (W+D)
     input.simulateMovement(1, 1);
     auto action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_FORWARD_RIGHT);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::FORWARD_RIGHT);
     
     // Test forward-left (W+A)
     input.simulateMovement(-1, 1);
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_FORWARD_LEFT);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::FORWARD_LEFT);
     
     // Test backward-right (S+D)
     input.simulateMovement(1, -1);
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_BACKWARD_RIGHT);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::BACKWARD_RIGHT);
     
     // Test backward-left (S+A)
     input.simulateMovement(-1, -1);
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_BACKWARD_LEFT);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::BACKWARD_LEFT);
 }
 
 // Test rotation mapping
@@ -167,18 +170,18 @@ TEST_F(ViewerInputMappingTest, QERotationMapping) {
     input.releaseAll();
     input.pressKey(InputSimulator::Key::Q);
     auto action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_LEFT);  // Q rotates left (r -= 1 = 1)
+    EXPECT_EQ(action.rotate, rotate::SLOW_LEFT);  // Q rotates left (r -= 1 = 1)
     
     // Test E key rotation (right, clockwise, following right-hand rule)
     input.releaseAll();
     input.pressKey(InputSimulator::Key::E);
     action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_RIGHT);   // E rotates right (r += 1 = 3)
+    EXPECT_EQ(action.rotate, rotate::SLOW_RIGHT);   // E rotates right (r += 1 = 3)
     
     // Test no rotation (default)
     input.releaseAll();
     action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_NONE);
+    EXPECT_EQ(action.rotate, rotate::NONE);
 }
 
 // Test shift speed modifier
@@ -188,17 +191,17 @@ TEST_F(ViewerInputMappingTest, ShiftSpeedModifier) {
     // Test slow movement without shift
     input.simulateMovement(0, 1, false);
     auto action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
     
     // Test fast movement with shift
     input.simulateMovement(0, 1, true);
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_FAST);
+    EXPECT_EQ(action.move_amount, move_amount::FAST);
     
     // Test stop when no movement keys pressed
     input.releaseAll();
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_STOP);
+    EXPECT_EQ(action.move_amount, move_amount::STOP);
 }
 
 // Test shift rotation modifier
@@ -209,27 +212,27 @@ TEST_F(ViewerInputMappingTest, ShiftRotationModifier) {
     input.releaseAll();
     input.pressKey(InputSimulator::Key::Q);
     auto action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_LEFT);
+    EXPECT_EQ(action.rotate, rotate::SLOW_LEFT);
     
     // Test fast rotate left with shift
     input.releaseAll();
     input.pressKey(InputSimulator::Key::Q);
     input.pressKey(InputSimulator::Key::Shift);
     action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_FAST_LEFT);
+    EXPECT_EQ(action.rotate, rotate::FAST_LEFT);
     
     // Test slow rotate right without shift
     input.releaseAll();
     input.pressKey(InputSimulator::Key::E);
     action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_RIGHT);
+    EXPECT_EQ(action.rotate, rotate::SLOW_RIGHT);
     
     // Test fast rotate right with shift
     input.releaseAll();
     input.pressKey(InputSimulator::Key::E);
     input.pressKey(InputSimulator::Key::Shift);
     action = processInput(input);
-    EXPECT_EQ(action.rotate, MER_ROTATE_FAST_RIGHT);
+    EXPECT_EQ(action.rotate, rotate::FAST_RIGHT);
 }
 
 // Test reset key functionality
@@ -273,9 +276,9 @@ TEST_F(ViewerInputMappingTest, ComplexInputCombinations) {
     input.pressKey(InputSimulator::Key::W);
     input.pressKey(InputSimulator::Key::Q);
     auto action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(action.move_angle, MER_MOVE_FORWARD);
-    EXPECT_EQ(action.rotate, MER_ROTATE_SLOW_LEFT);
+    EXPECT_EQ(action.move_amount, move_amount::SLOW);
+    EXPECT_EQ(action.move_angle, move_angle::FORWARD);
+    EXPECT_EQ(action.rotate, rotate::SLOW_LEFT);
     
     // Test diagonal + rotation + shift (W + D + E + Shift)
     input.releaseAll();
@@ -284,9 +287,9 @@ TEST_F(ViewerInputMappingTest, ComplexInputCombinations) {
     input.pressKey(InputSimulator::Key::E);
     input.pressKey(InputSimulator::Key::Shift);
     action = processInput(input);
-    EXPECT_EQ(action.move_amount, MER_MOVE_FAST);
-    EXPECT_EQ(action.move_angle, MER_MOVE_FORWARD_RIGHT);
-    EXPECT_EQ(action.rotate, MER_ROTATE_FAST_RIGHT);
+    EXPECT_EQ(action.move_amount, move_amount::FAST);
+    EXPECT_EQ(action.move_angle, move_angle::FORWARD_RIGHT);
+    EXPECT_EQ(action.rotate, rotate::FAST_RIGHT);
 }
 
 // Test input sequence over multiple frames
@@ -355,25 +358,25 @@ TEST_F(ViewerInputMappingTest, MultiFrameInputSequence) {
     ASSERT_EQ(actions.size(), 5);
     
     // Frame 0: Forward only
-    EXPECT_EQ(actions[0].move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(actions[0].move_angle, MER_MOVE_FORWARD);
-    EXPECT_EQ(actions[0].rotate, MER_ROTATE_NONE);
+    EXPECT_EQ(actions[0].move_amount, move_amount::SLOW);
+    EXPECT_EQ(actions[0].move_angle, move_angle::FORWARD);
+    EXPECT_EQ(actions[0].rotate, rotate::NONE);
     
     // Frame 1: Forward + turn right
-    EXPECT_EQ(actions[1].move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(actions[1].move_angle, MER_MOVE_FORWARD);
-    EXPECT_EQ(actions[1].rotate, MER_ROTATE_SLOW_RIGHT);
+    EXPECT_EQ(actions[1].move_amount, move_amount::SLOW);
+    EXPECT_EQ(actions[1].move_angle, move_angle::FORWARD);
+    EXPECT_EQ(actions[1].rotate, rotate::SLOW_RIGHT);
     
     // Frame 2: Forward-right
-    EXPECT_EQ(actions[2].move_amount, MER_MOVE_SLOW);
-    EXPECT_EQ(actions[2].move_angle, MER_MOVE_FORWARD_RIGHT);
-    EXPECT_EQ(actions[2].rotate, MER_ROTATE_NONE);
+    EXPECT_EQ(actions[2].move_amount, move_amount::SLOW);
+    EXPECT_EQ(actions[2].move_angle, move_angle::FORWARD_RIGHT);
+    EXPECT_EQ(actions[2].rotate, rotate::NONE);
     
     // Frame 3: Just turning
-    EXPECT_EQ(actions[3].move_amount, MER_MOVE_STOP);
-    EXPECT_EQ(actions[3].rotate, MER_ROTATE_SLOW_RIGHT);
+    EXPECT_EQ(actions[3].move_amount, move_amount::STOP);
+    EXPECT_EQ(actions[3].rotate, rotate::SLOW_RIGHT);
     
     // Frame 4: Full stop
-    EXPECT_EQ(actions[4].move_amount, MER_MOVE_STOP);
-    EXPECT_EQ(actions[4].rotate, MER_ROTATE_NONE);
+    EXPECT_EQ(actions[4].move_amount, move_amount::STOP);
+    EXPECT_EQ(actions[4].rotate, rotate::NONE);
 }

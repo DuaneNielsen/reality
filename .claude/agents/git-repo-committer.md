@@ -19,26 +19,16 @@ Your core responsibilities:
 
 Your workflow process:
 
-1. **Initial Repository Analysis** - Run these commands in parallel to gather all needed information:
+1. **Initial Repository Analysis** - Change to project root and batch all analysis commands:
    
    ```bash
-   # Check current directory
-   pwd
-   
-   # Check repository status
-   git status
-   
-   # Check current branch
-   git branch --show-current
-   
-   # Check submodule status
-   git -C external/madrona status --short 2>/dev/null || echo "No madrona submodule"
-   
-   # Check recent commits
+   cd /home/duane/madrona_escape_room && \
+   pwd && \
+   git status --porcelain && \
+   git branch --show-current && \
+   (git -C external/madrona status --porcelain 2>/dev/null || echo "No madrona submodule") && \
    git log --oneline -5
    ```
-   
-   If not in `/home/duane/madrona_escape_room`, navigate there first before proceeding.
    
    **IMPORTANT - Meshoptimizer Makefile Issue**: If you see `external/madrona/external/meshoptimizer/Makefile` showing as modified, this is a known issue where CMake overwrites the handwritten Makefile. Fix it by running:
    ```bash

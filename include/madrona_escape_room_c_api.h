@@ -19,7 +19,6 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "madrona_escape_room_c_constants.h"
 
 // Error codes
 typedef enum {
@@ -43,7 +42,7 @@ typedef struct {
     uint32_t num_agents_per_world;
     uint32_t num_steps;
     uint32_t seed;
-    char sim_name[MER_MAX_NAME_LENGTH];
+    char sim_name[64];  // Fixed size for C API
     uint64_t timestamp;
 } MER_ReplayMetadata;
 
@@ -89,41 +88,6 @@ typedef struct {
     uint32_t batch_render_view_width;   // Default: 64
     uint32_t batch_render_view_height;  // Default: 64
 } MER_ManagerConfig;
-
-// Constants - Observation sizes
-#define MER_SELF_OBSERVATION_SIZE 5
-#define MER_STEPS_REMAINING_SIZE 1
-#define MER_AGENT_ID_SIZE 1
-#define MER_TOTAL_OBSERVATION_SIZE (MER_SELF_OBSERVATION_SIZE + MER_STEPS_REMAINING_SIZE + MER_AGENT_ID_SIZE)
-
-// Constants - Simulation parameters
-#define MER_NUM_AGENTS 1
-#define MER_NUM_ROOMS 1
-#define MER_MAX_ENTITIES_PER_ROOM 6
-#define MER_EPISODE_LENGTH 200
-
-// Action constants - Move amount
-#define MER_MOVE_STOP 0
-#define MER_MOVE_SLOW 1
-#define MER_MOVE_MEDIUM 2
-#define MER_MOVE_FAST 3
-
-// Action constants - Move angle (8 directions)
-#define MER_MOVE_FORWARD 0
-#define MER_MOVE_FORWARD_RIGHT 1
-#define MER_MOVE_RIGHT 2
-#define MER_MOVE_BACKWARD_RIGHT 3
-#define MER_MOVE_BACKWARD 4
-#define MER_MOVE_BACKWARD_LEFT 5
-#define MER_MOVE_LEFT 6
-#define MER_MOVE_FORWARD_LEFT 7
-
-// Action constants - Rotation
-#define MER_ROTATE_FAST_LEFT 0
-#define MER_ROTATE_SLOW_LEFT 1
-#define MER_ROTATE_NONE 2
-#define MER_ROTATE_SLOW_RIGHT 3
-#define MER_ROTATE_FAST_RIGHT 4
 
 // Manager lifecycle functions
 MER_EXPORT MER_Result mer_create_manager(

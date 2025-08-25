@@ -3,6 +3,9 @@
 #include "mock_components.hpp"
 #include <thread>
 #include <chrono>
+#include "../../../src/consts.hpp"
+
+using namespace madEscape::consts::action;
 
 // These tests primarily test the Manager C API and MockViewer behavior,
 // not the actual viewer.cpp code
@@ -41,7 +44,8 @@ TEST_F(ManagerIntegrationTest, ManagerCreationWithLevelFile) {
     MER_Tensor self_obs;
     ASSERT_TRUE(GetTensor(self_obs, mer_get_self_observation_tensor));
     // Self observation is 3D: [num_worlds, num_agents, features]
-    EXPECT_TRUE(ValidateTensorShape(self_obs, {4, MER_NUM_AGENTS, MER_SELF_OBSERVATION_SIZE}));
+    // Use madEscape namespace constants
+    EXPECT_TRUE(ValidateTensorShape(self_obs, {4, madEscape::consts::numAgents, 5}));  // 5 = SelfObservationFloatCount
 }
 
 // Test recording workflow
@@ -65,8 +69,8 @@ TEST_F(ManagerIntegrationTest, ManagerRecordingAPI) {
     
     // Simulate some actions
     for (int step = 0; step < 10; step++) {
-        mgr.setAction(0, MER_MOVE_SLOW, MER_MOVE_FORWARD, MER_ROTATE_NONE);
-        mgr.setAction(1, MER_MOVE_STOP, MER_MOVE_FORWARD, MER_ROTATE_SLOW_LEFT);
+        mgr.setAction(0, move_amount::SLOW, move_angle::FORWARD, rotate::NONE);
+        mgr.setAction(1, move_amount::STOP, move_angle::FORWARD, rotate::SLOW_LEFT);
         mgr.step();
     }
     
@@ -102,8 +106,8 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
         mgr.startRecording("test.rec", 456);
         
         // Record specific actions
-        mgr.setAction(0, MER_MOVE_MEDIUM, MER_MOVE_RIGHT, MER_ROTATE_SLOW_RIGHT);
-        mgr.setAction(1, MER_MOVE_FAST, MER_MOVE_LEFT, MER_ROTATE_FAST_LEFT);
+        mgr.setAction(0, move_amount::MEDIUM, move_angle::RIGHT, rotate::SLOW_RIGHT);
+        mgr.setAction(1, move_amount::FAST, move_angle::LEFT, rotate::FAST_LEFT);
         mgr.step();
         
         mgr.stopRecording();
@@ -151,7 +155,7 @@ TEST_F(ManagerIntegrationTest, ManagerTrajectoryLogging) {
     
     // Run simulation
     for (int i = 0; i < 5; i++) {
-        mgr.setAction(0, MER_MOVE_SLOW, MER_MOVE_FORWARD, MER_ROTATE_NONE);
+        mgr.setAction(0, move_amount::SLOW, move_angle::FORWARD, rotate::NONE);
         mgr.step();
     }
     
@@ -378,7 +382,7 @@ TEST_F(ManagerIntegrationTest, ManagerEmbeddedLevelRecording) {
     mgr.startRecording("embedded.rec", 789);
     
     for (int i = 0; i < 5; i++) {
-        mgr.setAction(0, MER_MOVE_SLOW, i % 8, MER_ROTATE_NONE);
+        mgr.setAction(0, move_amount::SLOW, i % 8, rotate::NONE);
         mgr.step();
     }
     

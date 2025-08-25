@@ -688,3 +688,6 @@ ctypes_lib = CTypesLib()
 # Export the main objects that will replace ffi and lib
 ffi = ctypes_lib
 lib = ctypes_lib.lib
+
+# Export CompiledLevel as MER_CompiledLevel for backward compatibility with tests
+MER_CompiledLevel = CompiledLevel

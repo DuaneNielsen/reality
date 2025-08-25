@@ -102,7 +102,8 @@
       "Bash(ALLOW_GPU_TESTS_IN_SUITE=1 ./build/mad_escape_tests --gtest_filter=\"CApiGPUTest.TensorOperations\")",
       "Bash(ALLOW_GPU_TESTS_IN_SUITE=1 ./build/mad_escape_tests --gtest_filter=\"CApiGPUTest.GPUTensorProperties\")",
       "Bash(git merge-base:*)",
-      "Bash(clang:*)"
+      "Bash(clang:*)",
+      "Bash(git stash:*)"
     ],
     "deny": []
   },
