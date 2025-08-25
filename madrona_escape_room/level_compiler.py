@@ -262,6 +262,61 @@ def _parse_ascii_to_tiles(
     return tiles, spawns, entity_count
 
 
+def compile_ascii_level(
+    ascii_str: str,
+    scale: float = 2.5,
+    agent_facing: Optional[List[float]] = None,
+    level_name: str = "unknown_level",
+) -> CompiledLevel:
+    """
+    Compile ASCII level string using default tileset.
+
+    This is a convenience wrapper that uses a standard tileset for common ASCII characters.
+    For custom tilesets, use compile_level() directly with JSON format.
+
+    Args:
+        ascii_str: Multi-line ASCII level string
+        scale: World units per tile (default 2.5)
+        agent_facing: List of agent facing angles in radians (optional)
+        level_name: Name of the level (default "unknown_level")
+
+    Returns:
+        CompiledLevel struct ready for C API
+
+    Raises:
+        ValueError: If ASCII contains unknown characters or compilation fails
+
+    Example:
+        level = '''
+        ##########
+        #S.......#
+        #..####..#
+        #........#
+        ##########
+        '''
+        compiled = compile_ascii_level(level, scale=2.5, agent_facing=[math.pi/2])
+    """
+    # Default tileset for common ASCII characters
+    default_tileset = {
+        "#": {"asset": "wall"},
+        "C": {"asset": "cube"},
+        "O": {"asset": "cylinder"},
+        "S": {"asset": "spawn"},
+        ".": {"asset": "empty"},
+        " ": {"asset": "empty"},
+    }
+
+    # Build JSON structure
+    json_data = {"ascii": ascii_str, "tileset": default_tileset, "scale": scale, "name": level_name}
+
+    # Add agent facing if provided
+    if agent_facing is not None:
+        json_data["agent_facing"] = agent_facing
+
+    # Compile using the main compile_level function
+    return compile_level(json_data)
+
+
 def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
     """
     Compile JSON level definition to CompiledLevel format.
