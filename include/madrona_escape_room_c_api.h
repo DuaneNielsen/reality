@@ -20,55 +20,22 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
-// Error codes
-typedef enum {
-    MER_SUCCESS = 0,
-    MER_ERROR_NULL_POINTER = -1,
-    MER_ERROR_INVALID_PARAMETER = -2,
-    MER_ERROR_ALLOCATION_FAILED = -3,
-    MER_ERROR_NOT_INITIALIZED = -4,
-    MER_ERROR_CUDA_FAILURE = -5,
-    MER_ERROR_FILE_NOT_FOUND = -6,
-    MER_ERROR_INVALID_FILE = -7,
-    MER_ERROR_FILE_IO = -8,
-} MER_Result;
+// Error codes moved to types.hpp as madEscape::Result
+// Using int32_t for C API compatibility
+typedef int32_t MER_Result;
 
 // Opaque handle for the Manager
 typedef struct MER_Manager* MER_ManagerHandle;
 
-// Replay metadata structure
-typedef struct {
-    uint32_t num_worlds;
-    uint32_t num_agents_per_world;
-    uint32_t num_steps;
-    uint32_t seed;
-    char sim_name[64];  // Fixed size for C API
-    uint64_t timestamp;
-} MER_ReplayMetadata;
-
-// Execution modes
-typedef enum {
-    MER_EXEC_MODE_CPU = 0,
-    MER_EXEC_MODE_CUDA = 1,
-} MER_ExecMode;
-
-// Tensor element types (matching TensorElementType)
-typedef enum {
-    MER_TENSOR_TYPE_UINT8 = 0,
-    MER_TENSOR_TYPE_INT8 = 1,
-    MER_TENSOR_TYPE_INT16 = 2,
-    MER_TENSOR_TYPE_INT32 = 3,
-    MER_TENSOR_TYPE_INT64 = 4,
-    MER_TENSOR_TYPE_FLOAT16 = 5,
-    MER_TENSOR_TYPE_FLOAT32 = 6,
-} MER_TensorElementType;
+// Types moved to types.hpp - C API now uses the C++ types directly
+// via opaque pointers and conversion in the implementation
 
 // Tensor descriptor
 typedef struct {
     void* data;                    // Pointer to tensor data
     int64_t dimensions[16];        // Tensor dimensions
     int32_t num_dimensions;        // Number of dimensions
-    MER_TensorElementType element_type;  // Data type
+    int32_t element_type;         // Data type (maps to madEscape::TensorElementType)
     int64_t num_bytes;            // Total size in bytes
     int32_t gpu_id;               // GPU ID (-1 for CPU tensors)
 } MER_Tensor;
@@ -77,24 +44,15 @@ typedef struct {
 // Python passes the C++ CompiledLevel struct directly via ctypes
 // The struct is auto-generated from the compiled binary using pahole
 
-// Manager configuration
-typedef struct {
-    MER_ExecMode exec_mode;
-    int gpu_id;
-    uint32_t num_worlds;
-    uint32_t rand_seed;
-    bool auto_reset;
-    bool enable_batch_renderer;
-    uint32_t batch_render_view_width;   // Default: 64
-    uint32_t batch_render_view_height;  // Default: 64
-} MER_ManagerConfig;
+// Manager configuration moved to types.hpp
+// C API functions now accept the C++ struct directly via opaque pointer
 
 // Manager lifecycle functions
 MER_EXPORT MER_Result mer_create_manager(
     MER_ManagerHandle* out_handle,
-    const MER_ManagerConfig* config,
-    const void* compiled_levels,  // Direct CompiledLevel pointer from Python (NULL for default)
-    uint32_t num_compiled_levels  // Length of compiled_levels array
+    const void* config,            // Direct ManagerConfig pointer from Python
+    const void* compiled_levels,   // Direct CompiledLevel pointer from Python (NULL for default)
+    uint32_t num_compiled_levels   // Length of compiled_levels array
 );
 
 MER_EXPORT MER_Result mer_destroy_manager(MER_ManagerHandle handle);
@@ -149,7 +107,7 @@ MER_EXPORT MER_Result mer_is_recording(MER_ManagerHandle handle, bool* out_is_re
 // Replay metadata reading (static function - no handle needed)
 MER_EXPORT MER_Result mer_read_replay_metadata(
     const char* filepath,
-    MER_ReplayMetadata* out_metadata
+    void* out_metadata  // Direct ReplayMetadata pointer from Python
 );
 
 // Replay functionality

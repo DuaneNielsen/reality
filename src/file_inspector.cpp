@@ -80,7 +80,7 @@ bool validateReplayFile(const FileInfo& info) {
     }
     
     // Check file structure - calculate expected size
-    size_t expected_size = sizeof(ReplayMetadata) + sizeof(CompiledLevel);
+    size_t expected_size = sizeof(madEscape::ReplayMetadata) + sizeof(CompiledLevel);
     if (metadata.num_steps > 0) {
         expected_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
     }
@@ -125,7 +125,7 @@ bool validateReplayFile(const FileInfo& info) {
     std::cout << "  Random seed: " << metadata.seed << "\n";
     
     // Try to load embedded level
-    auto level_opt = ReplayLoader::loadEmbeddedLevel(info.filepath);
+    auto level_opt = madrona::escape_room::ReplayLoader::loadEmbeddedLevel(info.filepath);
     if (level_opt.has_value()) {
         const auto& level = level_opt.value();
         std::cout << "\nEmbedded Level:\n";

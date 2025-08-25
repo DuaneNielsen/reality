@@ -11,6 +11,17 @@
 
 using namespace madEscape;
 
+// Define MER error codes as mappings to madEscape::Result
+#define MER_SUCCESS static_cast<MER_Result>(Result::Success)
+#define MER_ERROR_NULL_POINTER static_cast<MER_Result>(Result::ErrorNullPointer)
+#define MER_ERROR_INVALID_PARAMETER static_cast<MER_Result>(Result::ErrorInvalidParameter)
+#define MER_ERROR_ALLOCATION_FAILED static_cast<MER_Result>(Result::ErrorAllocationFailed)
+#define MER_ERROR_NOT_INITIALIZED static_cast<MER_Result>(Result::ErrorNotInitialized)
+#define MER_ERROR_CUDA_FAILURE static_cast<MER_Result>(Result::ErrorCudaFailure)
+#define MER_ERROR_FILE_NOT_FOUND static_cast<MER_Result>(Result::ErrorFileNotFound)
+#define MER_ERROR_INVALID_FILE static_cast<MER_Result>(Result::ErrorInvalidFile)
+#define MER_ERROR_FILE_IO static_cast<MER_Result>(Result::ErrorFileIO)
+
 // Helper function to convert madrona::py::Tensor to MER_Tensor
 static void convertTensor(const madrona::py::Tensor& src, MER_Tensor* dst) {
     dst->data = src.devicePtr();
@@ -22,30 +33,8 @@ static void convertTensor(const madrona::py::Tensor& src, MER_Tensor* dst) {
         dst->dimensions[i] = src.dims()[i];
     }
     
-    // Convert element type
-    switch (src.type()) {
-        case madrona::py::TensorElementType::UInt8:
-            dst->element_type = MER_TENSOR_TYPE_UINT8;
-            break;
-        case madrona::py::TensorElementType::Int8:
-            dst->element_type = MER_TENSOR_TYPE_INT8;
-            break;
-        case madrona::py::TensorElementType::Int16:
-            dst->element_type = MER_TENSOR_TYPE_INT16;
-            break;
-        case madrona::py::TensorElementType::Int32:
-            dst->element_type = MER_TENSOR_TYPE_INT32;
-            break;
-        case madrona::py::TensorElementType::Int64:
-            dst->element_type = MER_TENSOR_TYPE_INT64;
-            break;
-        case madrona::py::TensorElementType::Float16:
-            dst->element_type = MER_TENSOR_TYPE_FLOAT16;
-            break;
-        case madrona::py::TensorElementType::Float32:
-            dst->element_type = MER_TENSOR_TYPE_FLOAT32;
-            break;
-    }
+    // Convert element type - store as int32_t (matches madrona::py::TensorElementType values)
+    dst->element_type = static_cast<int32_t>(src.type());
     
     // Calculate total bytes
     int64_t total_elements = 1;
@@ -59,7 +48,7 @@ extern "C" {
 
 MER_Result mer_create_manager(
     MER_ManagerHandle* out_handle,
-    const MER_ManagerConfig* config,
+    const void* config,
     const void* compiled_levels,
     uint32_t num_compiled_levels
 ) {
@@ -69,6 +58,9 @@ MER_Result mer_create_manager(
     
     *out_handle = nullptr;
     
+    // Direct cast config from void* - Python passes the exact C++ struct via ctypes
+    const ManagerConfig* mgr_cfg = reinterpret_cast<const ManagerConfig*>(config);
+    
     // Direct cast from void* - Python passes the exact C++ struct via ctypes
     using namespace madEscape;
     const CompiledLevel* cpp_levels = reinterpret_cast<const CompiledLevel*>(compiled_levels);
@@ -77,11 +69,11 @@ MER_Result mer_create_manager(
     std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;
     if (cpp_levels != nullptr && num_compiled_levels > 0) {
         // Validate array size doesn't exceed number of worlds
-        if (num_compiled_levels > config->num_worlds) {
+        if (num_compiled_levels > mgr_cfg->num_worlds) {
             return MER_ERROR_INVALID_PARAMETER;
         }
         
-        cpp_per_world_levels.reserve(config->num_worlds);
+        cpp_per_world_levels.reserve(mgr_cfg->num_worlds);
         
         for (uint32_t i = 0; i < num_compiled_levels; i++) {
             // Direct copy of the CompiledLevel struct
@@ -89,24 +81,23 @@ MER_Result mer_create_manager(
         }
         
         // Fill remaining worlds with nullopt if array is smaller than num_worlds
-        while (cpp_per_world_levels.size() < config->num_worlds) {
+        while (cpp_per_world_levels.size() < mgr_cfg->num_worlds) {
             cpp_per_world_levels.push_back(std::nullopt);
         }
     }
     
-    // Convert C config to Manager::Config
+    // Convert to Manager::Config
     Manager::Config mgr_config {
-        .execMode = (config->exec_mode == MER_EXEC_MODE_CUDA) ? 
-            madrona::ExecMode::CUDA : madrona::ExecMode::CPU,
-        .gpuID = config->gpu_id,
-        .numWorlds = config->num_worlds,
-        .randSeed = config->rand_seed,
-        .autoReset = config->auto_reset,
-        .enableBatchRenderer = config->enable_batch_renderer,
-        .batchRenderViewWidth = config->batch_render_view_width ? 
-            config->batch_render_view_width : consts::display::defaultBatchRenderSize,
-        .batchRenderViewHeight = config->batch_render_view_height ? 
-            config->batch_render_view_height : consts::display::defaultBatchRenderSize,
+        .execMode = mgr_cfg->exec_mode,
+        .gpuID = mgr_cfg->gpu_id,
+        .numWorlds = mgr_cfg->num_worlds,
+        .randSeed = mgr_cfg->rand_seed,
+        .autoReset = mgr_cfg->auto_reset,
+        .enableBatchRenderer = mgr_cfg->enable_batch_renderer,
+        .batchRenderViewWidth = mgr_cfg->batch_render_view_width ? 
+            mgr_cfg->batch_render_view_width : consts::display::defaultBatchRenderSize,
+        .batchRenderViewHeight = mgr_cfg->batch_render_view_height ? 
+            mgr_cfg->batch_render_view_height : consts::display::defaultBatchRenderSize,
         .perWorldCompiledLevels = std::move(cpp_per_world_levels),  // Per-world compiled levels
     };
     
@@ -423,7 +414,7 @@ MER_Result mer_get_replay_step_count(
 
 MER_Result mer_read_replay_metadata(
     const char* filepath,
-    MER_ReplayMetadata* out_metadata
+    void* out_metadata
 ) {
     if (!filepath || !out_metadata) {
         return MER_ERROR_NULL_POINTER;
@@ -437,16 +428,19 @@ MER_Result mer_read_replay_metadata(
     
     const auto& metadata = metadata_opt.value();
     
-    // Convert from C++ metadata to C metadata structure
-    out_metadata->num_worlds = metadata.num_worlds;
-    out_metadata->num_agents_per_world = metadata.num_agents_per_world;
-    out_metadata->num_steps = metadata.num_steps;
-    out_metadata->seed = metadata.seed;
-    out_metadata->timestamp = metadata.timestamp;
+    // Direct cast to ReplayMetadata* - Python passes the exact C++ struct via ctypes
+    ReplayMetadata* replay_meta = reinterpret_cast<ReplayMetadata*>(out_metadata);
+    
+    // Copy metadata
+    replay_meta->num_worlds = metadata.num_worlds;
+    replay_meta->num_agents_per_world = metadata.num_agents_per_world;
+    replay_meta->num_steps = metadata.num_steps;
+    replay_meta->seed = metadata.seed;
+    replay_meta->timestamp = metadata.timestamp;
     
     // Copy sim name safely
-    std::strncpy(out_metadata->sim_name, metadata.sim_name, sizeof(out_metadata->sim_name) - 1);
-    out_metadata->sim_name[sizeof(out_metadata->sim_name) - 1] = '\0';
+    std::strncpy(replay_meta->sim_name, metadata.sim_name, sizeof(replay_meta->sim_name) - 1);
+    replay_meta->sim_name[sizeof(replay_meta->sim_name) - 1] = '\0';
     
     return MER_SUCCESS;
 }
@@ -464,23 +458,26 @@ size_t mer_get_compiled_level_size(void) {
 }
 
 const char* mer_result_to_string(MER_Result result) {
-    switch (result) {
-        case MER_SUCCESS:
+    Result res = static_cast<Result>(result);
+    switch (res) {
+        case Result::Success:
             return "Success";
-        case MER_ERROR_NULL_POINTER:
+        case Result::ErrorNullPointer:
             return "Null pointer error";
-        case MER_ERROR_INVALID_PARAMETER:
+        case Result::ErrorInvalidParameter:
             return "Invalid parameter";
-        case MER_ERROR_ALLOCATION_FAILED:
+        case Result::ErrorAllocationFailed:
             return "Memory allocation failed";
-        case MER_ERROR_NOT_INITIALIZED:
+        case Result::ErrorNotInitialized:
             return "Not initialized";
-        case MER_ERROR_CUDA_FAILURE:
+        case Result::ErrorCudaFailure:
             return "CUDA operation failed";
-        case MER_ERROR_FILE_NOT_FOUND:
+        case Result::ErrorFileNotFound:
             return "File not found";
-        case MER_ERROR_INVALID_FILE:
+        case Result::ErrorInvalidFile:
             return "Invalid file";
+        case Result::ErrorFileIO:
+            return "File I/O error";
         default:
             return "Unknown error";
     }

@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include "compiled_level_compat.hpp"
 #include "madrona_escape_room_c_api.h"
+#include "types.hpp"  // For madEscape types
 #include <memory>
 #include <cstring>
 #include <mutex>
@@ -12,11 +13,11 @@
 class MadronaTestBase : public ::testing::Test {
 protected:
     MER_ManagerHandle handle = nullptr;
-    MER_ManagerConfig config = {};
+    madEscape::ManagerConfig config = {};
     
     void SetUp() override {
         // Default config - can be overridden in derived classes
-        config.exec_mode = MER_EXEC_MODE_CPU;
+        config.exec_mode = madrona::ExecMode::CPU;
         config.gpu_id = 0;
         config.num_worlds = 4;
         config.rand_seed = 42;
@@ -32,10 +33,10 @@ protected:
     }
     
     // Helper to create manager with custom config
-    ::testing::AssertionResult CreateManager(const MER_CompiledLevel* levels = nullptr, 
+    ::testing::AssertionResult CreateManager(const madEscape::CompiledLevel* levels = nullptr, 
                                             int32_t num_levels = 0) {
         MER_Result result = mer_create_manager(&handle, &config, levels, num_levels);
-        if (result != MER_SUCCESS) {
+        if (result != static_cast<MER_Result>(madEscape::Result::Success)) {
             return ::testing::AssertionFailure() 
                 << "Failed to create manager: " << mer_result_to_string(result);
         }

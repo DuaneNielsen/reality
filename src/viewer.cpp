@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 
     // Parameters with defaults
     uint32_t num_worlds = 1;
-    ExecMode exec_mode = ExecMode::CPU;
+    madrona::ExecMode exec_mode = madrona::ExecMode::CPU;
     uint32_t gpu_id = 0;
     std::string load_path;
     std::string record_path;
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 
     // Process options
     if (options[CUDA]) {
-        exec_mode = ExecMode::CUDA;
+        exec_mode = madrona::ExecMode::CUDA;
         gpu_id = strtoul(options[CUDA].arg, nullptr, 10);
     }
     
