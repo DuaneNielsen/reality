@@ -68,7 +68,7 @@ dist/
 *.egg
 
 # Generated Python bindings (created during build)
-madrona_escape_room/generated_structs.py
+# madrona_escape_room/generated_structs.py - now tracked, uses constants from generated_constants
 madrona_escape_room/generated_constants.py
 
 # Virtual environments

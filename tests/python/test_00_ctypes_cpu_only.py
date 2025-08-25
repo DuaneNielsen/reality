@@ -15,7 +15,7 @@ def test_import_order_torch_first():
     import madrona_escape_room
 
     assert hasattr(madrona_escape_room, "SimManager")
-    assert hasattr(madrona_escape_room, "madrona")
+    assert hasattr(madrona_escape_room, "ExecMode")
 
 
 def test_import_order_madrona_first():
@@ -37,12 +37,13 @@ def test_functionality_after_torch_import():
 
     # Create manager and verify it works
     mgr = madrona_escape_room.SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=madrona_escape_room.ExecMode.CPU,
         gpu_id=0,
         num_worlds=1,
         rand_seed=42,
         auto_reset=True,
         enable_batch_renderer=False,
+        compiled_levels=madrona_escape_room.create_default_level(),
     )
 
     assert mgr is not None
@@ -63,12 +64,13 @@ def test_tensor_interop_with_torch():
     import madrona_escape_room
 
     mgr = madrona_escape_room.SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=madrona_escape_room.ExecMode.CPU,
         gpu_id=0,
         num_worlds=1,
         rand_seed=42,
         auto_reset=True,
         enable_batch_renderer=False,
+        compiled_levels=madrona_escape_room.create_default_level(),
     )
 
     # Get madrona tensor

@@ -144,9 +144,9 @@ namespace madEscape {
     // Unified CompiledLevel structure matching C API format
     // This replaces both the C++ CompiledLevel and C API MER_CompiledLevel  
     struct CompiledLevel {
-        static constexpr int32_t MAX_TILES = 1024;  // 32x32 grid max
-        static constexpr int32_t MAX_SPAWNS = 8;    // Max spawn points
-        static constexpr int32_t MAX_LEVEL_NAME_LENGTH = 64;  // Max level name length
+        static constexpr int32_t MAX_TILES = consts::limits::maxTiles;  // From consts.hpp
+        static constexpr int32_t MAX_SPAWNS = consts::limits::maxSpawns;  // From consts.hpp
+        static constexpr int32_t MAX_LEVEL_NAME_LENGTH = consts::limits::maxLevelNameLength;  // From consts.hpp
         
         // Header fields (matching MER_CompiledLevel layout)
         int32_t num_tiles;                // Actual tiles used
@@ -237,7 +237,7 @@ namespace madEscape {
     static constexpr uint32_t REPLAY_VERSION = 2;
     
     // Maximum length for sim name string
-    static constexpr uint32_t MAX_SIM_NAME_LENGTH = 64;
+    static constexpr uint32_t MAX_SIM_NAME_LENGTH = consts::limits::maxNameLength;
     
     struct ReplayMetadata {
         uint32_t magic;                         // Magic number for file identification

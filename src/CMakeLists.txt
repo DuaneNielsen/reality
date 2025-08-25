@@ -281,7 +281,8 @@ add_custom_command(
             $<TARGET_FILE:madrona_escape_room_c_api>
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_structs.py
     COMMAND ${CMAKE_COMMAND} -E echo "Generating Python constants from headers..."
-    COMMAND ${UV_EXECUTABLE} run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
+    COMMAND ${CMAKE_COMMAND} -E env MADRONA_INCLUDE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/../external/madrona/include
+            ${UV_EXECUTABLE} run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
             ${CMAKE_CURRENT_SOURCE_DIR}/consts.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/types.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_constants.py

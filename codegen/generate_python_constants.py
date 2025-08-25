@@ -24,6 +24,10 @@ GENERATION_CONFIG = {
             "path": ["madEscape", "consts"],  # Path through namespace tree
             "class_name": "consts",  # Name of Python class to generate
         },
+        {
+            "path": ["madEscape", "consts", "limits"],  # Structural limits and bounds
+            "class_name": "limits",  # Generate as limits class
+        },
         {"path": ["types"], "class_name": "types"},
     ],
     # Convenience aliases to create at module level
@@ -455,7 +459,51 @@ class PythonGenerator:
                 self.add_line("__slots__ = ()")
                 self.add_line()
                 for name, value in enum_values.items():
-                    self.add_line(f"{name} = {value}")
+                    # Handle Python keywords
+                    if name in (
+                        "None",
+                        "True",
+                        "False",
+                        "and",
+                        "or",
+                        "not",
+                        "if",
+                        "else",
+                        "elif",
+                        "while",
+                        "for",
+                        "break",
+                        "continue",
+                        "pass",
+                        "def",
+                        "class",
+                        "return",
+                        "yield",
+                        "import",
+                        "from",
+                        "as",
+                        "with",
+                        "try",
+                        "except",
+                        "finally",
+                        "raise",
+                        "assert",
+                        "del",
+                        "lambda",
+                        "global",
+                        "nonlocal",
+                        "is",
+                        "in",
+                        "await",
+                        "async",
+                    ):
+                        # Append underscore to avoid keyword conflict
+                        safe_name = name + "_"
+                        self.add_line(
+                            f"{safe_name} = {value}  # Renamed from '{name}' (Python keyword)"
+                        )
+                    else:
+                        self.add_line(f"{name} = {value}")
                 self.indent_level -= 1
                 self.add_line()
 

@@ -97,6 +97,8 @@ def map_c_to_ctypes(c_type: str, size: int) -> str:
         "unsigned int": "ctypes.c_uint",
         "long": "ctypes.c_long",
         "unsigned long": "ctypes.c_ulong",
+        "enum madrona::ExecMode": "ctypes.c_int",  # Enums are stored as integers
+        "enum ExecMode": "ctypes.c_int",  # Pahole sometimes strips namespace
     }
 
     if c_type in type_map:
@@ -166,6 +168,7 @@ def generate_python_bindings(library_path: str, output_path: str):
         "Progress",
         "StepsRemaining",
         "ReplayMetadata",
+        "ManagerConfig",
     ]
 
     # Start building the output file

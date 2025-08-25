@@ -56,20 +56,25 @@ def pytest_runtest_setup(item):
 def cpu_manager(request):
     """Create a CPU SimManager with optional native recording and trajectory tracing"""
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     # Check if test has a custom_level marker
     marker = request.node.get_closest_marker("custom_level")
-    level_ascii = marker.args[0] if marker else None
+    if marker:
+        # TODO: Convert ASCII level to CompiledLevel when needed
+        # For now, use default level even with marker
+        compiled_level = create_default_level()
+    else:
+        compiled_level = create_default_level()
 
     mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=ExecMode.CPU,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
         auto_reset=False,  # Manual control for reward tests
-        level_ascii=level_ascii,  # Use custom level if provided via marker
+        compiled_levels=compiled_level,  # Use compiled level
     )
 
     # Check for debug flags
@@ -143,15 +148,16 @@ def log_and_verify_replay_cpu_manager(request):
     import tempfile
 
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=ExecMode.CPU,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
         auto_reset=True,
+        compiled_levels=create_default_level(),
     )
 
     # Always create a debug session for this fixture
@@ -180,9 +186,7 @@ def log_and_verify_replay_cpu_manager(request):
 
     try:
         # Create replay manager and trace file
-        replay_mgr = SimManager.from_replay(
-            str(debug_session.recording_path), madrona_escape_room.madrona.ExecMode.CPU
-        )
+        replay_mgr = SimManager.from_replay(str(debug_session.recording_path), ExecMode.CPU)
 
         with tempfile.NamedTemporaryFile(suffix="_replay_trace.txt", delete=False) as f:
             replay_trace_path = f.name
@@ -276,15 +280,16 @@ def gpu_manager(request):
         pytest.skip("CUDA not available")
 
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CUDA,
+        exec_mode=ExecMode.CUDA,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
         auto_reset=True,
+        compiled_levels=create_default_level(),
     )
 
     # With session scope, we can't do per-test recording here
@@ -321,15 +326,16 @@ def _test_manager(request):
     This fixture is module-scoped and doesn't support per-test custom levels.
     """
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=ExecMode.CPU,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
         auto_reset=False,  # Manual control over resets
+        compiled_levels=create_default_level(),
     )
 
     yield mgr
@@ -412,10 +418,10 @@ def test_manager_from_replay():
     Returns a function that takes a replay path and returns the manager.
     """
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager
 
     def _create_manager(replay_path):
         """Create a manager from replay file"""
-        return SimManager.from_replay(str(replay_path), madrona_escape_room.madrona.ExecMode.CPU)
+        return SimManager.from_replay(str(replay_path), ExecMode.CPU)
 
     return _create_manager

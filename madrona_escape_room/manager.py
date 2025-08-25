@@ -43,12 +43,12 @@ class SimManager:
         enable_batch_renderer=False,
         compiled_levels=None,  # Pass CompiledLevel objects directly
     ):
-        # Need madrona for ExecMode check
-        from . import madrona
+        # Import ExecMode for type checking
+        from .generated_constants import ExecMode
 
         # Create config
         config = ManagerConfig()
-        config.exec_mode = exec_mode.value if isinstance(exec_mode, madrona.ExecMode) else exec_mode
+        config.exec_mode = exec_mode.value if isinstance(exec_mode, ExecMode) else exec_mode
         config.gpu_id = gpu_id
         config.num_worlds = num_worlds
         config.rand_seed = rand_seed
@@ -94,12 +94,12 @@ class SimManager:
         """Helper to get tensor from C API"""
         from ctypes import byref
 
-        from . import madrona
+        from .tensor import Tensor
 
         c_tensor = MER_Tensor()
         result = getter_func(self._handle, byref(c_tensor))
         _check_result(result)
-        return madrona.Tensor(c_tensor)
+        return Tensor(c_tensor)
 
     def reset_tensor(self):
         return self._get_tensor(lib.mer_get_reset_tensor)
