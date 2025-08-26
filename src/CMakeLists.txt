@@ -272,14 +272,10 @@ if(NOT UV_EXECUTABLE)
 endif()
 message(STATUS "Found uv: ${UV_EXECUTABLE}")
 
-# Generate Python struct definitions from the compiled library using pahole
-# This ensures Python ctypes structures exactly match C++ memory layout
+# Generate Python dataclass and constants from the compiled library using pahole
+# This ensures Python structures exactly match C++ memory layout
 add_custom_command(
     TARGET madrona_escape_room_c_api POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "Generating Python struct definitions from binary..."
-    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_structs.py
-            $<TARGET_FILE:madrona_escape_room_c_api>
-            ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_structs.py
     COMMAND ${CMAKE_COMMAND} -E echo "Generating Python dataclass definitions from binary..."
     COMMAND ${UV_EXECUTABLE} run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_dataclass_structs.py
             $<TARGET_FILE:madrona_escape_room_c_api>
