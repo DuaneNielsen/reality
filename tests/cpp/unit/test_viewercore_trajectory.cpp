@@ -10,6 +10,7 @@
 #include <thread>
 #include <chrono>
 #include <limits>
+#include <cmath>
 
 using namespace madEscape;
 
@@ -41,10 +42,41 @@ protected:
         }
     }
     
-    // Helper to load the test level
+    // Helper to load the test level with clear path for agent
     CompiledLevel loadTestLevel() {
-        // Use the embedded default level
-        return DefaultLevelProvider::GetDefaultLevel();
+        // Start with the embedded default level
+        CompiledLevel level = DefaultLevelProvider::GetDefaultLevel();
+        
+        // Clear objects in front of the agent to prevent collisions
+        // Agent spawns at spawn_x[0], spawn_y[0] and moves forward (positive Y)
+        float agent_x = level.spawn_x[0];
+        float agent_y = level.spawn_y[0];
+        float clear_radius = 10.0f; // Clear +-10 units in X around the agent's path
+        
+        // Clear tiles that might be in the agent's forward path
+        for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
+            // Check if tile is in the agent's potential path (forward movement area)
+            if (level.tile_y[i] > agent_y - 2.0f) { // Tiles ahead of spawn
+                if (std::abs(level.tile_x[i] - agent_x) < clear_radius) {
+                    // Clear this tile by setting it to empty (object_id = 0)
+                    level.object_ids[i] = 0;
+                    level.tile_entity_type[i] = 0;
+                }
+            }
+        }
+        
+        // Clear any per-tile randomization for deterministic behavior
+        for (int32_t i = 0; i < level.num_tiles && i < 1024; i++) {
+            level.tile_rand_x[i] = 0.0f;
+            level.tile_rand_y[i] = 0.0f;
+            level.tile_rand_z[i] = 0.0f;
+            level.tile_rand_rot_z[i] = 0.0f;
+            level.tile_rand_scale_x[i] = 0.0f;
+            level.tile_rand_scale_y[i] = 0.0f;
+            level.tile_rand_scale_z[i] = 0.0f;
+        }
+        
+        return level;
     }
 };
 
