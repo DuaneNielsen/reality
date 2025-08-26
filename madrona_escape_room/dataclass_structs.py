@@ -6,7 +6,7 @@ DO NOT EDIT - this file is automatically regenerated.
 
 import ctypes
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Tuple
 
 from cdataclass import BigEndianCDataMixIn, NativeEndianCDataMixIn, meta
 
@@ -35,6 +35,11 @@ def _make_int_array_1024():
 def _make_int_array_7():
     """Factory for 7-element int array"""
     return [0] * 7
+
+
+def _make_quat_array_1024():
+    """Factory for 1024-element quaternion array (identity quaternions)"""
+    return [(1.0, 0.0, 0.0, 0.0)] * 1024
 
 
 # Dataclass structures
@@ -97,17 +102,8 @@ class CompiledLevel(NativeEndianCDataMixIn):
     tile_scale_z: List[float] = field(
         metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024
     )
-    tile_rot_w: List[float] = field(
-        metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024
-    )
-    tile_rot_x: List[float] = field(
-        metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024
-    )
-    tile_rot_y: List[float] = field(
-        metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024
-    )
-    tile_rot_z: List[float] = field(
-        metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024
+    tile_rotation: List[Tuple[float, float, float, float]] = field(
+        metadata=meta((ctypes.c_float * 4) * 1024), default_factory=_make_quat_array_1024
     )
     tile_rand_x: List[float] = field(
         metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024

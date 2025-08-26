@@ -36,10 +36,7 @@ int main(int argc, char* argv[]) {
         level.tile_scale_x[i] = 1.0f;
         level.tile_scale_y[i] = 1.0f;
         level.tile_scale_z[i] = 1.0f;
-        level.tile_rot_w[i] = 1.0f;  // Identity quaternion
-        level.tile_rot_x[i] = 0.0f;
-        level.tile_rot_y[i] = 0.0f;
-        level.tile_rot_z[i] = 0.0f;
+        level.tile_rotation[i] = Quat::id();  // Identity quaternion
         level.tile_response_type[i] = 2;  // Default to Static
         
         // Initialize randomization arrays to 0 (no randomization)

@@ -25,6 +25,7 @@ namespace madEscape {
     using madrona::phys::ResponseType;
     using madrona::phys::RigidBody;
     using madrona::phys::Velocity;
+    using madrona::math::Quat;
 
 
     // [BOILERPLATE]
@@ -185,10 +186,7 @@ namespace madEscape {
         float tile_scale_x[MAX_TILES];    // Local X scale
         float tile_scale_y[MAX_TILES];    // Local Y scale
         float tile_scale_z[MAX_TILES];    // Local Z scale
-        float tile_rot_w[MAX_TILES];      // Quaternion W component
-        float tile_rot_x[MAX_TILES];      // Quaternion X component
-        float tile_rot_y[MAX_TILES];      // Quaternion Y component
-        float tile_rot_z[MAX_TILES];      // Quaternion Z component
+        Quat tile_rotation[MAX_TILES];    // Rotation quaternion for each tile
         
         // Randomization arrays (per-tile random ranges)
         float tile_rand_x[MAX_TILES];     // Random X offset range (-range/2 to +range/2)

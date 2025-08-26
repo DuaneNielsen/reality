@@ -65,7 +65,7 @@ def create_default_level():
         level.tile_scale_x[tile_index] = wall_tile_size
         level.tile_scale_y[tile_index] = wall_tile_size
         level.tile_scale_z[tile_index] = 1.0
-        level.tile_rot_w[tile_index] = 1.0  # Identity quaternion
+        # tile_rotation is auto-initialized to identity quaternion (1,0,0,0) by factory
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
         level.tile_entity_type[tile_index] = 2  # EntityType::Wall

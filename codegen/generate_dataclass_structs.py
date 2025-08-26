@@ -83,6 +83,15 @@ def map_c_to_python_type(c_type: str, size: int, is_array: bool = False) -> str:
     """Map C type to Python type annotation for dataclass."""
     c_type = c_type.strip()
 
+    # Check for struct types first
+    if c_type.startswith("struct "):
+        struct_name = c_type[7:]  # Remove "struct " prefix
+        if struct_name == "Quat":
+            # Quaternions are represented as a tuple of 4 floats in Python
+            if is_array:
+                return "List[Tuple[float, float, float, float]]"
+            return "Tuple[float, float, float, float]"
+
     type_map = {
         "int32_t": "int",
         "uint32_t": "int",
@@ -116,6 +125,13 @@ def map_c_to_python_type(c_type: str, size: int, is_array: bool = False) -> str:
 def map_c_to_ctypes(c_type: str, size: int) -> str:
     """Map C type string to ctypes equivalent."""
     c_type = c_type.strip()
+
+    # Check for struct types first
+    if c_type.startswith("struct "):
+        struct_name = c_type[7:]  # Remove "struct " prefix
+        if struct_name == "Quat":
+            # Quaternion is 4 floats (w, x, y, z)
+            return "ctypes.c_float * 4"
 
     type_map = {
         "int32_t": "ctypes.c_int32",
@@ -182,19 +198,27 @@ def generate_dataclass_struct(
                     f"    {field.name}: {python_type} = field(metadata={meta_str}, default=b'')"
                 )
             else:
-                # Regular arrays with pre-sized factory
-                base_type = python_type.replace("List[", "").replace("]", "")
-                if base_type == "bool":
-                    factory_name = f"_make_bool_array_{field.array_size}"
-                    factories_needed.add((factory_name, field.array_size, "bool"))
-                elif base_type == "int":
-                    factory_name = f"_make_int_array_{field.array_size}"
-                    factories_needed.add((factory_name, field.array_size, "int"))
-                else:  # float
-                    factory_name = f"_make_float_array_{field.array_size}"
-                    factories_needed.add((factory_name, field.array_size, "float"))
+                # Check if this is a Quat array
+                if field.type_str.startswith("struct Quat"):
+                    # Special handling for quaternion arrays
+                    factory_name = f"_make_quat_array_{field.array_size}"
+                    factories_needed.add((factory_name, field.array_size, "quat"))
+                    # The ctypes metadata needs to be an array of Quat structs (4 floats each)
+                    meta_str = f"meta((ctypes.c_float * 4) * {field.array_size})"
+                else:
+                    # Regular arrays with pre-sized factory
+                    base_type = python_type.replace("List[", "").replace("]", "")
+                    if base_type == "bool":
+                        factory_name = f"_make_bool_array_{field.array_size}"
+                        factories_needed.add((factory_name, field.array_size, "bool"))
+                    elif base_type == "int":
+                        factory_name = f"_make_int_array_{field.array_size}"
+                        factories_needed.add((factory_name, field.array_size, "int"))
+                    else:  # float
+                        factory_name = f"_make_float_array_{field.array_size}"
+                        factories_needed.add((factory_name, field.array_size, "float"))
+                    meta_str = f"meta({ctype} * {field.array_size})"
 
-                meta_str = f"meta({ctype} * {field.array_size})"
                 field_lines.append(
                     f"    {field.name}: {python_type} = field("
                     f"metadata={meta_str}, default_factory={factory_name})"
@@ -260,7 +284,7 @@ def generate_python_bindings(library_path: str, output_path: str):
         "",
         "import ctypes",
         "from dataclasses import dataclass, field",
-        "from typing import List",
+        "from typing import List, Tuple",
         "",
         "from cdataclass import NativeEndianCDataMixIn, BigEndianCDataMixIn, meta",
         "",
@@ -304,17 +328,32 @@ def generate_python_bindings(library_path: str, output_path: str):
 
         # Sort factories by name for consistent output
         for factory_name, size, type_name in sorted(all_factories):
-            if type_name == "bool":
+            if type_name == "quat":
+                # Quaternion array - each quaternion is (w, x, y, z) with identity = (1, 0, 0, 0)
+                output_lines.append(f"def {factory_name}():")
+                output_lines.append(
+                    f'    """Factory for {size}-element quaternion array (identity quaternions)"""'
+                )
+                output_lines.append(f"    return [(1.0, 0.0, 0.0, 0.0)] * {size}")
+                output_lines.append("")
+            elif type_name == "bool":
                 default_val = "False"
+                output_lines.append(f"def {factory_name}():")
+                output_lines.append(f'    """Factory for {size}-element {type_name} array"""')
+                output_lines.append(f"    return [{default_val}] * {size}")
+                output_lines.append("")
             elif type_name == "int":
                 default_val = "0"
+                output_lines.append(f"def {factory_name}():")
+                output_lines.append(f'    """Factory for {size}-element {type_name} array"""')
+                output_lines.append(f"    return [{default_val}] * {size}")
+                output_lines.append("")
             else:  # float
                 default_val = "0.0"
-
-            output_lines.append(f"def {factory_name}():")
-            output_lines.append(f'    """Factory for {size}-element {type_name} array"""')
-            output_lines.append(f"    return [{default_val}] * {size}")
-            output_lines.append("")
+                output_lines.append(f"def {factory_name}():")
+                output_lines.append(f'    """Factory for {size}-element {type_name} array"""')
+                output_lines.append(f"    return [{default_val}] * {size}")
+                output_lines.append("")
 
     # Now output the dataclass definitions
     output_lines.append("")
