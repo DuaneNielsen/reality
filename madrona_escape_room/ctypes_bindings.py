@@ -102,8 +102,8 @@ rendering = consts.rendering
 MER_ManagerHandle = c_void_p
 
 
-# Import auto-generated structs (no fallback - must be built first)
-from .generated_structs import (
+# Import dataclass structs - these are the ONLY structs we use now
+from .dataclass_structs import (
     MAX_TILES,
     Action,
     CompiledLevel,
@@ -114,6 +114,7 @@ from .generated_structs import (
     Reward,
     SelfObservation,
     StepsRemaining,
+    to_ctypes,
 )
 
 
@@ -127,6 +128,65 @@ class MER_Tensor(Structure):
         ("num_bytes", c_int64),
         ("gpu_id", c_int32),
     ]
+
+
+# Helper function to create manager with proper level array handling
+def create_manager_with_levels(handle_ptr, config, compiled_levels):
+    """
+    Wrapper to properly handle compiled levels list when creating manager.
+
+    Args:
+        handle_ptr: Pointer to MER_ManagerHandle
+        config: ManagerConfig dataclass (not a pointer)
+        compiled_levels: None, single CompiledLevel (dataclass), or list of CompiledLevel
+
+    Returns:
+        Result code from mer_create_manager
+    """
+    # Convert config dataclass to ctypes
+    c_config = config.to_ctype()
+    from ctypes import pointer
+
+    config_ptr = pointer(c_config)
+
+    if compiled_levels is None:
+        # No levels - use default
+        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0)
+
+    # Convert single level to list
+    if not isinstance(compiled_levels, list):
+        compiled_levels = [compiled_levels]
+
+    if not compiled_levels:
+        # Empty list - use default
+        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0)
+
+    # Convert dataclasses to ctypes
+    ctypes_levels = [level.to_ctype() for level in compiled_levels]
+
+    # Get the ctypes class from the first converted level
+    CTypesCompiledLevel = type(ctypes_levels[0])
+
+    # Create ctypes array
+    num_levels = len(ctypes_levels)
+    ArrayType = CTypesCompiledLevel * num_levels
+    levels_array = ArrayType()
+
+    # Copy each level into the array
+    for i, level in enumerate(ctypes_levels):
+        levels_array[i] = level
+
+    print(f"[DEBUG ctypes_bindings] Passing {num_levels} levels to C API")
+    print(
+        f"[DEBUG ctypes_bindings] First level spawn: ({levels_array[0].spawn_x[0]}, {levels_array[0].spawn_y[0]})"
+    )
+
+    # Pass array pointer to C API
+    from ctypes import POINTER, c_void_p, cast
+
+    levels_ptr = cast(levels_array, c_void_p)
+
+    return lib.mer_create_manager(handle_ptr, config_ptr, levels_ptr, num_levels)
 
 
 # Function signatures
@@ -249,12 +309,18 @@ def validate_compiled_level(level):
     Validate compiled level using C API validation function.
 
     Args:
-        level: CompiledLevel structure (auto-generated from binary)
+        level: CompiledLevel dataclass
 
     Raises:
         ValueError: If validation fails
     """
-    result = lib.mer_validate_compiled_level(ctypes.byref(level))
+    # Convert dataclass to ctypes if needed
+    if hasattr(level, "to_ctype"):
+        c_level = level.to_ctype()
+    else:
+        c_level = level
+
+    result = lib.mer_validate_compiled_level(ctypes.byref(c_level))
     if result != 0:  # Success = 0
         error_msg = lib.mer_result_to_string(result)
         if error_msg:

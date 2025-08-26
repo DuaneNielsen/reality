@@ -170,9 +170,14 @@ assert (
 ), f"ManagerConfig size mismatch: {ctypes.sizeof(ManagerConfig)} != 28"
 
 
-# Import proper constant from generated_constants
-from madrona_escape_room.generated_constants import limits
+# Extract MAX_TILES from CompiledLevel if it exists
+def get_max_tiles():
+    """Get MAX_TILES from CompiledLevel struct."""
+    if hasattr(CompiledLevel, "_fields_"):
+        for field_name, field_type in CompiledLevel._fields_:
+            if "tile_x" in field_name and hasattr(field_type, "_length_"):
+                return field_type._length_
+    return 1024  # fallback
 
-# Use the constant defined in consts.hpp
-MAX_TILES = limits.maxTiles
-MAX_SPAWNS = limits.maxSpawns
+
+MAX_TILES = get_max_tiles()

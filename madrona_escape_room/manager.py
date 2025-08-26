@@ -9,14 +9,13 @@ import numpy as np
 
 # Import from our modules
 from .ctypes_bindings import (
-    CompiledLevel,
     ManagerConfig,
     MER_ManagerHandle,
     MER_Tensor,
     lib,
     validate_compiled_level,
 )
-from .generated_structs import ReplayMetadata
+from .dataclass_structs import ReplayMetadata
 
 
 def _check_result(result):
@@ -57,27 +56,30 @@ class SimManager:
         config.batch_render_view_width = 64
         config.batch_render_view_height = 64
 
-        # Handle compiled levels
-        compiled_levels_ptr = None
-        num_compiled_levels = 0
+        # If no level provided, use default level
+        if compiled_levels is None:
+            from .default_level import create_default_level
 
-        if compiled_levels is not None:
-            # If single level passed, convert to list
-            if not isinstance(compiled_levels, list):
-                compiled_levels = [compiled_levels]
+            compiled_levels = create_default_level()
 
-            # Create ctypes array of CompiledLevel structs
-            if compiled_levels:
-                from ctypes import pointer
-
-                num_compiled_levels = len(compiled_levels)
-                # Just pass the first level's pointer - C API will handle the array
-                compiled_levels_ptr = pointer(compiled_levels[0])
+        # Validate compiled levels
+        levels_to_validate = (
+            compiled_levels if isinstance(compiled_levels, list) else [compiled_levels]
+        )
+        for level in levels_to_validate:
+            if level is not None:
+                validate_compiled_level(level)
 
         # Create handle
         self._handle = MER_ManagerHandle()
-        result = lib.mer_create_manager(
-            byref(self._handle), byref(config), compiled_levels_ptr, num_compiled_levels
+
+        # Use the wrapper function to handle level array properly
+        from .ctypes_bindings import create_manager_with_levels
+
+        result = create_manager_with_levels(
+            byref(self._handle),
+            config,
+            compiled_levels,  # Pass config directly, not byref
         )
         _check_result(result)
 
@@ -279,15 +281,15 @@ class SimManager:
         """
         from ctypes import byref
 
-        try:
-            from .generated_structs import ReplayMetadata
-        except ImportError:
-            from .ctypes_bindings import MER_ReplayMetadata as ReplayMetadata
-
         metadata = ReplayMetadata()
         filepath_bytes = filepath.encode("utf-8")
-        result = lib.mer_read_replay_metadata(filepath_bytes, byref(metadata))
+        # Convert dataclass to ctypes for C API
+        c_metadata = metadata.to_ctype()
+        result = lib.mer_read_replay_metadata(filepath_bytes, byref(c_metadata))
         _check_result(result)
+
+        # Convert back to dataclass to get updated values
+        metadata = ReplayMetadata.from_buffer(bytearray(c_metadata))
 
         result_dict = {
             "num_worlds": metadata.num_worlds,

@@ -183,8 +183,10 @@ inline void movementSystem(Engine &,
     float t_z =
         -turn_delta_per_bucket * (action.rotate - consts::numTurnBuckets / 2);
 
-    external_force = cur_rot.rotateVec({ f_x, f_y, 0 });
+    Vector3 local_force = { f_x, f_y, 0 };
+    external_force = cur_rot.rotateVec(local_force);
     external_torque = Vector3 { 0, 0, t_z };
+    
 }
 
 
@@ -451,6 +453,7 @@ Sim::Sim(Engine &ctx,
     
     // Use per-world compiled level (highest priority), fallback to shared level
     compiled_level = world_init.compiledLevel;
+    
     
     CountT max_total_entities = compiled_level.max_entities;
 

@@ -3,8 +3,7 @@ Default level generator for Madrona Escape Room
 Creates a 16x16 room with walls and obstacles like default_level.cpp
 """
 
-from .ctypes_bindings import CompiledLevel
-from .generated_structs import MAX_TILES
+from .dataclass_structs import MAX_TILES, CompiledLevel
 
 
 def create_default_level():
@@ -31,26 +30,11 @@ def create_default_level():
     level.world_min_z = 0.0
     level.world_max_z = 25.0
 
-    # Initialize all arrays to defaults
-    for i in range(MAX_TILES):
-        level.tile_z[i] = 0.0
-        level.tile_scale_x[i] = 1.0
-        level.tile_scale_y[i] = 1.0
-        level.tile_scale_z[i] = 1.0
-        level.tile_rot_w[i] = 1.0  # Identity quaternion
-        level.tile_rot_x[i] = 0.0
-        level.tile_rot_y[i] = 0.0
-        level.tile_rot_z[i] = 0.0
-        level.tile_response_type[i] = 2  # ResponseType::Static
+    # Arrays are pre-initialized with proper sizes by dataclass!
+    # Most values default to 0.0/False which is what we want
+    # Only set non-zero defaults for the tiles we'll actually use
 
-        # No randomization by default
-        level.tile_rand_x[i] = 0.0
-        level.tile_rand_y[i] = 0.0
-        level.tile_rand_z[i] = 0.0
-        level.tile_rand_rot_z[i] = 0.0
-        level.tile_rand_scale_x[i] = 0.0
-        level.tile_rand_scale_y[i] = 0.0
-        level.tile_rand_scale_z[i] = 0.0
+    # We'll only use about 100 tiles, so we don't need to set all 1024
 
     # Set spawn point at x=0, y=-17.0 (near southern wall)
     level.num_spawns = 1
@@ -81,6 +65,7 @@ def create_default_level():
         level.tile_scale_x[tile_index] = wall_tile_size
         level.tile_scale_y[tile_index] = wall_tile_size
         level.tile_scale_z[tile_index] = 1.0
+        level.tile_rot_w[tile_index] = 1.0  # Identity quaternion
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
         level.tile_entity_type[tile_index] = 2  # EntityType::Wall

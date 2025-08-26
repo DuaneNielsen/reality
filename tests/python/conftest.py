@@ -57,14 +57,28 @@ def cpu_manager(request):
     """Create a CPU SimManager with optional native recording and trajectory tracing"""
     import madrona_escape_room
     from madrona_escape_room import ExecMode, SimManager, create_default_level
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
     # Check if test has a custom_level marker
     marker = request.node.get_closest_marker("custom_level")
     if marker:
-        # TODO: Convert ASCII level to CompiledLevel when needed
-        # For now, use default level even with marker
-        compiled_level = create_default_level()
+        # Get the ASCII level from the marker
+        ascii_level = marker.args[0] if marker.args else None
+        if ascii_level:
+            print(f"[DEBUG] Using custom ASCII level:\n{ascii_level}")
+            # Compile the ASCII level using the new wrapper
+            compiled_level = compile_ascii_level(
+                ascii_level, scale=2.5, level_name="test_custom_level"
+            )
+            print(
+                f"[DEBUG] Compiled level: {compiled_level.num_tiles} tiles, {compiled_level.width}x{compiled_level.height}"
+            )
+            print(f"[DEBUG] Spawn at: ({compiled_level.spawn_x[0]}, {compiled_level.spawn_y[0]})")
+        else:
+            print("[DEBUG] No ASCII level in marker, using default")
+            compiled_level = create_default_level()
     else:
+        print("[DEBUG] No custom_level marker, using default")
         compiled_level = create_default_level()
 
     mgr = SimManager(

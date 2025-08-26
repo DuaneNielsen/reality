@@ -10,7 +10,12 @@ Automatically generates Python ctypes structures from compiled C++ binaries usin
 
 **Purpose**: Ensures Python structs have the exact same memory layout as C++ structs, eliminating manual synchronization.
 
-**Usage**: This script is automatically run as a post-build step when building `madrona_escape_room_c_api`.
+**Usage**: 
+```bash
+python codegen/generate_python_structs.py <library_path> <output_path>
+# Example (run automatically by CMake):
+python codegen/generate_python_structs.py build/libmadrona_escape_room_c_api.so madrona_escape_room/generated_structs.py
+```
 
 **Requirements**:
 - `pahole` (install with: `sudo apt install dwarves`)
@@ -18,12 +23,26 @@ Automatically generates Python ctypes structures from compiled C++ binaries usin
 
 **Generated Output**: `madrona_escape_room/generated_structs.py` (tracked in git)
 
+**Structs Extracted**:
+- `CompiledLevel` - Level data with tile positions and configurations
+- `Action` - Agent action structure
+- `SelfObservation` - Agent observation data
+- `Done` - Episode completion flag
+- `Reward` - Reward value
+- `Progress` - Agent progress tracking
+- `StepsRemaining` - Episode steps counter
+- `ReplayMetadata` - Recording metadata
+- `ManagerConfig` - Simulation configuration
+
 **How it works**:
-1. Extracts struct layouts from the compiled `.so` file using `pahole`
-2. Parses the pahole output to get field offsets and sizes
-3. Generates Python ctypes.Structure classes with correct padding
-4. Includes size assertions to validate the layout matches
-5. Imports constants (MAX_TILES, MAX_SPAWNS) from generated_constants for consistency
+1. Runs `pahole -C <struct_name> <library>` for each struct
+2. Parses pahole output using regex to extract field information (name, type, offset, size)
+3. Maps C types to ctypes equivalents (int32_t → c_int32, float → c_float, etc.)
+4. Handles arrays including special case for char arrays (strings)
+5. Adds padding fields where gaps exist in memory layout
+6. Generates ctypes.Structure classes with `_fields_` definitions
+7. Includes size assertions using `ctypes.sizeof()` to validate layouts match C++ exactly
+8. Extracts MAX_TILES from CompiledLevel array size for compatibility
 
 ### `generate_python_constants.py`
 
@@ -31,24 +50,50 @@ Automatically generates Python constants from C++ headers using libclang AST par
 
 **Purpose**: Creates a clean Python namespace hierarchy that directly mirrors the C++ constant structure, providing a single source of truth for all constants.
 
-**Usage**: This script is automatically run as a post-build step when building `madrona_escape_room_c_api`.
+**Usage**: 
+```bash
+python codegen/generate_python_constants.py [--verbose] <consts.hpp> <types.hpp> <output.py>
+# Example (run automatically by CMake):
+python codegen/generate_python_constants.py src/consts.hpp src/types.hpp madrona_escape_room/generated_constants.py
+```
+
+**Command-line Options**:
+- `--verbose` - Enable detailed debug output showing AST traversal and namespace discovery
 
 **Requirements**:
 - `libclang` Python bindings (install with: `pip install libclang` or `uv pip install libclang`)
+- `clang.native` package for libclang.so path resolution
 - System libclang library (typically installed with clang)
+- Environment variable `MADRONA_INCLUDE_DIR` (optional, for Madrona headers)
 
 **Generated Output**: `madrona_escape_room/generated_constants.py` (tracked in git)
 
+**Configuration** (defined in `GENERATION_CONFIG`):
+- **namespace_classes**: Defines which C++ namespaces become Python classes
+  - `madEscape::consts` → `consts` class
+  - `madEscape::consts::limits` → `limits` class  
+  - `types` → `types` class
+- **aliases**: Creates convenience module-level aliases
+  - `action = consts.action` (if action namespace exists)
+
 **How it works**:
-1. Parses `consts.hpp` and `types.hpp` using libclang's AST parser
-2. Traverses the AST to extract:
-   - `constexpr` constants from all namespaces (including the new `limits` namespace)
-   - Enum values from enum declarations
-   - Static constants from struct definitions
-3. Builds a namespace tree matching the C++ structure
-4. Generates nested Python classes that mirror the C++ namespace hierarchy
-5. Handles Python keyword conflicts (e.g., "None" becomes "None_")
-6. Provides convenience aliases for common namespaces (action, physics, rendering, etc.)
+1. Creates a wrapper C++ file that includes required headers and Madrona dependencies
+2. Parses with libclang using C++20 standard and appropriate include paths
+3. Traverses the AST recursively to build a namespace tree structure
+4. Extracts from each namespace:
+   - `constexpr` variables and their literal values
+   - Enum declarations and all enum constant values
+   - Static const members from struct/class definitions
+5. Handles special cases:
+   - Float literals with 'f' suffix stripped
+   - Expression values preserved as strings if not evaluable
+   - Python keyword conflicts renamed with underscore suffix (e.g., "None" → "None_")
+6. Generates Python module with:
+   - All enums as top-level classes (flattened from namespace hierarchy)
+   - Namespace classes as configured in `GENERATION_CONFIG`
+   - Module-level aliases for convenience
+   - `__all__` export list for clean imports
+   - `__slots__ = ()` on all classes to prevent runtime attribute assignment
 
 **Python API**:
 ```python

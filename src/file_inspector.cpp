@@ -94,11 +94,11 @@ bool validateReplayFile(const FileInfo& info) {
     
     // Validate metadata ranges
     bool ranges_valid = true;
-    if (metadata.num_worlds == 0 || metadata.num_worlds > consts::capi::maxWorlds) {
+    if (metadata.num_worlds == 0 || metadata.num_worlds > consts::limits::maxWorlds) {
         std::cout << "✗ Invalid num_worlds: " << metadata.num_worlds << "\n";
         ranges_valid = false;
     }
-    if (metadata.num_agents_per_world == 0 || metadata.num_agents_per_world > consts::capi::maxAgentsPerWorld) {
+    if (metadata.num_agents_per_world == 0 || metadata.num_agents_per_world > consts::limits::maxAgentsPerWorld) {
         std::cout << "✗ Invalid num_agents_per_world: " << metadata.num_agents_per_world << "\n";
         ranges_valid = false;
     }
@@ -170,15 +170,15 @@ bool validateLevelFile(const FileInfo& info) {
     // Validate level data ranges
     bool ranges_valid = true;
     
-    if (level.width <= 0 || level.width > consts::capi::maxGridSize) {
+    if (level.width <= 0 || level.width > consts::limits::maxGridSize) {
         std::cout << "✗ Invalid width: " << level.width << "\n";
         ranges_valid = false;
     }
-    if (level.height <= 0 || level.height > consts::capi::maxGridSize) {
+    if (level.height <= 0 || level.height > consts::limits::maxGridSize) {
         std::cout << "✗ Invalid height: " << level.height << "\n";
         ranges_valid = false;
     }
-    if (level.world_scale <= 0.0f || level.world_scale > consts::capi::maxScale) {
+    if (level.world_scale <= 0.0f || level.world_scale > consts::limits::maxScale) {
         std::cout << "✗ Invalid world_scale: " << level.world_scale << "\n";
         ranges_valid = false;
     }
@@ -200,8 +200,8 @@ bool validateLevelFile(const FileInfo& info) {
     for (int i = 0; i < level.num_spawns; i++) {
         float x = level.spawn_x[i];
         float y = level.spawn_y[i];
-        if (x < -consts::capi::maxCoordinate || x > consts::capi::maxCoordinate || 
-            y < -consts::capi::maxCoordinate || y > consts::capi::maxCoordinate) {
+        if (x < -consts::limits::maxCoordinate || x > consts::limits::maxCoordinate || 
+            y < -consts::limits::maxCoordinate || y > consts::limits::maxCoordinate) {
             std::cout << "✗ Invalid spawn " << i << " position: (" << x << ", " << y << ")\n";
             spawns_valid = false;
         }
