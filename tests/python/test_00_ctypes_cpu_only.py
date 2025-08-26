@@ -154,7 +154,7 @@ def test_default_level_spawn_position():
         ), f"World {world_idx}: Agent moved from Y={expected_y_norm}, now at {new_y}"
 
     # Trigger reset to reload the level
-    reset_tensor = mgr.reset_tensor().to_numpy()
+    reset_tensor = mgr.reset_tensor().to_torch()
     reset_tensor[:] = 1  # Trigger reset for all worlds
     mgr.step()
     reset_tensor[:] = 0
