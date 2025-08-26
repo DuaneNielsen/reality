@@ -151,10 +151,13 @@ def test_default_level_spawn_position():
         # Agent should have moved forward (more positive Y, larger normalized value)
         assert (
             new_y > expected_y_norm
-        ), f"World {world_idx}: Agent should have moved from normalized Y={expected_y_norm}, now at {new_y}"
+        ), f"World {world_idx}: Agent moved from Y={expected_y_norm}, now at {new_y}"
 
     # Trigger reset to reload the level
-    mgr.trigger_reset()
+    reset_tensor = mgr.reset_tensor().to_numpy()
+    reset_tensor[:] = 1  # Trigger reset for all worlds
+    mgr.step()
+    reset_tensor[:] = 0
 
     # Check that agents are back at spawn position
     obs_after_reset = mgr.self_observation_tensor().to_numpy()
@@ -185,7 +188,7 @@ def test_dataclass_level_structure():
     assert level.width == 16
     assert level.height == 16
     assert level.world_scale == 1.0
-    assert level.done_on_collide == False
+    assert not level.done_on_collide
     assert level.num_spawns == 1
 
     # Check spawn position
