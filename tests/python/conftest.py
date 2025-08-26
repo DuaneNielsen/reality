@@ -71,7 +71,8 @@ def cpu_manager(request):
                 ascii_level, scale=2.5, level_name="test_custom_level"
             )
             print(
-                f"[DEBUG] Compiled level: {compiled_level.num_tiles} tiles, {compiled_level.width}x{compiled_level.height}"
+                f"[DEBUG] Compiled level: {compiled_level.num_tiles} tiles, "
+                f"{compiled_level.width}x{compiled_level.height}"
             )
             print(f"[DEBUG] Spawn at: ({compiled_level.spawn_x[0]}, {compiled_level.spawn_y[0]})")
         else:

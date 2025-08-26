@@ -176,7 +176,7 @@ def test_default_level_spawn_position():
 def test_dataclass_level_structure():
     """Test that the dataclass CompiledLevel has the expected structure"""
     import madrona_escape_room
-    from madrona_escape_room.dataclass_structs import CompiledLevel
+    from madrona_escape_room.generated_dataclasses import CompiledLevel
 
     # Create a default level
     level = madrona_escape_room.create_default_level()

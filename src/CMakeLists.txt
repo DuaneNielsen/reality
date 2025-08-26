@@ -130,6 +130,7 @@ add_custom_target(generate_default_level ALL
 # C API wrapper library
 add_library(madrona_escape_room_c_api SHARED
     madrona_escape_room_c_api.cpp
+    struct_export.cpp  # Dummy file to export structs for pahole
 )
 
 target_include_directories(madrona_escape_room_c_api
@@ -220,10 +221,12 @@ else()
 endif()
 
 # Ensure we compile without RTTI and exceptions
+# Add debug symbols for pahole to extract struct information
 target_compile_options(madrona_escape_room_c_api PRIVATE
     -fno-rtti
     -fno-exceptions
     -fvisibility=hidden
+    -g  # Add debug symbols for pahole
 )
 
 # Don't try to statically link C++ runtime when using Madrona toolchain
@@ -279,7 +282,7 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E echo "Generating Python dataclass definitions from binary..."
     COMMAND ${UV_EXECUTABLE} run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_dataclass_structs.py
             $<TARGET_FILE:madrona_escape_room_c_api>
-            ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/dataclass_structs.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_dataclasses.py
     COMMAND ${CMAKE_COMMAND} -E echo "Generating Python constants from headers..."
     COMMAND ${UV_EXECUTABLE} run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
             ${CMAKE_CURRENT_SOURCE_DIR}/consts.hpp

@@ -308,8 +308,8 @@ class ConstantExtractor:
 #include <cstddef>
 
 // Include Madrona headers directly for better parsing
-#include "{os.path.join(project_root, 'external/madrona/include/madrona/exec_mode.hpp')}"
-#include "{os.path.join(project_root, 'external/madrona/include/madrona/py/utils.hpp')}"
+#include "{os.path.join(project_root, "external/madrona/include/madrona/exec_mode.hpp")}"
+#include "{os.path.join(project_root, "external/madrona/include/madrona/py/utils.hpp")}"
 
 // Include our project headers
 #include "{os.path.abspath(consts_path)}"

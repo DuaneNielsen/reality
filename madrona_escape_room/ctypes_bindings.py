@@ -102,9 +102,11 @@ rendering = consts.rendering
 MER_ManagerHandle = c_void_p
 
 
+# Import constants
+from .generated_constants import limits
+
 # Import dataclass structs - these are the ONLY structs we use now
-from .dataclass_structs import (
-    MAX_TILES,
+from .generated_dataclasses import (
     Action,
     CompiledLevel,
     Done,
@@ -178,7 +180,8 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
 
     print(f"[DEBUG ctypes_bindings] Passing {num_levels} levels to C API")
     print(
-        f"[DEBUG ctypes_bindings] First level spawn: ({levels_array[0].spawn_x[0]}, {levels_array[0].spawn_y[0]})"
+        f"[DEBUG ctypes_bindings] First level spawn: "
+        f"({levels_array[0].spawn_x[0]}, {levels_array[0].spawn_y[0]})"
     )
 
     # Pass array pointer to C API

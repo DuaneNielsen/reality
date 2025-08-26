@@ -15,7 +15,7 @@ from .ctypes_bindings import (
     lib,
     validate_compiled_level,
 )
-from .dataclass_structs import ReplayMetadata
+from .generated_dataclasses import ReplayMetadata
 
 
 def _check_result(result):

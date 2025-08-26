@@ -32,13 +32,16 @@ from typing import Dict, List, Optional, Tuple, Union
 from .generated_constants import limits
 
 # Get the CompiledLevel struct
-from .generated_structs import CompiledLevel
+from .generated_dataclasses import CompiledLevel
 
 # Constants
 MAX_TILES = limits.maxTiles
 MAX_SPAWNS = limits.maxSpawns
 MAX_GRID_SIZE = limits.maxGridSize
 MAX_LEVEL_NAME_LENGTH = limits.maxLevelNameLength
+
+# Backwards compatibility aliases
+MAX_TILES_C_API = MAX_TILES
 
 # Special tile type values
 TILE_EMPTY = 0

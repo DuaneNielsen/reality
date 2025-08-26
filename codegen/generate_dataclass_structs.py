@@ -376,13 +376,6 @@ def generate_python_bindings(library_path: str, output_path: str):
     output_lines.extend(
         [
             "",
-            "# Import proper constants from generated_constants",
-            "from madrona_escape_room.generated_constants import limits",
-            "",
-            "# Use the constant defined in consts.hpp",
-            "MAX_TILES = limits.maxTiles",
-            "MAX_SPAWNS = limits.maxSpawns",
-            "",
             "",
             "# Helper function to convert any dataclass to ctypes for C API",
             "def to_ctypes(obj):",

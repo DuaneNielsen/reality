@@ -3,7 +3,8 @@ Default level generator for Madrona Escape Room
 Creates a 16x16 room with walls and obstacles like default_level.cpp
 """
 
-from .dataclass_structs import MAX_TILES, CompiledLevel
+from .generated_constants import limits
+from .generated_dataclasses import CompiledLevel
 
 
 def create_default_level():

@@ -359,7 +359,7 @@ def main():
     print("\nRunning 10 simulation steps...")
     for i in range(10):
         lib.mer_step(ctypes.byref(handle))
-        print(f"  Step {i+1} completed")
+        print(f"  Step {i + 1} completed")
 
     # Clean up
     print("\nDestroying manager...")
