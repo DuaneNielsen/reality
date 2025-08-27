@@ -309,8 +309,8 @@ endif()
 
 # Generate Python dataclass and constants from the compiled library using pahole
 # This ensures Python structures exactly match C++ memory layout
-add_custom_command(
-    TARGET madrona_escape_room_c_api POST_BUILD
+# Create a custom target that always runs
+add_custom_target(generate_python_bindings ALL
     COMMAND ${CMAKE_COMMAND} -E echo "Generating Python dataclass definitions from binary..."
     COMMAND ${BUILD_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_dataclass_structs.py
             $<TARGET_FILE:madrona_escape_room_c_api>
@@ -320,6 +320,7 @@ add_custom_command(
             ${CMAKE_CURRENT_SOURCE_DIR}/consts.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/types.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_constants.py
+    DEPENDS madrona_escape_room_c_api
     COMMENT "Auto-generating Python bindings using pahole and libclang (using isolated build venv)"
     VERBATIM
 )
