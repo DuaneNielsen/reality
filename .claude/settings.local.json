@@ -105,7 +105,8 @@
       "Bash(clang:*)",
       "Bash(git stash:*)",
       "Bash(pahole:*)",
-      "WebFetch(domain:www.gamingworks.nl)"
+      "WebFetch(domain:www.gamingworks.nl)",
+      "Bash(git -C external/madrona log --oneline -3)"
     ],
     "deny": []
   },
