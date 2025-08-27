@@ -76,11 +76,13 @@ class SimManager:
         # Use the wrapper function to handle level array properly
         from .ctypes_bindings import create_manager_with_levels
 
-        result = create_manager_with_levels(
+        result, self._c_config, self._levels_array = create_manager_with_levels(
             byref(self._handle),
             config,
             compiled_levels,  # Pass config directly, not byref
         )
+        # Store the c_config and levels_array to keep them alive for the lifetime of the manager
+        # This prevents segfaults from the C code accessing freed memory
         _check_result(result)
 
     def __del__(self):

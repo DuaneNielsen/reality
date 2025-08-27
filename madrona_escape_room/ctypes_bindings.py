@@ -143,7 +143,7 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
         compiled_levels: None, single CompiledLevel (dataclass), or list of CompiledLevel
 
     Returns:
-        Result code from mer_create_manager
+        Tuple of (result_code, c_config, levels_array) where c_config and levels_array must be kept alive
     """
     # Convert config dataclass to ctypes
     c_config = config.to_ctype()
@@ -153,7 +153,7 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
 
     if compiled_levels is None:
         # No levels - use default
-        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0)
+        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0), c_config, None
 
     # Convert single level to list
     if not isinstance(compiled_levels, list):
@@ -161,7 +161,7 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
 
     if not compiled_levels:
         # Empty list - use default
-        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0)
+        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0), c_config, None
 
     # Convert dataclasses to ctypes
     ctypes_levels = [level.to_ctype() for level in compiled_levels]
@@ -189,7 +189,10 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
 
     levels_ptr = cast(levels_array, c_void_p)
 
-    return lib.mer_create_manager(handle_ptr, config_ptr, levels_ptr, num_levels)
+    result = lib.mer_create_manager(handle_ptr, config_ptr, levels_ptr, num_levels)
+    
+    # Return result, config, and array (all must be kept alive!)
+    return result, c_config, levels_array
 
 
 # Function signatures

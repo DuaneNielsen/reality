@@ -33,6 +33,7 @@ from .generated_constants import limits
 
 # Get the CompiledLevel struct
 from .generated_dataclasses import CompiledLevel
+from .dataclass_utils import create_compiled_level
 
 # Constants
 MAX_TILES = limits.maxTiles
@@ -415,7 +416,7 @@ def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
     max_entities = entity_count + 6 + 30
 
     # Create CompiledLevel struct
-    level = CompiledLevel()
+    level = create_compiled_level()
 
     # Set basic fields
     level.num_tiles = len(tiles)
@@ -502,11 +503,8 @@ def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
         level.tile_render_only[i] = False
         level.tile_response_type[i] = 2  # ResponseType::Static
 
-        # Identity quaternion for rotation
-        level.tile_rot_w[i] = 1.0
-        level.tile_rot_x[i] = 0.0
-        level.tile_rot_y[i] = 0.0
-        level.tile_rot_z[i] = 0.0
+        # Identity quaternion for rotation (w, x, y, z)
+        level.tile_rotation[i] = (1.0, 0.0, 0.0, 0.0)
 
     return level
 
@@ -574,7 +572,7 @@ def load_compiled_level_binary(filepath: str) -> CompiledLevel:
     from .ctypes_bindings import lib
     from .generated_constants import Result
 
-    level = CompiledLevel()
+    level = create_compiled_level()
     result = lib.mer_read_compiled_level(filepath.encode("utf-8"), ctypes.byref(level))
 
     if result != Result.Success:

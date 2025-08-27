@@ -5,6 +5,7 @@ Creates a 16x16 room with walls and obstacles like default_level.cpp
 
 from .generated_constants import limits
 from .generated_dataclasses import CompiledLevel
+from .dataclass_utils import create_compiled_level
 
 
 def create_default_level():
@@ -13,7 +14,7 @@ def create_default_level():
     Python version of src/default_level.cpp
     """
     # Create empty level
-    level = CompiledLevel()
+    level = create_compiled_level()
 
     # Basic level configuration
     level.width = 16

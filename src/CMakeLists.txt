@@ -275,20 +275,102 @@ if(NOT UV_EXECUTABLE)
 endif()
 message(STATUS "Found uv: ${UV_EXECUTABLE}")
 
+# Set up isolated Python environment for build
+set(BUILD_VENV_DIR ${CMAKE_BINARY_DIR}/.build_venv)
+set(BUILD_PYTHON ${BUILD_VENV_DIR}/bin/python3)
+
+# Create isolated venv for build if it doesn't exist
+if(NOT EXISTS ${BUILD_VENV_DIR})
+    message(STATUS "Creating isolated Python environment for build at ${BUILD_VENV_DIR}")
+    execute_process(
+        COMMAND ${UV_EXECUTABLE} venv ${BUILD_VENV_DIR}
+        RESULT_VARIABLE VENV_RESULT
+        OUTPUT_VARIABLE VENV_OUTPUT
+        ERROR_VARIABLE VENV_ERROR
+    )
+    if(NOT VENV_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to create build venv: ${VENV_ERROR}")
+    endif()
+    
+    message(STATUS "Installing codegen dependencies in build environment")
+    # Install dependencies from codegen/pyproject.toml
+    execute_process(
+        COMMAND ${UV_EXECUTABLE} pip install --python ${BUILD_PYTHON} libclang>=14.0.0
+        RESULT_VARIABLE INSTALL_RESULT
+        OUTPUT_VARIABLE INSTALL_OUTPUT
+        ERROR_VARIABLE INSTALL_ERROR
+    )
+    if(NOT INSTALL_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to install build dependencies: ${INSTALL_ERROR}")
+    endif()
+else()
+    message(STATUS "Using existing build venv at ${BUILD_VENV_DIR}")
+endif()
+
 # Generate Python dataclass and constants from the compiled library using pahole
 # This ensures Python structures exactly match C++ memory layout
 add_custom_command(
     TARGET madrona_escape_room_c_api POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E echo "Generating Python dataclass definitions from binary..."
-    COMMAND ${UV_EXECUTABLE} run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_dataclass_structs.py
+    COMMAND ${BUILD_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_dataclass_structs.py
             $<TARGET_FILE:madrona_escape_room_c_api>
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_dataclasses.py
     COMMAND ${CMAKE_COMMAND} -E echo "Generating Python constants from headers..."
-    COMMAND ${UV_EXECUTABLE} run python3 ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
+    COMMAND ${BUILD_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
             ${CMAKE_CURRENT_SOURCE_DIR}/consts.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/types.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_constants.py
-    COMMENT "Auto-generating Python bindings using pahole and libclang"
+    COMMENT "Auto-generating Python bindings using pahole and libclang (using isolated build venv)"
     VERBATIM
+)
+
+# Python DLPack extension
+add_library(madrona_escape_room_dlpack MODULE
+    dlpack_extension.cpp
+)
+
+# Set proper Python module naming
+set_target_properties(madrona_escape_room_dlpack PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "_madrona_escape_room_dlpack"
+    SUFFIX ".cpython-312-x86_64-linux-gnu.so"
+)
+
+target_include_directories(madrona_escape_room_dlpack PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    /usr/include/python3.12
+)
+
+target_compile_definitions(madrona_escape_room_dlpack PRIVATE
+    MADRONA_CLANG
+)
+
+target_link_libraries(madrona_escape_room_dlpack PRIVATE
+    madrona_common
+    madrona_python_utils
+)
+
+# Copy all required libraries to package directory
+add_custom_command(TARGET madrona_escape_room_dlpack POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:madrona_escape_room_dlpack>
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:madrona_escape_room_c_api>
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/libembree4.so.4
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/libdxcompiler.so
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/libmadrona_render_shader_compiler.so
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/libmadrona_std_mem.so
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    COMMENT "Copying all required libraries to Python package directory"
 )
 

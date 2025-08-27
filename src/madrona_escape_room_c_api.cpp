@@ -8,8 +8,58 @@
 #include <new>
 #include <vector>
 #include <cstdio>
+#include <csignal>
+#include <execinfo.h>
+#include <unistd.h>
+#include <atomic>
 
 using namespace madEscape;
+
+// Global counter to track manager creations for debugging
+static std::atomic<uint32_t> g_manager_creation_count{0};
+static std::atomic<uint32_t> g_manager_destruction_count{0};
+
+// Signal handler for debugging segfaults
+static void segfault_handler(int sig, siginfo_t *info, void *) {
+    fprintf(stderr, "\n========== SEGFAULT TRAPPED ==========\n");
+    fprintf(stderr, "Signal: %d\n", sig);
+    fprintf(stderr, "Fault address: %p\n", info->si_addr);
+    fprintf(stderr, "Manager creations: %u\n", g_manager_creation_count.load());
+    fprintf(stderr, "Manager destructions: %u\n", g_manager_destruction_count.load());
+    fprintf(stderr, "Currently alive managers: %u\n", 
+            g_manager_creation_count.load() - g_manager_destruction_count.load());
+    
+    // Print backtrace
+    void *buffer[100];
+    int nptrs = backtrace(buffer, 100);
+    fprintf(stderr, "\nBacktrace (%d frames):\n", nptrs);
+    backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+    fprintf(stderr, "=====================================\n\n");
+    
+    // Re-raise the signal to get default behavior
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+// Install signal handler on library load
+static void install_signal_handler() {
+    static bool installed = false;
+    if (!installed) {
+        struct sigaction sa;
+        memset(&sa, 0, sizeof(sa));
+        sa.sa_sigaction = segfault_handler;
+        sa.sa_flags = SA_SIGINFO;
+        sigemptyset(&sa.sa_mask);
+        
+        if (sigaction(SIGSEGV, &sa, nullptr) == 0) {
+            fprintf(stderr, "[DEBUG] Segfault handler installed\n");
+        }
+        if (sigaction(SIGILL, &sa, nullptr) == 0) {
+            fprintf(stderr, "[DEBUG] Illegal instruction handler installed\n");
+        }
+        installed = true;
+    }
+}
 
 // Define MER error codes as mappings to madEscape::Result
 #define MER_SUCCESS static_cast<MER_Result>(Result::Success)
@@ -52,6 +102,12 @@ MER_Result mer_create_manager(
     const void* compiled_levels,
     uint32_t num_compiled_levels
 ) {
+    // Install signal handler on first manager creation
+    install_signal_handler();
+    
+    uint32_t creation_num = g_manager_creation_count.fetch_add(1) + 1;
+    fprintf(stderr, "[DEBUG] Creating manager #%u\n", creation_num);
+    
     if (!out_handle || !config) {
         return MER_ERROR_NULL_POINTER;
     }
@@ -139,6 +195,10 @@ MER_Result mer_destroy_manager(MER_ManagerHandle handle) {
     if (!handle) {
         return MER_ERROR_NULL_POINTER;
     }
+    
+    uint32_t destruction_num = g_manager_destruction_count.fetch_add(1) + 1;
+    fprintf(stderr, "[DEBUG] Destroying manager #%u (total destroyed: %u)\n", 
+            destruction_num, destruction_num);
     
     Manager* mgr = reinterpret_cast<Manager*>(handle);
     mgr->~Manager();

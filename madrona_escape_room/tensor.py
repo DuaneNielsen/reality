@@ -97,7 +97,7 @@ class Tensor:
         import ctypes
 
         try:
-            import _madrona_escape_room_dlpack as dlpack_ext
+            from . import _madrona_escape_room_dlpack as dlpack_ext
         except ImportError:
             # Raise ImportError so tests can properly skip
             raise ImportError("DLPack extension module not found")

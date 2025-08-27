@@ -104,7 +104,8 @@
       "Bash(git merge-base:*)",
       "Bash(clang:*)",
       "Bash(git stash:*)",
-      "Bash(pahole:*)"
+      "Bash(pahole:*)",
+      "WebFetch(domain:www.gamingworks.nl)"
     ],
     "deny": []
   },
