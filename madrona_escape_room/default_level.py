@@ -3,9 +3,9 @@ Default level generator for Madrona Escape Room
 Creates a 16x16 room with walls and obstacles like default_level.cpp
 """
 
+from .dataclass_utils import create_compiled_level
 from .generated_constants import limits
 from .generated_dataclasses import CompiledLevel
-from .dataclass_utils import create_compiled_level
 
 
 def create_default_level():
@@ -44,11 +44,11 @@ def create_default_level():
     level.spawn_y[0] = -17.0
     level.spawn_facing[0] = 0.0
 
-    # Asset IDs from asset_ids.hpp
-    WALL = 1
-    CUBE = 0
-    CYLINDER = 9
-    AXIS_X = 5
+    # Asset IDs from asset_ids.hpp - MUST match C++ values!
+    WALL = 2  # Was incorrectly 1
+    CUBE = 1  # Was incorrectly 0
+    CYLINDER = 8  # Was incorrectly 9
+    AXIS_X = 5  # This was correct
 
     # Generate border walls
     tile_index = 0
@@ -163,7 +163,7 @@ def create_default_level():
 
     # Add cubes with randomization
     cube_z_offset = 0.75
-    rotation_range = 6.28318  # 2 * pi
+    rotation_range = 2.0 * 3.14159265359  # 2 * pi (match C++ precision)
 
     cube_positions = [
         (-8.0, 6.0),  # Upper-left
