@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
     level.tile_rand_y[tile_index] = variance_3m;  // 3m variance in Y
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
     level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 6.28318f;  // Full 360° rotation randomization
+    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
     tile_index++;
     
     // Cylinder 2: Near top-right corner
@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
     level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 6.28318f;  // Full 360° rotation randomization
+    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
     tile_index++;
     
     // Cylinder 3: Left side
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
     level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 6.28318f;  // Full 360° rotation randomization
+    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
     tile_index++;
     
     // Cylinder 4: Right side
@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
     level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 6.28318f;  // Full 360° rotation randomization
+    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
     tile_index++;
     
     // Cylinder 5: Near center but offset
@@ -236,7 +236,7 @@ int main(int argc, char* argv[]) {
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
     level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 6.28318f;  // Full 360° rotation randomization
+    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
     tile_index++;
     
     // Cylinder 6: Bottom-left area
@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
     level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 6.28318f;  // Full 360° rotation randomization
+    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
     tile_index++;
     
     // Cylinder 7: Bottom-right area
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
     level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 6.28318f;  // Full 360° rotation randomization
+    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
     tile_index++;
     
     // Cylinder 8: Mid-left
@@ -293,14 +293,13 @@ int main(int argc, char* argv[]) {
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
     level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 6.28318f;  // Full 360° rotation randomization
+    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
     tile_index++;
     
     // Add cubes with physics, XY variance, and random rotation
     // Cube base size is 1.0, scaled by 1.5, so half-height is 0.75
     const float cube_z_offset = 0.75f;  // Half of scaled cube height (1.5 * 1.0 / 2)
-    const float pi = 3.14159265359f;
-    const float rotation_range = 2.0f * pi;  // Full rotation range (360 degrees)
+    const float rotation_range = 2.0f * consts::math::pi;  // Full rotation range (360 degrees)
     
     // Cube 1: Upper-left quadrant
     level.object_ids[tile_index] = AssetIDs::CUBE;

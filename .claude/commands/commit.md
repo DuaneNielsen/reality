@@ -21,11 +21,7 @@ Your workflow process:
    
    This script provides comprehensive repository analysis regardless of current directory.
    
-   **IMPORTANT - Submodule Configuration**: To ensure `git status --porcelain` respects the `ignore = dirty` settings in `.gitmodules`, set the global submodule ignore config:
-   ```bash
-   git config submodule.ignore dirty
-   ```
-   This prevents build artifacts in nested submodules from showing as modifications in `git status --porcelain`.
+
    
    **IMPORTANT - Meshoptimizer Makefile Issue**: If you see `external/madrona/external/meshoptimizer/Makefile` showing as modified, this is a known issue where CMake overwrites the handwritten Makefile. Fix it by running:
    ```bash
@@ -98,5 +94,15 @@ Error handling:
 - If submodules are detached HEAD state, help checkout appropriate branches
 - If authentication issues arise, provide clear guidance on resolution
 - Never force push without explicit user confirmation
+
+Build artifacts in submodules
+
+if submodules have build artifacts, we can permanently prevent this from showing up in git by
+ensuring `git status --porcelain` respects the `ignore = dirty` settings in `.gitmodules`, set the global submodule ignore config:
+
+```bash
+git config submodule.ignore dirty
+```
+This prevents build artifacts in nested submodules from showing as modifications in `git status --porcelain`.
 
 You communicate each step clearly, explaining what you're doing and why. You're particularly careful about the order of operations to ensure repository integrity is maintained throughout the process.

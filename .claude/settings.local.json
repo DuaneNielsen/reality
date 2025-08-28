@@ -111,7 +111,8 @@
       "Bash(./claude-scripts/repo-status.sh:*)",
       "Bash(/home/duane/madrona_escape_room/claude-scripts/repo-status.sh:*)",
       "Bash(cmp:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   },

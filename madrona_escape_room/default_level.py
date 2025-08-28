@@ -158,7 +158,7 @@ def create_default_level():
         level.tile_rand_y[tile_index] = variance_3m
         level.tile_rand_scale_x[tile_index] = 1.5
         level.tile_rand_scale_y[tile_index] = 1.5
-        level.tile_rand_rot_z[tile_index] = 6.28318  # Full 360° rotation
+        level.tile_rand_rot_z[tile_index] = 2.0 * consts.math.pi  # Full 360° rotation
         tile_index += 1
 
     # Add cubes with randomization
