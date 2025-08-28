@@ -36,22 +36,10 @@ def test_dlpack_device_function():
         pytest.skip("DLPack extension not built")
 
 
-def test_tensor_dlpack_methods_exist():
+def test_tensor_dlpack_methods_exist(cpu_manager):
     """Test that Tensor class has DLPack protocol methods"""
-    import madrona_escape_room
-
-    # Create a manager to get tensors
-    mgr = madrona_escape_room.SimManager(
-        madrona_escape_room.madrona.ExecMode.CPU,
-        0,  # gpu_id
-        1,  # num_worlds
-        42,  # rand_seed
-        False,  # auto_reset
-        False,  # enable_batch_renderer
-    )
-
-    # Get a tensor
-    action_tensor = mgr.action_tensor()
+    # Get a tensor from the fixture
+    action_tensor = cpu_manager.action_tensor()
 
     # Check that DLPack protocol methods exist
     assert hasattr(action_tensor, "__dlpack__")
@@ -60,21 +48,9 @@ def test_tensor_dlpack_methods_exist():
     assert callable(action_tensor.__dlpack_device__)
 
 
-def test_dlpack_device_method():
+def test_dlpack_device_method(cpu_manager):
     """Test the __dlpack_device__ method"""
-    import madrona_escape_room
-
-    # Create CPU manager
-    mgr = madrona_escape_room.SimManager(
-        madrona_escape_room.madrona.ExecMode.CPU,
-        0,  # gpu_id
-        1,  # num_worlds
-        42,  # rand_seed
-        False,  # auto_reset
-        False,  # enable_batch_renderer
-    )
-
-    action_tensor = mgr.action_tensor()
+    action_tensor = cpu_manager.action_tensor()
 
     # Test __dlpack_device__ method
     device_info = action_tensor.__dlpack_device__()
@@ -84,21 +60,9 @@ def test_dlpack_device_method():
     assert device_info[1] == 0  # CPU device id
 
 
-def test_dlpack_capsule_creation():
+def test_dlpack_capsule_creation(cpu_manager):
     """Test DLPack capsule creation"""
-    import madrona_escape_room
-
-    # Create CPU manager
-    mgr = madrona_escape_room.SimManager(
-        madrona_escape_room.madrona.ExecMode.CPU,
-        0,  # gpu_id
-        1,  # num_worlds
-        42,  # rand_seed
-        False,  # auto_reset
-        False,  # enable_batch_renderer
-    )
-
-    action_tensor = mgr.action_tensor()
+    action_tensor = cpu_manager.action_tensor()
 
     # Test __dlpack__ method
     capsule = action_tensor.__dlpack__()
@@ -117,26 +81,14 @@ def test_dlpack_capsule_creation():
 
 
 @pytest.mark.skipif(False, reason="Test PyTorch integration")
-def test_pytorch_from_dlpack():
+def test_pytorch_from_dlpack(cpu_manager):
     """Test PyTorch integration with torch.from_dlpack()"""
-    import madrona_escape_room
-
     try:
         import torch
     except ImportError:
         pytest.skip("PyTorch not available")
 
-    # Create CPU manager
-    mgr = madrona_escape_room.SimManager(
-        madrona_escape_room.madrona.ExecMode.CPU,
-        0,  # gpu_id
-        1,  # num_worlds
-        42,  # rand_seed
-        False,  # auto_reset
-        False,  # enable_batch_renderer
-    )
-
-    action_tensor = mgr.action_tensor()
+    action_tensor = cpu_manager.action_tensor()
 
     # Test PyTorch integration
     try:
@@ -157,23 +109,11 @@ def test_pytorch_from_dlpack():
         pytest.fail(f"torch.from_dlpack() failed: {e}")
 
 
-def test_fallback_behavior():
+def test_fallback_behavior(cpu_manager):
     """Test fallback behavior when DLPack extension is not available"""
     import warnings
 
-    import madrona_escape_room
-
-    # Create CPU manager
-    mgr = madrona_escape_room.SimManager(
-        madrona_escape_room.madrona.ExecMode.CPU,
-        0,  # gpu_id
-        1,  # num_worlds
-        42,  # rand_seed
-        False,  # auto_reset
-        False,  # enable_batch_renderer
-    )
-
-    action_tensor = mgr.action_tensor()
+    action_tensor = cpu_manager.action_tensor()
 
     # Temporarily make the import fail by modifying sys.modules
     import sys

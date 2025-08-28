@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 """
-Simple DLPack test - one manager at a time to avoid conflicts
+Simple DLPack test - using cpu_manager fixture
 """
 
-import sys
-
 import pytest
-
-sys.path.insert(0, "/home/duane/madrona/madrona_escape_room")
 
 try:
     import torch
@@ -17,26 +13,18 @@ try:
     print("✓ Successfully imported dependencies")
 except ImportError as e:
     print(f"✗ Failed to import dependencies: {e}")
-    sys.exit(1)
+    pytest.skip(f"Failed to import dependencies: {e}")
 
 
-def test_cpu_simple():
+def test_cpu_simple(cpu_manager):
     """Simple CPU test"""
     print("\n=== Testing CPU DLPack (Simple) ===")
 
     try:
-        # Create CPU manager
-        mgr = mer.SimManager(
-            exec_mode=mer.madrona.ExecMode.CPU,
-            gpu_id=0,
-            num_worlds=1,  # Just 1 world to keep it simple
-            rand_seed=42,
-            auto_reset=True,
-        )
-        print("✓ CPU manager created")
+        print("✓ Using CPU manager fixture")
 
         # Get tensor
-        obs_tensor = mgr.self_observation_tensor()
+        obs_tensor = cpu_manager.self_observation_tensor()
         print(f"✓ Tensor: shape={obs_tensor.shape}, GPU={obs_tensor.isOnGPU()}")
 
         # Test DLPack
@@ -102,27 +90,5 @@ def test_gpu_simple(gpu_manager):
         raise
 
 
-def main():
-    print("Simple DLPack Test")
-    print("=" * 40)
-
-    cpu_ok = test_cpu_simple()
-
-    if cpu_ok:
-        gpu_ok = test_gpu_simple()
-
-        print("\n" + "=" * 40)
-        print("RESULTS:")
-        print(f"CPU: {'✓' if cpu_ok else '✗'}")
-        print(f"GPU: {'✓' if gpu_ok else '✗'}")
-
-        if cpu_ok and gpu_ok:
-            print("\n🚀 ctypes + DLPack SUCCESS!")
-            return 0
-
-    print("\n❌ Tests failed")
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    pytest.main([__file__, "-v"])
