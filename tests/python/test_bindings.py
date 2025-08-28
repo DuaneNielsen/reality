@@ -451,7 +451,7 @@ def test_trajectory_logging_functionality(cpu_manager):
         mgr.step()
 
     # 3. Switch to different agent
-    if madrona_escape_room.NUM_AGENTS > 1:
+    if madrona_escape_room.consts.numAgents > 1:
         mgr.enable_trajectory_logging(world_idx=0, agent_idx=1)
         mgr.step()
 

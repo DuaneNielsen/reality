@@ -104,14 +104,11 @@ def test_compiled_level_structure_validation(cpu_manager):
     """Test CompiledLevel binary read/write round-trip - what goes in should come out"""
     import ctypes
 
-    from madrona_escape_room.ctypes_bindings import (
-        MER_SUCCESS,
-        MER_CompiledLevel,
-        compiled_level_to_dict,
-        dict_to_compiled_level,
-        lib,
-    )
-    from madrona_escape_room.level_compiler import compile_level
+    from madrona_escape_room.ctypes_bindings import lib
+    from madrona_escape_room.dataclass_utils import create_compiled_level
+    from madrona_escape_room.generated_constants import Result
+    from madrona_escape_room.generated_dataclasses import CompiledLevel
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
     # Create a test level with known values
     test_level = """
@@ -121,27 +118,28 @@ def test_compiled_level_structure_validation(cpu_manager):
     ####
     """
 
-    # Compile the level to get a dictionary
-    compiled_dict = compile_level(test_level, scale=3.5, level_name="test_roundtrip")
-
-    # Convert to ctypes structure
-    level_write = dict_to_compiled_level(compiled_dict)
+    # Compile the level to get a CompiledLevel dataclass
+    level_write = compile_ascii_level(test_level, scale=3.5, level_name="test_roundtrip")
 
     with tempfile.NamedTemporaryFile(suffix=".lvl", delete=False) as f:
         level_path = f.name
 
     try:
         # Write the compiled level to binary file
-        result = lib.mer_write_compiled_level(level_path.encode("utf-8"), ctypes.byref(level_write))
-        assert result == MER_SUCCESS, f"Failed to write compiled level: {result}"
+        c_level_write = level_write.to_ctype()
+        result = lib.mer_write_compiled_level(
+            level_path.encode("utf-8"), ctypes.byref(c_level_write)
+        )
+        assert result == Result.Success, f"Failed to write compiled level: {result}"
 
         # Read it back
-        level_read = MER_CompiledLevel()
-        result = lib.mer_read_compiled_level(level_path.encode("utf-8"), ctypes.byref(level_read))
-        assert result == MER_SUCCESS, f"Failed to read compiled level: {result}"
+        level_read_empty = create_compiled_level()
+        c_level_read = level_read_empty.to_ctype()
+        result = lib.mer_read_compiled_level(level_path.encode("utf-8"), ctypes.byref(c_level_read))
+        assert result == Result.Success, f"Failed to read compiled level: {result}"
 
-        # Note: Direct field validation is sufficient for round-trip testing
-        # read_dict = compiled_level_to_dict(level_read)
+        # Convert back to dataclass
+        level_read = CompiledLevel.from_ctype(c_level_read)
 
         # Verify key fields match
         assert (
@@ -160,12 +158,10 @@ def test_compiled_level_structure_validation(cpu_manager):
             level_read.num_spawns == level_write.num_spawns
         ), f"num_spawns mismatch: {level_read.num_spawns} != {level_write.num_spawns}"
 
-        # Verify level name
-        level_name_read = level_read.level_name.decode("utf-8").rstrip("\x00")
-        level_name_write = level_write.level_name.decode("utf-8").rstrip("\x00")
+        # Verify level name (already strings in dataclasses)
         assert (
-            level_name_read == level_name_write
-        ), f"level_name mismatch: '{level_name_read}' != '{level_name_write}'"
+            level_read.level_name == level_write.level_name
+        ), f"level_name mismatch: '{level_read.level_name}' != '{level_write.level_name}'"
 
         # Verify world boundaries
         assert abs(level_read.world_min_x - level_write.world_min_x) < 0.001
@@ -195,7 +191,7 @@ def test_compiled_level_structure_validation(cpu_manager):
             ), f"tile_y[{i}] mismatch"
 
         print("✓ CompiledLevel binary round-trip validation passed")
-        print(f"  Successfully wrote and read back level '{level_name_read}'")
+        print(f"  Successfully wrote and read back level '{level_read.level_name}'")
         print(
             f"  Dimensions: {level_read.width}x{level_read.height}, scale: {level_read.world_scale}"
         )

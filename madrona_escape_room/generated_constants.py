@@ -88,6 +88,8 @@ class consts:
     # maxMoveAmountValue = numMoveAmountBuckets-1  # TODO: Resolve expression
     # maxMoveAngleValue = numMoveAngleBuckets-1  # TODO: Resolve expression
     # maxTurnValue = numTurnBuckets-1  # TODO: Resolve expression
+    numAgents = 1
+    numRooms = 1
     rewardPerDist = 0.05
     slackReward = -0.005
     wallWidth = 1.0
