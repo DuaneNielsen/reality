@@ -134,8 +134,6 @@ add_library(madrona_escape_room_c_api SHARED
 )
 
 target_include_directories(madrona_escape_room_c_api
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
 )

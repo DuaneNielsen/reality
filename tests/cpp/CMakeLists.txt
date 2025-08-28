@@ -36,7 +36,6 @@ add_executable(mad_escape_tests
 # Include directories for test fixtures
 target_include_directories(mad_escape_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
-    ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/external/optionparser
     ${CMAKE_BINARY_DIR}  # For default_level_data.h
