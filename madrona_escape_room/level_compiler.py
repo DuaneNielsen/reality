@@ -556,49 +556,20 @@ def validate_compiled_level(compiled: CompiledLevel) -> None:
         raise ValueError(f"Invalid num_spawns: {compiled.num_spawns}")
 
 
+# Binary I/O functions moved to level_io.py
+# Import them for backwards compatibility
 def save_compiled_level_binary(compiled: CompiledLevel, filepath: str) -> None:
-    """
-    Save compiled level struct to binary .lvl file using C API.
+    """Deprecated: Use level_io.save_compiled_level() instead."""
+    from .level_io import save_compiled_level
 
-    Args:
-        compiled: CompiledLevel struct from compile_level()
-        filepath: Path to save .lvl file
-
-    Raises:
-        IOError: If file cannot be written
-    """
-    from .ctypes_bindings import lib
-    from .generated_constants import Result
-
-    result = lib.mer_write_compiled_level(filepath.encode("utf-8"), ctypes.byref(compiled))
-
-    if result != Result.Success:
-        raise IOError(f"Failed to write level file: {filepath} (error code: {result})")
+    save_compiled_level(compiled, filepath)
 
 
 def load_compiled_level_binary(filepath: str) -> CompiledLevel:
-    """
-    Load compiled level struct from binary .lvl file using C API.
+    """Deprecated: Use level_io.load_compiled_level() instead."""
+    from .level_io import load_compiled_level
 
-    Args:
-        filepath: Path to .lvl file
-
-    Returns:
-        CompiledLevel struct
-
-    Raises:
-        IOError: If file cannot be read
-    """
-    from .ctypes_bindings import lib
-    from .generated_constants import Result
-
-    level = create_compiled_level()
-    result = lib.mer_read_compiled_level(filepath.encode("utf-8"), ctypes.byref(level))
-
-    if result != Result.Success:
-        raise IOError(f"Failed to read level file: {filepath} (error code: {result})")
-
-    return level
+    return load_compiled_level(filepath)
 
 
 def print_level_info(compiled: CompiledLevel) -> None:

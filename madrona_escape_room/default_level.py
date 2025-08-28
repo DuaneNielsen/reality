@@ -196,3 +196,64 @@ def create_default_level():
     level.num_tiles = tile_index
 
     return level
+
+
+def main():
+    """Command line interface for generating default level files."""
+    import argparse
+    import sys
+    from pathlib import Path
+
+    from .level_io import save_compiled_level
+
+    parser = argparse.ArgumentParser(
+        description="Generate default level file for Madrona Escape Room",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Generate default level file
+  python -m madrona_escape_room.default_level default.lvl
+
+  # Generate and display info
+  python -m madrona_escape_room.default_level default.lvl --info
+        """,
+    )
+
+    parser.add_argument("output", help="Output binary .lvl file")
+    parser.add_argument("--info", action="store_true", help="Display level info after generation")
+
+    args = parser.parse_args()
+
+    try:
+        print("Generating default level...")
+        level = create_default_level()
+
+        print(f"Generated level with {level.num_tiles} tiles")
+        print(f"Saving to '{args.output}'...")
+
+        # Save the level
+        save_compiled_level(level, args.output)
+        print("✓ Default level saved successfully")
+
+        if args.info:
+            print("\nLevel Information:")
+            print(f"  Name: {level.level_name.decode('utf-8', errors='ignore')}")
+            print(f"  Dimensions: {level.width}x{level.height} (scale: {level.world_scale})")
+            print(f"  Tiles: {level.num_tiles}")
+            print(f"  Max entities: {level.max_entities}")
+            print(f"  Spawn points: {level.num_spawns}")
+
+            for i in range(level.num_spawns):
+                x = level.spawn_x[i]
+                y = level.spawn_y[i]
+                facing_rad = level.spawn_facing[i]
+                facing_deg = facing_rad * 180.0 / 3.14159
+                print(f"    Spawn {i}: ({x:.1f}, {y:.1f}) facing {facing_deg:.1f}°")
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
