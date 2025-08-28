@@ -298,46 +298,46 @@ class TestCAPIStructValidation:
         assert result == 0, "Manager destruction should succeed"
 
     def test_struct_memory_layout(self):
-        """Test struct memory layout and field access"""
-        from madrona_escape_room.ctypes_bindings import MER_CompiledLevel
+        """Test struct matches C API expected size and field access"""
+        from madrona_escape_room.ctypes_bindings import MER_CompiledLevel, lib
 
-        # Create struct and test basic properties
+        # Get expected size from C API
+        expected_size = lib.mer_get_compiled_level_size()
+
+        # Create dataclass and convert to ctypes
         struct = MER_CompiledLevel()
-        struct_size = ctypes.sizeof(struct)
+        c_struct = struct.to_ctype()
+        actual_size = ctypes.sizeof(c_struct)
 
-        # Expected minimum size: 5 int32/float fields + 3 arrays of 256 elements
-        expected_min_size = 4 * 5 + 256 * 4 * 3  # 20 + 3072 = 3092 bytes minimum
-        assert (
-            struct_size >= expected_min_size
-        ), f"Struct too small: {struct_size} < {expected_min_size}"
+        assert actual_size == expected_size, f"Size mismatch: {actual_size} != {expected_size}"
 
-        # Test field access
-        struct.num_tiles = 42
-        struct.max_entities = 100
-        struct.width = 10
-        struct.height = 8
-        struct.world_scale = 1.5
+        # Test field access on ctypes version
+        c_struct.num_tiles = 42
+        c_struct.max_entities = 100
+        c_struct.width = 10
+        c_struct.height = 8
+        c_struct.world_scale = 1.5
 
-        assert struct.num_tiles == 42
-        assert struct.max_entities == 100
-        assert struct.width == 10
-        assert struct.height == 8
-        assert abs(struct.world_scale - 1.5) < 0.001
+        assert c_struct.num_tiles == 42
+        assert c_struct.max_entities == 100
+        assert c_struct.width == 10
+        assert c_struct.height == 8
+        assert abs(c_struct.world_scale - 1.5) < 0.001
 
-        # Test array bounds
-        struct.object_ids[0] = 1
-        struct.object_ids[255] = 2
-        struct.tile_x[0] = 3.14
-        struct.tile_x[255] = 2.71
-        struct.tile_y[0] = -1.0
-        struct.tile_y[255] = 1.0
+        # Test array bounds (use 1023 as max since arrays are 1024 elements)
+        c_struct.object_ids[0] = 1
+        c_struct.object_ids[1023] = 2
+        c_struct.tile_x[0] = 3.14
+        c_struct.tile_x[1023] = 2.71
+        c_struct.tile_y[0] = -1.0
+        c_struct.tile_y[1023] = 1.0
 
-        assert struct.object_ids[0] == 1
-        assert struct.object_ids[255] == 2
-        assert abs(struct.tile_x[0] - 3.14) < 0.001
-        assert abs(struct.tile_x[255] - 2.71) < 0.001
-        assert abs(struct.tile_y[0] + 1.0) < 0.001
-        assert abs(struct.tile_y[255] - 1.0) < 0.001
+        assert c_struct.object_ids[0] == 1
+        assert c_struct.object_ids[1023] == 2
+        assert abs(c_struct.tile_x[0] - 3.14) < 0.001
+        assert abs(c_struct.tile_x[1023] - 2.71) < 0.001
+        assert abs(c_struct.tile_y[0] + 1.0) < 0.001
+        assert abs(c_struct.tile_y[1023] - 1.0) < 0.001
 
     def test_multiple_level_types_c_validation(self):
         """Test different level types with C API validation"""
