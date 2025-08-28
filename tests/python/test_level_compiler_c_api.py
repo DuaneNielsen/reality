@@ -15,6 +15,7 @@ import pytest
 from madrona_escape_room.generated_constants import limits
 from madrona_escape_room.level_compiler import (
     MAX_TILES_C_API,
+    compile_ascii_level,
     compile_level,
     load_compiled_level_binary,
     save_compiled_level_binary,
@@ -52,10 +53,10 @@ class TestLevelSizeValidation:
 #.....#
 #######
 """
-        compiled = compile_level(small_level)
-        assert compiled["width"] == 7
-        assert compiled["height"] == 4
-        assert compiled["array_size"] == 28
+        compiled = compile_ascii_level(small_level)
+        assert compiled.width == 7
+        assert compiled.height == 4
+        assert compiled.width * compiled.height == 28
         assert 28 <= MAX_TILES_C_API
         validate_compiled_level(compiled)
 
@@ -74,9 +75,9 @@ class TestLevelSizeValidation:
                     lines.append("#" + "." * (size - 2) + "#")
 
         max_level = "\n".join(lines)
-        compiled = compile_level(max_level)
-        assert compiled["array_size"] == 1024
-        assert compiled["array_size"] == MAX_TILES_C_API
+        compiled = compile_ascii_level(max_level)
+        assert compiled.width * compiled.height == 1024
+        assert compiled.width * compiled.height == MAX_TILES_C_API
         validate_compiled_level(compiled)
 
     def test_oversized_level_rejected(self):
@@ -95,10 +96,8 @@ class TestLevelSizeValidation:
 
         oversized_level = "\n".join(lines)
 
-        with pytest.raises(
-            ValueError, match=r"Level too large.*1089 tiles > 1024 max \(from C API\)"
-        ):
-            compile_level(oversized_level)
+        with pytest.raises(ValueError, match=r"Level too large.*1089 tiles > 1024 max"):
+            compile_ascii_level(oversized_level)
 
     def test_64x64_level_rejected(self):
         """Test that maximum dimension levels are correctly rejected when too large."""
@@ -116,10 +115,8 @@ class TestLevelSizeValidation:
 
         large_level = "\n".join(lines)
 
-        with pytest.raises(
-            ValueError, match=r"Level too large.*4096 tiles > 1024 max \(from C API\)"
-        ):
-            compile_level(large_level)
+        with pytest.raises(ValueError, match=r"Level too large.*4096 tiles > 1024 max"):
+            compile_ascii_level(large_level)
 
 
 class TestArraySizing:
@@ -132,16 +129,16 @@ class TestArraySizing:
 #S..#
 #####
 """
-        compiled = compile_level(level)
+        compiled = compile_ascii_level(level)
 
         # Arrays should be sized to MAX_TILES_C_API, not level dimensions
-        assert len(compiled["object_ids"]) == MAX_TILES_C_API
-        assert len(compiled["tile_x"]) == MAX_TILES_C_API
-        assert len(compiled["tile_y"]) == MAX_TILES_C_API
+        assert len(compiled.object_ids) == MAX_TILES_C_API
+        assert len(compiled.tile_x) == MAX_TILES_C_API
+        assert len(compiled.tile_y) == MAX_TILES_C_API
 
         # Level dimensions should be smaller
-        assert compiled["array_size"] == 15  # 5x3
-        assert compiled["array_size"] < MAX_TILES_C_API
+        assert compiled.width * compiled.height == 15  # 5x3
+        assert compiled.width * compiled.height < MAX_TILES_C_API
 
     def test_unused_array_slots_zero(self):
         """Test that unused array slots are properly zeroed."""
@@ -150,15 +147,15 @@ class TestArraySizing:
 #S..#
 #####
 """
-        compiled = compile_level(level)
+        compiled = compile_ascii_level(level)
 
-        num_tiles = compiled["num_tiles"]
+        num_tiles = compiled.num_tiles
 
         # Check that slots beyond num_tiles are zero
         for i in range(num_tiles, min(num_tiles + 10, MAX_TILES_C_API)):
-            assert compiled["object_ids"][i] == 0
-            assert compiled["tile_x"][i] == 0.0
-            assert compiled["tile_y"][i] == 0.0
+            assert compiled.object_ids[i] == 0
+            assert compiled.tile_x[i] == 0.0
+            assert compiled.tile_y[i] == 0.0
 
 
 class TestBinaryIO:
@@ -173,7 +170,7 @@ class TestBinaryIO:
 #....C.#
 ########
 """
-        original = compile_level(level)
+        original = compile_ascii_level(level)
 
         with tempfile.NamedTemporaryFile(suffix=".lvl", delete=False) as f:
             try:
@@ -181,27 +178,28 @@ class TestBinaryIO:
                 loaded = load_compiled_level_binary(f.name)
 
                 # Check header fields match
-                for field in ["num_tiles", "max_entities", "width", "height", "scale"]:
-                    assert original[field] == loaded[field]
+                assert original.num_tiles == loaded.num_tiles
+                assert original.max_entities == loaded.max_entities
+                assert original.width == loaded.width
+                assert original.height == loaded.height
+                assert original.world_scale == loaded.world_scale
 
                 # Check arrays are same size
-                assert len(loaded["object_ids"]) == MAX_TILES_C_API
-                assert len(loaded["tile_x"]) == MAX_TILES_C_API
-                assert len(loaded["tile_y"]) == MAX_TILES_C_API
+                assert len(loaded.object_ids) == MAX_TILES_C_API
+                assert len(loaded.tile_x) == MAX_TILES_C_API
+                assert len(loaded.tile_y) == MAX_TILES_C_API
 
                 # Check tile data matches for used slots
-                for i in range(original["num_tiles"]):
-                    assert original["object_ids"][i] == loaded["object_ids"][i]
-                    assert abs(original["tile_x"][i] - loaded["tile_x"][i]) < 0.001
-                    assert abs(original["tile_y"][i] - loaded["tile_y"][i]) < 0.001
+                for i in range(original.num_tiles):
+                    assert original.object_ids[i] == loaded.object_ids[i]
+                    assert abs(original.tile_x[i] - loaded.tile_x[i]) < 0.001
+                    assert abs(original.tile_y[i] - loaded.tile_y[i]) < 0.001
 
                 # Check unused slots are zero
-                for i in range(
-                    original["num_tiles"], min(original["num_tiles"] + 10, MAX_TILES_C_API)
-                ):
-                    assert loaded["object_ids"][i] == 0
-                    assert loaded["tile_x"][i] == 0.0
-                    assert loaded["tile_y"][i] == 0.0
+                for i in range(original.num_tiles, min(original.num_tiles + 10, MAX_TILES_C_API)):
+                    assert loaded.object_ids[i] == 0
+                    assert loaded.tile_x[i] == 0.0
+                    assert loaded.tile_y[i] == 0.0
 
             finally:
                 os.unlink(f.name)
@@ -213,7 +211,7 @@ class TestBinaryIO:
 #S..#
 #####
 """
-        compiled = compile_level(level)
+        compiled = compile_ascii_level(level)
 
         # Should not raise - arrays are correctly sized to MAX_TILES_C_API
         validate_compiled_level(compiled)
@@ -225,10 +223,10 @@ class TestBinaryIO:
 #S..#
 #####
 """
-        compiled = compile_level(level)
+        compiled = compile_ascii_level(level)
 
         # Corrupt the array size
-        compiled["object_ids"] = compiled["object_ids"][:100]  # Wrong size
+        compiled.object_ids = compiled.object_ids[:100]  # Wrong size
 
         with pytest.raises(ValueError, match=r"Invalid object_ids array length.*must be 1024"):
             validate_compiled_level(compiled)
@@ -245,12 +243,12 @@ class TestEdgeCases:
 ...
 """
 
-        compiled = compile_level(level)
-        assert compiled["width"] == 3
-        assert compiled["height"] == 3
-        assert compiled["array_size"] == 9
-        assert compiled["num_tiles"] == 0  # No solid tiles, just spawn and empty
-        assert len(compiled["object_ids"]) == MAX_TILES_C_API
+        compiled = compile_ascii_level(level)
+        assert compiled.width == 3
+        assert compiled.height == 3
+        assert compiled.width * compiled.height == 9
+        assert compiled.num_tiles == 0  # No solid tiles, just spawn and empty
+        assert len(compiled.object_ids) == MAX_TILES_C_API
         validate_compiled_level(compiled)
 
     def test_exact_square_root_size(self):
@@ -260,9 +258,9 @@ class TestEdgeCases:
         level = "S" + "." * (size - 1) + "\n" + ("." * size + "\n") * (size - 1)
         level = level.rstrip()
 
-        compiled = compile_level(level)
-        assert compiled["array_size"] == 1024
-        assert compiled["array_size"] == MAX_TILES_C_API
+        compiled = compile_ascii_level(level)
+        assert compiled.width * compiled.height == 1024
+        assert compiled.width * compiled.height == MAX_TILES_C_API
         validate_compiled_level(compiled)
 
     def test_rectangular_at_limit(self):
@@ -277,8 +275,8 @@ class TestEdgeCases:
                 lines.append("." * width)
 
         level = "\n".join(lines)
-        compiled = compile_level(level)
-        assert compiled["array_size"] == 1024
+        compiled = compile_ascii_level(level)
+        assert compiled.width * compiled.height == 1024
         validate_compiled_level(compiled)
 
     def test_fallback_when_c_api_unavailable(self):

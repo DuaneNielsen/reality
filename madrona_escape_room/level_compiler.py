@@ -555,6 +555,22 @@ def validate_compiled_level(compiled: CompiledLevel) -> None:
     if compiled.num_spawns <= 0 or compiled.num_spawns > MAX_SPAWNS:
         raise ValueError(f"Invalid num_spawns: {compiled.num_spawns}")
 
+    # Validate array lengths - must be sized to MAX_TILES for C API compatibility
+    if len(compiled.object_ids) != MAX_TILES:
+        raise ValueError(
+            f"Invalid object_ids array length: {len(compiled.object_ids)}, must be {MAX_TILES}"
+        )
+
+    if len(compiled.tile_x) != MAX_TILES:
+        raise ValueError(
+            f"Invalid tile_x array length: {len(compiled.tile_x)}, must be {MAX_TILES}"
+        )
+
+    if len(compiled.tile_y) != MAX_TILES:
+        raise ValueError(
+            f"Invalid tile_y array length: {len(compiled.tile_y)}, must be {MAX_TILES}"
+        )
+
 
 # Binary I/O functions moved to level_io.py
 # Import them for backwards compatibility
