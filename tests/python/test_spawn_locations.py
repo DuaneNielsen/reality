@@ -11,70 +11,52 @@ import numpy as np
 import pytest
 from test_helpers import AgentController, ObservationReader, reset_world
 
-# Test levels with specific spawn configurations using JSON format with explicit scale
-SINGLE_SPAWN_CENTER = {
-    "ascii": """##########
+# Test levels with specific spawn configurations using ASCII strings
+SINGLE_SPAWN_CENTER = """##########
 #........#
 #........#
 #...S....#
 #........#
 #........#
-##########""",
-    "scale": 2.5,
-}
+##########"""
 
-SINGLE_SPAWN_CORNER = {
-    "ascii": """##########
+SINGLE_SPAWN_CORNER = """##########
 #S.......#
 #........#
 #........#
 #........#
 #........#
-##########""",
-    "scale": 2.5,
-}
+##########"""
 
-MULTIPLE_SPAWNS = {
-    "ascii": """##########
+MULTIPLE_SPAWNS = """##########
 #S.......#
 #........#
 #........#
 #........#
 #.......S#
-##########""",
-    "scale": 2.5,
-}
+##########"""
 
-SPAWN_NEAR_WALL = {
-    "ascii": """##########
+SPAWN_NEAR_WALL = """##########
 #.S......#
 #........#
 #........#
 #........#
 #........#
-##########""",
-    "scale": 2.5,
-}
+##########"""
 
 # Test level for coordinate transformation with known spawn position
-COORDINATE_TEST_LEVEL = {
-    "ascii": """#####
+COORDINATE_TEST_LEVEL = """#####
 #...#
 #.S.#
 #...#
-#####""",
-    "scale": 2.5,
-}
+#####"""
 
 # Test level for multiple spawn parsing
-MULTIPLE_SPAWN_TEST_LEVEL = {
-    "ascii": """#######
+MULTIPLE_SPAWN_TEST_LEVEL = """#######
 #S....#
 #.....#
 #....S#
-#######""",
-    "scale": 1.0,
-}
+#######"""
 
 
 @pytest.mark.custom_level(SINGLE_SPAWN_CENTER)
@@ -84,21 +66,22 @@ def test_single_spawn_center(cpu_manager):
     observer = ObservationReader(mgr)
 
     # Compile the level to get the actual world boundaries
-    from madrona_escape_room.level_compiler import compile_level
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
-    compiled = compile_level(SINGLE_SPAWN_CENTER["ascii"], scale=SINGLE_SPAWN_CENTER["scale"])
+    compiled = compile_ascii_level(SINGLE_SPAWN_CENTER, scale=2.5)
 
     # Get world boundaries for proper denormalization
-    world_min_x = compiled["world_min_x"]
-    world_min_y = compiled["world_min_y"]
-    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+    world_min_x = compiled.world_min_x
+    world_min_y = compiled.world_min_y
+    world_width = compiled.world_max_x - compiled.world_min_x
+    world_length = compiled.world_max_y - compiled.world_min_y
 
     # Reset to apply spawn position
     reset_world(mgr, 0)
 
     # Get normalized position and denormalize correctly
     norm_pos = observer.get_normalized_position(0, agent_idx=0)
-    pos_x = norm_pos[0] * world_length + world_min_x
+    pos_x = norm_pos[0] * world_width + world_min_x
     pos_y = norm_pos[1] * world_length + world_min_y
 
     # Expected position: S is at grid (4, 3) in a 10x7 grid
@@ -122,20 +105,21 @@ def test_single_spawn_corner(cpu_manager):
     observer = ObservationReader(mgr)
 
     # Compile the level to get the actual world boundaries
-    from madrona_escape_room.level_compiler import compile_level
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
-    compiled = compile_level(SINGLE_SPAWN_CORNER["ascii"], scale=SINGLE_SPAWN_CORNER["scale"])
+    compiled = compile_ascii_level(SINGLE_SPAWN_CORNER, scale=2.5)
 
     # Get world boundaries for proper denormalization
-    world_min_x = compiled["world_min_x"]
-    world_min_y = compiled["world_min_y"]
-    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+    world_min_x = compiled.world_min_x
+    world_min_y = compiled.world_min_y
+    world_width = compiled.world_max_x - compiled.world_min_x
+    world_length = compiled.world_max_y - compiled.world_min_y
 
     reset_world(mgr, 0)
 
     # Get normalized position and denormalize correctly
     norm_pos = observer.get_normalized_position(0, agent_idx=0)
-    pos_x = norm_pos[0] * world_length + world_min_x
+    pos_x = norm_pos[0] * world_width + world_min_x
     pos_y = norm_pos[1] * world_length + world_min_y
 
     # S is at grid (1, 1) in a 10x7 grid
@@ -158,20 +142,21 @@ def test_multiple_spawn_locations(cpu_manager):
     observer = ObservationReader(mgr)
 
     # Compile the level to get the actual world boundaries
-    from madrona_escape_room.level_compiler import compile_level
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
-    compiled = compile_level(MULTIPLE_SPAWNS["ascii"], scale=MULTIPLE_SPAWNS["scale"])
+    compiled = compile_ascii_level(MULTIPLE_SPAWNS, scale=2.5)
 
     # Get world boundaries for proper denormalization
-    world_min_x = compiled["world_min_x"]
-    world_min_y = compiled["world_min_y"]
-    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+    world_min_x = compiled.world_min_x
+    world_min_y = compiled.world_min_y
+    world_width = compiled.world_max_x - compiled.world_min_x
+    world_length = compiled.world_max_y - compiled.world_min_y
 
     reset_world(mgr, 0)
 
     # Get normalized position and denormalize correctly
     norm_pos0 = observer.get_normalized_position(0, agent_idx=0)
-    pos0_x = norm_pos0[0] * world_length + world_min_x
+    pos0_x = norm_pos0[0] * world_width + world_min_x
     pos0_y = norm_pos0[1] * world_length + world_min_y
 
     # First S at (1, 1), second S at (8, 5)
@@ -202,20 +187,21 @@ def test_spawn_near_wall(cpu_manager):
     observer = ObservationReader(mgr)
 
     # Compile the level to get the actual world boundaries
-    from madrona_escape_room.level_compiler import compile_level
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
-    compiled = compile_level(SPAWN_NEAR_WALL["ascii"], scale=SPAWN_NEAR_WALL["scale"])
+    compiled = compile_ascii_level(SPAWN_NEAR_WALL, scale=2.5)
 
     # Get world boundaries for proper denormalization
-    world_min_x = compiled["world_min_x"]
-    world_min_y = compiled["world_min_y"]
-    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+    world_min_x = compiled.world_min_x
+    world_min_y = compiled.world_min_y
+    world_width = compiled.world_max_x - compiled.world_min_x
+    world_length = compiled.world_max_y - compiled.world_min_y
 
     reset_world(mgr, 0)
 
     # Get normalized position and denormalize correctly
     norm_pos = observer.get_normalized_position(0, agent_idx=0)
-    pos_x = norm_pos[0] * world_length + world_min_x
+    pos_x = norm_pos[0] * world_width + world_min_x
     pos_y = norm_pos[1] * world_length + world_min_y
 
     # S is at grid (2, 1) - next to wall at (1, 1)
@@ -245,20 +231,21 @@ def test_spawn_coordinate_transformation(cpu_manager):
     observer = ObservationReader(mgr)
 
     # Compile the level to get the actual world boundaries
-    from madrona_escape_room.level_compiler import compile_level
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
-    compiled = compile_level(COORDINATE_TEST_LEVEL["ascii"], scale=COORDINATE_TEST_LEVEL["scale"])
+    compiled = compile_ascii_level(COORDINATE_TEST_LEVEL, scale=2.5)
 
     # Get world boundaries for proper denormalization
-    world_min_x = compiled["world_min_x"]
-    world_min_y = compiled["world_min_y"]
-    world_length = compiled["world_max_y"] - compiled["world_min_y"]
+    world_min_x = compiled.world_min_x
+    world_min_y = compiled.world_min_y
+    world_width = compiled.world_max_x - compiled.world_min_x
+    world_length = compiled.world_max_y - compiled.world_min_y
 
     reset_world(mgr, 0)
 
     # Get normalized position and denormalize correctly
     norm_pos = observer.get_normalized_position(0, agent_idx=0)
-    pos_x = norm_pos[0] * world_length + world_min_x
+    pos_x = norm_pos[0] * world_width + world_min_x
     pos_y = norm_pos[1] * world_length + world_min_y
 
     # S is at grid position (2, 2) in a 5x5 grid
@@ -276,7 +263,7 @@ def test_spawn_coordinate_transformation(cpu_manager):
 
 def test_no_spawn_marker():
     """Test that level without spawn marker raises an error"""
-    from madrona_escape_room.level_compiler import compile_level
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
     # Level with no S marker
     level_no_spawn = """
@@ -288,7 +275,7 @@ def test_no_spawn_marker():
     """
 
     with pytest.raises(ValueError, match="No spawn points"):
-        compile_level(level_no_spawn)
+        compile_ascii_level(level_no_spawn)
 
 
 @pytest.mark.custom_level(MULTIPLE_SPAWN_TEST_LEVEL)
@@ -298,18 +285,21 @@ def test_multiple_spawn_parsing(cpu_manager):
 
     # Use the level_compiler directly to check spawn parsing
     # since the cpu_manager only shows where the first agent spawns
-    level = """#######
+    level_json = {
+        "ascii": """#######
 #S....#
 #.....#
 #....S#
-#######"""
+#######""",
+        "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
+        "scale": 1.0,  # Use scale=1 for simpler math
+        "name": "test_multiple_spawns",
+    }
 
-    compiled = compile_level(level, scale=1.0)  # Use scale=1 for simpler math
+    compiled = compile_level(level_json)
 
-    assert "_spawn_points" in compiled
-    assert len(compiled["_spawn_points"]) == 2
-
-    spawns = compiled["_spawn_points"]
+    # Check that we have multiple spawn points
+    assert compiled.num_spawns == 2, f"Expected 2 spawn points, got {compiled.num_spawns}"
 
     # First S at (1, 1), second S at (5, 3) in a 7x5 grid
     # With coordinate transformation:
@@ -321,13 +311,15 @@ def test_multiple_spawn_parsing(cpu_manager):
     ]
 
     # Check both spawn points exist (order may vary)
-    for expected in expected_spawns:
+    for i, expected in enumerate(expected_spawns):
         found = False
-        for spawn in spawns:
-            if abs(spawn[0] - expected[0]) < 0.01 and abs(spawn[1] - expected[1]) < 0.01:
+        for j in range(compiled.num_spawns):
+            actual_x = compiled.spawn_x[j]
+            actual_y = compiled.spawn_y[j]
+            if abs(actual_x - expected[0]) < 0.01 and abs(actual_y - expected[1]) < 0.01:
                 found = True
                 break
-        assert found, f"Expected spawn point {expected} not found in {spawns}"
+        assert found, f"Expected spawn point {expected} not found in compiled level spawn points"
 
 
 @pytest.mark.skip(reason="Agent rotation at spawn not yet implemented")

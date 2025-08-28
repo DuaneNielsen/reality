@@ -27,7 +27,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 @FILEINDEX.md
 @docs/development/CPP_CODING_STANDARDS.md
 
-
 ## Overview
 
 This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement learning environment built on the Madrona Engine. It implements a navigation environment where agents explore and try to maximize their forward progress through the world.
@@ -71,7 +70,6 @@ uv run python ...
 uv run python default_level.py 
 ```
 
-
 ### Development
 
 #### Python coding standards
@@ -106,16 +104,23 @@ IMPORTANT:  Whenever tests fail, ALWAYS report it using the standardized format 
 
 When reporting test results, use this exact format immediately:
 
+**"Do NOT make up test names - only use the real test names from the actual pytest output."**
+
+"When reporting test results, you MUST use this EXACT format with actual test file names and test function names from the real test output:"
+
 ## Test Results Summary
 
 ### ✅ C++ Tests: X/X passed
+
 ### ❌ Python Tests: X passed, X failed, X skipped
 
 **Failed Tests:**
+
 - ❌ `test_file.py::test_name` - Brief error description
 - ❌ `test_file.py::test_name` - Brief error description
 
 **Reproduction:**
+
 ```bash
 uv run --group dev pytest tests/python/test_file.py::test_name -v
 ```
@@ -125,13 +130,16 @@ uv run --group dev pytest tests/python/test_file.py::test_name -v
 ## Test Results Summary
 
 ### ✅ C++ Tests: 18/18 passed
+
 ### ❌ Python Tests: 145 passed, 2 failed, 15 skipped
 
 **Failed Tests:**
+
 - ❌ `test_bindings.py::test_deterministic_actions` - Position comparison failure
 - ❌ `test_spawn_locations.py::test_single_spawn_center` - Wrong spawn X: -20.0 (expected -6.25)
 
 **Reproduction:**
+
 ```bash
 uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
 uv run --group dev pytest tests/python/test_spawn_locations.py::test_single_spawn_center -v
@@ -144,6 +152,8 @@ uv run --group dev pytest tests/python/test_spawn_locations.py::test_single_spaw
 3. **150+ Test Navigation**: With 150+ Python tests and 18 C++ tests, vague descriptions like "tensor tests failed" are useless
 
 **Without this format**: Information needed to fix tests is permanently lost when context resets occur.
+
+
 
 ### Unit test best practice
 
