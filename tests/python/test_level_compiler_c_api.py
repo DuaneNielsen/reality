@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
+from madrona_escape_room.generated_constants import limits
 from madrona_escape_room.level_compiler import (
     MAX_TILES_C_API,
-    _get_max_tiles_from_c_api,
     compile_level,
     load_compiled_level_binary,
     save_compiled_level_binary,
@@ -29,11 +29,11 @@ class TestCAPIIntegration:
         """Test that MAX_TILES_C_API returns expected value."""
         # Should be 1024 based on CompiledLevel::MAX_TILES
         assert MAX_TILES_C_API == 1024
-        assert _get_max_tiles_from_c_api() == 1024
+        assert limits.maxTiles == 1024
 
     def test_max_tiles_consistency(self):
         """Test that MAX_TILES_C_API matches direct C API call."""
-        direct_call = _get_max_tiles_from_c_api()
+        direct_call = limits.maxTiles
         module_constant = MAX_TILES_C_API
         assert (
             direct_call == module_constant
@@ -283,12 +283,9 @@ class TestEdgeCases:
 
     def test_fallback_when_c_api_unavailable(self):
         """Test fallback behavior when C API is not available."""
-        # This test verifies the fallback in _get_max_tiles_from_c_api
-        # We can't easily mock the import failure, but we can test the logic
-        from madrona_escape_room.level_compiler import _get_max_tiles_from_c_api
-
-        # The function should return 1024 (the fallback value)
-        result = _get_max_tiles_from_c_api()
+        # This test verifies that limits.maxTiles provides the correct constant
+        # The constant should be 1024 (the MAX_TILES value)
+        result = limits.maxTiles
         assert result == 1024
 
 

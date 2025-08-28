@@ -17,7 +17,7 @@ from madrona_escape_room.ctypes_bindings import (
     MER_Tensor,
     lib,
 )
-from madrona_escape_room.generated_structs import MAX_TILES
+from madrona_escape_room.generated_constants import limits
 
 # Hardcoded constants to avoid dependency on generated files
 # From types.hpp and the C API
@@ -51,7 +51,7 @@ def create_default_level():
     level.world_max_z = 25.0
 
     # Initialize all arrays to defaults
-    for i in range(MAX_TILES):
+    for i in range(limits.maxTiles):
         level.tile_z[i] = 0.0
         level.tile_scale_x[i] = 1.0
         level.tile_scale_y[i] = 1.0

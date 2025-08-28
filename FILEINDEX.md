@@ -50,7 +50,6 @@
 **Generated Files**
 - `madrona_escape_room/generated_constants.py` - auto-generated constants from C++ headers
 - `madrona_escape_room/generated_dataclasses.py` - auto-generated Python dataclasses
-- `madrona_escape_room/generated_structs.py` - auto-generated struct bindings
 
 **Utilities**
 - `madrona_escape_room/dataclass_utils.py` - utilities for working with dataclasses

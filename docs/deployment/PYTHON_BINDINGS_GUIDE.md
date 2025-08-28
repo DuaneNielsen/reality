@@ -84,10 +84,11 @@ The Python bindings achieve zero maintenance through automatic code generation a
    - Preserves C++ namespace hierarchy in Python
    - Automatically synchronized with every build
 
-2. **Structs** (`generated_structs.py`):
-   - Extracted from compiled binary using pahole (DWARF debug info)
+2. **Dataclasses** (`generated_dataclasses.py`):
+   - Extracted from compiled binary using pahole (DWARF debug info)  
    - Exact memory layouts guaranteed to match C++ compiler output
    - Platform-specific layouts automatically handled
+   - Pythonic interface with C compatibility via cdataclass
 
 3. **Single Source of Truth**:
    - C++ headers define all constants and types

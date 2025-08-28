@@ -4,7 +4,7 @@ import sys
 
 import madrona_escape_room
 from madrona_escape_room.ctypes_bindings import CompiledLevel
-from madrona_escape_room.generated_structs import MAX_TILES
+from madrona_escape_room.generated_constants import limits
 
 
 def create_complex_level():
@@ -32,7 +32,7 @@ def create_complex_level():
     level.world_max_z = 25.0
 
     # Initialize all arrays to defaults
-    for i in range(MAX_TILES):
+    for i in range(limits.maxTiles):
         level.tile_z[i] = 0.0
         level.tile_scale_x[i] = 1.0
         level.tile_scale_y[i] = 1.0
@@ -182,8 +182,8 @@ def create_complex_level():
         x = random.uniform(-35.0, 35.0)
         y = random.uniform(-35.0, 35.0)
 
-        # Make sure we don't exceed MAX_TILES
-        if tile_index >= MAX_TILES - 1:
+        # Make sure we don't exceed limits.maxTiles
+        if tile_index >= limits.maxTiles - 1:
             break
 
         level.object_ids[tile_index] = CUBE

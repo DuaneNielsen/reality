@@ -28,12 +28,13 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+from .dataclass_utils import create_compiled_level
+
 # Get constants from generated constants
 from .generated_constants import limits
 
 # Get the CompiledLevel struct
 from .generated_dataclasses import CompiledLevel
-from .dataclass_utils import create_compiled_level
 
 # Constants
 MAX_TILES = limits.maxTiles
@@ -51,6 +52,21 @@ TILE_SPAWN = -1
 # Level dimension limits
 MIN_LEVEL_WIDTH = 3
 MIN_LEVEL_HEIGHT = 3
+
+# Default tileset as JSON string - can be easily modified/extended
+DEFAULT_TILESET_JSON = """
+{
+    "#": {"asset": "wall"},
+    "C": {"asset": "cube"},
+    "O": {"asset": "cylinder"},
+    "S": {"asset": "spawn"},
+    ".": {"asset": "empty"},
+    " ": {"asset": "empty"}
+}
+"""
+
+# Parse the default tileset at module load time
+DEFAULT_TILESET = json.loads(DEFAULT_TILESET_JSON)
 
 
 def _get_asset_object_id(asset_name: str) -> int:
@@ -507,6 +523,10 @@ def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
         level.tile_rotation[i] = (1.0, 0.0, 0.0, 0.0)
 
     return level
+
+
+# Alias for backward compatibility with old test files
+compile_level_from_json = compile_level
 
 
 def validate_compiled_level(compiled: CompiledLevel) -> None:

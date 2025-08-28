@@ -16,19 +16,19 @@ Automatically generates Python ctypes structures from compiled C++ binaries usin
 
 **Usage**:
 ```bash
-python codegen/generate_python_structs.py <library_path> <output_path>
+python codegen/generate_dataclass_structs.py <library_path> <output_path>
 
 # Example (automatically run by CMake):
-python codegen/generate_python_structs.py \
+python codegen/generate_dataclass_structs.py \
     build/libmadrona_escape_room_c_api.so \
-    madrona_escape_room/generated_structs.py
+    madrona_escape_room/generated_dataclasses.py
 ```
 
 **Requirements**:
 - `pahole` tool from dwarves package (install with: `sudo apt install dwarves`)
 - Compiled library with debug symbols (`-g` flag in compilation)
 
-**Generated Output**: `madrona_escape_room/generated_structs.py`
+**Generated Output**: `madrona_escape_room/generated_dataclasses.py`
 
 **Structs Extracted**:
 - `CompiledLevel` - Level data with tile positions and spawn configurations
@@ -130,9 +130,9 @@ Both scripts run automatically as POST_BUILD commands for the `madrona_escape_ro
 ```cmake
 add_custom_command(TARGET madrona_escape_room_c_api POST_BUILD
     COMMAND ${Python3_EXECUTABLE} 
-        ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_structs.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_dataclass_structs.py
         $<TARGET_FILE:madrona_escape_room_c_api>
-        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_structs.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_dataclasses.py
     
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
@@ -174,7 +174,7 @@ This separation ensures:
 - No manual duplication or maintenance required
 
 ### File Management
-- Generated files (`generated_structs.py`, `generated_constants.py`) are tracked in git
+- Generated files (`generated_dataclasses.py`, `generated_constants.py`) are tracked in git
 - Ensures stable imports and consistent behavior
 - Regenerated on build to stay synchronized with C++ changes
 
