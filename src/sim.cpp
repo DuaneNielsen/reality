@@ -250,19 +250,20 @@ inline void collectObservationsSystem(Engine &ctx,
     const CompiledLevel& level = ctx.singleton<CompiledLevel>();
     
     // Normalize positions based on actual world boundaries
-    // Use the Y-axis range as the primary normalization factor (world length)
+    // Use the appropriate axis range for each dimension
+    float world_width = level.world_max_x - level.world_min_x;
     float world_length = level.world_max_y - level.world_min_y;
+    float world_height = level.world_max_z - level.world_min_z;
     
-    if (world_length <= 0.0f) {
-        printf("ERROR: Invalid world boundaries - world_length = %f (min_y=%f, max_y=%f)\n",
-               world_length, level.world_min_y, level.world_max_y);
+    if (world_width <= 0.0f || world_length <= 0.0f || world_height <= 0.0f) {
+        printf("ERROR: Invalid world boundaries - width = %f (min_x=%f, max_x=%f), length = %f (min_y=%f, max_y=%f), height = %f (min_z=%f, max_z=%f)\n",
+               world_width, level.world_min_x, level.world_max_x, world_length, level.world_min_y, level.world_max_y, world_height, level.world_min_z, level.world_max_z);
     }
     
-    // Normalize all positions consistently using world length
-    // Adjust for world origin to match reward calculation
-    self_obs.globalX = (pos.x - level.world_min_x) / world_length;
+    // Normalize each position using its corresponding axis range
+    self_obs.globalX = (pos.x - level.world_min_x) / world_width;
     self_obs.globalY = (pos.y - level.world_min_y) / world_length;
-    self_obs.globalZ = (pos.z - level.world_min_z) / world_length;
+    self_obs.globalZ = (pos.z - level.world_min_z) / world_height;
     self_obs.maxY = (progress.maxY - level.world_min_y) / world_length;
     self_obs.theta = angleObs(computeZAngle(rot));
 }

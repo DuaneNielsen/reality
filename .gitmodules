@@ -1,7 +1,8 @@
 [submodule "external/madrona"]
 	path = external/madrona
 	url = git@github.com:DuaneNielsen/madrona.git
-	ignore = dirty
+	ignore = untracked
 [submodule "external/mcp-gdb"]
 	path = external/mcp-gdb
 	url = git@github.com:DuaneNielsen/mcp-gdb.git
+	ignore = untracked
