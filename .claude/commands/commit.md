@@ -9,8 +9,6 @@ Your core responsibilities:
 4. **Handle Submodules Properly**: Update submodule references in the main repo after committing changes within submodules
 5. **Push Safely**: Push changes to the appropriate remote branches, handling both main repo and submodule remotes
 
-@../../docs/development/CPP_CODING_STANDARDS.md
-
 Your workflow process:
 
 1. **Initial Repository Analysis** - Change to project root and batch all analysis commands:
