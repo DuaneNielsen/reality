@@ -3,13 +3,71 @@
 Generate Python dataclass structures from compiled binary using pahole.
 These dataclasses use cdataclass to maintain C compatibility while providing
 Pythonic debugging and array handling.
+
+Configuration Options:
+    The script can be configured to extract different sets of structs through:
+
+    1. Default Configuration (DEFAULT_STRUCTS_TO_EXTRACT):
+       - Located at module level for easy modification
+       - Contains core structs used by Madrona Escape Room
+       - Includes detailed comments about each struct's purpose
+
+    2. Command Line Arguments:
+       - --structs: Specify custom struct list (comma-separated or JSON file)
+       - --list-default-structs: Display default struct list
+
+    3. JSON Configuration File:
+       Supports two formats:
+
+       Simple list:
+       ["Action", "Observation", "Reward"]
+
+       Extended format:
+       {
+           "structs": ["Action", "Observation", "Reward"],
+           "description": "Custom struct set for my project"
+       }
+
+Examples:
+    # Use default structs
+    python generate_dataclass_structs.py libfile.so output.py
+
+    # Custom struct list
+    python generate_dataclass_structs.py libfile.so output.py --structs "Action,Reward"
+
+    # From JSON config
+    python generate_dataclass_structs.py libfile.so output.py --structs config.json
+
+    # List available default structs
+    python generate_dataclass_structs.py --list-default-structs
+
+Requirements:
+    - pahole tool (install with: sudo apt install dwarves)
+    - Compiled binary with DWARF debug information
+    - cdataclass Python package for C compatibility
 """
 
+import argparse
+import json
 import os
 import re
 import subprocess
 import sys
 from typing import Dict, List, Optional, Tuple
+
+# Default structs to extract from compiled binary
+# These represent the core data structures used by the Madrona Escape Room simulation
+DEFAULT_STRUCTS_TO_EXTRACT = [
+    "CompiledLevel",  # Level geometry and spawn data
+    "Action",  # Agent action structure (movement, rotation, grab)
+    "SelfObservation",  # Agent's view of world state
+    "Done",  # Episode termination flag
+    "Reward",  # Reward signal for reinforcement learning
+    "Progress",  # Progress tracking through environment
+    "StepsRemaining",  # Remaining episode steps
+    "ReplayMetadata",  # Recording/replay file metadata
+    "ManagerConfig",  # Simulation manager configuration
+]
 
 
 class FieldInfo:
@@ -258,21 +316,19 @@ def get_struct_size(library_path: str, struct_name: str) -> int:
     return 0
 
 
-def generate_python_bindings(library_path: str, output_path: str):
-    """Generate Python bindings for all required structs."""
+def generate_python_bindings(
+    library_path: str, output_path: str, structs_to_extract: Optional[List[str]] = None
+):
+    """Generate Python bindings for specified structs.
 
-    # Structs to extract
-    structs_to_extract = [
-        "CompiledLevel",
-        "Action",
-        "SelfObservation",
-        "Done",
-        "Reward",
-        "Progress",
-        "StepsRemaining",
-        "ReplayMetadata",
-        "ManagerConfig",
-    ]
+    Args:
+        library_path: Path to the compiled library containing struct debug info
+        output_path: Path to write the generated Python dataclasses
+        structs_to_extract: List of struct names to extract. If None, uses
+                          DEFAULT_STRUCTS_TO_EXTRACT
+    """
+    if structs_to_extract is None:
+        structs_to_extract = DEFAULT_STRUCTS_TO_EXTRACT
 
     # Start building the output file
     output_lines = [
@@ -395,16 +451,90 @@ def generate_python_bindings(library_path: str, output_path: str):
     print(f"Generated {output_path}", file=sys.stderr)
 
 
+def parse_struct_list(structs_arg: str) -> List[str]:
+    """Parse struct list from command line argument or file.
+
+    Args:
+        structs_arg: Either comma-separated struct names or path to JSON file
+
+    Returns:
+        List of struct names to extract
+    """
+    # Check if it's a file path
+    if os.path.exists(structs_arg) and structs_arg.endswith(".json"):
+        try:
+            with open(structs_arg, "r") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+                elif isinstance(data, dict) and "structs" in data:
+                    return data["structs"]
+                else:
+                    raise ValueError("JSON file must contain a list or dict with 'structs' key")
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            print(f"Error parsing JSON file {structs_arg}: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Parse as comma-separated list
+        return [s.strip() for s in structs_arg.split(",") if s.strip()]
+
+
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: generate_dataclass_structs.py <library_path> <output_path>", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Generate Python dataclass structures from compiled binary using pahole.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Use default struct list
+  %(prog)s libfile.so output.py
 
-    library_path = sys.argv[1]
-    output_path = sys.argv[2]
+  # Custom struct list (comma-separated)
+  %(prog)s libfile.so output.py --structs "Action,Observation,Reward"
 
-    if not os.path.exists(library_path):
-        print(f"Error: Library not found: {library_path}", file=sys.stderr)
+  # Custom struct list from JSON file
+  %(prog)s libfile.so output.py --structs structs.json
+
+  # List default structs
+  %(prog)s --list-default-structs
+
+JSON file format:
+  ["Action", "Observation", "Reward"]
+
+  OR
+
+  {
+    "structs": ["Action", "Observation", "Reward"],
+    "description": "Custom struct set for my project"
+  }
+""",
+    )
+
+    parser.add_argument("library_path", nargs="?", help="Path to compiled library with debug info")
+    parser.add_argument("output_path", nargs="?", help="Path to write generated Python file")
+    parser.add_argument(
+        "--structs", help="Comma-separated struct names or path to JSON config file"
+    )
+    parser.add_argument(
+        "--list-default-structs", action="store_true", help="List the default structs and exit"
+    )
+
+    args = parser.parse_args()
+
+    # Handle listing default structs
+    if args.list_default_structs:
+        print("Default structs to extract:")
+        for struct in DEFAULT_STRUCTS_TO_EXTRACT:
+            print(f"  {struct}")
+        return
+
+    # Validate required arguments
+    if not args.library_path or not args.output_path:
+        parser.error(
+            "library_path and output_path are required unless using --list-default-structs"
+        )
+
+    if not os.path.exists(args.library_path):
+        print(f"Error: Library not found: {args.library_path}", file=sys.stderr)
         sys.exit(1)
 
     # Check if pahole is available
@@ -419,7 +549,15 @@ def main():
         print("Error: pahole not found. Install with: sudo apt install dwarves", file=sys.stderr)
         sys.exit(1)
 
-    generate_python_bindings(library_path, output_path)
+    # Parse struct list if provided
+    structs_to_extract = None
+    if args.structs:
+        structs_to_extract = parse_struct_list(args.structs)
+        print(f"Using custom struct list: {structs_to_extract}", file=sys.stderr)
+    else:
+        print(f"Using default struct list: {DEFAULT_STRUCTS_TO_EXTRACT}", file=sys.stderr)
+
+    generate_python_bindings(args.library_path, args.output_path, structs_to_extract)
 
 
 if __name__ == "__main__":
