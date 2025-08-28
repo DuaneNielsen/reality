@@ -4,7 +4,7 @@ Creates a 16x16 room with walls and obstacles like default_level.cpp
 """
 
 from .dataclass_utils import create_compiled_level
-from .generated_constants import limits
+from .generated_constants import AssetIDs, EntityType, ResponseType, consts, limits
 from .generated_dataclasses import CompiledLevel
 
 
@@ -25,10 +25,13 @@ def create_default_level():
     level.level_name = b"default_16x16_room"
 
     # World boundaries for 16x16 room with 2.5 unit spacing per tile
-    level.world_min_x = -20.0
-    level.world_max_x = 20.0
-    level.world_min_y = -20.0
-    level.world_max_y = 20.0
+    # Use world dimensions from generated constants
+    half_width = consts.worldWidth / 2.0
+    half_length = consts.worldLength / 2.0
+    level.world_min_x = -half_width
+    level.world_max_x = half_width
+    level.world_min_y = -half_length
+    level.world_max_y = half_length
     level.world_min_z = 0.0
     level.world_max_z = 25.0
 
@@ -44,11 +47,8 @@ def create_default_level():
     level.spawn_y[0] = -17.0
     level.spawn_facing[0] = 0.0
 
-    # Asset IDs from asset_ids.hpp - MUST match C++ values!
-    WALL = 2  # Was incorrectly 1
-    CUBE = 1  # Was incorrectly 0
-    CYLINDER = 8  # Was incorrectly 9
-    AXIS_X = 5  # This was correct
+    # Use generated constants for asset IDs - automatically synced with C++
+    # These constants come from src/asset_ids.hpp
 
     # Generate border walls
     tile_index = 0
@@ -61,7 +61,7 @@ def create_default_level():
         x = -wall_edge + i * wall_tile_size
 
         # Top wall
-        level.object_ids[tile_index] = WALL
+        level.object_ids[tile_index] = AssetIDs.WALL
         level.tile_x[tile_index] = x
         level.tile_y[tile_index] = wall_edge
         level.tile_scale_x[tile_index] = wall_tile_size
@@ -70,12 +70,12 @@ def create_default_level():
         # tile_rotation is auto-initialized to identity quaternion (1,0,0,0) by factory
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
-        level.tile_entity_type[tile_index] = 2  # EntityType::Wall
-        level.tile_response_type[tile_index] = 2  # ResponseType::Static
+        level.tile_entity_type[tile_index] = EntityType.Wall
+        level.tile_response_type[tile_index] = ResponseType.Static
         tile_index += 1
 
         # Bottom wall
-        level.object_ids[tile_index] = WALL
+        level.object_ids[tile_index] = AssetIDs.WALL
         level.tile_x[tile_index] = x
         level.tile_y[tile_index] = -wall_edge
         level.tile_scale_x[tile_index] = wall_tile_size
@@ -83,8 +83,8 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.0
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
-        level.tile_entity_type[tile_index] = 2  # EntityType::Wall
-        level.tile_response_type[tile_index] = 2  # ResponseType::Static
+        level.tile_entity_type[tile_index] = EntityType.Wall
+        level.tile_response_type[tile_index] = ResponseType.Static
         tile_index += 1
 
     # Left and right walls (skip corners to avoid overlaps)
@@ -92,7 +92,7 @@ def create_default_level():
         y = -wall_edge + i * wall_tile_size
 
         # Left wall
-        level.object_ids[tile_index] = WALL
+        level.object_ids[tile_index] = AssetIDs.WALL
         level.tile_x[tile_index] = -wall_edge
         level.tile_y[tile_index] = y
         level.tile_scale_x[tile_index] = wall_tile_size
@@ -100,12 +100,12 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.0
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
-        level.tile_entity_type[tile_index] = 2  # EntityType::Wall
-        level.tile_response_type[tile_index] = 2  # ResponseType::Static
+        level.tile_entity_type[tile_index] = EntityType.Wall
+        level.tile_response_type[tile_index] = ResponseType.Static
         tile_index += 1
 
         # Right wall
-        level.object_ids[tile_index] = WALL
+        level.object_ids[tile_index] = AssetIDs.WALL
         level.tile_x[tile_index] = wall_edge
         level.tile_y[tile_index] = y
         level.tile_scale_x[tile_index] = wall_tile_size
@@ -113,18 +113,18 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.0
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
-        level.tile_entity_type[tile_index] = 2  # EntityType::Wall
-        level.tile_response_type[tile_index] = 2  # ResponseType::Static
+        level.tile_entity_type[tile_index] = EntityType.Wall
+        level.tile_response_type[tile_index] = ResponseType.Static
         tile_index += 1
 
     # Add an axis marker at x=0, y=12.5 for visual reference
-    level.object_ids[tile_index] = AXIS_X
+    level.object_ids[tile_index] = AssetIDs.AXIS_X
     level.tile_x[tile_index] = 0.0
     level.tile_y[tile_index] = 12.5
     level.tile_persistent[tile_index] = True
     level.tile_render_only[tile_index] = True
-    level.tile_entity_type[tile_index] = 0  # EntityType::NoEntity
-    level.tile_response_type[tile_index] = 2  # ResponseType::Static
+    level.tile_entity_type[tile_index] = EntityType.NoEntity
+    level.tile_response_type[tile_index] = ResponseType.Static
     tile_index += 1
 
     # Add cylinders with randomization
@@ -143,7 +143,7 @@ def create_default_level():
     ]
 
     for x, y in cylinder_positions:
-        level.object_ids[tile_index] = CYLINDER
+        level.object_ids[tile_index] = AssetIDs.CYLINDER
         level.tile_x[tile_index] = x
         level.tile_y[tile_index] = y
         level.tile_z[tile_index] = cylinder_z_offset
@@ -152,8 +152,8 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.7
         level.tile_persistent[tile_index] = False
         level.tile_render_only[tile_index] = False
-        level.tile_entity_type[tile_index] = 1  # EntityType::Cube (objects)
-        level.tile_response_type[tile_index] = 2  # ResponseType::Static
+        level.tile_entity_type[tile_index] = EntityType.Cube  # Objects use Cube entity type
+        level.tile_response_type[tile_index] = ResponseType.Static
         level.tile_rand_x[tile_index] = variance_3m
         level.tile_rand_y[tile_index] = variance_3m
         level.tile_rand_scale_x[tile_index] = 1.5
@@ -163,7 +163,7 @@ def create_default_level():
 
     # Add cubes with randomization
     cube_z_offset = 0.75
-    rotation_range = 2.0 * 3.14159265359  # 2 * pi (match C++ precision)
+    rotation_range = 2.0 * consts.math.pi  # Use generated math constant
 
     cube_positions = [
         (-8.0, 6.0),  # Upper-left
@@ -174,7 +174,7 @@ def create_default_level():
     ]
 
     for x, y in cube_positions:
-        level.object_ids[tile_index] = CUBE
+        level.object_ids[tile_index] = AssetIDs.CUBE
         level.tile_x[tile_index] = x
         level.tile_y[tile_index] = y
         level.tile_z[tile_index] = cube_z_offset
@@ -183,8 +183,8 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.5
         level.tile_persistent[tile_index] = False
         level.tile_render_only[tile_index] = False
-        level.tile_entity_type[tile_index] = 1  # EntityType::Cube
-        level.tile_response_type[tile_index] = 2  # ResponseType::Static
+        level.tile_entity_type[tile_index] = EntityType.Cube
+        level.tile_response_type[tile_index] = ResponseType.Static
         level.tile_rand_x[tile_index] = variance_3m
         level.tile_rand_y[tile_index] = variance_3m
         level.tile_rand_rot_z[tile_index] = rotation_range

@@ -320,6 +320,7 @@ add_custom_target(generate_python_bindings ALL
             ${CMAKE_CURRENT_SOURCE_DIR}/consts.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/types.hpp
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_constants.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/asset_ids.hpp
     DEPENDS madrona_escape_room_c_api
     COMMENT "Auto-generating Python bindings using pahole and libclang (using isolated build venv)"
     VERBATIM

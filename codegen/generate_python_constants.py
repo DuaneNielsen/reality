@@ -28,6 +28,10 @@ GENERATION_CONFIG = {
             "path": ["madEscape", "consts", "limits"],  # Structural limits and bounds
             "class_name": "limits",  # Generate as limits class
         },
+        {
+            "path": ["madEscape", "AssetIDs"],  # Asset ID constants
+            "class_name": "AssetIDs",  # Generate as AssetIDs class
+        },
         {"path": ["types"], "class_name": "types"},
     ],
     # Convenience aliases to create at module level
@@ -36,7 +40,12 @@ GENERATION_CONFIG = {
             "name": "action",  # Alias name
             "target": "consts.action",  # What it points to
             "condition_path": ["madEscape", "consts", "action"],  # Only create if this path exists
-        }
+        },
+        {
+            "name": "asset_ids",  # Alias name for asset IDs
+            "target": "AssetIDs",  # What it points to
+            "condition_path": ["madEscape", "AssetIDs"],  # Only create if this path exists
+        },
     ],
 }
 
@@ -235,6 +244,8 @@ class ConstantExtractor:
                 should_process = (
                     "consts.hpp" in filename
                     or "types.hpp" in filename
+                    or "asset_ids.hpp" in filename
+                    or "physics.hpp" in filename
                     or (namespace_path and namespace_path[0] == "madrona")
                     or (
                         len(namespace_path) >= 2
@@ -295,7 +306,7 @@ class ConstantExtractor:
                 # Continue traversing
                 self.traverse(child, namespace_path)
 
-    def parse_headers(self, consts_path: str, types_path: str):
+    def parse_headers(self, consts_path: str, types_path: str, asset_ids_path: str = None):
         """Parse the C++ headers and extract constants."""
         # Get the Madrona include directory from environment
         madrona_include = os.environ.get("MADRONA_INCLUDE_DIR", "")
@@ -310,11 +321,16 @@ class ConstantExtractor:
 // Include Madrona headers directly for better parsing
 #include "{os.path.join(project_root, "external/madrona/include/madrona/exec_mode.hpp")}"
 #include "{os.path.join(project_root, "external/madrona/include/madrona/py/utils.hpp")}"
+#include "{os.path.join(project_root, "external/madrona/include/madrona/physics.hpp")}"
 
 // Include our project headers
 #include "{os.path.abspath(consts_path)}"
 #include "{os.path.abspath(types_path)}"
 """
+
+        # Include asset_ids.hpp if provided
+        if asset_ids_path and os.path.exists(asset_ids_path):
+            wrapper_code += f'#include "{os.path.abspath(asset_ids_path)}"\n'
 
         if self.verbose:
             print(f"DEBUG: Wrapper code:\n{wrapper_code}", file=sys.stderr)
@@ -607,9 +623,10 @@ def main():
     if verbose:
         sys.argv.remove("--verbose")
 
-    if len(sys.argv) != 4:
+    if len(sys.argv) < 4 or len(sys.argv) > 5:
         print(
-            "Usage: generate_python_constants.py [--verbose] <consts.hpp> <types.hpp> <output.py>",
+            "Usage: generate_python_constants.py [--verbose] <consts.hpp> <types.hpp> "
+            "<output.py> [asset_ids.hpp]",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -617,6 +634,7 @@ def main():
     consts_path = sys.argv[1]
     types_path = sys.argv[2]
     output_path = sys.argv[3]
+    asset_ids_path = sys.argv[4] if len(sys.argv) > 4 else None
 
     # Check input files exist
     if not os.path.exists(consts_path):
@@ -627,11 +645,14 @@ def main():
         print(f"Error: {types_path} not found", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Parsing {consts_path} and {types_path}...", file=sys.stderr)
+    if asset_ids_path:
+        print(f"Parsing {consts_path}, {types_path}, and {asset_ids_path}...", file=sys.stderr)
+    else:
+        print(f"Parsing {consts_path} and {types_path}...", file=sys.stderr)
 
     # Extract constants
     extractor = ConstantExtractor(verbose=verbose)
-    extractor.parse_headers(consts_path, types_path)
+    extractor.parse_headers(consts_path, types_path, asset_ids_path)
 
     # Generate Python code
     generator = PythonGenerator(extractor.root)
