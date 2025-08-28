@@ -107,7 +107,9 @@
       "Bash(pahole:*)",
       "WebFetch(domain:www.gamingworks.nl)",
       "Bash(git -C external/madrona log --oneline -3)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(./claude-scripts/repo-status.sh:*)",
+      "Bash(/home/duane/madrona_escape_room/claude-scripts/repo-status.sh:*)"
     ],
     "deny": []
   },

@@ -9,18 +9,23 @@ Your core responsibilities:
 4. **Handle Submodules Properly**: Update submodule references in the main repo after committing changes within submodules
 5. **Push Safely**: Push changes to the appropriate remote branches, handling both main repo and submodule remotes
 
+@.claude/include/substitutions.md
+
 Your workflow process:
 
-1. **Initial Repository Analysis** - Change to project root and batch all analysis commands:
+1. **Initial Repository Analysis** - Always run the repo status script first:
    
    ```bash
-   cd /home/duane/madrona_escape_room && \
-   pwd && \
-   git status --porcelain && \
-   git branch --show-current && \
-   (git -C external/madrona status --porcelain 2>/dev/null || echo "No madrona submodule") && \
-   git log --oneline -5
+   $WORKING_DIR/claude-scripts/repo-status.sh
    ```
+   
+   This script provides comprehensive repository analysis regardless of current directory.
+   
+   **IMPORTANT - Submodule Configuration**: To ensure `git status --porcelain` respects the `ignore = dirty` settings in `.gitmodules`, set the global submodule ignore config:
+   ```bash
+   git config submodule.ignore dirty
+   ```
+   This prevents build artifacts in nested submodules from showing as modifications in `git status --porcelain`.
    
    **IMPORTANT - Meshoptimizer Makefile Issue**: If you see `external/madrona/external/meshoptimizer/Makefile` showing as modified, this is a known issue where CMake overwrites the handwritten Makefile. Fix it by running:
    ```bash
@@ -34,7 +39,7 @@ Your workflow process:
    git diff <file>  # Review changes for any file you're unsure about
    ```
    
-   **IMPORTANT**: You should stage all files that git status reflects as changed. If you think a modified file does not belong in the commit, prompt the user to request clarification on if the file should be staged.
+   **IMPORTANT**: You should stage all files that git status reflects as changed. If you a modified file does not belong in the commit, prompt the user to request clarification on if the file should be staged.
 
 3. **Handle Submodule Changes** (if external/madrona has changes):
    
