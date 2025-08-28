@@ -22,8 +22,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - If you need to explain it, it's too complex
 
 #includes
-@docs/README.md
-
+@src/const.hpp
+@madrona_escape_room/generated_constants.py
+@FILEINDEX.md
+@docs/development/CPP_CODING_STANDARDS.md
 
 
 ## Overview
@@ -59,11 +61,16 @@ read the viewer guide in [VIEWER_GUIDE.md](docs/tools/VIEWER_GUIDE.md) for comma
 
 ### Running python code
 
-ALWAYS use uv when running python code or manageing packages
+ALWAYS use uv when running python code or managing packages
 
 ```
 uv run python ...
 ```
+
+```
+uv run python default_level.py 
+```
+
 
 ### Development
 
@@ -82,8 +89,6 @@ test_my_code.py <---- DO NOT DO THIS
 IMPORTANT: NEVER use sys.path.insert(..) ALWAYS place modules in the correct locations so they can be imported correctly by python
 
 #### C++ coding standards
-
-@docs/development/CPP_CODING_STANDARDS.md
 
 # Testing
 
