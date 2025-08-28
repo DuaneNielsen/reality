@@ -6,7 +6,7 @@ import ctypes
 
 import pytest
 
-from madrona_escape_room.level_compiler import compile_level
+from madrona_escape_room.level_compiler import compile_ascii_level
 
 
 class TestCAPIStructValidation:
@@ -19,7 +19,7 @@ class TestCAPIStructValidation:
 #.C..#
 ######"""
 
-        compiled = compile_level(level)
+        compiled = compile_ascii_level(level)
 
         # Load C API library directly
         lib = ctypes.CDLL("./build/libmadrona_escape_room_c_api.so")
@@ -71,51 +71,51 @@ class TestCAPIStructValidation:
 
         # Populate struct
         level_struct = MER_CompiledLevel()
-        level_struct.num_tiles = compiled["num_tiles"]
-        level_struct.max_entities = compiled["max_entities"]
-        level_struct.width = compiled["width"]
-        level_struct.height = compiled["height"]
-        level_struct.world_scale = compiled.get("scale", compiled.get("world_scale", 1.0))
-        level_struct.done_on_collide = compiled.get("done_on_collide", False)
-        level_struct.level_name = compiled["level_name"].encode("utf-8")
+        level_struct.num_tiles = compiled.num_tiles
+        level_struct.max_entities = compiled.max_entities
+        level_struct.width = compiled.width
+        level_struct.height = compiled.height
+        level_struct.world_scale = compiled.world_scale
+        level_struct.done_on_collide = compiled.done_on_collide
+        level_struct.level_name = compiled.level_name
         # Set world boundaries
-        level_struct.world_min_x = compiled.get("world_min_x", -20.0)
-        level_struct.world_max_x = compiled.get("world_max_x", 20.0)
-        level_struct.world_min_y = compiled.get("world_min_y", -20.0)
-        level_struct.world_max_y = compiled.get("world_max_y", 20.0)
-        level_struct.world_min_z = compiled.get("world_min_z", 0.0)
-        level_struct.world_max_z = compiled.get("world_max_z", 25.0)
-        level_struct.num_spawns = compiled["num_spawns"]
+        level_struct.world_min_x = compiled.world_min_x
+        level_struct.world_max_x = compiled.world_max_x
+        level_struct.world_min_y = compiled.world_min_y
+        level_struct.world_max_y = compiled.world_max_y
+        level_struct.world_min_z = compiled.world_min_z
+        level_struct.world_max_z = compiled.world_max_z
+        level_struct.num_spawns = compiled.num_spawns
 
         for i in range(8):  # MAX_SPAWNS
-            level_struct.spawn_x[i] = compiled["spawn_x"][i]
-            level_struct.spawn_y[i] = compiled["spawn_y"][i]
-            level_struct.spawn_facing[i] = compiled["spawn_facing"][i]
+            level_struct.spawn_x[i] = compiled.spawn_x[i]
+            level_struct.spawn_y[i] = compiled.spawn_y[i]
+            level_struct.spawn_facing[i] = compiled.spawn_facing[i]
 
         for i in range(1024):  # MAX_TILES
-            level_struct.object_ids[i] = compiled["object_ids"][i]
-            level_struct.tile_x[i] = compiled["tile_x"][i]
-            level_struct.tile_y[i] = compiled["tile_y"][i]
-            level_struct.tile_z[i] = compiled["tile_z"][i]
-            level_struct.tile_persistent[i] = compiled["tile_persistent"][i]
-            level_struct.tile_render_only[i] = compiled["tile_render_only"][i]
-            level_struct.tile_entity_type[i] = compiled["tile_entity_type"][i]
-            level_struct.tile_response_type[i] = compiled["tile_response_type"][i]
-            level_struct.tile_scale_x[i] = compiled["tile_scale_x"][i]
-            level_struct.tile_scale_y[i] = compiled["tile_scale_y"][i]
-            level_struct.tile_scale_z[i] = compiled["tile_scale_z"][i]
-            level_struct.tile_rot_w[i] = compiled["tile_rot_w"][i]
-            level_struct.tile_rot_x[i] = compiled["tile_rot_x"][i]
-            level_struct.tile_rot_y[i] = compiled["tile_rot_y"][i]
-            level_struct.tile_rot_z[i] = compiled["tile_rot_z"][i]
+            level_struct.object_ids[i] = compiled.object_ids[i]
+            level_struct.tile_x[i] = compiled.tile_x[i]
+            level_struct.tile_y[i] = compiled.tile_y[i]
+            level_struct.tile_z[i] = compiled.tile_z[i]
+            level_struct.tile_persistent[i] = compiled.tile_persistent[i]
+            level_struct.tile_render_only[i] = compiled.tile_render_only[i]
+            level_struct.tile_entity_type[i] = compiled.tile_entity_type[i]
+            level_struct.tile_response_type[i] = compiled.tile_response_type[i]
+            level_struct.tile_scale_x[i] = compiled.tile_scale_x[i]
+            level_struct.tile_scale_y[i] = compiled.tile_scale_y[i]
+            level_struct.tile_scale_z[i] = compiled.tile_scale_z[i]
+            level_struct.tile_rot_w[i] = compiled.tile_rotation[i][0]
+            level_struct.tile_rot_x[i] = compiled.tile_rotation[i][1]
+            level_struct.tile_rot_y[i] = compiled.tile_rotation[i][2]
+            level_struct.tile_rot_z[i] = compiled.tile_rotation[i][3]
             # New randomization fields - default to 0 if not present
-            level_struct.tile_rand_x[i] = compiled.get("tile_rand_x", [0.0] * 1024)[i]
-            level_struct.tile_rand_y[i] = compiled.get("tile_rand_y", [0.0] * 1024)[i]
-            level_struct.tile_rand_z[i] = compiled.get("tile_rand_z", [0.0] * 1024)[i]
-            level_struct.tile_rand_rot_z[i] = compiled.get("tile_rand_rot_z", [0.0] * 1024)[i]
-            level_struct.tile_rand_scale_x[i] = compiled.get("tile_rand_scale_x", [0.0] * 1024)[i]
-            level_struct.tile_rand_scale_y[i] = compiled.get("tile_rand_scale_y", [0.0] * 1024)[i]
-            level_struct.tile_rand_scale_z[i] = compiled.get("tile_rand_scale_z", [0.0] * 1024)[i]
+            level_struct.tile_rand_x[i] = compiled.tile_rand_x[i]
+            level_struct.tile_rand_y[i] = compiled.tile_rand_y[i]
+            level_struct.tile_rand_z[i] = compiled.tile_rand_z[i]
+            level_struct.tile_rand_rot_z[i] = compiled.tile_rand_rot_z[i]
+            level_struct.tile_rand_scale_x[i] = compiled.tile_rand_scale_x[i]
+            level_struct.tile_rand_scale_y[i] = compiled.tile_rand_scale_y[i]
+            level_struct.tile_rand_scale_z[i] = compiled.tile_rand_scale_z[i]
 
         # Set up C API validation
         lib.mer_validate_compiled_level.argtypes = [ctypes.POINTER(MER_CompiledLevel)]
@@ -141,7 +141,7 @@ class TestCAPIStructValidation:
 #......#
 ########"""
 
-        compiled = compile_level(level)
+        compiled = compile_ascii_level(level)
 
         # Load library
         lib = ctypes.CDLL("./build/libmadrona_escape_room_c_api.so")
@@ -205,51 +205,51 @@ class TestCAPIStructValidation:
 
         # Create and populate level struct
         level_struct = MER_CompiledLevel()
-        level_struct.num_tiles = compiled["num_tiles"]
-        level_struct.max_entities = compiled["max_entities"]
-        level_struct.width = compiled["width"]
-        level_struct.height = compiled["height"]
-        level_struct.world_scale = compiled.get("scale", compiled.get("world_scale", 1.0))
-        level_struct.done_on_collide = compiled.get("done_on_collide", False)
-        level_struct.level_name = compiled["level_name"].encode("utf-8")
+        level_struct.num_tiles = compiled.num_tiles
+        level_struct.max_entities = compiled.max_entities
+        level_struct.width = compiled.width
+        level_struct.height = compiled.height
+        level_struct.world_scale = compiled.world_scale
+        level_struct.done_on_collide = compiled.done_on_collide
+        level_struct.level_name = compiled.level_name
         # Set world boundaries
-        level_struct.world_min_x = compiled.get("world_min_x", -20.0)
-        level_struct.world_max_x = compiled.get("world_max_x", 20.0)
-        level_struct.world_min_y = compiled.get("world_min_y", -20.0)
-        level_struct.world_max_y = compiled.get("world_max_y", 20.0)
-        level_struct.world_min_z = compiled.get("world_min_z", 0.0)
-        level_struct.world_max_z = compiled.get("world_max_z", 25.0)
-        level_struct.num_spawns = compiled["num_spawns"]
+        level_struct.world_min_x = compiled.world_min_x
+        level_struct.world_max_x = compiled.world_max_x
+        level_struct.world_min_y = compiled.world_min_y
+        level_struct.world_max_y = compiled.world_max_y
+        level_struct.world_min_z = compiled.world_min_z
+        level_struct.world_max_z = compiled.world_max_z
+        level_struct.num_spawns = compiled.num_spawns
 
         for i in range(8):  # MAX_SPAWNS
-            level_struct.spawn_x[i] = compiled["spawn_x"][i]
-            level_struct.spawn_y[i] = compiled["spawn_y"][i]
-            level_struct.spawn_facing[i] = compiled["spawn_facing"][i]
+            level_struct.spawn_x[i] = compiled.spawn_x[i]
+            level_struct.spawn_y[i] = compiled.spawn_y[i]
+            level_struct.spawn_facing[i] = compiled.spawn_facing[i]
 
         for i in range(1024):  # MAX_TILES
-            level_struct.object_ids[i] = compiled["object_ids"][i]
-            level_struct.tile_x[i] = compiled["tile_x"][i]
-            level_struct.tile_y[i] = compiled["tile_y"][i]
-            level_struct.tile_z[i] = compiled["tile_z"][i]
-            level_struct.tile_persistent[i] = compiled["tile_persistent"][i]
-            level_struct.tile_render_only[i] = compiled["tile_render_only"][i]
-            level_struct.tile_entity_type[i] = compiled["tile_entity_type"][i]
-            level_struct.tile_response_type[i] = compiled["tile_response_type"][i]
-            level_struct.tile_scale_x[i] = compiled["tile_scale_x"][i]
-            level_struct.tile_scale_y[i] = compiled["tile_scale_y"][i]
-            level_struct.tile_scale_z[i] = compiled["tile_scale_z"][i]
-            level_struct.tile_rot_w[i] = compiled["tile_rot_w"][i]
-            level_struct.tile_rot_x[i] = compiled["tile_rot_x"][i]
-            level_struct.tile_rot_y[i] = compiled["tile_rot_y"][i]
-            level_struct.tile_rot_z[i] = compiled["tile_rot_z"][i]
+            level_struct.object_ids[i] = compiled.object_ids[i]
+            level_struct.tile_x[i] = compiled.tile_x[i]
+            level_struct.tile_y[i] = compiled.tile_y[i]
+            level_struct.tile_z[i] = compiled.tile_z[i]
+            level_struct.tile_persistent[i] = compiled.tile_persistent[i]
+            level_struct.tile_render_only[i] = compiled.tile_render_only[i]
+            level_struct.tile_entity_type[i] = compiled.tile_entity_type[i]
+            level_struct.tile_response_type[i] = compiled.tile_response_type[i]
+            level_struct.tile_scale_x[i] = compiled.tile_scale_x[i]
+            level_struct.tile_scale_y[i] = compiled.tile_scale_y[i]
+            level_struct.tile_scale_z[i] = compiled.tile_scale_z[i]
+            level_struct.tile_rot_w[i] = compiled.tile_rotation[i][0]
+            level_struct.tile_rot_x[i] = compiled.tile_rotation[i][1]
+            level_struct.tile_rot_y[i] = compiled.tile_rotation[i][2]
+            level_struct.tile_rot_z[i] = compiled.tile_rotation[i][3]
             # New randomization fields - default to 0 if not present
-            level_struct.tile_rand_x[i] = compiled.get("tile_rand_x", [0.0] * 1024)[i]
-            level_struct.tile_rand_y[i] = compiled.get("tile_rand_y", [0.0] * 1024)[i]
-            level_struct.tile_rand_z[i] = compiled.get("tile_rand_z", [0.0] * 1024)[i]
-            level_struct.tile_rand_rot_z[i] = compiled.get("tile_rand_rot_z", [0.0] * 1024)[i]
-            level_struct.tile_rand_scale_x[i] = compiled.get("tile_rand_scale_x", [0.0] * 1024)[i]
-            level_struct.tile_rand_scale_y[i] = compiled.get("tile_rand_scale_y", [0.0] * 1024)[i]
-            level_struct.tile_rand_scale_z[i] = compiled.get("tile_rand_scale_z", [0.0] * 1024)[i]
+            level_struct.tile_rand_x[i] = compiled.tile_rand_x[i]
+            level_struct.tile_rand_y[i] = compiled.tile_rand_y[i]
+            level_struct.tile_rand_z[i] = compiled.tile_rand_z[i]
+            level_struct.tile_rand_rot_z[i] = compiled.tile_rand_rot_z[i]
+            level_struct.tile_rand_scale_x[i] = compiled.tile_rand_scale_x[i]
+            level_struct.tile_rand_scale_y[i] = compiled.tile_rand_scale_y[i]
+            level_struct.tile_rand_scale_z[i] = compiled.tile_rand_scale_z[i]
 
         # Create config
         config = MER_ManagerConfig()
@@ -378,20 +378,20 @@ class TestCAPIStructValidation:
         lib.mer_validate_compiled_level.restype = ctypes.c_int
 
         for i, level_ascii in enumerate(test_levels):
-            compiled = compile_level(level_ascii)
+            compiled = compile_ascii_level(level_ascii)
 
             # Convert to struct
             struct = MER_CompiledLevel()
-            struct.num_tiles = compiled["num_tiles"]
-            struct.max_entities = compiled["max_entities"]
-            struct.width = compiled["width"]
-            struct.height = compiled["height"]
-            struct.world_scale = compiled.get("scale", compiled.get("world_scale", 1.0))
+            struct.num_tiles = compiled.num_tiles
+            struct.max_entities = compiled.max_entities
+            struct.width = compiled.width
+            struct.height = compiled.height
+            struct.world_scale = compiled.world_scale
 
             for j in range(256):
-                struct.object_ids[j] = compiled["object_ids"][j]
-                struct.tile_x[j] = compiled["tile_x"][j]
-                struct.tile_y[j] = compiled["tile_y"][j]
+                struct.object_ids[j] = compiled.object_ids[j]
+                struct.tile_x[j] = compiled.tile_x[j]
+                struct.tile_y[j] = compiled.tile_y[j]
 
             # Validate with C API
             result = lib.mer_validate_compiled_level(ctypes.byref(struct))
