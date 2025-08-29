@@ -23,6 +23,8 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
     "custom_level: mark test to use a custom level (dict or string)",
+    "ascii_level: mark test to use an ASCII level string",
+    "json_level: mark test to use a JSON level string",
 ]
 
 [dependency-groups]
