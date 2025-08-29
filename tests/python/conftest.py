@@ -59,32 +59,22 @@ def cpu_manager(request):
     from madrona_escape_room import ExecMode, SimManager, create_default_level
     from madrona_escape_room.level_compiler import compile_ascii_level
 
-    # Check if test has a custom_level marker
-    marker = request.node.get_closest_marker("custom_level")
-    if marker:
-        # Get the level data from the marker
-        level_data = marker.args[0] if marker.args else None
-        if level_data:
-            print(f"[DEBUG] Using custom ASCII level:\n{level_data}")
-            # Extract components from level dictionary
-            ascii_str = level_data["ascii"]
-            scale = level_data.get("scale", 2.5)
-            agent_facing = level_data.get("agent_facing", None)
+    # Check for level markers
+    ascii_marker = request.node.get_closest_marker("ascii_level")
+    json_marker = request.node.get_closest_marker("json_level")
 
-            # Compile the ASCII level using the new wrapper
-            compiled_level = compile_ascii_level(
-                ascii_str, scale=scale, agent_facing=agent_facing, level_name="test_custom_level"
-            )
-            print(
-                f"[DEBUG] Compiled level: {compiled_level.num_tiles} tiles, "
-                f"{compiled_level.width}x{compiled_level.height}"
-            )
-            print(f"[DEBUG] Spawn at: ({compiled_level.spawn_x[0]}, {compiled_level.spawn_y[0]})")
-        else:
-            print("[DEBUG] No ASCII level in marker, using default")
-            compiled_level = create_default_level()
+    if ascii_marker:
+        ascii_str = ascii_marker.args[0]
+        print(f"[DEBUG] Using ASCII level:\n{ascii_str}")
+        compiled_level = compile_ascii_level(ascii_str, level_name="test_level")
+    elif json_marker:
+        json_str = json_marker.args[0]
+        print(f"[DEBUG] Using JSON level:\n{json_str}")
+        from madrona_escape_room.level_compiler import compile_level
+
+        compiled_level = compile_level(json_str)
     else:
-        print("[DEBUG] No custom_level marker, using default")
+        print("[DEBUG] No level markers, using default")
         compiled_level = create_default_level()
 
     mgr = SimManager(

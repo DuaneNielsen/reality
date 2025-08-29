@@ -32,6 +32,7 @@ LARGE_OPEN_LEVEL = {
 }
 
 
+@pytest.mark.ascii_level(LARGE_OPEN_LEVEL["ascii"])
 def test_forward_movement(cpu_manager):
     """Test agent moving forward for entire episode"""
     mgr = cpu_manager
@@ -76,6 +77,7 @@ def test_forward_movement(cpu_manager):
     assert max_y > 0.1, f"Agent should have moved forward, but max_y = {max_y}"
 
 
+@pytest.mark.ascii_level(LARGE_OPEN_LEVEL["ascii"])
 def test_strafe_left(cpu_manager):
     """Test agent strafing left (moving left while maintaining forward orientation)"""
     mgr = cpu_manager
@@ -194,6 +196,7 @@ def test_strafe_left(cpu_manager):
     assert actual_length > 0.1, f"Agent should have moved, but only moved {actual_length:.3f} units"
 
 
+@pytest.mark.ascii_level(LARGE_OPEN_LEVEL["ascii"])
 def test_strafe_right(cpu_manager):
     """Test agent strafing right"""
     mgr = cpu_manager
@@ -236,6 +239,7 @@ def test_strafe_right(cpu_manager):
     assert delta_x > 0.1, f"Agent should have moved right, but delta_x = {delta_x}"
 
 
+@pytest.mark.ascii_level(LARGE_OPEN_LEVEL["ascii"])
 def test_backward_movement(cpu_manager):
     """Test agent moving backward"""
     mgr = cpu_manager
@@ -268,7 +272,7 @@ def test_backward_movement(cpu_manager):
     assert delta_y < -0.1, f"Agent should have moved backward, but delta_y = {delta_y}"
 
 
-@pytest.mark.custom_level(LARGE_OPEN_LEVEL)
+@pytest.mark.ascii_level(LARGE_OPEN_LEVEL["ascii"])
 def test_rotation_in_place(cpu_manager):
     """Test agent rotating in place without movement"""
     mgr = cpu_manager
@@ -312,7 +316,7 @@ def test_rotation_in_place(cpu_manager):
     ), f"Agent should have rotated, but theta only changed by {theta_delta:.3f}"
 
 
-@pytest.mark.custom_level(LARGE_OPEN_LEVEL)
+@pytest.mark.ascii_level(LARGE_OPEN_LEVEL["ascii"])
 def test_movement_speed_differences(cpu_manager):
     """Test that different movement speeds produce different distances"""
     mgr = cpu_manager

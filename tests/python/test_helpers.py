@@ -26,7 +26,11 @@ class AgentController:
         # Set rotation to center position (no rotation)
         self.actions[:, 2] = madrona_escape_room.action.rotate.NONE
 
-    def move_forward(self, world_idx: Optional[int] = None, speed: float = 1.0):
+    def move_forward(
+        self,
+        world_idx: Optional[int] = None,
+        speed: int = madrona_escape_room.action.move_amount.MEDIUM,
+    ):
         """Move agent(s) forward"""
         if world_idx is None:
             # Apply to all worlds
@@ -36,7 +40,11 @@ class AgentController:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.FORWARD
 
-    def move_backward(self, world_idx: Optional[int] = None, speed: float = 1.0):
+    def move_backward(
+        self,
+        world_idx: Optional[int] = None,
+        speed: int = madrona_escape_room.action.move_amount.MEDIUM,
+    ):
         """Move agent(s) backward"""
         if world_idx is None:
             self.actions[:, 0] = speed
@@ -45,7 +53,11 @@ class AgentController:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.BACKWARD
 
-    def strafe_left(self, world_idx: Optional[int] = None, speed: float = 1.0):
+    def strafe_left(
+        self,
+        world_idx: Optional[int] = None,
+        speed: int = madrona_escape_room.action.move_amount.MEDIUM,
+    ):
         """Move agent(s) left (strafe) while maintaining orientation"""
         if world_idx is None:
             self.actions[:, 0] = speed
@@ -54,7 +66,11 @@ class AgentController:
             self.actions[world_idx, 0] = speed
             self.actions[world_idx, 1] = madrona_escape_room.action.move_angle.LEFT
 
-    def strafe_right(self, world_idx: Optional[int] = None, speed: float = 1.0):
+    def strafe_right(
+        self,
+        world_idx: Optional[int] = None,
+        speed: int = madrona_escape_room.action.move_amount.MEDIUM,
+    ):
         """Move agent(s) right (strafe) while maintaining orientation"""
         if world_idx is None:
             self.actions[:, 0] = speed

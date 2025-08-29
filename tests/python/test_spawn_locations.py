@@ -59,7 +59,7 @@ MULTIPLE_SPAWN_TEST_LEVEL = """#######
 #######"""
 
 
-@pytest.mark.custom_level(SINGLE_SPAWN_CENTER)
+@pytest.mark.ascii_level(SINGLE_SPAWN_CENTER)
 def test_single_spawn_center(cpu_manager):
     """Test that agent spawns at center position marked with S"""
     mgr = cpu_manager
@@ -98,7 +98,7 @@ def test_single_spawn_center(cpu_manager):
     assert abs(pos_y - expected_y) < 0.1, f"Y position {pos_y} should be near {expected_y}"
 
 
-@pytest.mark.custom_level(SINGLE_SPAWN_CORNER)
+@pytest.mark.ascii_level(SINGLE_SPAWN_CORNER)
 def test_single_spawn_corner(cpu_manager):
     """Test that agent spawns at corner position marked with S"""
     mgr = cpu_manager
@@ -135,7 +135,7 @@ def test_single_spawn_corner(cpu_manager):
     assert abs(pos_y - expected_y) < 0.1, f"Y position {pos_y} should be near {expected_y}"
 
 
-@pytest.mark.custom_level(MULTIPLE_SPAWNS)
+@pytest.mark.ascii_level(MULTIPLE_SPAWNS)
 def test_multiple_spawn_locations(cpu_manager):
     """Test that the first agent uses the first spawn point when multiple S markers exist"""
     mgr = cpu_manager
@@ -180,7 +180,7 @@ def test_multiple_spawn_locations(cpu_manager):
     # the second spawn at (8, 5)
 
 
-@pytest.mark.custom_level(SPAWN_NEAR_WALL)
+@pytest.mark.ascii_level(SPAWN_NEAR_WALL)
 def test_spawn_near_wall(cpu_manager):
     """Test that agent can spawn close to walls"""
     mgr = cpu_manager
@@ -224,7 +224,7 @@ def test_spawn_near_wall(cpu_manager):
     assert distance_to_wall < 3.0, "Agent should be close to wall"
 
 
-@pytest.mark.custom_level(COORDINATE_TEST_LEVEL)
+@pytest.mark.ascii_level(COORDINATE_TEST_LEVEL)
 def test_spawn_coordinate_transformation(cpu_manager):
     """Test the coordinate transformation from grid to world space"""
     mgr = cpu_manager
@@ -278,7 +278,7 @@ def test_no_spawn_marker():
         compile_ascii_level(level_no_spawn)
 
 
-@pytest.mark.custom_level(MULTIPLE_SPAWN_TEST_LEVEL)
+@pytest.mark.ascii_level(MULTIPLE_SPAWN_TEST_LEVEL)
 def test_multiple_spawn_parsing(cpu_manager):
     """Test that multiple spawn points are correctly parsed"""
     from madrona_escape_room.level_compiler import compile_level

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 
-@pytest.mark.custom_level("""
+@pytest.mark.ascii_level("""
 #####
 #S.C#
 #####
