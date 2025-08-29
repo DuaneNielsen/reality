@@ -41,15 +41,19 @@ def test_custom_level_with_cube(cpu_manager):
     # With a 5x3 grid and scale 2.5:
     # S is at grid position (1, 1)
     # World coordinates: ((1 - 2) * 2.5, -(1 - 1) * 2.5) = (-2.5, 0)
-    # Note: Y is inverted in the compiler, so -(1 - 1) * 2.5 = 0
-    expected_x = -2.5
-    expected_y = -0.0  # Should be 0 or close to it
+    # But observations are normalized to [0,1] based on world bounds
+    # World bounds for 5x3 level with scale 2.5: x[-6.25,6.25] y[-3.75,3.75]
+    # Normalized coordinates:
+    # X: (-2.5 - (-6.25)) / (6.25 - (-6.25)) = 3.75 / 12.5 = 0.3
+    # Y: (0.0 - (-3.75)) / (3.75 - (-3.75)) = 3.75 / 7.5 = 0.5
+    expected_x = 0.3  # Normalized coordinate
+    expected_y = 0.5  # Normalized coordinate
 
-    print(f"Expected spawn: ({expected_x}, {expected_y})")
-    print(f"Actual spawn: ({initial_pos[0]:.2f}, {initial_pos[1]:.2f})")
+    print(f"Expected normalized spawn: ({expected_x}, {expected_y})")
+    print(f"Actual normalized spawn: ({initial_pos[0]:.2f}, {initial_pos[1]:.2f})")
 
     # Allow some tolerance for floating point
-    assert abs(initial_pos[0] - expected_x) < 0.5, f"X position {initial_pos[0]} != {expected_x}"
-    assert abs(initial_pos[1] - expected_y) < 0.5, f"Y position {initial_pos[1]} != {expected_y}"
+    assert abs(initial_pos[0] - expected_x) < 0.05, f"X position {initial_pos[0]} != {expected_x}"
+    assert abs(initial_pos[1] - expected_y) < 0.05, f"Y position {initial_pos[1]} != {expected_y}"
 
     print("✓ Custom level test passed!")
