@@ -62,13 +62,18 @@ def cpu_manager(request):
     # Check if test has a custom_level marker
     marker = request.node.get_closest_marker("custom_level")
     if marker:
-        # Get the ASCII level from the marker
-        ascii_level = marker.args[0] if marker.args else None
-        if ascii_level:
-            print(f"[DEBUG] Using custom ASCII level:\n{ascii_level}")
+        # Get the level data from the marker
+        level_data = marker.args[0] if marker.args else None
+        if level_data:
+            print(f"[DEBUG] Using custom ASCII level:\n{level_data}")
+            # Extract components from level dictionary
+            ascii_str = level_data["ascii"]
+            scale = level_data.get("scale", 2.5)
+            agent_facing = level_data.get("agent_facing", None)
+
             # Compile the ASCII level using the new wrapper
             compiled_level = compile_ascii_level(
-                ascii_level, scale=2.5, level_name="test_custom_level"
+                ascii_str, scale=scale, agent_facing=agent_facing, level_name="test_custom_level"
             )
             print(
                 f"[DEBUG] Compiled level: {compiled_level.num_tiles} tiles, "

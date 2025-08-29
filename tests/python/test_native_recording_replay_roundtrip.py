@@ -104,7 +104,7 @@ def test_roundtrip_trajectory_file_verification(cpu_manager):
         # Phase 2: Replay session with trajectory logging to different file
         import madrona_escape_room as mer
 
-        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
+        replay_mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
         replay_mgr.enable_trajectory_logging(world_idx=0, agent_idx=0, filename=replay_trace_path)
 
         for step in range(num_steps):
@@ -319,7 +319,7 @@ def test_roundtrip_edge_cases(cpu_manager):
         # Replay single step using new interface
         import madrona_escape_room as mer
 
-        replay_mgr = mer.SimManager.from_replay(short_path, mer.madrona.ExecMode.CPU)
+        replay_mgr = mer.SimManager.from_replay(short_path, mer.ExecMode.CPU)
 
         current, total = replay_mgr.get_replay_step_count()
         assert total == 1
@@ -346,7 +346,7 @@ def test_roundtrip_edge_cases(cpu_manager):
         # Should still be loadable using new interface
         import madrona_escape_room as mer
 
-        replay_mgr = mer.SimManager.from_replay(empty_path, mer.madrona.ExecMode.CPU)
+        replay_mgr = mer.SimManager.from_replay(empty_path, mer.ExecMode.CPU)
 
         current, total = replay_mgr.get_replay_step_count()
         assert total == 0
@@ -422,7 +422,7 @@ def test_action_sequence_detailed_validation(cpu_manager):
         # Replay and verify action sequence matches exactly
         import madrona_escape_room as mer
 
-        replay_mgr = mer.SimManager.from_replay(recording_path, mer.madrona.ExecMode.CPU)
+        replay_mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
 
         current, total = replay_mgr.get_replay_step_count()
         assert total == len(action_sequence), f"Expected {len(action_sequence)} steps, got {total}"
@@ -537,7 +537,7 @@ def test_action_data_corruption_detection(cpu_manager):
         import madrona_escape_room as mer
 
         # The replay should still load (corruption might not be detected at load time)
-        replay_mgr = mer.SimManager.from_replay(corrupted_path, mer.madrona.ExecMode.CPU)
+        replay_mgr = mer.SimManager.from_replay(corrupted_path, mer.ExecMode.CPU)
 
         # Verify we can detect the corruption by examining action values
         action_tensor = replay_mgr.action_tensor().to_torch()
@@ -730,7 +730,7 @@ def test_partial_file_replay_handling(cpu_manager):
         import madrona_escape_room as mer
 
         try:
-            replay_mgr = mer.SimManager.from_replay(partial_path, mer.madrona.ExecMode.CPU)
+            replay_mgr = mer.SimManager.from_replay(partial_path, mer.ExecMode.CPU)
 
             current, total = replay_mgr.get_replay_step_count()
             print(f"Partial file reports {total} steps")

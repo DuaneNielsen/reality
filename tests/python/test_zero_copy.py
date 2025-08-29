@@ -27,7 +27,7 @@ import madrona_escape_room
 def sim_manager():
     """Create a raw SimManager for testing"""
     return madrona_escape_room.SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=madrona_escape_room.ExecMode.CPU,
         gpu_id=-1,
         num_worlds=4,
         rand_seed=42,
