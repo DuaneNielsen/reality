@@ -136,7 +136,6 @@ ViewerCore::ViewerCore(const Config& cfg, Manager* mgr)
         state_machine_.startInitialPause();
         initial_pause_active_ = true;
         pause_start_time_ = std::chrono::steady_clock::now();
-        printf("DEBUG: Starting paused with delay = %.2f seconds\n", config_.pause_delay_seconds);
     }
 }
 

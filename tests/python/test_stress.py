@@ -4,12 +4,15 @@ Stress test for Madrona Escape Room using pytest.
 Tests the simulation with configurable iterations and world counts.
 """
 
+import logging
 import time
 
 import numpy as np
 import pytest
 
 import madrona_escape_room
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.stress
@@ -48,10 +51,10 @@ def test_stress_simulation(cpu_manager, iterations, num_worlds):
     assert actual_worlds >= 4, f"Expected at least 4 worlds, got {actual_worlds}"
     assert action_dims == 3, f"Expected 3 action dimensions, got {action_dims}"
 
-    print("\nRunning stress test:")
-    print(f"  Iterations: {iterations}")
-    print(f"  Worlds: {actual_worlds}")
-    print(f"  Agents per world: {agents}")
+    logger.info("\nRunning stress test:")
+    logger.info(f"  Iterations: {iterations}")
+    logger.info(f"  Worlds: {actual_worlds}")
+    logger.info(f"  Agents per world: {agents}")
 
     # Progress tracking
     report_interval = max(1, iterations // 10)  # Report 10 times
@@ -80,17 +83,17 @@ def test_stress_simulation(cpu_manager, iterations, num_worlds):
         if (i + 1) % report_interval == 0:
             elapsed = time.time() - start_time
             fps = (i + 1) * actual_worlds / elapsed
-            print(f"    Completed {i + 1}/{iterations} iterations - FPS: {fps:.0f}")
+            logger.info(f"    Completed {i + 1}/{iterations} iterations - FPS: {fps:.0f}")
 
     # Final timing and performance assertions
     total_time = time.time() - start_time
     total_steps = iterations * actual_worlds
     fps = total_steps / total_time
 
-    print(f"  ✅ Completed {iterations} iterations without crashes.")
-    print(f"  Total time: {total_time:.2f} seconds")
-    print(f"  Total steps: {total_steps:,} (iterations × worlds)")
-    print(f"  Average FPS: {fps:.0f}")
+    logger.info(f"  ✅ Completed {iterations} iterations without crashes.")
+    logger.info(f"  Total time: {total_time:.2f} seconds")
+    logger.info(f"  Total steps: {total_steps:,} (iterations × worlds)")
+    logger.info(f"  Average FPS: {fps:.0f}")
 
     # Performance assertions - should maintain reasonable FPS
     min_fps = 1000  # Minimum acceptable FPS for stress testing
@@ -113,7 +116,7 @@ def test_rapid_manager_creation():
     from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     num_iterations = 50
-    print(f"\nTesting rapid manager creation/destruction for {num_iterations} iterations")
+    logger.info(f"\nTesting rapid manager creation/destruction for {num_iterations} iterations")
 
     for i in range(num_iterations):
         # Create manager
@@ -135,9 +138,9 @@ def test_rapid_manager_creation():
         del mgr
 
         if (i + 1) % 10 == 0:
-            print(f"    Completed {i + 1}/{num_iterations} manager lifecycles")
+            logger.info(f"    Completed {i + 1}/{num_iterations} manager lifecycles")
 
-    print(f"  ✅ Successfully created/destroyed {num_iterations} managers")
+    logger.info(f"  ✅ Successfully created/destroyed {num_iterations} managers")
 
 
 @pytest.mark.stress
@@ -150,7 +153,7 @@ def test_extended_stress_simulation(cpu_manager):
     mgr = cpu_manager
     iterations = 2000
 
-    print(f"\nRunning extended stress test with {iterations} iterations")
+    logger.info(f"\nRunning extended stress test with {iterations} iterations")
 
     action_tensor = mgr.action_tensor()
     actions = action_tensor.to_numpy()
@@ -184,7 +187,9 @@ def test_extended_stress_simulation(cpu_manager):
         if (i + 1) % 200 == 0:
             avg_step_time = np.mean(step_times[-200:])
             fps = worlds / avg_step_time
-            print(f"    Iteration {i + 1}: avg step time {avg_step_time*1000:.2f}ms, FPS {fps:.0f}")
+            logger.info(
+                f"    Iteration {i + 1}: avg step time {avg_step_time*1000:.2f}ms, FPS {fps:.0f}"
+            )
 
     total_time = time.time() - start_time
     total_steps = iterations * worlds
@@ -195,10 +200,10 @@ def test_extended_stress_simulation(cpu_manager):
     min_step_time = np.min(step_times)
     max_step_time = np.max(step_times)
 
-    print("  ✅ Extended stress test completed!")
-    print(f"  Average FPS: {avg_fps:.0f}")
-    print(f"  Step time - avg: {avg_step_time*1000:.2f}ms")
-    print(f"  Step time - min: {min_step_time*1000:.2f}ms, max: {max_step_time*1000:.2f}ms")
+    logger.info("  ✅ Extended stress test completed!")
+    logger.info(f"  Average FPS: {avg_fps:.0f}")
+    logger.info(f"  Step time - avg: {avg_step_time*1000:.2f}ms")
+    logger.info(f"  Step time - min: {min_step_time*1000:.2f}ms, max: {max_step_time*1000:.2f}ms")
 
     # Assert performance is stable
     assert avg_fps >= 500, f"Extended test performance too slow: {avg_fps:.0f} FPS"

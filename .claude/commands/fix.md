@@ -25,10 +25,10 @@ Use the following process to fix the test:
 
 ```bash
 # Run specific test with verbose output
-uv run --group dev pytest tests/python/$ARGUMENTS -v --tb=short
+uv run pytest python/$ARGUMENTS -vs --log-cli-level=INFO
 
 # Or run with more detail
-uv run --group dev pytest tests/python/$ARGUMENTS -vv --tb=long
+uv run --group dev pytest tests/python/$ARGUMENTS -vs --tb=long --log-cli-level=DEBUG
 ```
 
 ## 2. Read the test code and create a summary

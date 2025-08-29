@@ -51,12 +51,8 @@ static void install_signal_handler() {
         sa.sa_flags = SA_SIGINFO;
         sigemptyset(&sa.sa_mask);
         
-        if (sigaction(SIGSEGV, &sa, nullptr) == 0) {
-            fprintf(stderr, "[DEBUG] Segfault handler installed\n");
-        }
-        if (sigaction(SIGILL, &sa, nullptr) == 0) {
-            fprintf(stderr, "[DEBUG] Illegal instruction handler installed\n");
-        }
+        sigaction(SIGSEGV, &sa, nullptr);
+        sigaction(SIGILL, &sa, nullptr);
         installed = true;
     }
 }
@@ -105,8 +101,7 @@ MER_Result mer_create_manager(
     // Install signal handler on first manager creation
     install_signal_handler();
     
-    uint32_t creation_num = g_manager_creation_count.fetch_add(1) + 1;
-    fprintf(stderr, "[DEBUG] Creating manager #%u\n", creation_num);
+    g_manager_creation_count.fetch_add(1);
     
     if (!out_handle || !config) {
         return MER_ERROR_NULL_POINTER;
@@ -196,9 +191,7 @@ MER_Result mer_destroy_manager(MER_ManagerHandle handle) {
         return MER_ERROR_NULL_POINTER;
     }
     
-    uint32_t destruction_num = g_manager_destruction_count.fetch_add(1) + 1;
-    fprintf(stderr, "[DEBUG] Destroying manager #%u (total destroyed: %u)\n", 
-            destruction_num, destruction_num);
+    g_manager_destruction_count.fetch_add(1);
     
     Manager* mgr = reinterpret_cast<Manager*>(handle);
     mgr->~Manager();

@@ -1,3 +1,5 @@
+@.claude/include/substitutions.md
+
 
 ---
 description: Create a git commit

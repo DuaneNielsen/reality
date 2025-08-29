@@ -1059,7 +1059,6 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
     
     impl_->recordedFrames = 0;
     impl_->isRecordingActive = true;
-    std::cout << "Recording to: " << filepath << " (with embedded level data)\n";
 }
 
 void Manager::stopRecording()
@@ -1077,11 +1076,7 @@ void Manager::stopRecording()
         impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
                                   sizeof(impl_->recordingMetadata));
         
-        printf("Recording complete: %u frames saved\n", impl_->recordedFrames);
-        printf("Metadata: %u worlds, seed %u\n", 
-               impl_->recordingMetadata.num_worlds, impl_->recordingMetadata.seed);
     } else {
-        printf("Recording cancelled: No frames were recorded\n");
     }
     
     impl_->recordingFile.close();
@@ -1141,9 +1136,6 @@ std::optional<madEscape::ReplayMetadata> Manager::readReplayMetadata(const std::
     }
     
     // Show replay information
-    std::cout << "Loaded replay: " << metadata.sim_name << " v" << metadata.version
-              << " - " << metadata.num_worlds << " worlds, " 
-              << metadata.num_steps << " steps, seed: " << metadata.seed << "\n";
     
     return metadata;
 }
@@ -1180,17 +1172,12 @@ bool Manager::loadReplay(const std::string& filepath)
     
     // TODO: Apply the embedded level to the manager/simulation
     // For now, just log that we read level data
-    std::cout << "Loaded embedded level: " << embeddedLevel.width << "x" << embeddedLevel.height 
-              << " with " << embeddedLevel.num_tiles << " tiles\n";
     
     // Read actions after embedded level data
     int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
     HeapArray<int32_t> actions(actions_size / sizeof(int32_t));
     replay_file.read((char *)actions.data(), actions_size);
     
-    std::cout << "Loaded replay: " << metadata.sim_name << " v" << metadata.version 
-              << " - " << metadata.num_worlds << " worlds, " << metadata.num_steps 
-              << " steps, seed: " << metadata.seed << "\n";
     
     impl_->replayData = ReplayData{metadata, std::move(actions)};
     impl_->currentReplayStep = 0;
