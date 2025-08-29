@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp" // Get madEscape types
+#include "mgr.hpp" // For ReplayMetadata
 #include "madrona_escape_room_c_api.h" // For MER_Result
 #include <madrona/exec_mode.hpp> // For madrona::ExecMode
 

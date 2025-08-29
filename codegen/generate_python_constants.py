@@ -16,6 +16,9 @@ import clang.native
 libclang_path = os.path.join(os.path.dirname(clang.native.__file__), "libclang.so")
 clang.cindex.Config.set_library_file(libclang_path)
 
+# Header files to process from src directory
+HEADER_FILES = ["consts.hpp", "types.hpp", "mgr.hpp", "asset_ids.hpp"]
+
 # Generation configuration - specifies what to generate and how
 GENERATION_CONFIG = {
     # Namespace classes to generate as Python classes
@@ -623,35 +626,43 @@ def main():
     if verbose:
         sys.argv.remove("--verbose")
 
-    if len(sys.argv) < 4 or len(sys.argv) > 5:
+    if len(sys.argv) != 2:
         print(
-            "Usage: generate_python_constants.py [--verbose] <consts.hpp> <types.hpp> "
-            "<output.py> [asset_ids.hpp]",
+            "Usage: generate_python_constants.py [--verbose] <output.py>",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    consts_path = sys.argv[1]
-    types_path = sys.argv[2]
-    output_path = sys.argv[3]
-    asset_ids_path = sys.argv[4] if len(sys.argv) > 4 else None
+    output_path = sys.argv[1]
 
-    # Check input files exist
-    if not os.path.exists(consts_path):
-        print(f"Error: {consts_path} not found", file=sys.stderr)
+    # Determine src directory (assume script is in codegen/ and src is ../src)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.join(script_dir, "..", "src")
+
+    # Build full paths and check files exist
+    header_paths = []
+    for header in HEADER_FILES:
+        full_path = os.path.join(src_dir, header)
+        if os.path.exists(full_path):
+            header_paths.append(full_path)
+            print(f"Processing: {header}", file=sys.stderr)
+        else:
+            print(f"Warning: {header} not found at {full_path}, skipping", file=sys.stderr)
+
+    if not header_paths:
+        print("Error: No header files found to process", file=sys.stderr)
         sys.exit(1)
 
-    if not os.path.exists(types_path):
-        print(f"Error: {types_path} not found", file=sys.stderr)
-        sys.exit(1)
-
-    if asset_ids_path:
-        print(f"Parsing {consts_path}, {types_path}, and {asset_ids_path}...", file=sys.stderr)
-    else:
-        print(f"Parsing {consts_path} and {types_path}...", file=sys.stderr)
-
-    # Extract constants
+    # Extract constants from all headers
     extractor = ConstantExtractor(verbose=verbose)
+
+    # Pass the first available header paths to the existing method
+    # (The method will handle None values gracefully)
+    consts_path = header_paths[0] if len(header_paths) > 0 else None
+    types_path = header_paths[1] if len(header_paths) > 1 else None
+    asset_ids_path = header_paths[3] if len(header_paths) > 3 else None  # Skip mgr.hpp at index 2
+
+    # Parse the headers
     extractor.parse_headers(consts_path, types_path, asset_ids_path)
 
     # Generate Python code

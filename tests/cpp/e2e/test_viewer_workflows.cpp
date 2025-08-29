@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "viewer_test_base.hpp"
 #include "mock_components.hpp"
-#include "replay_loader.hpp"
+#include "mgr.hpp"
 #include <thread>
 #include <chrono>
 #include <cstring>
