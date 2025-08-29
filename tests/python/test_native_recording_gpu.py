@@ -6,9 +6,11 @@ Test native C++ recording/replay functionality on GPU.
 import os
 import tempfile
 
+import pytest
 import torch
 
 
+@pytest.mark.slow
 def test_gpu_recording_basic(gpu_manager):
     """Test basic recording functionality on GPU"""
     mgr = gpu_manager
@@ -46,6 +48,7 @@ def test_gpu_recording_basic(gpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.slow
 def test_gpu_replay_basic(gpu_manager):
     """Test basic replay functionality on GPU"""
     mgr = gpu_manager
@@ -93,6 +96,7 @@ def test_gpu_replay_basic(gpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.slow
 def test_gpu_recording_replay_roundtrip(gpu_manager):
     """Test recording and replay round-trip on GPU"""
     mgr = gpu_manager

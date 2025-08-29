@@ -50,6 +50,7 @@ def test_cpu_manager(cpu_manager):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.slow
 def test_gpu_manager(gpu_manager):
     """Test GPU manager operations using session fixture"""
     print("\n=== Testing GPU Manager ===")

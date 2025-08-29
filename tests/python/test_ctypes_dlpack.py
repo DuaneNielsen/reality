@@ -80,6 +80,7 @@ def test_cpu_dlpack(cpu_manager):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.slow
 def test_gpu_dlpack(gpu_manager):
     """Test GPU DLPack functionality"""
     print("\n=== Testing GPU DLPack ===")

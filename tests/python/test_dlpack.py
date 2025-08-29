@@ -92,6 +92,7 @@ def test_dlpack_device_info(cpu_manager):
     assert device_id == 0, "CPU device ID should be 0"
 
 
+@pytest.mark.slow
 def test_dlpack_gpu_tensor(gpu_manager):
     """Test DLPack with GPU tensors"""
     # Get GPU tensor

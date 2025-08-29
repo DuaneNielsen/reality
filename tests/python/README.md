@@ -43,6 +43,9 @@ This directory contains the Python test suite for the Madrona Escape Room enviro
 - **test_torchrl_env_wrapper.py** - TorchRL environment wrapper tests
 - **test_torchrl_zero_copy.py** - TorchRL zero-copy tensor operations
 
+### Performance and Stress Tests
+- **test_stress.py** - Stress testing with configurable iterations and world counts
+
 ### MCP Integration Tests
 - **test_fastmcp_madrona_repl.py** - Fast MCP Madrona REPL integration tests
 
@@ -54,34 +57,52 @@ This directory contains the Python test suite for the Madrona Escape Room enviro
 ### Basic Test Execution
 ```bash
 # Run all tests
-pytest tests/python/
+uv run --group dev pytest tests/python/
 
 # Run specific test file
-pytest tests/python/test_bindings.py
+uv run --group dev pytest tests/python/test_bindings.py
 
 # Run with verbose output
-pytest tests/python/ -v
+uv run --group dev pytest tests/python/ -v
 ```
 
 ### Recording and Visualization
 ```bash
 # Record actions during tests for later replay
-pytest tests/python/ --record-actions
+uv run --group dev pytest tests/python/ --record-actions
 
 # Record and automatically launch viewer
-pytest tests/python/ --record-actions --visualize
+uv run --group dev pytest tests/python/ --record-actions --visualize
 
 # Enable trajectory logging to files
-pytest tests/python/ --trace-trajectories
+uv run --group dev pytest tests/python/ --trace-trajectories
 ```
 
 ### GPU Testing
 ```bash
 # Skip GPU tests if CUDA unavailable
-pytest tests/python/ --no-gpu
+uv run --group dev pytest tests/python/ --no-gpu
 
-# Run only GPU tests
-pytest tests/python/ -k "gpu"
+# Run only GPU tests (expect ~60s NVRTC compilation on first GPU test)
+uv run --group dev pytest tests/python/ -k "gpu" -v
+
+# GPU tests are marked as 'slow' due to NVRTC compilation time
+uv run --group dev pytest tests/python/ -m "slow" -k "gpu"
+```
+
+### Performance and Stress Testing
+```bash
+# Run only stress tests
+uv run --group dev pytest tests/python/ -k "stress" -v
+
+# Run quick tests (skip slow stress tests and GPU tests)  
+uv run --group dev pytest tests/python/ -m "not slow" 
+
+# Run all stress tests including slow ones
+uv run --group dev pytest tests/python/test_stress.py -v
+
+# Stress test with action recording for analysis
+uv run --group dev pytest tests/python/test_stress.py --record-actions -v
 ```
 
 ## Key Features

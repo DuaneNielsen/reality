@@ -46,6 +46,7 @@ def test_cpu_simple(cpu_manager):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.slow
 def test_gpu_simple(gpu_manager):
     """Simple GPU test"""
     print("\n=== Testing GPU DLPack (Simple) ===")

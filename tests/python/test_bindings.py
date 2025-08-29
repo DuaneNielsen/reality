@@ -34,6 +34,7 @@ def test_cpu_manager_exists(cpu_manager):
     assert cpu_manager is not None
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_gpu_manager_exists(gpu_manager):
     """Test that GPU manager was created successfully"""
@@ -164,6 +165,7 @@ def test_multiple_steps(cpu_manager):
     assert not dones.all(), "Some episodes should still be running"
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_gpu_tensors(gpu_manager):
     """Test GPU tensor functionality"""
