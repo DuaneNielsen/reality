@@ -9,10 +9,8 @@ requires-python = ">=3.10"
 dependencies = [
     "torch>=2.7.0",
     "numpy>=1.20.0",
-    "libclang>=18.1.1",  # Required for Python code generation from C++ headers
-    "clangd-tidy>=1.1.0.post2",  # Used in git post-commit hooks
+    "cdataclass"
 ]
-
 
 # Removed madrona-specific configuration
 # The package is now built using standard setuptools
@@ -36,4 +34,5 @@ dev = [
     "validate-pyproject",
     "ruff",
     "pre-commit",
+    "clangd-tidy>=1.1.0.post2",  # Used in git post-commit hooks
 ]
