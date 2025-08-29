@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "viewer_test_base.hpp"
-#include "/home/duane/madrona_escape_room/tests/cpp/fixtures/compiled_level_compat.hpp"
+#include "compiled_level_compat.hpp"
 #include "madrona_escape_room_c_api.h"
 #include <fstream>
 #include <cstring>
