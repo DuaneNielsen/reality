@@ -7,6 +7,10 @@
 #include <cstring>
 #include "../../../src/consts.hpp"
 
+// GoogleTest stdout capture for clean test output
+using testing::internal::CaptureStdout;
+using testing::internal::GetCapturedStdout;
+
 using namespace madEscape::consts::action;
 
 // These tests simulate viewer-like workflows but primarily test Manager API
@@ -188,6 +192,9 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerRecordingSession) {
 
 // Full replay verification workflow
 TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     // Phase 1: Record a session
     // Use the properly generated default level with correct world boundaries
     // Add all test files to cleanup - they'll be deleted when test ends
@@ -297,10 +304,18 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
             EXPECT_NEAR(original_trajectory[i].rotation, replay_trajectory[i].rotation, 0.1f);
         }
     }
+    
+    // Get captured output and verify trajectory logging occurred
+    std::string captured_output = GetCapturedStdout();
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
 }
 
 // Live simulation with tracking workflow
 TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     // Use default level for trajectory tracking
     file_manager_->addFile("live_trajectory.csv");
     
@@ -410,6 +425,11 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
         }
     }
     EXPECT_TRUE(found_world2_reset);
+    
+    // Get captured output and verify trajectory logging occurred
+    std::string captured_output = GetCapturedStdout();
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
 }
 
 // Complex multi-world scenario

@@ -7,11 +7,10 @@ enable_testing()
 # in external/madrona/external/CMakeLists.txt with proper toolchain linking.
 # We just need to use the gtest_main target that Madrona provides.
 
-# Collect test source files
-set(TEST_SOURCES
+# Collect CPU test source files (tests that don't require GPU)
+set(CPU_TEST_SOURCES
     fixtures/test_base.cpp
     unit/test_c_api_cpu.cpp
-    unit/test_c_api_gpu.cpp
     unit/test_option_parser.cpp
     unit/test_level_utilities.cpp
     unit/test_recording_utilities.cpp
@@ -23,17 +22,28 @@ set(TEST_SOURCES
     unit/test_persistence.cpp
     integration/test_viewer_integration.cpp
     integration/test_viewer_input.cpp
-    integration/test_viewer_errors.cpp
+    integration/test_viewer_errors.cpp  # Has mixed tests but GPU test will skip gracefully
     e2e/test_viewer_workflows.cpp
     test_asset_registry.cpp
 )
 
-# Create test executable
-add_executable(mad_escape_tests
-    ${TEST_SOURCES}
+# Collect GPU test source files (tests that require GPU)
+set(GPU_TEST_SOURCES
+    fixtures/test_base.cpp
+    unit/test_c_api_gpu.cpp
 )
 
-# Include directories for test fixtures
+# Create CPU test executable
+add_executable(mad_escape_tests
+    ${CPU_TEST_SOURCES}
+)
+
+# Create GPU test executable
+add_executable(mad_escape_gpu_tests
+    ${GPU_TEST_SOURCES}
+)
+
+# Include directories for CPU test fixtures
 target_include_directories(mad_escape_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
     ${CMAKE_SOURCE_DIR}/src
@@ -41,7 +51,15 @@ target_include_directories(mad_escape_tests PRIVATE
     ${CMAKE_BINARY_DIR}  # For default_level_data.h
 )
 
-# Link libraries
+# Include directories for GPU test fixtures
+target_include_directories(mad_escape_gpu_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external/optionparser
+    ${CMAKE_BINARY_DIR}  # For default_level_data.h
+)
+
+# Link libraries for CPU tests
 target_link_libraries(mad_escape_tests
     PRIVATE
         madrona_escape_room_c_api
@@ -51,14 +69,36 @@ target_link_libraries(mad_escape_tests
         gtest
 )
 
-# Match project compile options (no RTTI, no exceptions)
+# Link libraries for GPU tests
+target_link_libraries(mad_escape_gpu_tests
+    PRIVATE
+        madrona_escape_room_c_api
+        mad_escape_mgr
+        viewer_core
+        gtest_main
+        gtest
+)
+
+# Match project compile options (no RTTI, no exceptions) for CPU tests
 target_compile_options(mad_escape_tests PRIVATE
     -fno-rtti
     -fno-exceptions
 )
 
-# Set C++ standard (need C++20 for Madrona headers)
+# Match project compile options (no RTTI, no exceptions) for GPU tests
+target_compile_options(mad_escape_gpu_tests PRIVATE
+    -fno-rtti
+    -fno-exceptions
+)
+
+# Set C++ standard (need C++20 for Madrona headers) for CPU tests
 set_target_properties(mad_escape_tests PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Set C++ standard (need C++20 for Madrona headers) for GPU tests
+set_target_properties(mad_escape_gpu_tests PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
 )
@@ -77,18 +117,36 @@ set_target_properties(mad_escape_tests PROPERTIES
     INSTALL_RPATH "$ORIGIN:${LIBCXX_PATH}:${CMAKE_BINARY_DIR}"
 )
 
-# Register tests with CTest but don't auto-discover (requires running the executable)
-# Tests will be discovered at runtime instead
+set_target_properties(mad_escape_gpu_tests PROPERTIES
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH_USE_LINK_PATH TRUE
+    INSTALL_RPATH "$ORIGIN:${LIBCXX_PATH}:${CMAKE_BINARY_DIR}"
+)
+
+# Register CPU tests with CTest
 add_test(NAME mad_escape_tests 
          COMMAND mad_escape_tests
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
-# Add custom target for running C++ tests only
+# Register GPU tests with CTest
+add_test(NAME mad_escape_gpu_tests 
+         COMMAND mad_escape_gpu_tests
+         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+# Add custom target for running CPU tests only
 add_custom_target(run_cpp_tests
     COMMAND ${CMAKE_CTEST_COMMAND} --label-regex cpp --output-on-failure
     DEPENDS mad_escape_tests
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Running C++ tests..."
+    COMMENT "Running CPU tests..."
+)
+
+# Add custom target for running GPU tests only
+add_custom_target(run_gpu_tests
+    COMMAND ${CMAKE_CTEST_COMMAND} -R mad_escape_gpu_tests --output-on-failure
+    DEPENDS mad_escape_gpu_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running GPU tests..."
 )
 
 # Add custom target for running CPU tests only

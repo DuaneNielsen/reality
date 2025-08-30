@@ -5,6 +5,10 @@
 #include <chrono>
 #include "../../../src/consts.hpp"
 
+// For capturing stdout/stderr output in tests
+using testing::internal::CaptureStdout;
+using testing::internal::GetCapturedStdout;
+
 using namespace madEscape::consts::action;
 
 // These tests primarily test the Manager C API and MockViewer behavior,
@@ -119,6 +123,9 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
     
     // Replay phase - just test metadata reading
     {
+        // Capture stdout to suppress metadata output
+        CaptureStdout();
+        
         // Read metadata first
         MER_ReplayMetadata metadata;
         ASSERT_EQ(mer_read_replay_metadata("test.rec", &metadata), MER_SUCCESS);
@@ -128,6 +135,10 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
         // Skip the actual replay part for now to isolate the metadata reading test
         std::cout << "Successfully read metadata: " << metadata.num_worlds 
                   << " worlds, seed " << metadata.seed << std::endl;
+        
+        // Get captured output 
+        std::string captured_output = GetCapturedStdout();
+        EXPECT_TRUE(captured_output.find("Successfully read metadata") != std::string::npos);
     }
     
     // Now we can safely clean up the recording file
@@ -136,6 +147,9 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
 
 // Test trajectory tracking
 TEST_F(ManagerIntegrationTest, ManagerTrajectoryLogging) {
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     createTestLevelFile("test.lvl", 16, 16);
     file_manager_->addFile("test.lvl");
     file_manager_->addFile("trajectory.csv");
@@ -173,6 +187,11 @@ TEST_F(ManagerIntegrationTest, ManagerTrajectoryLogging) {
         EXPECT_EQ(point.world, 0);
         EXPECT_EQ(point.agent, 0);
     }
+    
+    // Get captured output and verify trajectory logging occurred
+    std::string captured_output = GetCapturedStdout();
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
 }
 
 // Test pause/resume functionality
@@ -315,6 +334,9 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
     
     viewer.setFrameLimit(5);
     
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     // Test enabling trajectory
     viewer.setCurrentWorld(1);
     input.hitKey(MockViewer::KeyboardKey::T);
@@ -362,6 +384,12 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
         [&]() { mgr.step(); },
         []() {}
     );
+    
+    // Get and optionally verify the captured output
+    std::string captured_output = GetCapturedStdout();
+    // We expect the output to contain trajectory logging messages
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
     
     EXPECT_FALSE(mgr.isTrajectoryEnabled());
 }

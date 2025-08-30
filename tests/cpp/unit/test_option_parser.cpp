@@ -2,6 +2,10 @@
 #include "viewer_test_base.hpp"
 #include "optionparser.h"
 
+// GoogleTest stderr capture for clean test output
+using testing::internal::CaptureStderr;
+using testing::internal::GetCapturedStderr;
+
 // Include the option parser definitions from viewer.cpp
 namespace ArgChecker {
     static option::ArgStatus Required(const option::Option& option, bool msg) {
@@ -223,11 +227,18 @@ TEST_F(OptionParserTest, NumericWorldCount) {
 }
 
 TEST_F(OptionParserTest, InvalidNumericArgument) {
+    // Capture stderr to suppress option parser error messages
+    CaptureStderr();
+    
     auto args = buildViewerArgs({"viewer", "--load", "test.lvl", "--num-worlds", "abc"});
     auto options = parseArgs(args);
     
     // Parser should catch this as invalid and return nullptr (error state)
     ASSERT_EQ(options, nullptr);
+    
+    // Verify error message was captured
+    std::string captured_stderr = GetCapturedStderr();
+    EXPECT_TRUE(captured_stderr.find("requires a numeric argument") != std::string::npos);
 }
 
 // Test short options
@@ -263,17 +274,31 @@ TEST_F(OptionParserTest, HideMenuOption) {
 
 // Test missing required arguments
 TEST_F(OptionParserTest, MissingLoadArgument) {
+    // Capture stderr to suppress option parser error messages
+    CaptureStderr();
+    
     auto args = buildViewerArgs({"viewer", "--load"});
     auto options = parseArgs(args);
     
     // Parser should catch missing required argument and return nullptr
     ASSERT_EQ(options, nullptr);
+    
+    // Verify error message was captured
+    std::string captured_stderr = GetCapturedStderr();
+    EXPECT_TRUE(captured_stderr.find("requires an argument") != std::string::npos);
 }
 
 TEST_F(OptionParserTest, MissingRecordArgument) {
+    // Capture stderr to suppress option parser error messages
+    CaptureStderr();
+    
     auto args = buildViewerArgs({"viewer", "--record"});
     auto options = parseArgs(args);
     
     // Parser should catch missing required argument and return nullptr
     ASSERT_EQ(options, nullptr);
+    
+    // Verify error message was captured
+    std::string captured_stderr = GetCapturedStderr();
+    EXPECT_TRUE(captured_stderr.find("requires an argument") != std::string::npos);
 }

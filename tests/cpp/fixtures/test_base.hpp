@@ -96,13 +96,6 @@ protected:
         MadronaTestBase::SetUp();
         config.exec_mode = MER_EXEC_MODE_CUDA;
         
-        // Check for environment variable to allow GPU tests
-        const char* allow_gpu = std::getenv("ALLOW_GPU_TESTS_IN_SUITE");
-        if (!allow_gpu || std::string(allow_gpu) != "1") {
-            GTEST_SKIP() << "GPU tests disabled in main suite due to one-GPU-manager-per-process limitation.\n"
-                        << "Run with ALLOW_GPU_TESTS_IN_SUITE=1 or use ./tests/run_gpu_tests_isolated.sh";
-        }
-        
         // Check if CUDA is available (only check once for all tests)
         if (!cuda_available_checked) {
             cuda_available_checked = true;
@@ -110,7 +103,7 @@ protected:
         }
         
         if (!cuda_available) {
-            GTEST_SKIP() << "CUDA not available, skipping GPU test";
+            GTEST_SKIP() << "CUDA not available on this system";
         }
         
         // Lock the mutex for this test - will be released in TearDown

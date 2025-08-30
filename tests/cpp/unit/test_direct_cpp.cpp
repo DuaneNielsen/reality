@@ -1,6 +1,10 @@
 #include "cpp_test_base.hpp"
 #include "sim.hpp"
 
+// For capturing stdout/stderr output in tests
+using testing::internal::CaptureStdout;
+using testing::internal::GetCapturedStdout;
+
 using namespace madEscape;
 
 class DirectCppTest : public MadronaCppTestBase {};
@@ -76,6 +80,9 @@ TEST_F(DirectViewerCoreTest, CreateViewerCore) {
 }
 
 TEST_F(DirectViewerCoreTest, TrajectoryTracking) {
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     ASSERT_TRUE(CreateManager());
     ASSERT_TRUE(CreateViewer());
     
@@ -91,6 +98,11 @@ TEST_F(DirectViewerCoreTest, TrajectoryTracking) {
     // Disable trajectory tracking
     viewer->toggleTrajectoryTracking(0);
     EXPECT_FALSE(viewer->isTrackingTrajectory(0));
+    
+    // Get captured output and verify trajectory logging occurred
+    std::string captured_output = GetCapturedStdout();
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
 }
 
 // Parameterized test for different world counts
