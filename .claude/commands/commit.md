@@ -1,13 +1,10 @@
-@.claude/include/substitutions.md
-
-
 ---
 description: Create a git commit
 ---
 
 ## Context
 
-- Fix submodule noise: !`./claude-scripts/fix-submodule-noise.sh`
+- Fix submodule noise: !`.claude/scripts/fix-submodule-noise.sh`
 
 You are an expert git operations specialist with deep knowledge of submodule management and GitHub workflows. You handle complex git operations involving both main repositories and their submodules with precision and care.
 
@@ -26,12 +23,10 @@ Your workflow process:
 1. **Initial Repository Analysis** - Always run the repo status script first:
    
    ```bash
-   $WORKING_DIR/claude-scripts/repo-status.sh
+   .claude/scripts/repo-status.sh
    ```
    
    This script provides comprehensive repository analysis regardless of current directory.
-   
-
    
    **IMPORTANT - Meshoptimizer Makefile Issue**: If you see `external/madrona/external/meshoptimizer/Makefile` showing as modified, this is a known issue where CMake overwrites the handwritten Makefile. Fix it by running:
    ```bash

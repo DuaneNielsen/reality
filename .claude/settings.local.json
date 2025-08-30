@@ -8,6 +8,9 @@
       "Bash(git submodule:*)",
       "Bash(git -C external/*)",
       "Bash(git -C /home/duane/madrona_escape_room ls-files)",
+      "Bash(.claude/scripts/fix-submodule-noise.sh)",
+      "Bash(.claude/scripts/repo-status.sh)",
+      "Bash(uv run python .claude/scripts/hello.py)",
       "mcp__gdb__gdb_set_breakpoint",
       "mcp__gdb__gdb_command",
       "mcp__gdb__gdb_print",
@@ -114,7 +117,9 @@
       "Bash(git config:*)",
       "Bash(git pull:*)",
       "Bash(git -C external/madrona status --porcelain)",
-      "Bash(./claude-scripts/fix-submodule-noise.sh:*)"
+      "Bash(./claude-scripts/fix-submodule-noise.sh:*)",
+      "Bash(./tests/quick_pytest.sh)",
+      "Bash(/home/duane/madrona_escape_room/.claude/scripts/repo-status.sh:*)"
     ],
     "deny": []
   },
