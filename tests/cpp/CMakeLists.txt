@@ -33,6 +33,12 @@ set(GPU_TEST_SOURCES
     unit/test_manager_gpu.cpp
 )
 
+# Collect GPU stress test source files (expensive tests with long compilation times)
+set(GPU_STRESS_TEST_SOURCES
+    fixtures/test_base.cpp
+    unit/test_manager_gpu_stress.cpp
+)
+
 # Create CPU test executable
 add_executable(mad_escape_tests
     ${CPU_TEST_SOURCES}
@@ -41,6 +47,11 @@ add_executable(mad_escape_tests
 # Create GPU test executable
 add_executable(mad_escape_gpu_tests
     ${GPU_TEST_SOURCES}
+)
+
+# Create GPU stress test executable
+add_executable(mad_escape_gpu_stress_tests
+    ${GPU_STRESS_TEST_SOURCES}
 )
 
 # Include directories for CPU test fixtures
@@ -53,6 +64,14 @@ target_include_directories(mad_escape_tests PRIVATE
 
 # Include directories for GPU test fixtures
 target_include_directories(mad_escape_gpu_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/external/optionparser
+    ${CMAKE_BINARY_DIR}  # For default_level_data.h
+)
+
+# Include directories for GPU stress test fixtures
+target_include_directories(mad_escape_gpu_stress_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/external/optionparser
@@ -79,6 +98,16 @@ target_link_libraries(mad_escape_gpu_tests
         gtest
 )
 
+# Link libraries for GPU stress tests
+target_link_libraries(mad_escape_gpu_stress_tests
+    PRIVATE
+        madrona_escape_room_c_api
+        mad_escape_mgr
+        viewer_core
+        gtest_main
+        gtest
+)
+
 # Match project compile options (no RTTI, no exceptions) for CPU tests
 target_compile_options(mad_escape_tests PRIVATE
     -fno-rtti
@@ -91,6 +120,12 @@ target_compile_options(mad_escape_gpu_tests PRIVATE
     -fno-exceptions
 )
 
+# Match project compile options (no RTTI, no exceptions) for GPU stress tests
+target_compile_options(mad_escape_gpu_stress_tests PRIVATE
+    -fno-rtti
+    -fno-exceptions
+)
+
 # Set C++ standard (need C++20 for Madrona headers) for CPU tests
 set_target_properties(mad_escape_tests PROPERTIES
     CXX_STANDARD 20
@@ -99,6 +134,12 @@ set_target_properties(mad_escape_tests PROPERTIES
 
 # Set C++ standard (need C++20 for Madrona headers) for GPU tests
 set_target_properties(mad_escape_gpu_tests PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Set C++ standard (need C++20 for Madrona headers) for GPU stress tests
+set_target_properties(mad_escape_gpu_stress_tests PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
 )
@@ -123,6 +164,12 @@ set_target_properties(mad_escape_gpu_tests PROPERTIES
     INSTALL_RPATH "$ORIGIN:${LIBCXX_PATH}:${CMAKE_BINARY_DIR}"
 )
 
+set_target_properties(mad_escape_gpu_stress_tests PROPERTIES
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH_USE_LINK_PATH TRUE
+    INSTALL_RPATH "$ORIGIN:${LIBCXX_PATH}:${CMAKE_BINARY_DIR}"
+)
+
 # Register CPU tests with CTest
 add_test(NAME mad_escape_tests 
          COMMAND mad_escape_tests
@@ -133,6 +180,11 @@ add_test(NAME mad_escape_gpu_tests
          COMMAND mad_escape_gpu_tests
          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+# Register GPU stress tests with CTest
+add_test(NAME mad_escape_gpu_stress_tests 
+         COMMAND mad_escape_gpu_stress_tests
+         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
 # Add custom target for running CPU tests only
 add_custom_target(run_cpp_tests
     COMMAND ${CMAKE_CTEST_COMMAND} --label-regex cpp --output-on-failure
@@ -141,12 +193,20 @@ add_custom_target(run_cpp_tests
     COMMENT "Running CPU tests..."
 )
 
-# Add custom target for running GPU tests only
+# Add custom target for running GPU tests only (fast tests)
 add_custom_target(run_gpu_tests
     COMMAND ${CMAKE_CTEST_COMMAND} -R mad_escape_gpu_tests --output-on-failure
     DEPENDS mad_escape_gpu_tests
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Running GPU tests..."
+    COMMENT "Running GPU tests (fast)..."
+)
+
+# Add custom target for running GPU stress tests only (slow tests)
+add_custom_target(run_gpu_stress_tests
+    COMMAND ${CMAKE_CTEST_COMMAND} -R mad_escape_gpu_stress_tests --output-on-failure
+    DEPENDS mad_escape_gpu_stress_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running GPU stress tests (slow)..."
 )
 
 # Add custom target for running CPU tests only
