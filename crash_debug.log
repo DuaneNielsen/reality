@@ -1,8 +1,0 @@
-Fatal Python error: Segmentation fault
-
-Thread 0x00007f560e041080 (most recent call first):
-  File "/home/duane/madrona_escape_room/madrona_escape_room/ctypes_bindings.py", line 192 in create_manager_with_levels
-  File "/home/duane/madrona_escape_room/madrona_escape_room/manager.py", line 79 in __init__
-  File "/home/duane/madrona_escape_room/debug_crash_loop.py", line 35 in <module>
-
-Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg (total: 2)

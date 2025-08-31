@@ -1,8 +1,0 @@
-handle SIGILL stop print
-run test_loop.py
-bt
-bt full
-disassemble
-info registers
-x/10i $pc
-quit

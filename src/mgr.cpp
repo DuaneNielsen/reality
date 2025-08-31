@@ -124,7 +124,6 @@ struct Manager::Impl {
     bool enableTrajectoryLogging = false;
     int32_t trackWorldIdx = -1;
     int32_t trackAgentIdx = -1;
-    uint32_t stepCount = 0;
     FILE* trajectoryLogFile = nullptr;
     
     // Replay state
@@ -721,6 +720,7 @@ void Manager::step()
         auto self_obs = selfObservationTensor();
         auto progress = progressTensor();
         auto done = doneTensor();
+        auto steps_remaining = stepsRemainingTensor();
         
         // Calculate index for the specific agent
         int32_t idx = impl_->trackWorldIdx * madEscape::consts::numAgents + impl_->trackAgentIdx;
@@ -729,6 +729,7 @@ void Manager::step()
         const SelfObservation* obs_data;
         const float* progress_data;
         const int32_t* done_data;
+        const uint32_t* steps_remaining_data;
         
         if (impl_->cfg.execMode == ExecMode::CUDA) {
 #ifdef MADRONA_CUDA_SUPPORT
@@ -736,6 +737,7 @@ void Manager::step()
             SelfObservation host_obs;
             float host_progress;
             int32_t host_done;
+            uint32_t host_steps_remaining;
             
             cudaMemcpy(&host_obs, 
                       ((const SelfObservation*)self_obs.devicePtr()) + idx,
@@ -749,22 +751,50 @@ void Manager::step()
                       ((const int32_t*)done.devicePtr()) + idx,
                       sizeof(int32_t),
                       cudaMemcpyDeviceToHost);
+            cudaMemcpy(&host_steps_remaining,
+                      ((const uint32_t*)steps_remaining.devicePtr()) + idx,
+                      sizeof(uint32_t),
+                      cudaMemcpyDeviceToHost);
             
             obs_data = &host_obs;
             progress_data = &host_progress;
             done_data = &host_done;
+            steps_remaining_data = &host_steps_remaining;
 #endif
         } else {
             // For CPU, direct access
             obs_data = ((const SelfObservation*)self_obs.devicePtr()) + idx;
             progress_data = ((const float*)progress.devicePtr()) + idx;
             done_data = ((const int32_t*)done.devicePtr()) + idx;
+            steps_remaining_data = ((const uint32_t*)steps_remaining.devicePtr()) + idx;
         }
         
-        // Log trajectory to file or stdout
+        // Calculate current episode step from steps remaining
+        // Handle underflow case where steps_remaining wraps around after episode ends
+        uint32_t current_step;
+        if (*steps_remaining_data > madEscape::consts::episodeLen) {
+            // Underflow occurred - calculate how far past the end we are
+            // When underflow happens, steps_remaining = UINT32_MAX - (steps_past_end - 1)
+            uint32_t steps_past_end = UINT32_MAX - *steps_remaining_data + 1;
+            current_step = madEscape::consts::episodeLen + steps_past_end;
+        } else {
+            current_step = madEscape::consts::episodeLen - *steps_remaining_data + 1;
+        }
+        
+        // Log trajectory to file or stdout  
         FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
-        fprintf(output, "Step %4u: World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f done=%d\n",
-                impl_->stepCount++,
+        uint32_t remaining_display = (*steps_remaining_data > madEscape::consts::episodeLen) ? 0 : *steps_remaining_data;
+        
+        // DEBUG: Trace the done flag issue
+        if (*steps_remaining_data == madEscape::consts::episodeLen && *done_data == 1) {
+            fprintf(output, "DEBUG: Episode reset detected but done=1! steps_remaining=%u, done=%d\n", 
+                    *steps_remaining_data, *done_data);
+        }
+        
+        
+        fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f done=%d\n",
+                current_step,
+                remaining_display,
                 impl_->trackWorldIdx,
                 impl_->trackAgentIdx,
                 obs_data->globalX,
@@ -956,7 +986,7 @@ void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std:
     
     // Validate agent index
     if (agent_idx < 0 || agent_idx >= madEscape::consts::numAgents) {
-        fprintf(stderr, "ERROR: Invalid agent_idx: %d. Must be between 0 and %ld\n", 
+        fprintf(stderr, "ERROR: Invalid agent_idx: %d. Must be between 0 and %d\n", 
                 agent_idx, madEscape::consts::numAgents - 1);
         return;
     }
@@ -984,7 +1014,6 @@ void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std:
     impl_->enableTrajectoryLogging = true;
     impl_->trackWorldIdx = world_idx;
     impl_->trackAgentIdx = agent_idx;
-    impl_->stepCount = 0;
 }
 
 void Manager::disableTrajectoryLogging()

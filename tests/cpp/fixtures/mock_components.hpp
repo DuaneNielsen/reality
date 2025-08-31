@@ -236,7 +236,6 @@ public:
     int getFramesProcessed() const { return frames_processed_; }
     
 private:
-    uint32_t num_worlds_;
     uint32_t current_world_;
     bool is_running_;
     InputSimulator input_sim_;

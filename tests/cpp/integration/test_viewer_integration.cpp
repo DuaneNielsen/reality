@@ -211,12 +211,12 @@ TEST_F(ManagerIntegrationTest, MockViewerPauseResume) {
     viewer.setFrameLimit(10);
     
     viewer.loop(
-        [&](int32_t world_idx, const MockViewer::UserInput& user_input) {
+        [&](int32_t world_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {
             if (user_input.keyHit(MockViewer::KeyboardKey::Space)) {
                 is_paused = !is_paused;
             }
         },
-        [&](int32_t world_idx, int32_t agent_idx, const MockViewer::UserInput& user_input) {
+        [&](int32_t world_idx, [[maybe_unused]] int32_t agent_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {
             // Agent control (not used in this test)
         },
         [&]() {
@@ -233,12 +233,12 @@ TEST_F(ManagerIntegrationTest, MockViewerPauseResume) {
     viewer.setFrameLimit(5);
     
     viewer.loop(
-        [&](int32_t world_idx, const MockViewer::UserInput& user_input) {
+        [&](int32_t world_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {
             if (user_input.keyHit(MockViewer::KeyboardKey::Space)) {
                 is_paused = !is_paused;
             }
         },
-        [&](int32_t world_idx, int32_t agent_idx, const MockViewer::UserInput& user_input) {},
+        [&](int32_t world_idx, [[maybe_unused]] int32_t agent_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {},
         [&]() {
             if (!is_paused) {
                 mgr.step();
@@ -256,8 +256,8 @@ TEST_F(ManagerIntegrationTest, MockViewerPauseResume) {
     is_paused = true;  // Ensure paused
     
     viewer.loop(
-        [&](int32_t world_idx, const MockViewer::UserInput& user_input) {},
-        [&](int32_t world_idx, int32_t agent_idx, const MockViewer::UserInput& user_input) {},
+        [&](int32_t world_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {},
+        [&](int32_t world_idx, [[maybe_unused]] int32_t agent_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {},
         [&]() {
             if (!is_paused) {
                 mgr.step();
@@ -284,12 +284,12 @@ TEST_F(ManagerIntegrationTest, MockViewerResetInput) {
     viewer.setFrameLimit(10);
     
     viewer.loop(
-        [&](int32_t world_idx, const MockViewer::UserInput& user_input) {
+        [&](int32_t world_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {
             if (user_input.keyHit(MockViewer::KeyboardKey::R)) {
                 mgr.triggerReset(world_idx);
             }
         },
-        [&](int32_t world_idx, int32_t agent_idx, const MockViewer::UserInput& user_input) {},
+        [&](int32_t world_idx, [[maybe_unused]] int32_t agent_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {},
         [&]() { mgr.step(); },
         []() {}
     );
@@ -300,12 +300,12 @@ TEST_F(ManagerIntegrationTest, MockViewerResetInput) {
     
     viewer.setFrameLimit(1);
     viewer.loop(
-        [&](int32_t world_idx, const MockViewer::UserInput& user_input) {
+        [&](int32_t world_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {
             if (user_input.keyHit(MockViewer::KeyboardKey::R)) {
                 mgr.triggerReset(world_idx);
             }
         },
-        [&](int32_t world_idx, int32_t agent_idx, const MockViewer::UserInput& user_input) {},
+        [&](int32_t world_idx, [[maybe_unused]] int32_t agent_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {},
         [&]() { mgr.step(); },
         []() {}
     );
@@ -342,7 +342,7 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
     input.hitKey(MockViewer::KeyboardKey::T);
     
     viewer.loop(
-        [&](int32_t world_idx, const MockViewer::UserInput& user_input) {
+        [&](int32_t world_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {
             if (user_input.keyHit(MockViewer::KeyboardKey::T)) {
                 if (track_trajectory && track_world_idx == world_idx) {
                     mgr.disableTrajectoryLogging();
@@ -354,7 +354,7 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
                 }
             }
         },
-        [&](int32_t world_idx, int32_t agent_idx, const MockViewer::UserInput& user_input) {},
+        [&](int32_t world_idx, [[maybe_unused]] int32_t agent_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {},
         [&]() { mgr.step(); },
         []() {}
     );
@@ -368,7 +368,7 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
     
     viewer.setFrameLimit(1);
     viewer.loop(
-        [&](int32_t world_idx, const MockViewer::UserInput& user_input) {
+        [&](int32_t world_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {
             if (user_input.keyHit(MockViewer::KeyboardKey::T)) {
                 if (track_trajectory && track_world_idx == world_idx) {
                     mgr.disableTrajectoryLogging();
@@ -380,7 +380,7 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
                 }
             }
         },
-        [&](int32_t world_idx, int32_t agent_idx, const MockViewer::UserInput& user_input) {},
+        [&](int32_t world_idx, [[maybe_unused]] int32_t agent_idx, [[maybe_unused]] const MockViewer::UserInput& user_input) {},
         [&]() { mgr.step(); },
         []() {}
     );

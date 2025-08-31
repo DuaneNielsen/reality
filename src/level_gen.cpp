@@ -143,6 +143,7 @@ static void resetAgentPhysics(Engine &ctx) {
         };
 
         ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;
+        ctx.get<Done>(agent_entity).v = 0;  // Reset done flag for new episode
     }
 }
 

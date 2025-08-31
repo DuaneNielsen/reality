@@ -355,10 +355,9 @@ inline void stepTrackerSystem(Engine &,
                               Done &done)
 {
     int32_t num_remaining = --steps_remaining.t;
-    if (num_remaining == consts::episodeLen - 1) {
-        done.v = 0;
-    } else if (num_remaining == 0) {
-        done.v = 1;
+    // Done flag is now properly reset by resetAgentPhysics during episode reset
+    if (num_remaining == 0) {
+        done.v = 1;  // Mark episode as done when steps are exhausted
     }
 
 }
