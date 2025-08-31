@@ -3,6 +3,10 @@
 #include "sim.hpp"
 #include "level_gen.hpp"
 
+// Need access to physics internals to insert collision detection
+#include "../external/madrona/src/physics/physics_impl.hpp"
+#include "../external/madrona/src/physics/xpbd.hpp"
+
 
 /*
  * This file uses a three-tier classification system for code:
@@ -298,6 +302,62 @@ inline void rewardSystem(Engine &ctx,
     }
 }
 
+// [GAME_SPECIFIC] Self-contained collision detection system
+// Triggers episode termination when agent collides with ANY object (except floor)
+inline void agentCollisionSystem(Engine &ctx,
+                                Entity agent_entity,
+                                EntityType agent_type,
+                                Done &done)
+{
+    // Only process agents
+    if (agent_type != EntityType::Agent) {
+        return;
+    }
+    
+    // If already done, skip processing
+    if (done.v == 1) {
+        return;
+    }
+    
+    // Query ContactConstraints - these are available right after narrowphase
+    auto contact_query = ctx.query<ContactConstraint>();
+    
+    ctx.iterateQuery(contact_query, [&](ContactConstraint &contact) {
+        // Get entities from the contact's location references
+        Entity ref_entity = ctx.get<Entity>(contact.ref);
+        Entity alt_entity = ctx.get<Entity>(contact.alt);
+        
+        // Check if this agent is involved in the contact
+        if (ref_entity == agent_entity || alt_entity == agent_entity) {
+            Entity other = (ref_entity == agent_entity) ? alt_entity : ref_entity;
+            
+            // Check if it's the floor (floor is a special singleton entity)
+            // Floor entity is stored in ctx.data().floorPlane
+            if (other == ctx.data().floorPlane) {
+                return; // Ignore floor collisions
+            }
+            
+            // Get the type of the other entity
+            auto other_type_ref = ctx.getCheck<EntityType>(other);
+            if (other_type_ref.valid()) {
+                EntityType other_type = other_type_ref.value();
+                
+                // Trigger done for collision with walls or cubes
+                if (other_type == EntityType::Wall || other_type == EntityType::Cube) {
+                    done.v = 1;
+                    
+                    #ifdef DEBUG_COLLISIONS
+                    printf("[World %d] Agent %u collided with %s (entity %u) - Episode DONE\n", 
+                           ctx.worldID().idx, agent_entity.id, 
+                           other_type == EntityType::Wall ? "Wall" : "Cube",
+                           other.id);
+                    #endif
+                }
+            }
+        }
+    });
+}
+
 // [REQUIRED_INTERFACE] Keep track of the number of steps remaining in the episode and
 // notify training that an episode has completed by
 // setting done = 1 on the final step of the episode
@@ -353,18 +413,89 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto broadphase_setup_sys = phys::PhysicsSystem::setupBroadphaseTasks(
         builder, {move_sys});
 
-    // [BOILERPLATE] Physics collision detection and solver
-    auto substep_sys = phys::PhysicsSystem::setupPhysicsStepTasks(builder,
-        {broadphase_setup_sys}, consts::numPhysicsSubsteps);
+    // Custom physics setup to expose ContactConstraints
+    // We inline the XPBD substep loop to insert collision detection after narrowphase
+    auto broadphase_prep = phys::broadphase::setupPreIntegrationTasks(
+        builder, {broadphase_setup_sys});
+    
+    auto cur_node = broadphase_prep;
+
+#ifdef MADRONA_GPU_MODE
+    // Sort joints for better GPU performance
+    cur_node = builder.addToGraph<SortArchetypeNode<phys::xpbd::Joint, WorldID>>({cur_node});
+    cur_node = builder.addToGraph<ResetTmpAllocNode>({cur_node});
+#endif
+
+    // Run physics substeps with collision detection inserted
+    for (CountT i = 0; i < consts::numPhysicsSubsteps; i++) {
+        // Substep rigid body integration
+        auto rgb_update = builder.addToGraph<ParallelForNode<Engine,
+            phys::xpbd::substepRigidBodies, 
+            Position, Rotation, Velocity, ObjectID,
+            ResponseType, ExternalForce, ExternalTorque,
+            phys::xpbd::SubstepPrevState, 
+            phys::xpbd::PreSolvePositional,
+            phys::xpbd::PreSolveVelocity>>({cur_node});
+        
+        // Run narrowphase collision detection
+        auto run_narrowphase = phys::narrowphase::setupTasks(builder, {rgb_update});
+
+#ifdef MADRONA_GPU_MODE
+        // Sort contacts for better GPU performance
+        run_narrowphase = builder.addToGraph<SortArchetypeNode<phys::xpbd::Contact, WorldID>>(
+            {run_narrowphase});
+        run_narrowphase = builder.addToGraph<ResetTmpAllocNode>({run_narrowphase});
+#endif
+
+        // HERE IS WHERE WE CAN ACCESS ContactConstraints!
+        // Insert our collision detection system right after narrowphase
+        auto collision_detect = builder.addToGraph<ParallelForNode<Engine,
+            agentCollisionSystem,
+            Entity,
+            EntityType,
+            Done
+        >>({run_narrowphase});
+        
+        // Continue with position solver
+        auto solve_pos = builder.addToGraph<ParallelForNode<Engine,
+            phys::xpbd::solvePositions, 
+            phys::xpbd::SolverState>>({collision_detect});
+        
+        // Update velocities
+        auto vel_set = builder.addToGraph<ParallelForNode<Engine,
+            phys::xpbd::setVelocities, 
+            Position, Rotation,
+            phys::xpbd::SubstepPrevState, Velocity>>({solve_pos});
+        
+        // Solve velocity constraints
+        auto solve_vel = builder.addToGraph<ParallelForNode<Engine,
+            phys::xpbd::solveVelocities, 
+            phys::xpbd::SolverState>>({vel_set});
+        
+        // Clear contacts for next substep
+        auto clear_contacts = builder.addToGraph<
+            ClearTmpNode<phys::xpbd::Contact>>({solve_vel});
+        
+        cur_node = builder.addToGraph<ResetTmpAllocNode>({clear_contacts});
+    }
+    
+    // Finish physics post-processing
+    auto clear_broadphase = builder.addToGraph<
+        ClearTmpNode<phys::CandidateTemporary>>({cur_node});
+    
+    auto broadphase_post = phys::broadphase::setupPostIntegrationTasks(
+        builder, {clear_broadphase});
+    
+    auto collision_sys = broadphase_post;
 
     // [GAME_SPECIFIC] Improve controllability of agents by setting their velocity to 0
     // after physics is done.
     auto agent_zero_vel = builder.addToGraph<ParallelForNode<Engine,
         agentZeroVelSystem, Velocity, Action>>(
-            {substep_sys});
+            {collision_sys});
 
     // [BOILERPLATE] Finalize physics subsystem work
-    auto phys_done = phys::PhysicsSystem::setupCleanupTasks(
+    auto phys_cleanup = phys::PhysicsSystem::setupCleanupTasks(
         builder, {agent_zero_vel});
 
     // [REQUIRED_INTERFACE] Check if the episode is over
@@ -372,7 +503,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
         stepTrackerSystem,
             StepsRemaining,
             Done
-        >>({phys_done});
+        >>({phys_cleanup});
 
     // [REQUIRED_INTERFACE] Compute reward - only given at episode end
     auto reward_sys = builder.addToGraph<ParallelForNode<Engine,
