@@ -75,6 +75,29 @@ uv run --extra test pytest tests/python/test_bindings.py -v -k "gpu"
 └─────────────────────────────────────┘
 ```
 
+### Zero-Maintenance Auto-Generation
+
+The Python bindings achieve zero maintenance through automatic code generation at build time:
+
+1. **Constants** (`generated_constants.py`): 
+   - Extracted from C++ headers (`consts.hpp`, `types.hpp`) using libclang AST parsing
+   - Preserves C++ namespace hierarchy in Python
+   - Automatically synchronized with every build
+
+2. **Dataclasses** (`generated_dataclasses.py`):
+   - Extracted from compiled binary using pahole (DWARF debug info)  
+   - Exact memory layouts guaranteed to match C++ compiler output
+   - Platform-specific layouts automatically handled
+   - Pythonic interface with C compatibility via cdataclass
+
+3. **Single Source of Truth**:
+   - C++ headers define all constants and types
+   - No manual synchronization required
+   - Changes in C++ automatically propagate to Python
+   - C API header only contains C-specific abstractions (no game constants)
+
+This approach eliminates the traditional maintenance burden of keeping Python bindings synchronized with C++ code.
+
 ### Components
 
 1. **C++ Core**: The Madrona simulation engine with ECS architecture

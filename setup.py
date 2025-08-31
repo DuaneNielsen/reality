@@ -3,43 +3,89 @@
 Setup script for Madrona Escape Room with ctypes bindings
 """
 
+import os
 import shutil
 from pathlib import Path
 
-from setuptools import Extension, find_packages, setup
+from setuptools import find_packages, setup
 from setuptools.command.build_py import build_py
+from setuptools.command.develop import develop
 from setuptools.command.install_lib import install_lib
 
 
+# Helper function to ensure libraries are in package directory
+def ensure_libraries_present():
+    """Ensure all required libraries are in the package directory."""
+    required_libs = [
+        "libmadrona_escape_room_c_api.so",  # Main C API (ctypes loads this)
+        "libembree4.so.4",  # Embree ray tracing
+        "libdxcompiler.so",  # DirectX shader compiler
+        "libmadrona_render_shader_compiler.so",  # Madrona rendering
+        "libmadrona_std_mem.so",  # Madrona memory management
+        "_madrona_escape_room_dlpack.cpython-312-x86_64-linux-gnu.so",  # DLPack extension
+    ]
+    
+    build_dir = Path("build")
+    package_dir = Path("madrona_escape_room")
+    
+    missing_libs = []
+    for lib_name in required_libs:
+        dest_path = package_dir / lib_name
+        if not dest_path.exists():
+            # Try to copy from build directory
+            src_path = build_dir / lib_name
+            if src_path.exists():
+                print(f"Copying {lib_name} to package directory")
+                shutil.copy2(src_path, dest_path)
+            else:
+                missing_libs.append(lib_name)
+    
+    if missing_libs:
+        print(f"Warning: Missing libraries: {missing_libs}")
+        print("Run 'make' in build directory first")
+    return len(missing_libs) == 0
+
+
+
 class BuildPyWithLibrary(build_py):
-    """Custom build_py that includes the C library and all dependencies"""
+    """Custom build_py that ensures libraries are present and copies them"""
 
     def run(self):
-        # First run the normal build_py
+        # First ensure libraries are in source directory
+        ensure_libraries_present()
+        
+        # Run normal build_py
         super().run()
+        
+        # For regular installs, also copy to build_lib
+        if self.build_lib:
+            required_libs = [
+                "libmadrona_escape_room_c_api.so",
+                "libembree4.so.4",
+                "libdxcompiler.so",
+                "libmadrona_render_shader_compiler.so",
+                "libmadrona_std_mem.so",
+                "_madrona_escape_room_dlpack.cpython-312-x86_64-linux-gnu.so",
+            ]
+            
+            src_dir = Path("madrona_escape_room")
+            dest_dir = Path(self.build_lib) / "madrona_escape_room"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            
+            for lib_name in required_libs:
+                src_path = src_dir / lib_name
+                if src_path.exists():
+                    dest_path = dest_dir / lib_name
+                    print(f"Copying {lib_name} to build directory")
+                    shutil.copy2(src_path, dest_path)
 
-        # ALL libraries that ctypes needs
-        required_libs = [
-            "libmadrona_escape_room_c_api.so",  # Main C API (ctypes loads this)
-            "libembree4.so.4",  # Embree ray tracing
-            "libdxcompiler.so",  # DirectX shader compiler
-            "libmadrona_render_shader_compiler.so",  # Madrona rendering
-            "libmadrona_std_mem.so",  # Madrona memory management
-        ]
 
-        build_dir = Path("build")
-        for package in self.packages:
-            if package == "madrona_escape_room":
-                package_dir = Path(self.build_lib) / package
-
-                for lib_name in required_libs:
-                    lib_path = build_dir / lib_name
-                    if lib_path.exists():
-                        dest = package_dir / lib_name
-                        print(f"Copying {lib_name} to {dest}")
-                        shutil.copy2(lib_path, dest)
-                    else:
-                        print(f"Warning: {lib_name} not found in build directory")
+class DevelopWithLibrary(develop):
+    """Custom develop command for editable installs"""
+    
+    def run(self):
+        ensure_libraries_present()
+        super().run()
 
 
 class InstallLibWithLibrary(install_lib):
@@ -57,25 +103,8 @@ class InstallLibWithLibrary(install_lib):
 # Read the current version from pyproject.toml
 version = "0.1.2"  # Incremented version
 
-# DLPack extension configuration
-dlpack_extension = Extension(
-    "_madrona_escape_room_dlpack",
-    sources=["src/dlpack_extension.cpp"],
-    include_dirs=[
-        "external/madrona/include",
-        "include",
-        "src",
-    ],
-    language="c++",
-    extra_compile_args=[
-        "-std=c++20",
-        "-O3",
-        "-fPIC",
-        "-Wall",
-        "-Wextra",
-    ],
-    extra_link_args=[],
-)
+# Ensure libraries are present before setup
+ensure_libraries_present()
 
 setup(
     name="madrona-escape-room",
@@ -86,7 +115,7 @@ setup(
     url="https://github.com/yourusername/madrona_escape_room",
     packages=find_packages(exclude=["tests", "tests.*", "external", "external.*", "scripts"])
     + find_packages(where="train_src"),
-    ext_modules=[dlpack_extension],
+    ext_modules=[],  # All extensions are pre-built by CMake
     package_dir={"madrona_escape_room_learn": "train_src/madrona_escape_room_learn"},
     package_data={
         "madrona_escape_room": [
@@ -113,6 +142,7 @@ setup(
     },
     cmdclass={
         "build_py": BuildPyWithLibrary,
+        "develop": DevelopWithLibrary,
         "install_lib": InstallLibWithLibrary,
     },
     zip_safe=False,

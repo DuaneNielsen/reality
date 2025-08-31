@@ -101,10 +101,10 @@ public:
                 level1.tile_scale_x[i] != level2.tile_scale_x[i] ||
                 level1.tile_scale_y[i] != level2.tile_scale_y[i] ||
                 level1.tile_scale_z[i] != level2.tile_scale_z[i] ||
-                level1.tile_rot_w[i] != level2.tile_rot_w[i] ||
-                level1.tile_rot_x[i] != level2.tile_rot_x[i] ||
-                level1.tile_rot_y[i] != level2.tile_rot_y[i] ||
-                level1.tile_rot_z[i] != level2.tile_rot_z[i] ||
+                level1.tile_rotation[i].w != level2.tile_rotation[i].w ||
+                level1.tile_rotation[i].x != level2.tile_rotation[i].x ||
+                level1.tile_rotation[i].y != level2.tile_rotation[i].y ||
+                level1.tile_rotation[i].z != level2.tile_rotation[i].z ||
                 level1.tile_persistent[i] != level2.tile_persistent[i] ||
                 level1.tile_render_only[i] != level2.tile_render_only[i] ||
                 level1.tile_entity_type[i] != level2.tile_entity_type[i] ||
@@ -210,10 +210,7 @@ protected:
             }
             
             // Identity rotation quaternion
-            level.tile_rot_w[i] = 1.0f;
-            level.tile_rot_x[i] = 0.0f;
-            level.tile_rot_y[i] = 0.0f;
-            level.tile_rot_z[i] = 0.0f;
+            level.tile_rotation[i] = madEscape::Quat::id();  // Identity quaternion
         }
         
         std::ofstream file(filename, std::ios::binary);

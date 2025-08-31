@@ -15,6 +15,7 @@ from ctypes import (
     c_int,
     c_int32,
     c_int64,
+    c_size_t,
     c_uint32,
     c_uint64,
     c_void_p,
@@ -84,170 +85,39 @@ except OSError as e:
         f"Original error: {e}"
     )
 
-# Error codes enum
-MER_SUCCESS = 0
-MER_ERROR_NULL_POINTER = -1
-MER_ERROR_INVALID_PARAMETER = -2
-MER_ERROR_ALLOCATION_FAILED = -3
-MER_ERROR_NOT_INITIALIZED = -4
-MER_ERROR_CUDA_FAILURE = -5
-MER_ERROR_FILE_NOT_FOUND = -6
-MER_ERROR_INVALID_FILE = -7
+# Import all constants from generated file
+from .generated_constants import action, consts
 
-# Execution modes enum
-MER_EXEC_MODE_CPU = 0
-MER_EXEC_MODE_CUDA = 1
+# Create convenience aliases for nested namespaces
+math = consts.math
+physics = consts.physics
+rendering = consts.rendering
 
-# Tensor element types enum
-MER_TENSOR_TYPE_UINT8 = 0
-MER_TENSOR_TYPE_INT8 = 1
-MER_TENSOR_TYPE_INT16 = 2
-MER_TENSOR_TYPE_INT32 = 3
-MER_TENSOR_TYPE_INT64 = 4
-MER_TENSOR_TYPE_FLOAT16 = 5
-MER_TENSOR_TYPE_FLOAT32 = 6
-
-# Observation size constants
-MER_SELF_OBSERVATION_SIZE = 5
-MER_STEPS_REMAINING_SIZE = 1
-MER_AGENT_ID_SIZE = 1
-MER_TOTAL_OBSERVATION_SIZE = (
-    MER_SELF_OBSERVATION_SIZE + MER_STEPS_REMAINING_SIZE + MER_AGENT_ID_SIZE
-)
-
-# Simulation parameter constants
-MER_NUM_AGENTS = 1
-MER_NUM_ROOMS = 1
-MER_MAX_ENTITIES_PER_ROOM = 6
-MER_EPISODE_LENGTH = 200
-
-# Action constants - Move amount
-MER_MOVE_STOP = 0
-MER_MOVE_SLOW = 1
-MER_MOVE_MEDIUM = 2
-MER_MOVE_FAST = 3
-
-# Action constants - Move angle (8 directions)
-MER_MOVE_FORWARD = 0
-MER_MOVE_FORWARD_RIGHT = 1
-MER_MOVE_RIGHT = 2
-MER_MOVE_BACKWARD_RIGHT = 3
-MER_MOVE_BACKWARD = 4
-MER_MOVE_BACKWARD_LEFT = 5
-MER_MOVE_LEFT = 6
-MER_MOVE_FORWARD_LEFT = 7
-
-# Action constants - Rotation
-MER_ROTATE_FAST_LEFT = 0
-MER_ROTATE_SLOW_LEFT = 1
-MER_ROTATE_NONE = 2
-MER_ROTATE_SLOW_RIGHT = 3
-MER_ROTATE_FAST_RIGHT = 4
+# These constants are now available from generated_constants.py:
+# - Error codes (MER_SUCCESS, MER_ERROR_*, etc) from madEscape::Result enum
+# - Execution modes (MER_EXEC_MODE_CPU/CUDA) from madrona::ExecMode
+# The C API uses these enums directly via void pointers
 
 # Manager handle type (opaque pointer)
 MER_ManagerHandle = c_void_p
 
 
-# Replay metadata structure
-class MER_ReplayMetadata(Structure):
-    _fields_ = [
-        ("num_worlds", c_uint32),
-        ("num_agents_per_world", c_uint32),
-        ("num_steps", c_uint32),
-        ("seed", c_uint32),
-        ("sim_name", c_char * 64),
-        ("timestamp", c_uint64),
-    ]
+# Import constants
+from .generated_constants import limits
 
-
-# Get MAX_TILES from C API - now returns the current C++ constant
-def _get_max_tiles():
-    """Get MAX_TILES from C++ CompiledLevel::MAX_TILES via C API"""
-    try:
-        # Try to get it from the C API if library is loaded
-        if "lib" in globals() and hasattr(lib, "mer_get_max_tiles"):
-            lib.mer_get_max_tiles.restype = c_int32
-            return lib.mer_get_max_tiles()
-    except Exception:
-        pass
-    # Fallback to hardcoded value matching C++ CompiledLevel::MAX_TILES
-    return 1024
-
-
-def _get_max_spawns():
-    """Get MAX_SPAWNS from C++ CompiledLevel::MAX_SPAWNS via C API"""
-    try:
-        # Try to get it from the C API if library is loaded
-        if "lib" in globals() and hasattr(lib, "mer_get_max_spawns"):
-            lib.mer_get_max_spawns.restype = c_int32
-            return lib.mer_get_max_spawns()
-    except Exception:
-        pass
-    # Fallback to hardcoded value matching C++ CompiledLevel::MAX_SPAWNS
-    return 8
-
-
-MAX_TILES = _get_max_tiles()
-MAX_SPAWNS = _get_max_spawns()
-
-
-class MER_CompiledLevel(Structure):
-    _fields_ = [
-        ("num_tiles", c_int32),
-        ("max_entities", c_int32),
-        ("width", c_int32),
-        ("height", c_int32),
-        ("world_scale", c_float),
-        ("done_on_collide", c_bool),
-        ("level_name", c_char * 64),  # MAX_LEVEL_NAME_LENGTH = 64
-        # World boundaries in world units
-        ("world_min_x", c_float),
-        ("world_max_x", c_float),
-        ("world_min_y", c_float),
-        ("world_max_y", c_float),
-        ("world_min_z", c_float),
-        ("world_max_z", c_float),
-        ("num_spawns", c_int32),
-        ("spawn_x", c_float * 8),  # MAX_SPAWNS = 8
-        ("spawn_y", c_float * 8),  # MAX_SPAWNS = 8
-        ("spawn_facing", c_float * 8),  # MAX_SPAWNS = 8, agent facing angles in radians
-        ("object_ids", c_int32 * MAX_TILES),
-        ("tile_x", c_float * MAX_TILES),
-        ("tile_y", c_float * MAX_TILES),
-        ("tile_z", c_float * MAX_TILES),
-        ("tile_persistent", c_bool * MAX_TILES),
-        ("tile_render_only", c_bool * MAX_TILES),
-        ("tile_entity_type", c_int32 * MAX_TILES),
-        ("tile_response_type", c_int32 * MAX_TILES),
-        ("tile_scale_x", c_float * MAX_TILES),
-        ("tile_scale_y", c_float * MAX_TILES),
-        ("tile_scale_z", c_float * MAX_TILES),
-        ("tile_rot_w", c_float * MAX_TILES),
-        ("tile_rot_x", c_float * MAX_TILES),
-        ("tile_rot_y", c_float * MAX_TILES),
-        ("tile_rot_z", c_float * MAX_TILES),
-        ("tile_rand_x", c_float * MAX_TILES),
-        ("tile_rand_y", c_float * MAX_TILES),
-        ("tile_rand_z", c_float * MAX_TILES),
-        ("tile_rand_rot_z", c_float * MAX_TILES),
-        ("tile_rand_scale_x", c_float * MAX_TILES),
-        ("tile_rand_scale_y", c_float * MAX_TILES),
-        ("tile_rand_scale_z", c_float * MAX_TILES),
-    ]
-
-
-# Manager configuration structure
-class MER_ManagerConfig(Structure):
-    _fields_ = [
-        ("exec_mode", c_int),
-        ("gpu_id", c_int),
-        ("num_worlds", c_uint32),
-        ("rand_seed", c_uint32),
-        ("auto_reset", c_bool),
-        ("enable_batch_renderer", c_bool),
-        ("batch_render_view_width", c_uint32),
-        ("batch_render_view_height", c_uint32),
-    ]
+# Import dataclass structs - these are the ONLY structs we use now
+from .generated_dataclasses import (
+    Action,
+    CompiledLevel,
+    Done,
+    ManagerConfig,
+    Progress,
+    ReplayMetadata,
+    Reward,
+    SelfObservation,
+    StepsRemaining,
+    to_ctypes,
+)
 
 
 # Tensor structure
@@ -262,18 +132,81 @@ class MER_Tensor(Structure):
     ]
 
 
+# Helper function to create manager with proper level array handling
+def create_manager_with_levels(handle_ptr, config, compiled_levels):
+    """
+    Wrapper to properly handle compiled levels list when creating manager.
+
+    Args:
+        handle_ptr: Pointer to MER_ManagerHandle
+        config: ManagerConfig dataclass (not a pointer)
+        compiled_levels: None, single CompiledLevel (dataclass), or list of CompiledLevel
+
+    Returns:
+        Tuple of (result_code, c_config, levels_array) where c_config and levels_array must be kept alive
+    """
+    # Convert config dataclass to ctypes
+    c_config = config.to_ctype()
+    from ctypes import pointer
+
+    config_ptr = pointer(c_config)
+
+    if compiled_levels is None:
+        # No levels - use default
+        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0), c_config, None
+
+    # Convert single level to list
+    if not isinstance(compiled_levels, list):
+        compiled_levels = [compiled_levels]
+
+    if not compiled_levels:
+        # Empty list - use default
+        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0), c_config, None
+
+    # Convert dataclasses to ctypes
+    ctypes_levels = [level.to_ctype() for level in compiled_levels]
+
+    # Get the ctypes class from the first converted level
+    CTypesCompiledLevel = type(ctypes_levels[0])
+
+    # Create ctypes array
+    num_levels = len(ctypes_levels)
+    ArrayType = CTypesCompiledLevel * num_levels
+    levels_array = ArrayType()
+
+    # Copy each level into the array
+    for i, level in enumerate(ctypes_levels):
+        levels_array[i] = level
+
+    print(f"[DEBUG ctypes_bindings] Passing {num_levels} levels to C API")
+    print(
+        f"[DEBUG ctypes_bindings] First level spawn: "
+        f"({levels_array[0].spawn_x[0]}, {levels_array[0].spawn_y[0]})"
+    )
+
+    # Pass array pointer to C API
+    from ctypes import POINTER, c_void_p, cast
+
+    levels_ptr = cast(levels_array, c_void_p)
+
+    result = lib.mer_create_manager(handle_ptr, config_ptr, levels_ptr, num_levels)
+    
+    # Return result, config, and array (all must be kept alive!)
+    return result, c_config, levels_array
+
+
 # Function signatures
 # Manager lifecycle functions
 lib.mer_create_manager.argtypes = [
     POINTER(MER_ManagerHandle),
-    POINTER(MER_ManagerConfig),
-    POINTER(MER_CompiledLevel),  # Array of compiled levels (one per world), NULL for default
+    c_void_p,  # Direct ManagerConfig pointer (now auto-generated)
+    c_void_p,  # Direct CompiledLevel pointer from Python (NULL for default)
     c_uint32,  # Length of compiled_levels array
 ]
 lib.mer_create_manager.restype = c_int
 
 # Level validation functions
-lib.mer_validate_compiled_level.argtypes = [POINTER(MER_CompiledLevel)]
+lib.mer_validate_compiled_level.argtypes = [c_void_p]  # Direct CompiledLevel pointer
 lib.mer_validate_compiled_level.restype = c_int
 
 lib.mer_destroy_manager.argtypes = [MER_ManagerHandle]
@@ -341,7 +274,7 @@ lib.mer_is_recording.argtypes = [MER_ManagerHandle, POINTER(c_bool)]
 lib.mer_is_recording.restype = c_int
 
 # Replay metadata reading (static function)
-lib.mer_read_replay_metadata.argtypes = [c_char_p, POINTER(MER_ReplayMetadata)]
+lib.mer_read_replay_metadata.argtypes = [c_char_p, c_void_p]  # Direct ReplayMetadata pointer
 lib.mer_read_replay_metadata.restype = c_int
 
 # Replay functionality
@@ -366,307 +299,41 @@ lib.mer_result_to_string.argtypes = [c_int]
 lib.mer_result_to_string.restype = c_char_p
 
 # Binary I/O functions
-lib.mer_write_compiled_level.argtypes = [c_char_p, POINTER(MER_CompiledLevel)]
+lib.mer_write_compiled_level.argtypes = [c_char_p, c_void_p]  # Direct CompiledLevel pointer
 lib.mer_write_compiled_level.restype = c_int
 
-lib.mer_read_compiled_level.argtypes = [c_char_p, POINTER(MER_CompiledLevel)]
+lib.mer_read_compiled_level.argtypes = [c_char_p, c_void_p]  # Direct CompiledLevel pointer
 lib.mer_read_compiled_level.restype = c_int
 
-
-class CTypesLib:
-    """Wrapper class to provide CFFI-like interface for easier migration"""
-
-    def __init__(self):
-        self.lib = lib
-
-    def new(self, type_name):
-        """Create a new ctypes object similar to ffi.new()"""
-        if type_name == "MER_ManagerConfig*":
-            return POINTER(MER_ManagerConfig)(MER_ManagerConfig())
-        elif type_name == "MER_ManagerHandle*":
-            return POINTER(MER_ManagerHandle)(MER_ManagerHandle())
-        elif type_name == "MER_Tensor*":
-            return POINTER(MER_Tensor)(MER_Tensor())
-        elif type_name == "MER_CompiledLevel*":
-            return POINTER(MER_CompiledLevel)(MER_CompiledLevel())
-        else:
-            raise ValueError(f"Unknown type: {type_name}")
-
-    def string(self, c_char_ptr):
-        """Convert C string to Python string similar to ffi.string()"""
-        if c_char_ptr:
-            return c_char_ptr.decode("utf-8")
-        return ""
-
-    def cast(self, typename, value):
-        """Cast value to pointer type similar to ffi.cast()"""
-        if typename == "uintptr_t":
-            return ctypes.cast(value, ctypes.c_void_p).value
-        else:
-            raise ValueError(f"Unknown cast type: {typename}")
-
-    def buffer(self, data_ptr, size):
-        """Create a buffer from pointer and size similar to ffi.buffer()"""
-        # Convert void pointer to array of bytes
-        ArrayType = ctypes.c_uint8 * size
-        array_ptr = ctypes.cast(data_ptr, ctypes.POINTER(ArrayType))
-        return array_ptr.contents
-
-    @property
-    def NULL(self):
-        """NULL pointer"""
-        return None
+# Get CompiledLevel size for validation
+lib.mer_get_compiled_level_size.argtypes = []
+lib.mer_get_compiled_level_size.restype = c_size_t
 
 
-# Helper functions for compiled level integration
-def dict_to_compiled_level(compiled_dict):
-    """
-    Convert compiled level dictionary to MER_CompiledLevel ctypes structure.
-
-    The compiled_dict contains arrays sized exactly for the level's dimensions
-    (width × height), but the ctypes structure uses fixed MAX_TILES arrays.
-    We copy the actual data and zero-fill the remaining slots.
-
-    Args:
-        compiled_dict: Output from level_compiler.compile_level()
-
-    Returns:
-        MER_CompiledLevel: ctypes structure ready for C API
-    """
-    level = MER_CompiledLevel()
-    level.num_tiles = compiled_dict["num_tiles"]
-    level.max_entities = compiled_dict["max_entities"]
-    level.width = compiled_dict["width"]
-    level.height = compiled_dict["height"]
-    level.world_scale = compiled_dict.get(
-        "scale", compiled_dict.get("world_scale", 1.0)
-    )  # Support both old and new names
-    level.done_on_collide = compiled_dict.get("done_on_collide", False)
-
-    # Copy level name (ensure it's null-terminated and fits in 64 bytes)
-    level_name = compiled_dict.get("level_name", "unknown_level")
-    level_name_bytes = level_name.encode("utf-8")[:63]  # Leave room for null terminator
-    level.level_name = level_name_bytes
-
-    # Copy world boundaries
-    level.world_min_x = compiled_dict.get("world_min_x", -20.0)
-    level.world_max_x = compiled_dict.get("world_max_x", 20.0)
-    level.world_min_y = compiled_dict.get("world_min_y", -20.0)
-    level.world_max_y = compiled_dict.get("world_max_y", 20.0)
-    level.world_min_z = compiled_dict.get("world_min_z", 0.0)
-    level.world_max_z = compiled_dict.get("world_max_z", 25.0)
-
-    # Copy spawn data
-    level.num_spawns = compiled_dict["num_spawns"]
-    for i in range(8):  # MAX_SPAWNS
-        level.spawn_x[i] = compiled_dict["spawn_x"][i]
-        level.spawn_y[i] = compiled_dict["spawn_y"][i]
-        level.spawn_facing[i] = compiled_dict.get("spawn_facing", [0.0] * 8)[i]
-
-    # Get the actual array size for this level
-    array_size = compiled_dict["array_size"]
-
-    # Validate that the compiled level data fits in our fixed-size arrays
-    if array_size > MAX_TILES:
-        raise ValueError(f"Level too large: needs {array_size} tiles but MAX_TILES is {MAX_TILES}")
-
-    # Copy actual data from compiler-calculated arrays
-    for i in range(array_size):
-        level.object_ids[i] = compiled_dict["object_ids"][i]
-        level.tile_x[i] = compiled_dict["tile_x"][i]
-        level.tile_y[i] = compiled_dict["tile_y"][i]
-        level.tile_z[i] = compiled_dict["tile_z"][i]
-        level.tile_persistent[i] = compiled_dict["tile_persistent"][i]
-        level.tile_render_only[i] = compiled_dict["tile_render_only"][i]
-        level.tile_entity_type[i] = compiled_dict["tile_entity_type"][i]
-        level.tile_response_type[i] = compiled_dict["tile_response_type"][i]
-
-        # Transform data
-        level.tile_scale_x[i] = compiled_dict["tile_scale_x"][i]
-        level.tile_scale_y[i] = compiled_dict["tile_scale_y"][i]
-        level.tile_scale_z[i] = compiled_dict["tile_scale_z"][i]
-        level.tile_rot_w[i] = compiled_dict["tile_rot_w"][i]
-        level.tile_rot_x[i] = compiled_dict["tile_rot_x"][i]
-        level.tile_rot_y[i] = compiled_dict["tile_rot_y"][i]
-        level.tile_rot_z[i] = compiled_dict["tile_rot_z"][i]
-
-        # Randomization data (optional - default to 0 if not present)
-        level.tile_rand_x[i] = (
-            compiled_dict.get("tile_rand_x", [0.0] * array_size)[i]
-            if "tile_rand_x" in compiled_dict
-            else 0.0
-        )
-        level.tile_rand_y[i] = (
-            compiled_dict.get("tile_rand_y", [0.0] * array_size)[i]
-            if "tile_rand_y" in compiled_dict
-            else 0.0
-        )
-        level.tile_rand_z[i] = (
-            compiled_dict.get("tile_rand_z", [0.0] * array_size)[i]
-            if "tile_rand_z" in compiled_dict
-            else 0.0
-        )
-        level.tile_rand_rot_z[i] = (
-            compiled_dict.get("tile_rand_rot_z", [0.0] * array_size)[i]
-            if "tile_rand_rot_z" in compiled_dict
-            else 0.0
-        )
-        level.tile_rand_scale_x[i] = (
-            compiled_dict.get("tile_rand_scale_x", [0.0] * array_size)[i]
-            if "tile_rand_scale_x" in compiled_dict
-            else 0.0
-        )
-        level.tile_rand_scale_y[i] = (
-            compiled_dict.get("tile_rand_scale_y", [0.0] * array_size)[i]
-            if "tile_rand_scale_y" in compiled_dict
-            else 0.0
-        )
-        level.tile_rand_scale_z[i] = (
-            compiled_dict.get("tile_rand_scale_z", [0.0] * array_size)[i]
-            if "tile_rand_scale_z" in compiled_dict
-            else 0.0
-        )
-
-    # Zero-fill remaining slots (important for deterministic behavior)
-    for i in range(array_size, MAX_TILES):
-        level.object_ids[i] = 0  # TILE_EMPTY
-        level.tile_x[i] = 0.0
-        level.tile_y[i] = 0.0
-        level.tile_z[i] = 0.0
-        level.tile_persistent[i] = False
-        level.tile_render_only[i] = False
-        level.tile_entity_type[i] = 0
-        level.tile_response_type[i] = 0
-        level.tile_scale_x[i] = 1.0
-        level.tile_scale_y[i] = 1.0
-        level.tile_scale_z[i] = 1.0
-        level.tile_rot_w[i] = 1.0
-        level.tile_rot_x[i] = 0.0
-        level.tile_rot_y[i] = 0.0
-        level.tile_rot_z[i] = 0.0
-        level.tile_rand_x[i] = 0.0
-        level.tile_rand_y[i] = 0.0
-        level.tile_rand_z[i] = 0.0
-        level.tile_rand_rot_z[i] = 0.0
-        level.tile_rand_scale_x[i] = 0.0
-        level.tile_rand_scale_y[i] = 0.0
-        level.tile_rand_scale_z[i] = 0.0
-
-    return level
-
-
-def compiled_level_to_dict(level):
-    """
-    Convert MER_CompiledLevel ctypes structure to dictionary.
-    Reverse of dict_to_compiled_level.
-
-    Args:
-        level: MER_CompiledLevel ctypes structure
-
-    Returns:
-        Dict matching compile_level() output format
-    """
-    # Get actual array size for this level
-    array_size = level.width * level.height
-
-    return {
-        # Header fields
-        "num_tiles": level.num_tiles,
-        "max_entities": level.max_entities,
-        "width": level.width,
-        "height": level.height,
-        "world_scale": level.world_scale,
-        # Keep old name for backward compatibility
-        "scale": level.world_scale,
-        "done_on_collide": level.done_on_collide,
-        "level_name": level.level_name.decode("utf-8").rstrip("\x00"),
-        # World boundaries
-        "world_min_x": level.world_min_x,
-        "world_max_x": level.world_max_x,
-        "world_min_y": level.world_min_y,
-        "world_max_y": level.world_max_y,
-        "world_min_z": level.world_min_z,
-        "world_max_z": level.world_max_z,
-        # Spawn data
-        "num_spawns": level.num_spawns,
-        "spawn_x": list(level.spawn_x),
-        "spawn_y": list(level.spawn_y),
-        "spawn_facing": list(level.spawn_facing),
-        # Tile arrays (preserve full MAX_TILES size for C++ compatibility)
-        "object_ids": list(level.object_ids),
-        "tile_x": list(level.tile_x),
-        "tile_y": list(level.tile_y),
-        "tile_z": list(level.tile_z),
-        "tile_persistent": list(level.tile_persistent),
-        "tile_render_only": list(level.tile_render_only),
-        "tile_entity_type": list(level.tile_entity_type),
-        "tile_response_type": list(level.tile_response_type),
-        # Transform arrays
-        "tile_scale_x": list(level.tile_scale_x),
-        "tile_scale_y": list(level.tile_scale_y),
-        "tile_scale_z": list(level.tile_scale_z),
-        "tile_rot_w": list(level.tile_rot_w),
-        "tile_rot_x": list(level.tile_rot_x),
-        "tile_rot_y": list(level.tile_rot_y),
-        "tile_rot_z": list(level.tile_rot_z),
-        # Randomization arrays
-        "tile_rand_x": list(level.tile_rand_x),
-        "tile_rand_y": list(level.tile_rand_y),
-        "tile_rand_z": list(level.tile_rand_z),
-        "tile_rand_rot_z": list(level.tile_rand_rot_z),
-        "tile_rand_scale_x": list(level.tile_rand_scale_x),
-        "tile_rand_scale_y": list(level.tile_rand_scale_y),
-        "tile_rand_scale_z": list(level.tile_rand_scale_z),
-        # Metadata
-        "array_size": array_size,
-    }
-
-
-def validate_compiled_level_ctypes(level):
+def validate_compiled_level(level):
     """
     Validate compiled level using C API validation function.
 
     Args:
-        level: MER_CompiledLevel structure
+        level: CompiledLevel dataclass
 
     Raises:
         ValueError: If validation fails
     """
-    result = lib.mer_validate_compiled_level(ctypes.byref(level))
-    if result != MER_SUCCESS:
+    # Convert dataclass to ctypes if needed
+    if hasattr(level, "to_ctype"):
+        c_level = level.to_ctype()
+    else:
+        c_level = level
+
+    result = lib.mer_validate_compiled_level(ctypes.byref(c_level))
+    if result != 0:  # Success = 0
         error_msg = lib.mer_result_to_string(result)
         if error_msg:
             error_msg = error_msg.decode("utf-8")
         else:
             error_msg = f"Error code {result}"
         raise ValueError(f"Compiled level validation failed: {error_msg}")
-
-
-def create_compiled_levels_array(compiled_level_dicts):
-    """
-    Create ctypes array of compiled levels from list of dictionaries.
-
-    Args:
-        compiled_level_dicts: List of compiled level dictionaries
-
-    Returns:
-        tuple: (ctypes array, array length)
-    """
-    if not compiled_level_dicts:
-        return None, 0
-
-    # Convert each dict to ctypes structure
-    levels = []
-    for compiled_dict in compiled_level_dicts:
-        level = dict_to_compiled_level(compiled_dict)
-        validate_compiled_level_ctypes(level)
-        levels.append(level)
-
-    # Create ctypes array
-    ArrayType = MER_CompiledLevel * len(levels)
-    levels_array = ArrayType(*levels)
-
-    return levels_array, len(levels)
 
 
 def get_physics_assets_list():
@@ -721,9 +388,5 @@ def get_render_asset_object_id(name):
     return -1
 
 
-# Create instances for compatibility
-ctypes_lib = CTypesLib()
-
-# Export the main objects that will replace ffi and lib
-ffi = ctypes_lib
-lib = ctypes_lib.lib
+# Export CompiledLevel as MER_CompiledLevel for backward compatibility with tests
+MER_CompiledLevel = CompiledLevel

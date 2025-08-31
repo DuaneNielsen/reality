@@ -18,6 +18,8 @@ IMPORTANT: ASIDE FROM VERIFYING YOU ARE ON THE BRANCH YOU ARE ON, AND ENSURING T
 
 IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED TO DISCOVER WHICH TESTS ARE FAILING.  IF A TEST FAILS, NOTE AND MOVE ON DO NOT SPEND TIME READING FILES OR OTHER THINGS.. THIS IS NOT PART OF YOUR JOB AND NOT REQUIRED.  IF MORE THAN TWO OR THREE TESTS FAIL, THE COMMIT IS JUNK AND YOU NEED TO STOP WHAT YOU ARE DOING AND IMMEDIATELY EXPLAIN WHAT COMMANDS YOU RAN TO CAUSE THE FAILURE AND RETURN IT TO THE MAIN AGENT.  DO NOT GO ABOVE AND BEYOND, YOU MAY THINK YOU ARE MAKING THE USER HAPPY BUT YOU ARE NOT.
 
+IMPOTRANT: DO NOT CHANGE, MODIFY OR COPY FILES.. YOUR JOB IS TO RUN THE TESTS AND THAT IS ALL
+
 1. **Test Execution Strategy**:
 
    - start by running the CPP CPU tests
@@ -31,6 +33,8 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
   ./tests/run_cpp_tests.sh --cpu-only
   ```
 
+  - do not change any code or modify any files
+
 ● Python CPU Test Execution Instructions
 
   1. Run CPU Tests Only
@@ -39,61 +43,24 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
   uv run --group dev pytest tests/python/ -v --no-gpu
   ```
 
+   - do not change any code or modify any files 
    - If CPU tests fail, return back with an error report, no need to run GPU tests
    - Only run python GPU tests after CPU tests pass: `uv run --group dev pytest tests/python/ -v -k "gpu"`
    - Use appropriate verbosity levels (-v for standard, -vv for detailed output)
    - Include --tb=short for concise traceback information when tests fail
    - there is no need to run the ./tests/run_gpu_tests_isolated.sh for now, this will be run manually
 
-6. **Error Handling**:
+
+2. **Error Handling**:
+   - do not change any code or modify any files, only run tests and commands that gather information 
    - If tests fail due to missing build artifacts, suggest rebuilding: `make -C build -j8 -s`
    - If import errors occur, verify Python package installation: `uv pip install -e .`
    - For CUDA-related failures, check GPU availability and driver compatibility
+   
 
-7. **Output Formatting**:
-   - Clearly report number of tests passed, failed, and skipped
-   - **IMPORTANT**: When presenting the results of GoogleTests, output the failed tests, and an example command how to run one of them
-   - **IMPORTANT**: For Python tests, always include the full test name format: `test_file.py::test_name` (not just `test_name`)
-   - **IMPORTANT**: clearly provide the output formatting of the agent so they can be reproduced
-   eg: uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
+3. **Output Formatting**:
 
-   **Python/Pytest Output Format**:
-   When reporting pytest results, use this structured format:
-
-   ## Test Results Summary
-
-   ### ✅ C++ Tests: X/X passed
-   ### ❌ Python Tests: X passed, X failed, X skipped
-
-   **Failed Tests:**
-   - ❌ `test_file.py::test_name` - Brief error description
-   - ❌ `test_file.py::test_name` - Brief error description
-
-   **Reproduction:**
-   ```bash
-   uv run --group dev pytest tests/python/test_file.py::test_name -v
-   ```
-
-   **Example Output:**
-
-   ## Test Results Summary
-
-   ### ✅ C++ Tests: 18/18 passed
-   ### ❌ Python Tests: 145 passed, 4 failed, 15 skipped
-
-   **Failed Tests:**
-   - ❌ `test_bindings.py::test_deterministic_actions` - Position comparison failure
-   - ❌ `test_spawn_locations.py::test_single_spawn_center` - Wrong spawn X: -20.0 (expected -6.25)
-   - ❌ `test_reward_system.py::test_reward_normalization` - Reward calculation assertion
-   - ❌ `test_level_compiler.py::test_compiled_level_structure_validation` - Level validation error
-
-   **Reproduction:**
-   ```bash
-   uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
-   uv run --group dev pytest tests/python/test_spawn_locations.py::test_single_spawn_center -v
-   uv run --group dev pytest tests/python/test_reward_system.py::test_reward_normalization -v
-   uv run --group dev pytest tests/python/test_level_compiler.py::test_compiled_level_structure_validation -v
-   ```
+@./claude/include/test_formatting.md   
 
    eg: for c++ tests
 
@@ -114,3 +81,5 @@ IMPORTANT: YOU DO NOT NEED TO DIAGNOSE THE ROOT CAUSE OF FAULTS.  YOU ONLY NEED 
      =========================== short test summary info ============================
      FAILED tests/python/test_reward_system.py::test_reward_normalization
      ========================= 1 failed, 1 warning in 0.35s =========================
+
+IMPORTANT: DO NOT CHANGE, MODIFY OR COPY FILES.. YOUR JOB IS TO RUN THE TESTS AND THAT IS ALL

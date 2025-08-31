@@ -133,7 +133,7 @@ struct Manager::Impl {
     
     // Recording state
     std::ofstream recordingFile;
-    madrona::escape_room::ReplayMetadata recordingMetadata;
+    madEscape::ReplayMetadata recordingMetadata;
     uint32_t recordedFrames = 0;
     bool isRecordingActive = false;
 
@@ -1040,7 +1040,7 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
     }
     
     // Prepare metadata
-    impl_->recordingMetadata = madrona::escape_room::ReplayMetadata::createDefault();
+    impl_->recordingMetadata = madEscape::ReplayMetadata::createDefault();
     impl_->recordingMetadata.num_worlds = impl_->cfg.numWorlds;
     impl_->recordingMetadata.num_agents_per_world = 1; // Single agent per world
     impl_->recordingMetadata.seed = seed;
@@ -1059,7 +1059,6 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
     
     impl_->recordedFrames = 0;
     impl_->isRecordingActive = true;
-    std::cout << "Recording to: " << filepath << " (with embedded level data)\n";
 }
 
 void Manager::stopRecording()
@@ -1077,11 +1076,7 @@ void Manager::stopRecording()
         impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
                                   sizeof(impl_->recordingMetadata));
         
-        printf("Recording complete: %u frames saved\n", impl_->recordedFrames);
-        printf("Metadata: %u worlds, seed %u\n", 
-               impl_->recordingMetadata.num_worlds, impl_->recordingMetadata.seed);
     } else {
-        printf("Recording cancelled: No frames were recorded\n");
     }
     
     impl_->recordingFile.close();
@@ -1107,7 +1102,7 @@ void Manager::recordActions(const std::vector<int32_t>& frame_actions)
 }
 
 // Replay functionality
-std::optional<madrona::escape_room::ReplayMetadata> Manager::readReplayMetadata(const std::string& filepath)
+std::optional<madEscape::ReplayMetadata> Manager::readReplayMetadata(const std::string& filepath)
 {
     std::ifstream replay_file(filepath, std::ios::binary);
     if (!replay_file.is_open()) {
@@ -1116,7 +1111,7 @@ std::optional<madrona::escape_room::ReplayMetadata> Manager::readReplayMetadata(
     }
     
     // Read metadata header
-    madrona::escape_room::ReplayMetadata metadata;
+    madEscape::ReplayMetadata metadata;
     replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
     
     // Check if we actually read any data
@@ -1135,15 +1130,12 @@ std::optional<madrona::escape_room::ReplayMetadata> Manager::readReplayMetadata(
     // Validate metadata
     if (!metadata.isValid()) {
         std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
-                  << std::hex << madrona::escape_room::REPLAY_MAGIC << ", got: 0x" 
+                  << std::hex << REPLAY_MAGIC << ", got: 0x" 
                   << metadata.magic << std::dec << "\n";
         return std::nullopt;
     }
     
     // Show replay information
-    std::cout << "Loaded replay: " << metadata.sim_name << " v" << metadata.version
-              << " - " << metadata.num_worlds << " worlds, " 
-              << metadata.num_steps << " steps, seed: " << metadata.seed << "\n";
     
     return metadata;
 }
@@ -1157,13 +1149,13 @@ bool Manager::loadReplay(const std::string& filepath)
     }
     
     // Read metadata header
-    madrona::escape_room::ReplayMetadata metadata;
+    madEscape::ReplayMetadata metadata;
     replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
     
     // Validate metadata
     if (!metadata.isValid()) {
         std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
-                  << std::hex << madrona::escape_room::REPLAY_MAGIC << ", got: 0x" 
+                  << std::hex << REPLAY_MAGIC << ", got: 0x" 
                   << metadata.magic << std::dec << "\n";
         return false;
     }
@@ -1180,17 +1172,12 @@ bool Manager::loadReplay(const std::string& filepath)
     
     // TODO: Apply the embedded level to the manager/simulation
     // For now, just log that we read level data
-    std::cout << "Loaded embedded level: " << embeddedLevel.width << "x" << embeddedLevel.height 
-              << " with " << embeddedLevel.num_tiles << " tiles\n";
     
     // Read actions after embedded level data
     int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
     HeapArray<int32_t> actions(actions_size / sizeof(int32_t));
     replay_file.read((char *)actions.data(), actions_size);
     
-    std::cout << "Loaded replay: " << metadata.sim_name << " v" << metadata.version 
-              << " - " << metadata.num_worlds << " worlds, " << metadata.num_steps 
-              << " steps, seed: " << metadata.seed << "\n";
     
     impl_->replayData = ReplayData{metadata, std::move(actions)};
     impl_->currentReplayStep = 0;
@@ -1258,7 +1245,7 @@ std::optional<CompiledLevel> Manager::readEmbeddedLevel(const std::string& filep
     }
     
     // Read and skip metadata header
-    madrona::escape_room::ReplayMetadata metadata;
+    madEscape::ReplayMetadata metadata;
     replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
     
     // Validate metadata

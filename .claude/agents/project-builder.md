@@ -21,9 +21,9 @@ You will follow this precise build sequence:
    - Standard build: `cmake -B build`
    - If the build fails with compiler errors about `-nostdlib++` or `-march=x86-64-v3`, use the bundled Madrona toolchain: `cmake -B build -DCMAKE_TOOLCHAIN_FILE=external/madrona/cmake/toolchain/madrona-toolchain.cmake`
 
-3. **Execute Make**: Run the compilation with: `make -C build -j8 -s`
+3. **Execute Make**: Run the compilation with: `make -C build -j16 -s`
    
-   - The `-j8` flag enables parallel compilation with 8 jobs
+   - The `-j16` flag enables parallel compilation with 16 jobs
    - The `-s` flag runs in silent mode for cleaner output
    - Adjust the number of jobs based on available CPU cores if needed
 

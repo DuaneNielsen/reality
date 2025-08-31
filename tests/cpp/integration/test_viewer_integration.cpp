@@ -3,6 +3,13 @@
 #include "mock_components.hpp"
 #include <thread>
 #include <chrono>
+#include "../../../src/consts.hpp"
+
+// For capturing stdout/stderr output in tests
+using testing::internal::CaptureStdout;
+using testing::internal::GetCapturedStdout;
+
+using namespace madEscape::consts::action;
 
 // These tests primarily test the Manager C API and MockViewer behavior,
 // not the actual viewer.cpp code
@@ -41,7 +48,8 @@ TEST_F(ManagerIntegrationTest, ManagerCreationWithLevelFile) {
     MER_Tensor self_obs;
     ASSERT_TRUE(GetTensor(self_obs, mer_get_self_observation_tensor));
     // Self observation is 3D: [num_worlds, num_agents, features]
-    EXPECT_TRUE(ValidateTensorShape(self_obs, {4, MER_NUM_AGENTS, MER_SELF_OBSERVATION_SIZE}));
+    // Use madEscape namespace constants
+    EXPECT_TRUE(ValidateTensorShape(self_obs, {4, madEscape::consts::numAgents, 5}));  // 5 = SelfObservationFloatCount
 }
 
 // Test recording workflow
@@ -65,8 +73,8 @@ TEST_F(ManagerIntegrationTest, ManagerRecordingAPI) {
     
     // Simulate some actions
     for (int step = 0; step < 10; step++) {
-        mgr.setAction(0, MER_MOVE_SLOW, MER_MOVE_FORWARD, MER_ROTATE_NONE);
-        mgr.setAction(1, MER_MOVE_STOP, MER_MOVE_FORWARD, MER_ROTATE_SLOW_LEFT);
+        mgr.setAction(0, move_amount::SLOW, move_angle::FORWARD, rotate::NONE);
+        mgr.setAction(1, move_amount::STOP, move_angle::FORWARD, rotate::SLOW_LEFT);
         mgr.step();
     }
     
@@ -102,8 +110,8 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
         mgr.startRecording("test.rec", 456);
         
         // Record specific actions
-        mgr.setAction(0, MER_MOVE_MEDIUM, MER_MOVE_RIGHT, MER_ROTATE_SLOW_RIGHT);
-        mgr.setAction(1, MER_MOVE_FAST, MER_MOVE_LEFT, MER_ROTATE_FAST_LEFT);
+        mgr.setAction(0, move_amount::MEDIUM, move_angle::RIGHT, rotate::SLOW_RIGHT);
+        mgr.setAction(1, move_amount::FAST, move_angle::LEFT, rotate::FAST_LEFT);
         mgr.step();
         
         mgr.stopRecording();
@@ -115,6 +123,9 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
     
     // Replay phase - just test metadata reading
     {
+        // Capture stdout to suppress metadata output
+        CaptureStdout();
+        
         // Read metadata first
         MER_ReplayMetadata metadata;
         ASSERT_EQ(mer_read_replay_metadata("test.rec", &metadata), MER_SUCCESS);
@@ -124,6 +135,10 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
         // Skip the actual replay part for now to isolate the metadata reading test
         std::cout << "Successfully read metadata: " << metadata.num_worlds 
                   << " worlds, seed " << metadata.seed << std::endl;
+        
+        // Get captured output 
+        std::string captured_output = GetCapturedStdout();
+        EXPECT_TRUE(captured_output.find("Successfully read metadata") != std::string::npos);
     }
     
     // Now we can safely clean up the recording file
@@ -132,6 +147,9 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
 
 // Test trajectory tracking
 TEST_F(ManagerIntegrationTest, ManagerTrajectoryLogging) {
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     createTestLevelFile("test.lvl", 16, 16);
     file_manager_->addFile("test.lvl");
     file_manager_->addFile("trajectory.csv");
@@ -151,7 +169,7 @@ TEST_F(ManagerIntegrationTest, ManagerTrajectoryLogging) {
     
     // Run simulation
     for (int i = 0; i < 5; i++) {
-        mgr.setAction(0, MER_MOVE_SLOW, MER_MOVE_FORWARD, MER_ROTATE_NONE);
+        mgr.setAction(0, move_amount::SLOW, move_angle::FORWARD, rotate::NONE);
         mgr.step();
     }
     
@@ -169,6 +187,11 @@ TEST_F(ManagerIntegrationTest, ManagerTrajectoryLogging) {
         EXPECT_EQ(point.world, 0);
         EXPECT_EQ(point.agent, 0);
     }
+    
+    // Get captured output and verify trajectory logging occurred
+    std::string captured_output = GetCapturedStdout();
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
 }
 
 // Test pause/resume functionality
@@ -311,6 +334,9 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
     
     viewer.setFrameLimit(5);
     
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     // Test enabling trajectory
     viewer.setCurrentWorld(1);
     input.hitKey(MockViewer::KeyboardKey::T);
@@ -359,6 +385,12 @@ TEST_F(ManagerIntegrationTest, MockViewerTrajectoryToggle) {
         []() {}
     );
     
+    // Get and optionally verify the captured output
+    std::string captured_output = GetCapturedStdout();
+    // We expect the output to contain trajectory logging messages
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
+    
     EXPECT_FALSE(mgr.isTrajectoryEnabled());
 }
 
@@ -378,7 +410,7 @@ TEST_F(ManagerIntegrationTest, ManagerEmbeddedLevelRecording) {
     mgr.startRecording("embedded.rec", 789);
     
     for (int i = 0; i < 5; i++) {
-        mgr.setAction(0, MER_MOVE_SLOW, i % 8, MER_ROTATE_NONE);
+        mgr.setAction(0, move_amount::SLOW, i % 8, rotate::NONE);
         mgr.step();
     }
     

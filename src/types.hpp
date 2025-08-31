@@ -5,6 +5,7 @@
 #include <madrona/physics.hpp>
 #include <madrona/rand.hpp>
 #include <madrona/render/ecs.hpp>
+#include <madrona/exec_mode.hpp>
 
 #include "consts.hpp"
 
@@ -23,6 +24,7 @@ namespace madEscape {
     using madrona::phys::ResponseType;
     using madrona::phys::RigidBody;
     using madrona::phys::Velocity;
+    using madrona::math::Quat;
 
 
     // [BOILERPLATE]
@@ -112,7 +114,7 @@ namespace madEscape {
     // This enum is used to track the type of each entity for the purposes of
     // classifying the objects hit by each lidar sample.
     enum class EntityType : uint32_t {
-        None,
+        NoEntity,  // Renamed from None to avoid Python keyword conflict
         Cube,
         Wall,
         Agent,
@@ -142,9 +144,9 @@ namespace madEscape {
     // Unified CompiledLevel structure matching C API format
     // This replaces both the C++ CompiledLevel and C API MER_CompiledLevel  
     struct CompiledLevel {
-        static constexpr int32_t MAX_TILES = 1024;  // 32x32 grid max
-        static constexpr int32_t MAX_SPAWNS = 8;    // Max spawn points
-        static constexpr int32_t MAX_LEVEL_NAME_LENGTH = 64;  // Max level name length
+        static constexpr int32_t MAX_TILES = consts::limits::maxTiles;  // From consts.hpp
+        static constexpr int32_t MAX_SPAWNS = consts::limits::maxSpawns;  // From consts.hpp
+        static constexpr int32_t MAX_LEVEL_NAME_LENGTH = consts::limits::maxLevelNameLength;  // From consts.hpp
         
         // Header fields (matching MER_CompiledLevel layout)
         int32_t num_tiles;                // Actual tiles used
@@ -183,10 +185,7 @@ namespace madEscape {
         float tile_scale_x[MAX_TILES];    // Local X scale
         float tile_scale_y[MAX_TILES];    // Local Y scale
         float tile_scale_z[MAX_TILES];    // Local Z scale
-        float tile_rot_w[MAX_TILES];      // Quaternion W component
-        float tile_rot_x[MAX_TILES];      // Quaternion X component
-        float tile_rot_y[MAX_TILES];      // Quaternion Y component
-        float tile_rot_z[MAX_TILES];      // Quaternion Z component
+        Quat tile_rotation[MAX_TILES];    // Rotation quaternion for each tile
         
         // Randomization arrays (per-tile random ranges)
         float tile_rand_x[MAX_TILES];     // Random X offset range (-range/2 to +range/2)
@@ -212,6 +211,32 @@ namespace madEscape {
     // randomly generated level
     struct LevelState {
         Room rooms[consts::numRooms];
+    };
+
+    // [BOILERPLATE] Error codes for C API
+    enum class Result : int32_t {
+        Success = 0,
+        ErrorNullPointer = -1,
+        ErrorInvalidParameter = -2,
+        ErrorAllocationFailed = -3,
+        ErrorNotInitialized = -4,
+        ErrorCudaFailure = -5,
+        ErrorFileNotFound = -6,
+        ErrorInvalidFile = -7,
+        ErrorFileIO = -8,
+    };
+
+
+    // [BOILERPLATE] Manager configuration
+    struct ManagerConfig {
+        madrona::ExecMode exec_mode;
+        int gpu_id;
+        uint32_t num_worlds;
+        uint32_t rand_seed;
+        bool auto_reset;
+        bool enable_batch_renderer;
+        uint32_t batch_render_view_width;   // Default: 64
+        uint32_t batch_render_view_height;  // Default: 64
     };
 
     /* ECS Archetypes for the game */

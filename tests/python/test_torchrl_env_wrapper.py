@@ -34,7 +34,7 @@ def test_env_creation_cpu():
     env = MadronaEscapeRoomEnv(num_worlds=4, gpu_id=-1, rand_seed=42, auto_reset=True)
 
     assert env.num_worlds == 4
-    assert env.num_agents == madrona_escape_room.NUM_AGENTS
+    assert env.num_agents == madrona_escape_room.consts.numAgents
     assert env.batch_size == torch.Size([4])
     assert env.device == torch.device("cpu")
 
@@ -70,7 +70,7 @@ def test_observation_spec(small_env):
     assert "self_obs" in obs_spec
 
     # Check individual component shapes
-    assert obs_spec["self_obs"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 5])
+    assert obs_spec["self_obs"].shape == torch.Size([2, madrona_escape_room.consts.numAgents, 5])
 
     # Check dtypes
     assert obs_spec["self_obs"].dtype == torch.float32
@@ -91,7 +91,7 @@ def test_reset(cpu_env):
     assert "self_obs" in obs
 
     # Check individual component shapes
-    assert obs["self_obs"].shape == torch.Size([4, madrona_escape_room.NUM_AGENTS, 5])
+    assert obs["self_obs"].shape == torch.Size([4, madrona_escape_room.consts.numAgents, 5])
 
     # Check that observations are valid
     assert not torch.isnan(obs["self_obs"]).any()
@@ -137,10 +137,12 @@ def test_step(small_env):
     assert "steps_remaining" in info
 
     # Check shapes
-    assert next_obs["self_obs"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 5])
-    assert info["steps_remaining"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 1])
-    assert td_out["next"]["reward"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 1])
-    assert td_out["next"]["done"].shape == torch.Size([2, madrona_escape_room.NUM_AGENTS, 1])
+    assert next_obs["self_obs"].shape == torch.Size([2, madrona_escape_room.consts.numAgents, 5])
+    assert info["steps_remaining"].shape == torch.Size([2, madrona_escape_room.consts.numAgents, 1])
+    assert td_out["next"]["reward"].shape == torch.Size(
+        [2, madrona_escape_room.consts.numAgents, 1]
+    )
+    assert td_out["next"]["done"].shape == torch.Size([2, madrona_escape_room.consts.numAgents, 1])
 
     # Check types
     assert td_out["next"]["reward"].dtype == torch.float32

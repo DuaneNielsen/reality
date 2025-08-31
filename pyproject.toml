@@ -9,9 +9,9 @@ requires-python = ">=3.10"
 dependencies = [
     "torch>=2.7.0",
     "numpy>=1.20.0",
-    "clangd-tidy>=1.1.0.post2",
+    "cdataclass",
+    "fastmcp>=2.11.3",
 ]
-
 
 # Removed madrona-specific configuration
 # The package is now built using standard setuptools
@@ -24,7 +24,19 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
     "custom_level: mark test to use a custom level (dict or string)",
+    "ascii_level: mark test to use an ASCII level string",
+    "json_level: mark test to use a JSON level string",
+    "stress: mark test as a stress test with high resource usage",
+    "slow: mark test as slow-running (can be skipped in regular runs)",
 ]
+
+# Logging configuration
+log_cli = true
+log_cli_level = "ERROR"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+log_auto_indent = true
+log_level = "DEBUG"
 
 [dependency-groups]
 dev = [
@@ -35,4 +47,6 @@ dev = [
     "validate-pyproject",
     "ruff",
     "pre-commit",
+    "clangd-tidy>=1.1.0.post2",  # Used in git post-commit hooks
+    "pyinstrument>=4.0.0",  # For performance profiling in sim_bench.py
 ]

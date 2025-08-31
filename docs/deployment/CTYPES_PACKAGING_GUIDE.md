@@ -28,11 +28,12 @@ These must be bundled because they're not standard system libraries:
 - `libmadrona_render_shader_compiler.so` - Madrona rendering components
 - `libmadrona_std_mem.so` - Madrona memory management
 
-### 4. Optional Extension Modules
-- `_madrona_escape_room_dlpack.cpython-*.so` - DLPack C extension (if available)
-  - Built from: `src/dlpack_extension.cpp`
-  - Required for optimal DLPack performance
-  - Falls back gracefully if missing
+### 4. Python Extension Modules
+- `_madrona_escape_room_dlpack.cpython-312-x86_64-linux-gnu.so` - DLPack C extension
+  - Built from: `src/dlpack_extension.cpp` by CMake
+  - Location: `build/_madrona_escape_room_dlpack.cpython-312-x86_64-linux-gnu.so`
+  - Required for PyTorch tensor interoperability via DLPack protocol
+  - **CRITICAL**: Must be imported as `from . import _madrona_escape_room_dlpack`
 
 ## Current Packaging Status
 
@@ -52,66 +53,114 @@ package_data={
 },
 ```
 
-### ❌ Missing: Library Copy Step
-The build system doesn't automatically copy libraries to the package directory.
+### ✅ Implemented: CMake Build Integration
+- CMake builds the DLPack extension as a MODULE library
+- Post-build commands copy all libraries to the package directory
+- Setup.py ensures libraries are present for both regular and editable installs
 
-## Required Packaging Fixes
+## Current Implementation
 
-### 1. Update BuildPyWithLibrary Class
-The current `setup.py` has a `BuildPyWithLibrary` class but it only copies the main C API library. It needs to copy all dependencies.
+### 1. CMake DLPack Extension Build
+Added to `src/CMakeLists.txt` after the C API target:
+```cmake
+# Python DLPack extension
+add_library(madrona_escape_room_dlpack MODULE
+    dlpack_extension.cpp
+)
 
-**Current Code:**
-```python
-class BuildPyWithLibrary(build_py):
-    def run(self):
-        super().run()
-        
-        c_lib = Path("build/libmadrona_escape_room_c_api.so")
-        if c_lib.exists():
-            # Only copies main library
-            shutil.copy2(c_lib, dest)
+# Set proper Python module naming
+set_target_properties(madrona_escape_room_dlpack PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "_madrona_escape_room_dlpack"
+    SUFFIX ".cpython-312-x86_64-linux-gnu.so"
+)
+
+target_include_directories(madrona_escape_room_dlpack PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    /usr/include/python3.12
+)
+
+target_compile_definitions(madrona_escape_room_dlpack PRIVATE
+    MADRONA_CLANG
+)
+
+target_link_libraries(madrona_escape_room_dlpack PRIVATE
+    madrona_common
+    madrona_python_utils
+)
+
+# Copy all required libraries to package directory
+add_custom_command(TARGET madrona_escape_room_dlpack POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:madrona_escape_room_dlpack>
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:madrona_escape_room_c_api>
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_BINARY_DIR}/libembree4.so.4
+        ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/
+    # ... other libraries ...
+    COMMENT "Copying all required libraries to Python package directory"
+)
 ```
 
-**Needs to be:**
+### 2. Setup.py Library Management
+The setup.py ensures libraries are present for both regular and editable installs:
+
 ```python
+# Helper function to ensure libraries are in package directory
+def ensure_libraries_present():
+    """Ensure all required libraries are in the package directory."""
+    required_libs = [
+        "libmadrona_escape_room_c_api.so",
+        "libembree4.so.4",
+        "libdxcompiler.so",
+        "libmadrona_render_shader_compiler.so",
+        "libmadrona_std_mem.so",
+        "_madrona_escape_room_dlpack.cpython-312-x86_64-linux-gnu.so",
+    ]
+    
+    build_dir = Path("build")
+    package_dir = Path("madrona_escape_room")
+    
+    for lib_name in required_libs:
+        dest_path = package_dir / lib_name
+        if not dest_path.exists():
+            src_path = build_dir / lib_name
+            if src_path.exists():
+                shutil.copy2(src_path, dest_path)
+
 class BuildPyWithLibrary(build_py):
+    """Custom build_py that ensures libraries are present and copies them"""
     def run(self):
+        ensure_libraries_present()
         super().run()
+        # Also copy to build_lib for regular installs
         
-        # Libraries to copy
-        required_libs = [
-            "libmadrona_escape_room_c_api.so",  # Main C API
-            "libembree4.so.4",                   # Dependencies
-            "libdxcompiler.so",
-            "libmadrona_render_shader_compiler.so",
-            "libmadrona_std_mem.so"
-        ]
-        
-        build_dir = Path("build")
-        for package in self.packages:
-            if package == "madrona_escape_room":
-                package_dir = Path(self.build_lib) / package
-                
-                for lib_name in required_libs:
-                    lib_path = build_dir / lib_name
-                    if lib_path.exists():
-                        dest = package_dir / lib_name
-                        print(f"Copying {lib_name} to {dest}")
-                        shutil.copy2(lib_path, dest)
-                    else:
-                        print(f"Warning: {lib_name} not found in build directory")
+class DevelopWithLibrary(develop):
+    """Custom develop command for editable installs"""
+    def run(self):
+        ensure_libraries_present()
+        super().run()
 ```
 
-### 2. Update Library Search Path in ctypes_bindings.py
-The ctypes bindings should look for libraries in the package directory first:
+### 3. Python Extension Import
+The DLPack extension must be imported as a package submodule in `tensor.py`:
 
-**Current search order:**
-1. `../build/libmadrona_escape_room_c_api.so` (development)
-2. Package directory (distribution)
+```python
+def __dlpack__(self, stream=None):
+    """Create DLPack capsule for PyTorch consumption"""
+    try:
+        from . import _madrona_escape_room_dlpack as dlpack_ext
+    except ImportError:
+        raise ImportError("DLPack extension module not found")
+```
 
-**This is correct** - the current implementation should work for both development and distribution.
+This follows Python conventions - C extensions in a package should be imported as part of the package namespace.
 
-### 3. Platform-Specific Considerations
+### 4. Platform-Specific Considerations
 
 #### Linux (Current)
 - File extension: `.so`
@@ -190,18 +239,39 @@ OSError: undefined symbol: __nvJitLinkCreate_12_5
 
 ## Recommended Build Process
 
-1. **Clean build**: `rm -rf build/ dist/ *.egg-info/`
-2. **Build C libraries**: `make -C build -j8`
-3. **Build Python package**: `python -m build`
-4. **Test in clean environment**: See testing section above
-5. **Verify library inclusion**: Check wheel contents
+1. **Configure CMake**: `cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo`
+2. **Build everything**: `make -C build -j16`
+   - This builds the C API library
+   - Builds the DLPack extension 
+   - Copies all libraries to the package directory
+3. **Install package**: `uv pip install -e .` (for development)
+4. **Test installation**: `uv run pytest tests/python/test_00_ctypes_cpu_only.py`
+5. **Build distribution**: `python -m build` (for release)
 
 ## Integration with CI/CD
 
 For automated builds, ensure:
-1. C++ build environment available
+1. C++ build environment with Madrona toolchain available
 2. CUDA toolkit installed (for GPU support)
-3. All dependency libraries built before Python packaging
-4. Test installation in clean environment as final step
+3. Run CMake build which handles everything:
+   ```bash
+   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   make -C build -j$(nproc)
+   ```
+4. Test installation in clean environment:
+   ```bash
+   python -m venv test_env
+   source test_env/bin/activate
+   pip install dist/*.whl
+   python -c "import madrona_escape_room; print('✓ Import successful')"
+   ```
 
-This ensures the ctypes bindings work correctly when distributed to end users.
+## Key Improvements Made
+
+1. **Unified Build System**: CMake now builds all components including the DLPack extension
+2. **Automatic Library Management**: Post-build commands ensure all libraries are in the package directory
+3. **Proper Python Packaging**: The DLPack extension is imported as a package submodule following Python conventions
+4. **Support for Editable Installs**: Custom develop command ensures libraries are present for `pip install -e .`
+5. **No Manual Steps**: Everything happens automatically during the build process
+
+This ensures the ctypes bindings and DLPack extension work correctly for both development and distribution.

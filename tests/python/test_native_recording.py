@@ -8,6 +8,8 @@ import os
 import struct
 import tempfile
 
+import pytest
+
 
 def test_recording_lifecycle(cpu_manager):
     """Test basic recording start/stop cycle"""
@@ -37,6 +39,7 @@ def test_recording_lifecycle(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.slow
 def test_gpu_recording_lifecycle(gpu_manager):
     """Test basic recording start/stop cycle on GPU"""
     mgr = gpu_manager

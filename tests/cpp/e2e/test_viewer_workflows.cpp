@@ -1,10 +1,17 @@
 #include <gtest/gtest.h>
 #include "viewer_test_base.hpp"
 #include "mock_components.hpp"
-#include "replay_metadata.hpp"
+#include "mgr.hpp"
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include "../../../src/consts.hpp"
+
+// GoogleTest stdout capture for clean test output
+using testing::internal::CaptureStdout;
+using testing::internal::GetCapturedStdout;
+
+using namespace madEscape::consts::action;
 
 // These tests simulate viewer-like workflows but primarily test Manager API
 // Only a few tests actually exercise viewer-specific behavior
@@ -185,6 +192,9 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerRecordingSession) {
 
 // Full replay verification workflow
 TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     // Phase 1: Record a session
     // Use the properly generated default level with correct world boundaries
     // Add all test files to cleanup - they'll be deleted when test ends
@@ -294,10 +304,18 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
             EXPECT_NEAR(original_trajectory[i].rotation, replay_trajectory[i].rotation, 0.1f);
         }
     }
+    
+    // Get captured output and verify trajectory logging occurred
+    std::string captured_output = GetCapturedStdout();
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
 }
 
 // Live simulation with tracking workflow
 TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
+    // Capture stdout to suppress trajectory logging output
+    CaptureStdout();
+    
     // Use default level for trajectory tracking
     file_manager_->addFile("live_trajectory.csv");
     
@@ -407,6 +425,11 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerTrajectoryWorkflow) {
         }
     }
     EXPECT_TRUE(found_world2_reset);
+    
+    // Get captured output and verify trajectory logging occurred
+    std::string captured_output = GetCapturedStdout();
+    EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
+    EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
 }
 
 // Complex multi-world scenario
@@ -532,7 +555,7 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerPauseDuringRecording) {
     viewer.loop(
         [](int32_t, const MockViewer::UserInput&) {},
         [&](int32_t world_idx, int32_t, const MockViewer::UserInput&) {
-            mgr.setAction(world_idx, MER_MOVE_SLOW, MER_MOVE_FORWARD, MER_ROTATE_NONE);
+            mgr.setAction(world_idx, move_amount::SLOW, move_angle::FORWARD, rotate::NONE);
         },
         [&]() {
             if (!is_paused) {
@@ -570,7 +593,7 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerPauseDuringRecording) {
     viewer.loop(
         [](int32_t, const MockViewer::UserInput&) {},
         [&](int32_t world_idx, int32_t, const MockViewer::UserInput&) {
-            mgr.setAction(world_idx, MER_MOVE_FAST, MER_MOVE_BACKWARD_LEFT, MER_ROTATE_NONE);
+            mgr.setAction(world_idx, move_amount::FAST, move_angle::BACKWARD_LEFT, rotate::NONE);
         },
         [&]() {
             if (!is_paused) {

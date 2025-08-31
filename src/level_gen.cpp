@@ -185,7 +185,7 @@ static void createFloorPlane(Engine &ctx)
         Vector3 { 0, 0, 0 },
         Quat { 1, 0, 0, 0 },
         AssetIDs::PLANE,
-        EntityType::None, // Floor plane type should never be queried
+        EntityType::NoEntity, // Floor plane type should never be queried
         ResponseType::Static);
 }
 
@@ -301,7 +301,7 @@ static void resetPersistentEntities(Engine &ctx)
                  float z = level.tile_z[i];
                  
                  bool isRenderOnly = level.tile_render_only[i];
-                 Quat rotation{level.tile_rot_w[i], level.tile_rot_x[i], level.tile_rot_y[i], level.tile_rot_z[i]};
+                 Quat rotation = level.tile_rotation[i];
                  if (isRenderOnly) {
                      setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, rotation, scale);
                  } else {
@@ -377,7 +377,7 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                 }
                 
                 // Apply rotation randomization if specified
-                Quat rotation{level->tile_rot_w[i], level->tile_rot_x[i], level->tile_rot_y[i], level->tile_rot_z[i]};
+                Quat rotation = level->tile_rotation[i];
                 if (level->tile_rand_rot_z[i] > 0.0f) {
                     // Apply random Z-axis rotation
                     float randomAngle = randInRangeCentered(ctx, level->tile_rand_rot_z[i]);

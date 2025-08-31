@@ -6,9 +6,18 @@ Use the following process to fix the test:
 
 ## 1. Run the test to verify the error message
 
+for cpu tests...
+
 ```bash
 ./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
 ```
+
+for gpu tests
+
+```bash
+./build/mad_escape_gpu_tests --gtest_filter="CApiGPUTest.ManagerCreationWithEmbeddedLevels"
+```
+
 
 ## 2. Read the test code and create a summary
 

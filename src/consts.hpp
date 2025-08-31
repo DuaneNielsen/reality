@@ -7,10 +7,10 @@ namespace madEscape {
 namespace consts {
 // Each random world is composed of a fixed number of rooms that the agents
 // must solve in order to maximize their reward.
-inline constexpr madrona::CountT numRooms = 1;
+inline constexpr int numRooms = 1;
 
 // Generated levels assume 1 agent (reduced from 2)
-inline constexpr madrona::CountT numAgents = 1;
+inline constexpr int numAgents = 1;
 
 // NOTE: maxEntitiesPerRoom removed - now dynamically calculated in CompiledLevel.max_entities
 
@@ -256,13 +256,17 @@ namespace viewer {
     inline constexpr int32_t dlpackVersionMinor = 5;
 }
 
-// C API buffer sizes and limits
-namespace capi {
-    // String buffer sizes for C API structs
-    inline constexpr int32_t maxNameLength = 64;        // sim_name, level_name buffers
-    inline constexpr int32_t maxTiles = 1024;           // tile_types, tile_x, tile_y arrays
+// Structural limits and array bounds
+namespace limits {
+    // Array dimensions for compiled levels
+    inline constexpr int32_t maxTiles = 1024;           // Maximum tiles in a level (32x32 grid)
+    inline constexpr int32_t maxSpawns = 8;             // Maximum spawn points in a level
     
-    // Validation limits for file inspector
+    // String buffer sizes
+    inline constexpr int32_t maxNameLength = 64;        // sim_name, level_name buffer size
+    inline constexpr int32_t maxLevelNameLength = 64;   // Maximum level name string length
+    
+    // Validation bounds for level data
     inline constexpr int32_t maxWorlds = 10000;         // Upper limit for num_worlds
     inline constexpr int32_t maxAgentsPerWorld = 100;   // Upper limit for agents per world
     inline constexpr int32_t maxGridSize = 64;          // Upper limit for level width/height

@@ -35,7 +35,7 @@ TEST_LEVEL_SOUTH_SPAWN = """
 """
 
 
-@pytest.mark.custom_level(TEST_LEVEL_SOUTH_SPAWN)
+@pytest.mark.ascii_level(TEST_LEVEL_SOUTH_SPAWN)
 def test_forward_movement_reward(cpu_manager):
     """Test reward for consistent forward movement"""
     mgr = cpu_manager
@@ -110,7 +110,7 @@ TEST_LEVEL_WITH_WALLS = """
 """
 
 
-@pytest.mark.custom_level(TEST_LEVEL_WITH_WALLS)
+@pytest.mark.ascii_level(TEST_LEVEL_WITH_WALLS)
 def test_reward_normalization(cpu_manager):
     """Test that rewards are properly normalized by world length"""
     mgr = cpu_manager

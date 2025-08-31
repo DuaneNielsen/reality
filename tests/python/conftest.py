@@ -3,11 +3,14 @@ Pytest configuration for Madrona Escape Room tests.
 Provides enhanced fixtures with optional action recording for visualization.
 """
 
+import logging
 import subprocess
 from pathlib import Path
 
 import pytest
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 def pytest_addoption(parser):
@@ -56,20 +59,35 @@ def pytest_runtest_setup(item):
 def cpu_manager(request):
     """Create a CPU SimManager with optional native recording and trajectory tracing"""
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
+    from madrona_escape_room.level_compiler import compile_ascii_level
 
-    # Check if test has a custom_level marker
-    marker = request.node.get_closest_marker("custom_level")
-    level_ascii = marker.args[0] if marker else None
+    # Check for level markers
+    ascii_marker = request.node.get_closest_marker("ascii_level")
+    json_marker = request.node.get_closest_marker("json_level")
+
+    if ascii_marker:
+        ascii_str = ascii_marker.args[0]
+        logger.info(f"Using ASCII level:\n{ascii_str}")
+        compiled_level = compile_ascii_level(ascii_str, level_name="test_level")
+    elif json_marker:
+        json_str = json_marker.args[0]
+        logger.info(f"Using JSON level:\n{json_str}")
+        from madrona_escape_room.level_compiler import compile_level
+
+        compiled_level = compile_level(json_str)
+    else:
+        logger.info("No level markers, using default level")
+        compiled_level = create_default_level()
 
     mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=ExecMode.CPU,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
         auto_reset=False,  # Manual control for reward tests
-        level_ascii=level_ascii,  # Use custom level if provided via marker
+        compiled_levels=compiled_level,  # Use compiled level
     )
 
     # Check for debug flags
@@ -94,26 +112,23 @@ def cpu_manager(request):
         ):
             yield mgr
 
-        # Print debug info after context exits
-        print(f"\n{'=' * 60}")
+        # Log debug info after context exits
         if record_actions:
             recording_path = base_path.with_suffix(".bin")
-            print(f"Actions recorded: {recording_path}")
-            print("Worlds: 4, Agents: 1")
-            print(f"To visualize: ./build/viewer --num-worlds 4 --replay {recording_path}")
+            logger.info(f"Actions recorded: {recording_path}")
+            logger.info("Worlds: 4, Agents: 1")
+            logger.info(f"To visualize: ./build/viewer --num-worlds 4 --replay {recording_path}")
 
         if trace_trajectories:
             trajectory_path = base_path.with_name(f"{base_path.stem}_trajectory.txt")
-            print(f"Trajectory logged: {trajectory_path}")
-
-        print(f"{'=' * 60}\n")
+            logger.info(f"Trajectory logged: {trajectory_path}")
 
         # Launch viewer if requested
         if request.config.getoption("--visualize") and record_actions:
             recording_path = base_path.with_suffix(".bin")
             viewer_path = Path("build/viewer")
             if viewer_path.exists():
-                print("Launching viewer...")
+                logger.info("Launching viewer...")
                 subprocess.run(
                     [
                         str(viewer_path),
@@ -126,7 +141,7 @@ def cpu_manager(request):
                     ]
                 )
             else:
-                print(f"Viewer not found at {viewer_path}")
+                logger.warning(f"Viewer not found at {viewer_path}")
     else:
         yield mgr
 
@@ -143,15 +158,16 @@ def log_and_verify_replay_cpu_manager(request):
     import tempfile
 
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=ExecMode.CPU,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
         auto_reset=True,
+        compiled_levels=create_default_level(),
     )
 
     # Always create a debug session for this fixture
@@ -173,16 +189,13 @@ def log_and_verify_replay_cpu_manager(request):
 
     # After context exits, recording and trajectory are finalized
     # Now automatically verify replay matches original trajectory
-    print(f"\n{'=' * 60}")
-    print("Debug session complete - verifying replay...")
-    print(f"Recording: {debug_session.recording_path}")
-    print(f"Original trajectory: {debug_session.trajectory_path}")
+    logger.info("Debug session complete - verifying replay...")
+    logger.info(f"Recording: {debug_session.recording_path}")
+    logger.info(f"Original trajectory: {debug_session.trajectory_path}")
 
     try:
         # Create replay manager and trace file
-        replay_mgr = SimManager.from_replay(
-            str(debug_session.recording_path), madrona_escape_room.madrona.ExecMode.CPU
-        )
+        replay_mgr = SimManager.from_replay(str(debug_session.recording_path), ExecMode.CPU)
 
         with tempfile.NamedTemporaryFile(suffix="_replay_trace.txt", delete=False) as f:
             replay_trace_path = f.name
@@ -192,7 +205,7 @@ def log_and_verify_replay_cpu_manager(request):
 
         # Get total steps and replay them all
         current, total = replay_mgr.get_replay_step_count()
-        print(f"Replaying {total} steps...")
+        logger.info(f"Replaying {total} steps...")
 
         for step in range(total):
             finished = replay_mgr.replay_step()
@@ -212,21 +225,21 @@ def log_and_verify_replay_cpu_manager(request):
 
         # Verify they match exactly
         if original_content == replay_content:
-            print("✓ Replay verification PASSED - trajectories match exactly!")
+            logger.info("✓ Replay verification PASSED - trajectories match exactly!")
         else:
             original_lines = original_content.split("\n")
             replay_lines = replay_content.split("\n")
 
-            print("✗ Replay verification FAILED:")
-            print(f"  Original: {len(original_lines)} lines, {len(original_content)} chars")
-            print(f"  Replay:   {len(replay_lines)} lines, {len(replay_content)} chars")
+            logger.error("✗ Replay verification FAILED:")
+            logger.error(f"  Original: {len(original_lines)} lines, {len(original_content)} chars")
+            logger.error(f"  Replay:   {len(replay_lines)} lines, {len(replay_content)} chars")
 
             # Find first difference
             for i, (orig_line, replay_line) in enumerate(zip(original_lines, replay_lines)):
                 if orig_line != replay_line:
-                    print(f"  First difference at line {i + 1}:")
-                    print(f"    Original: {orig_line}")
-                    print(f"    Replay:   {replay_line}")
+                    logger.error(f"  First difference at line {i + 1}:")
+                    logger.error(f"    Original: {orig_line}")
+                    logger.error(f"    Replay:   {replay_line}")
                     break
 
             # Clean up and fail
@@ -241,17 +254,18 @@ def log_and_verify_replay_cpu_manager(request):
             os.unlink(replay_trace_path)
 
     except Exception as e:
-        print(f"✗ Replay verification ERROR: {e}")
+        logger.error(f"✗ Replay verification ERROR: {e}")
         raise
 
-    print(f"To visualize: ./build/viewer --num-worlds 4 --replay {debug_session.recording_path}")
-    print(f"{'=' * 60}\n")
+    logger.info(
+        f"To visualize: ./build/viewer --num-worlds 4 --replay {debug_session.recording_path}"
+    )
 
     # Launch viewer if --visualize was requested
     if request.config.getoption("--visualize"):
         viewer_path = Path("build/viewer")
         if viewer_path.exists() and debug_session.recording_path.exists():
-            print("Launching viewer for debug session...")
+            logger.info("Launching viewer for debug session...")
             subprocess.run(
                 [
                     str(viewer_path),
@@ -276,15 +290,16 @@ def gpu_manager(request):
         pytest.skip("CUDA not available")
 
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CUDA,
+        exec_mode=ExecMode.CUDA,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
         auto_reset=True,
+        compiled_levels=create_default_level(),
     )
 
     # With session scope, we can't do per-test recording here
@@ -321,15 +336,16 @@ def _test_manager(request):
     This fixture is module-scoped and doesn't support per-test custom levels.
     """
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     mgr = SimManager(
-        exec_mode=madrona_escape_room.madrona.ExecMode.CPU,
+        exec_mode=ExecMode.CPU,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
         enable_batch_renderer=False,
         auto_reset=False,  # Manual control over resets
+        compiled_levels=create_default_level(),
     )
 
     yield mgr
@@ -365,20 +381,17 @@ def per_test_recording_handler(request):
         with debug_session:
             yield
 
-        # Print debug info after context exits using actual paths from DebugSession
-        print(f"\n{'=' * 60}")
+        # Log debug info after context exits using actual paths from DebugSession
         if record_actions and debug_session.recording_path:
-            print(f"Actions recorded: {debug_session.recording_path}")
-            print("Worlds: 4, Agents: 1")
-            print(
+            logger.info(f"Actions recorded: {debug_session.recording_path}")
+            logger.info("Worlds: 4, Agents: 1")
+            logger.info(
                 f"To visualize: ./build/viewer --num-worlds 4 --replay "
                 f"{debug_session.recording_path}"
             )
 
         if trace_trajectories and debug_session.trajectory_path:
-            print(f"Trajectory logged: {debug_session.trajectory_path}")
-
-        print(f"{'=' * 60}\n")
+            logger.info(f"Trajectory logged: {debug_session.trajectory_path}")
 
         # Launch viewer if requested
         if (
@@ -388,7 +401,7 @@ def per_test_recording_handler(request):
         ):
             viewer_path = Path("build/viewer")
             if viewer_path.exists():
-                print("Launching viewer...")
+                logger.info("Launching viewer...")
                 subprocess.run(
                     [
                         str(viewer_path),
@@ -401,7 +414,7 @@ def per_test_recording_handler(request):
                     ]
                 )
             else:
-                print(f"Viewer not found at {viewer_path}")
+                logger.warning(f"Viewer not found at {viewer_path}")
     else:
         yield
 
@@ -412,10 +425,10 @@ def test_manager_from_replay():
     Returns a function that takes a replay path and returns the manager.
     """
     import madrona_escape_room
-    from madrona_escape_room import SimManager
+    from madrona_escape_room import ExecMode, SimManager
 
     def _create_manager(replay_path):
         """Create a manager from replay file"""
-        return SimManager.from_replay(str(replay_path), madrona_escape_room.madrona.ExecMode.CPU)
+        return SimManager.from_replay(str(replay_path), ExecMode.CPU)
 
     return _create_manager

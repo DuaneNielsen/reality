@@ -15,10 +15,10 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture(scope="module", autouse=True)
 def require_dlpack_extension():
     """Fixture that checks DLPack extension availability for all tests in this module"""
-    from madrona_escape_room import SimManager, madrona
+    from madrona_escape_room import ExecMode, SimManager
 
     mgr = SimManager(
-        exec_mode=madrona.ExecMode.CPU, num_worlds=1, gpu_id=0, rand_seed=12345, auto_reset=True
+        exec_mode=ExecMode.CPU, num_worlds=1, gpu_id=0, rand_seed=12345, auto_reset=True
     )
     tensor = mgr.action_tensor()
 
@@ -92,6 +92,7 @@ def test_dlpack_device_info(cpu_manager):
     assert device_id == 0, "CPU device ID should be 0"
 
 
+@pytest.mark.slow
 def test_dlpack_gpu_tensor(gpu_manager):
     """Test DLPack with GPU tensors"""
     # Get GPU tensor

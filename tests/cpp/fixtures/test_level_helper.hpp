@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "compiled_level_compat.hpp"
 #include "madrona_escape_room_c_api.h"
 #include <cstring>
 

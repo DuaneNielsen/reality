@@ -1,0 +1,5 @@
+Step    0: World 0 Agent 0: pos=(0.49,0.09,0.04) rot=-1.7° progress=-16.36 done=0
+Step    1: World 0 Agent 0: pos=(0.52,0.10,0.04) rot=-1.7° progress=-15.94 done=0
+Step    2: World 0 Agent 0: pos=(0.57,0.10,0.04) rot=-1.7° progress=-15.94 done=0
+Step    3: World 0 Agent 0: pos=(0.58,0.09,0.04) rot=-1.7° progress=-15.94 done=0
+Step    4: World 0 Agent 0: pos=(0.57,0.09,0.03) rot=0.1° progress=-15.94 done=0

@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <madrona/py/utils.hpp>
 #include "consts.hpp"
 
 extern "C" {
@@ -36,34 +37,25 @@ typedef struct DLManagedTensor {
     void (*deleter)(struct DLManagedTensor* self);
 } DLManagedTensor;
 
-// Madrona tensor element type constants (from C API)
-enum MER_TensorElementType {
-    MER_TENSOR_TYPE_UINT8 = 0,
-    MER_TENSOR_TYPE_INT8 = 1,
-    MER_TENSOR_TYPE_INT16 = 2,
-    MER_TENSOR_TYPE_INT32 = 3,
-    MER_TENSOR_TYPE_INT64 = 4,
-    MER_TENSOR_TYPE_FLOAT16 = 5,
-    MER_TENSOR_TYPE_FLOAT32 = 6,
-};
-
 // Convert Madrona tensor type to DLPack data type
 DLDataType madrona_to_dlpack_dtype(int madrona_type) {
-    switch (madrona_type) {
-        case MER_TENSOR_TYPE_UINT8:
-            return {1, 8, 1};   // UInt8
-        case MER_TENSOR_TYPE_INT8:
-            return {0, 8, 1};   // Int8
-        case MER_TENSOR_TYPE_INT16:
-            return {0, 16, 1};  // Int16
-        case MER_TENSOR_TYPE_INT32:
-            return {0, 32, 1};  // Int32
-        case MER_TENSOR_TYPE_INT64:
-            return {0, madEscape::consts::viewer::dlpackInt64Bits, 1};  // Int64
-        case MER_TENSOR_TYPE_FLOAT16:
-            return {2, 16, 1};  // Float16
-        case MER_TENSOR_TYPE_FLOAT32:
-            return {2, 32, 1};  // Float32
+    using madrona::py::TensorElementType;
+    
+    switch (static_cast<TensorElementType>(madrona_type)) {
+        case TensorElementType::UInt8:
+            return {1, 8, 1};
+        case TensorElementType::Int8:
+            return {0, 8, 1};
+        case TensorElementType::Int16:
+            return {0, 16, 1};
+        case TensorElementType::Int32:
+            return {0, 32, 1};
+        case TensorElementType::Int64:
+            return {0, madEscape::consts::viewer::dlpackInt64Bits, 1};
+        case TensorElementType::Float16:
+            return {2, 16, 1};
+        case TensorElementType::Float32:
+            return {2, 32, 1};
         default:
             return {2, 32, 1};  // Default to Float32
     }

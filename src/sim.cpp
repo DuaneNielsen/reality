@@ -183,8 +183,10 @@ inline void movementSystem(Engine &,
     float t_z =
         -turn_delta_per_bucket * (action.rotate - consts::numTurnBuckets / 2);
 
-    external_force = cur_rot.rotateVec({ f_x, f_y, 0 });
+    Vector3 local_force = { f_x, f_y, 0 };
+    external_force = cur_rot.rotateVec(local_force);
     external_torque = Vector3 { 0, 0, t_z };
+    
 }
 
 
@@ -248,19 +250,16 @@ inline void collectObservationsSystem(Engine &ctx,
     const CompiledLevel& level = ctx.singleton<CompiledLevel>();
     
     // Normalize positions based on actual world boundaries
-    // Use the Y-axis range as the primary normalization factor (world length)
+    // Use the appropriate axis range for each dimension
+    float world_width = level.world_max_x - level.world_min_x;
     float world_length = level.world_max_y - level.world_min_y;
+    float world_height = level.world_max_z - level.world_min_z;
     
-    if (world_length <= 0.0f) {
-        printf("ERROR: Invalid world boundaries - world_length = %f (min_y=%f, max_y=%f)\n",
-               world_length, level.world_min_y, level.world_max_y);
-    }
     
-    // Normalize all positions consistently using world length
-    // Adjust for world origin to match reward calculation
-    self_obs.globalX = (pos.x - level.world_min_x) / world_length;
+    // Normalize each position using its corresponding axis range
+    self_obs.globalX = (pos.x - level.world_min_x) / world_width;
     self_obs.globalY = (pos.y - level.world_min_y) / world_length;
-    self_obs.globalZ = (pos.z - level.world_min_z) / world_length;
+    self_obs.globalZ = (pos.z - level.world_min_z) / world_height;
     self_obs.maxY = (progress.maxY - level.world_min_y) / world_length;
     self_obs.theta = angleObs(computeZAngle(rot));
 }
@@ -288,9 +287,6 @@ inline void rewardSystem(Engine &ctx,
         // Use actual world boundaries for normalization
         float world_length = level.world_max_y - level.world_min_y;
         
-        if (world_length <= 0.0f) {
-            printf("ERROR: Invalid world boundaries in reward calculation - world_length = %f\n", world_length);
-        }
         
         float adjusted_progress = progress.maxY - level.world_min_y;
         float normalized_progress = adjusted_progress / world_length;
@@ -451,6 +447,7 @@ Sim::Sim(Engine &ctx,
     
     // Use per-world compiled level (highest priority), fallback to shared level
     compiled_level = world_init.compiledLevel;
+    
     
     CountT max_total_entities = compiled_level.max_entities;
 

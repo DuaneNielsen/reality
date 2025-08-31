@@ -67,26 +67,34 @@ class TestTilesetFunctionality:
 #SC#
 ###"""
 
-        compiled = compile_level(level, tileset=tileset)
+        # Create proper JSON format
+        json_level = {
+            "ascii": level,
+            "tileset": tileset,
+            "scale": 2.5,
+            "name": "test_tileset_with_randomization",
+        }
+
+        compiled = compile_level(json_level)
         validate_compiled_level(compiled)
 
         # Find the cube tile and verify randomization
         cube_id = _get_asset_object_id("cube")
         cube_found = False
-        for i in range(compiled["num_tiles"]):
-            if compiled["object_ids"][i] == cube_id:
+        for i in range(compiled.num_tiles):
+            if compiled.object_ids[i] == cube_id:
                 assert (
-                    compiled["tile_rand_x"][i] == 1.0
-                ), f"Expected rand_x=1.0, got {compiled['tile_rand_x'][i]}"
+                    compiled.tile_rand_x[i] == 1.0
+                ), f"Expected rand_x=1.0, got {compiled.tile_rand_x[i]}"
                 assert (
-                    compiled["tile_rand_y"][i] == 0.5
-                ), f"Expected rand_y=0.5, got {compiled['tile_rand_y'][i]}"
+                    compiled.tile_rand_y[i] == 0.5
+                ), f"Expected rand_y=0.5, got {compiled.tile_rand_y[i]}"
                 assert (
-                    compiled["tile_rand_z"][i] == 0.25
-                ), f"Expected rand_z=0.25, got {compiled['tile_rand_z'][i]}"
+                    compiled.tile_rand_z[i] == 0.25
+                ), f"Expected rand_z=0.25, got {compiled.tile_rand_z[i]}"
                 assert (
-                    abs(compiled["tile_rand_rot_z"][i] - 3.14159) < 0.001
-                ), f"Expected rand_rot_z≈π, got {compiled['tile_rand_rot_z'][i]}"
+                    abs(compiled.tile_rand_rot_z[i] - 3.14159) < 0.001
+                ), f"Expected rand_rot_z≈π, got {compiled.tile_rand_rot_z[i]}"
                 cube_found = True
                 break
 
@@ -94,20 +102,20 @@ class TestTilesetFunctionality:
 
         # Verify walls have no randomization
         wall_id = _get_asset_object_id("wall")
-        for i in range(compiled["num_tiles"]):
-            if compiled["object_ids"][i] == wall_id:
+        for i in range(compiled.num_tiles):
+            if compiled.object_ids[i] == wall_id:
                 assert (
-                    compiled["tile_rand_x"][i] == 0.0
-                ), f"Wall should have rand_x=0, got {compiled['tile_rand_x'][i]}"
+                    compiled.tile_rand_x[i] == 0.0
+                ), f"Wall should have rand_x=0, got {compiled.tile_rand_x[i]}"
                 assert (
-                    compiled["tile_rand_y"][i] == 0.0
-                ), f"Wall should have rand_y=0, got {compiled['tile_rand_y'][i]}"
+                    compiled.tile_rand_y[i] == 0.0
+                ), f"Wall should have rand_y=0, got {compiled.tile_rand_y[i]}"
                 assert (
-                    compiled["tile_rand_z"][i] == 0.0
-                ), f"Wall should have rand_z=0, got {compiled['tile_rand_z'][i]}"
+                    compiled.tile_rand_z[i] == 0.0
+                ), f"Wall should have rand_z=0, got {compiled.tile_rand_z[i]}"
                 assert (
-                    compiled["tile_rand_rot_z"][i] == 0.0
-                ), f"Wall should have rand_rot_z=0, got {compiled['tile_rand_rot_z'][i]}"
+                    compiled.tile_rand_rot_z[i] == 0.0
+                ), f"Wall should have rand_rot_z=0, got {compiled.tile_rand_rot_z[i]}"
                 break  # Check just one wall
 
     def test_json_level_with_randomization(self):
@@ -133,35 +141,35 @@ class TestTilesetFunctionality:
 
         # Verify cube randomization
         cube_id = _get_asset_object_id("cube")
-        for i in range(compiled["num_tiles"]):
-            if compiled["object_ids"][i] == cube_id:
+        for i in range(compiled.num_tiles):
+            if compiled.object_ids[i] == cube_id:
                 assert (
-                    compiled["tile_rand_x"][i] == 2.0
-                ), f"Cube rand_x should be 2.0, got {compiled['tile_rand_x'][i]}"
+                    compiled.tile_rand_x[i] == 2.0
+                ), f"Cube rand_x should be 2.0, got {compiled.tile_rand_x[i]}"
                 assert (
-                    compiled["tile_rand_y"][i] == 0.0
-                ), f"Cube rand_y should be 0.0, got {compiled['tile_rand_y'][i]}"
+                    compiled.tile_rand_y[i] == 0.0
+                ), f"Cube rand_y should be 0.0, got {compiled.tile_rand_y[i]}"
                 assert (
-                    abs(compiled["tile_rand_rot_z"][i] - 1.57) < 0.01
-                ), f"Cube rand_rot_z should be ~1.57, got {compiled['tile_rand_rot_z'][i]}"
+                    abs(compiled.tile_rand_rot_z[i] - 1.57) < 0.01
+                ), f"Cube rand_rot_z should be ~1.57, got {compiled.tile_rand_rot_z[i]}"
                 break
 
         # Verify cylinder randomization
         cylinder_id = _get_asset_object_id("cylinder")
-        for i in range(compiled["num_tiles"]):
-            if compiled["object_ids"][i] == cylinder_id:
+        for i in range(compiled.num_tiles):
+            if compiled.object_ids[i] == cylinder_id:
                 assert (
-                    compiled["tile_rand_x"][i] == 0.0
-                ), f"Cylinder rand_x should be 0.0, got {compiled['tile_rand_x'][i]}"
+                    compiled.tile_rand_x[i] == 0.0
+                ), f"Cylinder rand_x should be 0.0, got {compiled.tile_rand_x[i]}"
                 assert (
-                    compiled["tile_rand_y"][i] == 0.3
-                ), f"Cylinder rand_y should be 0.3, got {compiled['tile_rand_y'][i]}"
+                    compiled.tile_rand_y[i] == 0.3
+                ), f"Cylinder rand_y should be 0.3, got {compiled.tile_rand_y[i]}"
                 assert (
-                    compiled["tile_rand_z"][i] == 0.0
-                ), f"Cylinder rand_z should be 0.0, got {compiled['tile_rand_z'][i]}"
+                    compiled.tile_rand_z[i] == 0.0
+                ), f"Cylinder rand_z should be 0.0, got {compiled.tile_rand_z[i]}"
                 assert (
-                    compiled["tile_rand_rot_z"][i] == 0.0
-                ), f"Cylinder rand_rot_z should be 0.0, got {compiled['tile_rand_rot_z'][i]}"
+                    compiled.tile_rand_rot_z[i] == 0.0
+                ), f"Cylinder rand_rot_z should be 0.0, got {compiled.tile_rand_rot_z[i]}"
                 break
 
     def test_validate_tileset_with_invalid_randomization(self):
@@ -237,11 +245,19 @@ class TestTilesetFunctionality:
             ".": {"asset": "empty"},
         }
 
-        compiled = compile_level(level, tileset=tileset)
+        # Create proper JSON format
+        json_level = {
+            "ascii": level,
+            "tileset": tileset,
+            "scale": 2.5,
+            "name": "test_compile_with_custom_tileset",
+        }
 
-        assert compiled["width"] == 7
-        assert compiled["height"] == 3
-        assert compiled["num_tiles"] > 0
+        compiled = compile_level(json_level)
+
+        assert compiled.width == 7
+        assert compiled.height == 3
+        assert compiled.num_tiles > 0
 
         # Get the actual cylinder ID from the C API
         from madrona_escape_room.ctypes_bindings import get_physics_asset_object_id
@@ -250,8 +266,8 @@ class TestTilesetFunctionality:
 
         # Check that cylinder was included
         cylinder_found = False
-        for i in range(compiled["num_tiles"]):
-            if compiled["object_ids"][i] == cylinder_id:
+        for i in range(compiled.num_tiles):
+            if compiled.object_ids[i] == cylinder_id:
                 cylinder_found = True
                 break
         assert cylinder_found, f"Cylinder asset (ID {cylinder_id}) should be in compiled level"
@@ -275,21 +291,21 @@ class TestTilesetFunctionality:
 
         compiled = compile_level_from_json(json_data)
 
-        assert compiled["scale"] == 3.0
-        assert compiled["level_name"] == "test_tileset_level"
-        assert compiled["num_tiles"] > 0
+        assert compiled.world_scale == 3.0
+        assert compiled.level_name.decode("utf-8").rstrip("\x00") == "test_tileset_level"
+        assert compiled.num_tiles > 0
 
         validate_compiled_level(compiled)
 
     def test_json_auto_tileset_for_special_chars(self):
         """Test that special characters trigger default tileset usage"""
         # Level with 'O' which is not in legacy CHAR_MAP
-        json_data = {"ascii": "###O###\n#S....#\n#######"}
+        json_data = {"ascii": "###O###\n#S....#\n#######", "tileset": DEFAULT_TILESET}
 
         compiled = compile_level_from_json(json_data)
 
         # Should compile successfully using DEFAULT_TILESET
-        assert compiled["num_tiles"] > 0
+        assert compiled.num_tiles > 0
         validate_compiled_level(compiled)
 
     def test_backward_compatibility(self):
@@ -300,9 +316,17 @@ class TestTilesetFunctionality:
 #.CC.#
 ######"""
 
-        compiled = compile_level(level)  # No tileset
+        # Use DEFAULT_TILESET for backward compatibility
+        json_level = {
+            "ascii": level,
+            "tileset": DEFAULT_TILESET,
+            "scale": 2.5,
+            "name": "test_backward_compatibility",
+        }
 
-        assert compiled["num_tiles"] > 0
+        compiled = compile_level(json_level)
+
+        assert compiled.num_tiles > 0
         validate_compiled_level(compiled)
 
         # Get the actual cube ID from the C API
@@ -312,8 +336,8 @@ class TestTilesetFunctionality:
 
         # Verify cubes are present
         cube_count = 0
-        for i in range(compiled["num_tiles"]):
-            if compiled["object_ids"][i] == cube_id:
+        for i in range(compiled.num_tiles):
+            if compiled.object_ids[i] == cube_id:
                 cube_count += 1
         assert cube_count == 2, f"Should have 2 cubes with ID {cube_id}, found {cube_count}"
 
@@ -335,8 +359,16 @@ class TestTilesetFunctionality:
         # This may fail if axis assets aren't properly exposed
         # but the test structure is correct
         try:
-            compiled = compile_level(level, tileset=tileset)
-            assert compiled["num_tiles"] > 0
+            # Create proper JSON format
+            json_level = {
+                "ascii": level,
+                "tileset": tileset,
+                "scale": 2.5,
+                "name": "test_mixed_assets_tileset",
+            }
+
+            compiled = compile_level(json_level)
+            assert compiled.num_tiles > 0
             validate_compiled_level(compiled)
         except ValueError as e:
             # Expected if axis assets aren't available in test environment
@@ -359,7 +391,15 @@ class TestTilesetFunctionality:
 ###"""
 
         with pytest.raises(ValueError, match="Invalid asset 'mystery_box'"):
-            compile_level(level, tileset=tileset)
+            # Create proper JSON format
+            json_level = {
+                "ascii": level,
+                "tileset": tileset,
+                "scale": 2.5,
+                "name": "test_invalid_asset_in_tileset",
+            }
+
+            compile_level(json_level)
 
     def test_json_string_input(self):
         """Test JSON string parsing with tileset"""
@@ -368,5 +408,5 @@ class TestTilesetFunctionality:
         )
 
         compiled = compile_level_from_json(json_str)
-        assert compiled["num_tiles"] > 0
+        assert compiled.num_tiles > 0
         validate_compiled_level(compiled)

@@ -126,10 +126,10 @@ int main(int argc, char *argv[])
     uint64_t num_steps = std::stoul(options[NUM_STEPS].arg);
 
     // Parse execution mode - default to CPU, use CUDA if specified
-    ExecMode exec_mode = ExecMode::CPU;
+    madrona::ExecMode exec_mode = madrona::ExecMode::CPU;
     uint32_t gpu_id = 0;
     if (options[CUDA]) {
-        exec_mode = ExecMode::CUDA;
+        exec_mode = madrona::ExecMode::CUDA;
         gpu_id = strtoul(options[CUDA].arg, nullptr, 10);
     }
 
@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 
     printf("Executing %lu Steps x %lu Worlds (%s)%s\n",
            num_steps, num_worlds,
-           exec_mode == ExecMode::CPU ? "CPU" : "CUDA",
+           exec_mode == madrona::ExecMode::CPU ? "CPU" : "CUDA",
            replay_mode ? " [REPLAY MODE]" : "");
 
     Manager mgr({

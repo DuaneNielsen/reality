@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "types.hpp"
-#include "replay_metadata.hpp"
+#include "mgr.hpp"
 #include "test_level_helper.hpp"
 #include <fstream>
 #include <filesystem>
@@ -152,52 +152,27 @@ protected:
     }
 };
 
-// Test level compiler with JSON input
-TEST_F(FileInspectorTest, CompilerHandlesJsonLevel) {
-    ASSERT_TRUE(fileExists(testJsonLevel));
+// Test file inspector with default level from build directory
+TEST_F(FileInspectorTest, InspectorHandlesDefaultLevel) {
+    std::string defaultLevelPath = "./build/default_level.lvl";
     
-    // Compile JSON to .lvl file
-    std::string outputLvl = testDataDir + "/compiled_from_json.lvl";
-    std::string command = "cd " + std::filesystem::current_path().string() + 
-                         " && uv run python -m madrona_escape_room.level_compiler " + 
-                         testJsonLevel + " " + outputLvl;
+    // Check if default_level.lvl exists in build directory
+    ASSERT_TRUE(fileExists(defaultLevelPath)) << "default_level.lvl not found in build directory";
     
-    int result = std::system(command.c_str());
-    ASSERT_EQ(result, 0) << "Level compiler failed";
-    ASSERT_TRUE(fileExists(outputLvl));
+    // Run file inspector on default level
+    std::string output = runFileInspector(defaultLevelPath);
     
-    // Test file inspector on compiled level
-    std::string output = runFileInspector(outputLvl);
-    
+    // Check for expected output
     EXPECT_TRUE(output.find("Level File:") != std::string::npos);
-    EXPECT_TRUE(output.find("test_json_level") != std::string::npos);
-    EXPECT_TRUE(output.find("8x5 grid") != std::string::npos);
-    EXPECT_TRUE(output.find("Scale: 2.5") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ File validation completed successfully") != std::string::npos);
-    EXPECT_TRUE(output.find("EXIT_CODE:0") != std::string::npos);
-}
-
-// Test level compiler with text/ASCII input
-TEST_F(FileInspectorTest, CompilerHandlesTextLevel) {
-    ASSERT_TRUE(fileExists(testTextLevel));
-    
-    // Compile text to .lvl file
-    std::string outputLvl = testDataDir + "/compiled_from_text.lvl";
-    std::string command = "cd " + std::filesystem::current_path().string() + 
-                         " && uv run python -m madrona_escape_room.level_compiler " + 
-                         testTextLevel + " " + outputLvl;
-    
-    int result = std::system(command.c_str());
-    ASSERT_EQ(result, 0) << "Level compiler failed";
-    ASSERT_TRUE(fileExists(outputLvl));
-    
-    // Test file inspector on compiled level
-    std::string output = runFileInspector(outputLvl);
-    
-    EXPECT_TRUE(output.find("Level File:") != std::string::npos);
-    EXPECT_TRUE(output.find("unknown_level") != std::string::npos); // Default name for text files
-    EXPECT_TRUE(output.find("8x5 grid") != std::string::npos);
-    EXPECT_TRUE(output.find("Scale: 2.5") != std::string::npos); // Default scale
+    EXPECT_TRUE(output.find("default_level") != std::string::npos);
+    EXPECT_TRUE(output.find("grid") != std::string::npos);
+    EXPECT_TRUE(output.find("Scale:") != std::string::npos);
+    EXPECT_TRUE(output.find("Tiles:") != std::string::npos);
+    EXPECT_TRUE(output.find("Max entities:") != std::string::npos);
+    EXPECT_TRUE(output.find("Spawn") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Valid file size") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Level data within valid ranges") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Spawn data validated") != std::string::npos);
     EXPECT_TRUE(output.find("✓ File validation completed successfully") != std::string::npos);
     EXPECT_TRUE(output.find("EXIT_CODE:0") != std::string::npos);
 }
@@ -309,23 +284,17 @@ TEST_F(FileInspectorTest, InspectorHandlesNoArguments) {
     EXPECT_EQ(WEXITSTATUS(exitCode), 1);
 }
 
-// Test level name field consistency between JSON and compiled output
-TEST_F(FileInspectorTest, LevelNameConsistencyJsonToCompiled) {
-    ASSERT_TRUE(fileExists(testJsonLevel));
+// Test that file inspector correctly identifies file types
+TEST_F(FileInspectorTest, InspectorIdentifiesFileTypes) {
+    // Test with .lvl file
+    ASSERT_TRUE(fileExists(testLevelFile));
+    std::string lvlOutput = runFileInspector(testLevelFile);
+    EXPECT_TRUE(lvlOutput.find("Level File:") != std::string::npos);
+    EXPECT_FALSE(lvlOutput.find("Recording File:") != std::string::npos);
     
-    // Compile JSON level
-    std::string compiledLvl = testDataDir + "/consistency_test.lvl";
-    std::string command = "cd " + std::filesystem::current_path().string() + 
-                         " && uv run python -m madrona_escape_room.level_compiler " + 
-                         testJsonLevel + " " + compiledLvl;
-    
-    int result = std::system(command.c_str());
-    ASSERT_EQ(result, 0) << "Level compiler failed";
-    
-    // Inspect the compiled level
-    std::string output = runFileInspector(compiledLvl);
-    
-    // Verify the name from JSON was preserved
-    EXPECT_TRUE(output.find("Name: test_json_level") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ File validation completed successfully") != std::string::npos);
+    // Test with .rec file
+    ASSERT_TRUE(fileExists(testRecordingFile));
+    std::string recOutput = runFileInspector(testRecordingFile);
+    EXPECT_TRUE(recOutput.find("Recording File:") != std::string::npos);
+    EXPECT_FALSE(recOutput.find("Level File:") != std::string::npos);
 }

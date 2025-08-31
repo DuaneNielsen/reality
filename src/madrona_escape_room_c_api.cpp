@@ -1,6 +1,6 @@
+#include "types.hpp"
 #include "madrona_escape_room_c_api.h"
 #include "mgr.hpp"
-#include "types.hpp"
 #include "asset_registry.hpp"
 #include "asset_ids.hpp"
 
@@ -8,8 +8,65 @@
 #include <new>
 #include <vector>
 #include <cstdio>
+#include <csignal>
+#include <execinfo.h>
+#include <unistd.h>
+#include <atomic>
 
 using namespace madEscape;
+
+// Global counter to track manager creations for debugging
+static std::atomic<uint32_t> g_manager_creation_count{0};
+static std::atomic<uint32_t> g_manager_destruction_count{0};
+
+// Signal handler for debugging segfaults
+static void segfault_handler(int sig, siginfo_t *info, void *) {
+    fprintf(stderr, "\n========== SEGFAULT TRAPPED ==========\n");
+    fprintf(stderr, "Signal: %d\n", sig);
+    fprintf(stderr, "Fault address: %p\n", info->si_addr);
+    fprintf(stderr, "Manager creations: %u\n", g_manager_creation_count.load());
+    fprintf(stderr, "Manager destructions: %u\n", g_manager_destruction_count.load());
+    fprintf(stderr, "Currently alive managers: %u\n", 
+            g_manager_creation_count.load() - g_manager_destruction_count.load());
+    
+    // Print backtrace
+    void *buffer[100];
+    int nptrs = backtrace(buffer, 100);
+    fprintf(stderr, "\nBacktrace (%d frames):\n", nptrs);
+    backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+    fprintf(stderr, "=====================================\n\n");
+    
+    // Re-raise the signal to get default behavior
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+// Install signal handler on library load
+static void install_signal_handler() {
+    static bool installed = false;
+    if (!installed) {
+        struct sigaction sa;
+        memset(&sa, 0, sizeof(sa));
+        sa.sa_sigaction = segfault_handler;
+        sa.sa_flags = SA_SIGINFO;
+        sigemptyset(&sa.sa_mask);
+        
+        sigaction(SIGSEGV, &sa, nullptr);
+        sigaction(SIGILL, &sa, nullptr);
+        installed = true;
+    }
+}
+
+// Define MER error codes as mappings to madEscape::Result
+#define MER_SUCCESS static_cast<MER_Result>(Result::Success)
+#define MER_ERROR_NULL_POINTER static_cast<MER_Result>(Result::ErrorNullPointer)
+#define MER_ERROR_INVALID_PARAMETER static_cast<MER_Result>(Result::ErrorInvalidParameter)
+#define MER_ERROR_ALLOCATION_FAILED static_cast<MER_Result>(Result::ErrorAllocationFailed)
+#define MER_ERROR_NOT_INITIALIZED static_cast<MER_Result>(Result::ErrorNotInitialized)
+#define MER_ERROR_CUDA_FAILURE static_cast<MER_Result>(Result::ErrorCudaFailure)
+#define MER_ERROR_FILE_NOT_FOUND static_cast<MER_Result>(Result::ErrorFileNotFound)
+#define MER_ERROR_INVALID_FILE static_cast<MER_Result>(Result::ErrorInvalidFile)
+#define MER_ERROR_FILE_IO static_cast<MER_Result>(Result::ErrorFileIO)
 
 // Helper function to convert madrona::py::Tensor to MER_Tensor
 static void convertTensor(const madrona::py::Tensor& src, MER_Tensor* dst) {
@@ -22,30 +79,8 @@ static void convertTensor(const madrona::py::Tensor& src, MER_Tensor* dst) {
         dst->dimensions[i] = src.dims()[i];
     }
     
-    // Convert element type
-    switch (src.type()) {
-        case madrona::py::TensorElementType::UInt8:
-            dst->element_type = MER_TENSOR_TYPE_UINT8;
-            break;
-        case madrona::py::TensorElementType::Int8:
-            dst->element_type = MER_TENSOR_TYPE_INT8;
-            break;
-        case madrona::py::TensorElementType::Int16:
-            dst->element_type = MER_TENSOR_TYPE_INT16;
-            break;
-        case madrona::py::TensorElementType::Int32:
-            dst->element_type = MER_TENSOR_TYPE_INT32;
-            break;
-        case madrona::py::TensorElementType::Int64:
-            dst->element_type = MER_TENSOR_TYPE_INT64;
-            break;
-        case madrona::py::TensorElementType::Float16:
-            dst->element_type = MER_TENSOR_TYPE_FLOAT16;
-            break;
-        case madrona::py::TensorElementType::Float32:
-            dst->element_type = MER_TENSOR_TYPE_FLOAT32;
-            break;
-    }
+    // Convert element type - store as int32_t (matches madrona::py::TensorElementType values)
+    dst->element_type = static_cast<int32_t>(src.type());
     
     // Calculate total bytes
     int64_t total_elements = 1;
@@ -59,78 +94,61 @@ extern "C" {
 
 MER_Result mer_create_manager(
     MER_ManagerHandle* out_handle,
-    const MER_ManagerConfig* config,
-    const MER_CompiledLevel* compiled_levels,
+    const void* config,
+    const void* compiled_levels,
     uint32_t num_compiled_levels
 ) {
+    // Install signal handler on first manager creation
+    install_signal_handler();
+    
+    g_manager_creation_count.fetch_add(1);
+    
     if (!out_handle || !config) {
         return MER_ERROR_NULL_POINTER;
     }
     
     *out_handle = nullptr;
     
-    // Verify struct layout matches between C API and C++ at compile time
-    using namespace madEscape;
-    static_assert(sizeof(MER_CompiledLevel) == sizeof(CompiledLevel), 
-                  "MER_CompiledLevel and CompiledLevel sizes must match");
-    static_assert(offsetof(MER_CompiledLevel, max_entities) == offsetof(CompiledLevel, max_entities),
-                  "max_entities field offset mismatch between C API and C++");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_x) == offsetof(CompiledLevel, tile_rand_x),
-                  "tile_rand_x offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_y) == offsetof(CompiledLevel, tile_rand_y),
-                  "tile_rand_y offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_z) == offsetof(CompiledLevel, tile_rand_z),
-                  "tile_rand_z offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_rot_z) == offsetof(CompiledLevel, tile_rand_rot_z),
-                  "tile_rand_rot_z offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_x) == offsetof(CompiledLevel, tile_rand_scale_x),
-                  "tile_rand_scale_x offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_y) == offsetof(CompiledLevel, tile_rand_scale_y),
-                  "tile_rand_scale_y offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, tile_rand_scale_z) == offsetof(CompiledLevel, tile_rand_scale_z),
-                  "tile_rand_scale_z offset mismatch");
-    static_assert(offsetof(MER_CompiledLevel, done_on_collide) == offsetof(CompiledLevel, done_on_collide),
-                  "done_on_collide offset mismatch");
+    // Direct cast config from void* - Python passes the exact C++ struct via ctypes
+    const ManagerConfig* mgr_cfg = reinterpret_cast<const ManagerConfig*>(config);
     
-    // Convert array of C compiled levels to C++ vector (if provided)
+    // Direct cast from void* - Python passes the exact C++ struct via ctypes
+    using namespace madEscape;
+    const CompiledLevel* cpp_levels = reinterpret_cast<const CompiledLevel*>(compiled_levels);
+    
+    // Convert array of compiled levels to C++ vector (if provided)
     std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;
-    if (compiled_levels != nullptr && num_compiled_levels > 0) {
+    if (cpp_levels != nullptr && num_compiled_levels > 0) {
         // Validate array size doesn't exceed number of worlds
-        if (num_compiled_levels > config->num_worlds) {
+        if (num_compiled_levels > mgr_cfg->num_worlds) {
             return MER_ERROR_INVALID_PARAMETER;
         }
         
-        cpp_per_world_levels.reserve(config->num_worlds);
+        cpp_per_world_levels.reserve(mgr_cfg->num_worlds);
         
         for (uint32_t i = 0; i < num_compiled_levels; i++) {
-            const MER_CompiledLevel* c_level = &compiled_levels[i];
-            
-            // Since structs are binary compatible (verified by static_assert above),
-            // we can directly copy the entire struct
-            CompiledLevel cpp_level = *reinterpret_cast<const CompiledLevel*>(c_level);
-            
-            cpp_per_world_levels.push_back(cpp_level);
+            // Direct copy of the CompiledLevel struct
+            cpp_per_world_levels.push_back(cpp_levels[i]);
         }
         
         // Fill remaining worlds with nullopt if array is smaller than num_worlds
-        while (cpp_per_world_levels.size() < config->num_worlds) {
+        while (cpp_per_world_levels.size() < mgr_cfg->num_worlds) {
             cpp_per_world_levels.push_back(std::nullopt);
         }
     }
     
-    // Convert C config to Manager::Config
+    // Convert to Manager::Config
     Manager::Config mgr_config {
-        .execMode = (config->exec_mode == MER_EXEC_MODE_CUDA) ? 
-            madrona::ExecMode::CUDA : madrona::ExecMode::CPU,
-        .gpuID = config->gpu_id,
-        .numWorlds = config->num_worlds,
-        .randSeed = config->rand_seed,
-        .autoReset = config->auto_reset,
-        .enableBatchRenderer = config->enable_batch_renderer,
-        .batchRenderViewWidth = config->batch_render_view_width ? 
-            config->batch_render_view_width : consts::display::defaultBatchRenderSize,
-        .batchRenderViewHeight = config->batch_render_view_height ? 
-            config->batch_render_view_height : consts::display::defaultBatchRenderSize,
+        .execMode = mgr_cfg->exec_mode,
+        .gpuID = mgr_cfg->gpu_id,
+        .numWorlds = mgr_cfg->num_worlds,
+        .randSeed = mgr_cfg->rand_seed,
+        .autoReset = mgr_cfg->auto_reset,
+        .enableBatchRenderer = mgr_cfg->enable_batch_renderer,
+        .batchRenderViewWidth = mgr_cfg->batch_render_view_width ? 
+            mgr_cfg->batch_render_view_width : consts::display::defaultBatchRenderSize,
+        .batchRenderViewHeight = mgr_cfg->batch_render_view_height ? 
+            mgr_cfg->batch_render_view_height : consts::display::defaultBatchRenderSize,
         .perWorldCompiledLevels = std::move(cpp_per_world_levels),  // Per-world compiled levels
     };
     
@@ -147,17 +165,20 @@ MER_Result mer_create_manager(
     return MER_SUCCESS;
 }
 
-MER_Result mer_validate_compiled_level(const MER_CompiledLevel* level) {
+MER_Result mer_validate_compiled_level(const void* level) {
     if (!level) return MER_ERROR_NULL_POINTER;
     
+    // Direct cast from void* - Python passes the exact C++ struct
+    const CompiledLevel* compiled_level = reinterpret_cast<const CompiledLevel*>(level);
+    
     // Calculate expected array size from dimensions
-    int32_t expected_array_size = level->width * level->height;
+    int32_t expected_array_size = compiled_level->width * compiled_level->height;
     
     // Validate basic constraints
-    if (level->num_tiles < 0 || level->num_tiles > expected_array_size) return MER_ERROR_INVALID_PARAMETER;
-    if (level->max_entities < 0) return MER_ERROR_INVALID_PARAMETER;
-    if (level->width <= 0 || level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
-    if (level->world_scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
+    if (compiled_level->num_tiles < 0 || compiled_level->num_tiles > expected_array_size) return MER_ERROR_INVALID_PARAMETER;
+    if (compiled_level->max_entities < 0) return MER_ERROR_INVALID_PARAMETER;
+    if (compiled_level->width <= 0 || compiled_level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
+    if (compiled_level->world_scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
     
     // Validate array size doesn't exceed our fixed buffer limits
     if (expected_array_size > CompiledLevel::MAX_TILES) return MER_ERROR_INVALID_PARAMETER;
@@ -169,6 +190,8 @@ MER_Result mer_destroy_manager(MER_ManagerHandle handle) {
     if (!handle) {
         return MER_ERROR_NULL_POINTER;
     }
+    
+    g_manager_destruction_count.fetch_add(1);
     
     Manager* mgr = reinterpret_cast<Manager*>(handle);
     mgr->~Manager();
@@ -444,7 +467,7 @@ MER_Result mer_get_replay_step_count(
 
 MER_Result mer_read_replay_metadata(
     const char* filepath,
-    MER_ReplayMetadata* out_metadata
+    void* out_metadata
 ) {
     if (!filepath || !out_metadata) {
         return MER_ERROR_NULL_POINTER;
@@ -458,16 +481,19 @@ MER_Result mer_read_replay_metadata(
     
     const auto& metadata = metadata_opt.value();
     
-    // Convert from C++ metadata to C metadata structure
-    out_metadata->num_worlds = metadata.num_worlds;
-    out_metadata->num_agents_per_world = metadata.num_agents_per_world;
-    out_metadata->num_steps = metadata.num_steps;
-    out_metadata->seed = metadata.seed;
-    out_metadata->timestamp = metadata.timestamp;
+    // Direct cast to ReplayMetadata* - Python passes the exact C++ struct via ctypes
+    ReplayMetadata* replay_meta = reinterpret_cast<ReplayMetadata*>(out_metadata);
+    
+    // Copy metadata
+    replay_meta->num_worlds = metadata.num_worlds;
+    replay_meta->num_agents_per_world = metadata.num_agents_per_world;
+    replay_meta->num_steps = metadata.num_steps;
+    replay_meta->seed = metadata.seed;
+    replay_meta->timestamp = metadata.timestamp;
     
     // Copy sim name safely
-    std::strncpy(out_metadata->sim_name, metadata.sim_name, sizeof(out_metadata->sim_name) - 1);
-    out_metadata->sim_name[sizeof(out_metadata->sim_name) - 1] = '\0';
+    std::strncpy(replay_meta->sim_name, metadata.sim_name, sizeof(replay_meta->sim_name) - 1);
+    replay_meta->sim_name[sizeof(replay_meta->sim_name) - 1] = '\0';
     
     return MER_SUCCESS;
 }
@@ -480,24 +506,31 @@ int32_t mer_get_max_spawns(void) {
     return CompiledLevel::MAX_SPAWNS;
 }
 
+size_t mer_get_compiled_level_size(void) {
+    return sizeof(CompiledLevel);
+}
+
 const char* mer_result_to_string(MER_Result result) {
-    switch (result) {
-        case MER_SUCCESS:
+    Result res = static_cast<Result>(result);
+    switch (res) {
+        case Result::Success:
             return "Success";
-        case MER_ERROR_NULL_POINTER:
+        case Result::ErrorNullPointer:
             return "Null pointer error";
-        case MER_ERROR_INVALID_PARAMETER:
+        case Result::ErrorInvalidParameter:
             return "Invalid parameter";
-        case MER_ERROR_ALLOCATION_FAILED:
+        case Result::ErrorAllocationFailed:
             return "Memory allocation failed";
-        case MER_ERROR_NOT_INITIALIZED:
+        case Result::ErrorNotInitialized:
             return "Not initialized";
-        case MER_ERROR_CUDA_FAILURE:
+        case Result::ErrorCudaFailure:
             return "CUDA operation failed";
-        case MER_ERROR_FILE_NOT_FOUND:
+        case Result::ErrorFileNotFound:
             return "File not found";
-        case MER_ERROR_INVALID_FILE:
+        case Result::ErrorInvalidFile:
             return "Invalid file";
+        case Result::ErrorFileIO:
+            return "File I/O error";
         default:
             return "Unknown error";
     }
@@ -570,18 +603,21 @@ int32_t mer_get_render_asset_object_id(const char* name) {
 
 MER_Result mer_write_compiled_level(
     const char* filepath, 
-    const MER_CompiledLevel* level
+    const void* level
 ) {
     if (!filepath || !level) {
         return MER_ERROR_NULL_POINTER;
     }
+    
+    // Direct cast from void* - Python passes the exact C++ struct
+    const CompiledLevel* compiled_level = reinterpret_cast<const CompiledLevel*>(level);
     
     FILE* f = fopen(filepath, "wb");
     if (!f) {
         return MER_ERROR_FILE_IO;
     }
     
-    size_t written = fwrite(level, sizeof(MER_CompiledLevel), 1, f);
+    size_t written = fwrite(compiled_level, sizeof(CompiledLevel), 1, f);
     fclose(f);
     
     return (written == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
@@ -589,18 +625,21 @@ MER_Result mer_write_compiled_level(
 
 MER_Result mer_read_compiled_level(
     const char* filepath, 
-    MER_CompiledLevel* level
+    void* level
 ) {
     if (!filepath || !level) {
         return MER_ERROR_NULL_POINTER;
     }
+    
+    // Direct cast from void* - Python passes the exact C++ struct
+    CompiledLevel* compiled_level = reinterpret_cast<CompiledLevel*>(level);
     
     FILE* f = fopen(filepath, "rb");
     if (!f) {
         return MER_ERROR_FILE_IO;
     }
     
-    size_t read = fread(level, sizeof(MER_CompiledLevel), 1, f);
+    size_t read = fread(compiled_level, sizeof(CompiledLevel), 1, f);
     fclose(f);
     
     return (read == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;

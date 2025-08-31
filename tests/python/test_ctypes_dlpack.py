@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """
 DLPack functionality test for ctypes bindings
-Tests zero-copy tensor conversion to PyTorch on both CPU and GPU
+Tests zero-copy tensor conversion to PyTorch using cpu_manager fixture
 """
 
-import sys
-
 import pytest
-
-# Add the package to Python path
-sys.path.insert(0, "/home/duane/madrona/madrona_escape_room")
 
 try:
     import numpy as np
@@ -20,26 +15,18 @@ try:
     print("✓ Successfully imported dependencies")
 except ImportError as e:
     print(f"✗ Failed to import dependencies: {e}")
-    sys.exit(1)
+    pytest.skip(f"Failed to import dependencies: {e}")
 
 
-def test_cpu_dlpack():
+def test_cpu_dlpack(cpu_manager):
     """Test CPU DLPack functionality"""
     print("\n=== Testing CPU DLPack ===")
 
     try:
-        # Create CPU manager
-        mgr = mer.SimManager(
-            exec_mode=mer.madrona.ExecMode.CPU,
-            gpu_id=0,
-            num_worlds=2,
-            rand_seed=42,
-            auto_reset=True,
-        )
-        print("✓ CPU manager created")
+        print("✓ Using CPU manager fixture")
 
         # Get observation tensor
-        obs_tensor = mgr.self_observation_tensor()
+        obs_tensor = cpu_manager.self_observation_tensor()
         print(
             f"✓ Observation tensor: shape={obs_tensor.shape}, dtype={obs_tensor.dtype}, "
             f"GPU={obs_tensor.isOnGPU()}"
@@ -93,6 +80,7 @@ def test_cpu_dlpack():
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+@pytest.mark.slow
 def test_gpu_dlpack(gpu_manager):
     """Test GPU DLPack functionality"""
     print("\n=== Testing GPU DLPack ===")
@@ -179,21 +167,13 @@ def test_gpu_dlpack(gpu_manager):
         raise
 
 
-def test_dlpack_device_protocol(request):
+def test_dlpack_device_protocol(cpu_manager, request):
     """Test __dlpack_device__ method"""
     print("\n=== Testing DLPack Device Protocol ===")
 
     try:
-        # Test CPU
-        cpu_mgr = mer.SimManager(
-            exec_mode=mer.madrona.ExecMode.CPU,
-            gpu_id=0,
-            num_worlds=2,
-            rand_seed=42,
-            auto_reset=True,
-        )
-
-        cpu_tensor = cpu_mgr.self_observation_tensor()
+        # Test CPU using fixture
+        cpu_tensor = cpu_manager.self_observation_tensor()
         cpu_device = cpu_tensor.__dlpack_device__()
         print(f"✓ CPU device info: {cpu_device}")
 
@@ -215,33 +195,5 @@ def test_dlpack_device_protocol(request):
         raise
 
 
-def main():
-    print("Testing DLPack functionality for ctypes bindings")
-    print("=" * 60)
-
-    # Test CPU DLPack
-    cpu_success = test_cpu_dlpack()
-
-    # Test GPU DLPack (the main goal!)
-    gpu_success = test_gpu_dlpack()
-
-    # Test device protocol
-    device_success = test_dlpack_device_protocol()
-
-    print("\n" + "=" * 60)
-    print("SUMMARY:")
-    print(f"CPU DLPack: {'✓ PASS' if cpu_success else '✗ FAIL'}")
-    print(f"GPU DLPack: {'✓ PASS' if gpu_success else '✗ FAIL'}")
-    print(f"Device Protocol: {'✓ PASS' if device_success else '✗ FAIL'}")
-
-    if cpu_success and gpu_success and device_success:
-        print("\n🎉 All DLPack tests passed! GPU zero-copy tensors working!")
-        print("🚀 CFFI replacement with ctypes is SUCCESSFUL!")
-        return 0
-    else:
-        print("\n❌ Some DLPack tests failed.")
-        return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    pytest.main([__file__, "-v"])

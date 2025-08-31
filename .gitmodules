@@ -5,3 +5,4 @@
 [submodule "external/mcp-gdb"]
 	path = external/mcp-gdb
 	url = git@github.com:DuaneNielsen/mcp-gdb.git
+	ignore = untracked

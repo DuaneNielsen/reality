@@ -1,0 +1,285 @@
+Faulthandler enabled - will dump stack trace on crash
+============================================================
+
+=== Run 1 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 2 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 3 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 4 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 5 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 6 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 7 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 8 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 9 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 10 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 11 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 12 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 13 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 14 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 15 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 16 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 17 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 18 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 19 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+=== Run 20 ===
+Level created: size=84180, spawns=1
+Level spawn: (0.0, -17.0)
+C Level type: <class 'types._generated_ctype_class_CompiledLevel'>
+C Level spawn: (0.0, -17.0)
+Creating SimManager...
+[DEBUG ctypes_bindings] Passing 1 levels to C API
+[DEBUG ctypes_bindings] First level spawn: (0.0, -17.0)
+Manager created successfully
+  Step 1 completed
+  Step 2 completed
+  Step 3 completed
+Manager deleted
+
+============================================================
+Test completed - check crash_debug.log if crash occurred

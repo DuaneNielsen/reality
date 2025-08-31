@@ -1,0 +1,5 @@
+run test_loop.py
+bt
+bt full
+info registers
+quit

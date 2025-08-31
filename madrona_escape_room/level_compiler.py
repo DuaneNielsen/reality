@@ -1,83 +1,57 @@
 #!/usr/bin/env python3
 """
-Python Level Compiler for Madrona Escape Room
+JSON Level Compiler for Madrona Escape Room
 
-Compiles ASCII level strings to CompiledLevel format for GPU processing.
-Part of the test-driven level system that allows tests to define their
-environment layouts using visual ASCII art.
+Compiles JSON level definitions to CompiledLevel format for GPU processing.
+This compiler exclusively accepts JSON format with explicit tileset definitions.
 
-Supports three input formats:
-1. Plain ASCII strings for simple levels
-2. JSON format with ASCII and parameters (agent facing, scale, etc.)
-3. JSON format with tileset definitions for custom asset mapping
+Required JSON format:
+{
+    "ascii": "###\\n#S#\\n###",
+    "tileset": {
+        "#": {"asset": "wall"},
+        "C": {"asset": "cube"},
+        "S": {"asset": "spawn"},
+        ".": {"asset": "empty"}
+    },
+    "scale": 2.5,              # Optional, default 2.5
+    "agent_facing": [0.0],      # Optional, radians for each agent
+    "name": "level_name"        # Optional, default "unknown_level"
+}
 """
 
 import argparse
+import ctypes
 import json
 import math
-import struct
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+from .dataclass_utils import create_compiled_level
 
-def _get_max_tiles_from_c_api():
-    """Get MAX_TILES from C API - returns the actual CompiledLevel::MAX_TILES value"""
-    try:
-        from .ctypes_bindings import _get_max_tiles
+# Get constants from generated constants
+from .generated_constants import limits
 
-        return _get_max_tiles()
-    except ImportError:
-        # Fallback if ctypes bindings not available
-        return 1024
+# Get the CompiledLevel struct
+from .generated_dataclasses import CompiledLevel
 
+# Constants
+MAX_TILES = limits.maxTiles
+MAX_SPAWNS = limits.maxSpawns
+MAX_GRID_SIZE = limits.maxGridSize
+MAX_LEVEL_NAME_LENGTH = limits.maxLevelNameLength
 
-def _get_max_spawns_from_c_api():
-    """Get MAX_SPAWNS from C API - returns the actual CompiledLevel::MAX_SPAWNS value"""
-    try:
-        from .ctypes_bindings import _get_max_spawns
+# Backwards compatibility aliases
+MAX_TILES_C_API = MAX_TILES
 
-        return _get_max_spawns()
-    except ImportError:
-        # Fallback if ctypes bindings not available
-        return 8
+# Special tile type values
+TILE_EMPTY = 0
+TILE_SPAWN = -1
 
-
-# Get the authoritative values from C++
-MAX_TILES_C_API = _get_max_tiles_from_c_api()
-MAX_SPAWNS_C_API = _get_max_spawns_from_c_api()
-
-# Special values for non-asset tiles
-TILE_EMPTY = 0  # Empty space (no object)
-TILE_SPAWN = -1  # Spawn point marker (agent will be placed here)
-
-# Level dimension limits for validation
-MAX_LEVEL_WIDTH = 64
-MAX_LEVEL_HEIGHT = 64
+# Level dimension limits
 MIN_LEVEL_WIDTH = 3
 MIN_LEVEL_HEIGHT = 3
-# MAX_TOTAL_TILES now comes from C API (MAX_TILES_C_API)
-
-# Special tile type constants (for spawn and empty, which aren't assets)
-# Legacy CHAR_MAP will be built dynamically using C API asset IDs
-
-
-def _get_legacy_char_map():
-    """Build the legacy CHAR_MAP using actual asset IDs from C API"""
-    from .ctypes_bindings import get_physics_asset_object_id
-
-    # Get the actual asset IDs from the C API
-    wall_id = get_physics_asset_object_id("wall")
-    cube_id = get_physics_asset_object_id("cube")
-
-    return {
-        ".": TILE_EMPTY,
-        " ": TILE_EMPTY,  # Whitespace also means empty
-        "#": wall_id,  # Use actual wall asset ID from C API
-        "C": cube_id,  # Use actual cube asset ID from C API
-        "S": TILE_SPAWN,
-    }
-
 
 # Default tileset as JSON string - can be easily modified/extended
 DEFAULT_TILESET_JSON = """
@@ -114,7 +88,7 @@ def _get_asset_object_id(asset_name: str) -> int:
     if asset_name == "empty":
         return TILE_EMPTY
 
-    # Always use C API to get correct asset IDs
+    # Use C API to get correct asset IDs
     from .ctypes_bindings import get_physics_asset_object_id, get_render_asset_object_id
 
     # Try physics assets first
@@ -143,6 +117,9 @@ def _validate_tileset(tileset: Dict) -> None:
     if not isinstance(tileset, dict):
         raise ValueError("Tileset must be a dictionary")
 
+    if not tileset:
+        raise ValueError("Tileset cannot be empty")
+
     for char, tile_def in tileset.items():
         if not isinstance(char, str) or len(char) != 1:
             raise ValueError(f"Tileset key must be single character, got: '{char}'")
@@ -168,99 +145,75 @@ def _validate_tileset(tileset: Dict) -> None:
                     raise ValueError(f"{rand_field} for '{char}' must be non-negative, got {value}")
 
 
-def compile_level(
-    ascii_str: str,
-    scale: float = 2.5,
-    agent_facing: Optional[List[float]] = None,
-    level_name: str = "unknown_level",
-    tileset: Optional[Dict] = None,
-) -> Dict:
+def _validate_json_level(data: Dict) -> None:
     """
-    Compile ASCII level string to dict matching MER_CompiledLevel struct.
+    Validate JSON level data structure.
 
     Args:
-        ascii_str: Multi-line ASCII level definition using the character map above
-        scale: World units per ASCII character (default 2.5 units per cell)
-        agent_facing: List of initial facing angles in radians for each agent (optional)
-                     Default is 0.0 (facing forward/north) for all agents
-        level_name: Name of the level for identification (default "unknown_level")
-        tileset: Optional dictionary mapping characters to asset definitions.
-                If not provided, uses legacy CHAR_MAP with hardcoded tile types.
-
-    Returns:
-        Dict with fields matching MER_CompiledLevel C struct:
-        - num_tiles: Number of entities to create
-        - max_entities: BVH size hint (includes persistent entities)
-        - width, height: Grid dimensions
-        - scale: World scale factor
-        - object_ids, tile_x, tile_y: Arrays of tile data (MAX_TILES_C_API elements each)
-        - spawn_facing: Array of agent facing angles (MAX_SPAWNS elements)
+        data: JSON level dictionary
 
     Raises:
-        ValueError: If level is invalid (empty, too large, no spawn points, unknown chars)
-
-    Example:
-        level = '''
-        ##########
-        #S.......#
-        #..####..#
-        #........#
-        ##########
-        '''
-        compiled = compile_level(level, agent_facing=[math.pi/2])  # Face right
-        # compiled['num_tiles'] = 38 (wall tiles)
-        # compiled['max_entities'] = 88 (walls + buffer for agents/floor/etc)
-
-        # With custom tileset:
-        tileset = {
-            "#": {"asset": "wall"},
-            "O": {"asset": "cylinder"},
-            "S": {"asset": "spawn"},
-            ".": {"asset": "empty"}
-        }
-        compiled = compile_level(level, tileset=tileset)
+        ValueError: If JSON structure is invalid
     """
-    # Clean up input - remove leading/trailing whitespace and normalize line endings
-    lines = [line.rstrip() for line in ascii_str.strip().split("\n")]
-    if not lines or all(len(line) == 0 for line in lines):
-        raise ValueError("Empty level string")
+    # Required fields
+    if "ascii" not in data:
+        raise ValueError("JSON level must contain 'ascii' field")
 
-    height = len(lines)
-    width = max(len(line) for line in lines) if lines else 0
+    if "tileset" not in data:
+        raise ValueError("JSON level must contain 'tileset' field")
 
-    if width == 0 or height == 0:
-        raise ValueError("Level has zero width or height")
+    # Validate ascii field
+    if not isinstance(data["ascii"], str):
+        raise ValueError("'ascii' field must be a string")
 
-    # Validate dimensions
-    if width < MIN_LEVEL_WIDTH or width > MAX_LEVEL_WIDTH:
-        raise ValueError(
-            f"Level width {width} must be between {MIN_LEVEL_WIDTH} and {MAX_LEVEL_WIDTH}"
-        )
-    if height < MIN_LEVEL_HEIGHT or height > MAX_LEVEL_HEIGHT:
-        raise ValueError(
-            f"Level height {height} must be between {MIN_LEVEL_HEIGHT} and {MAX_LEVEL_HEIGHT}"
-        )
+    if not data["ascii"].strip():
+        raise ValueError("'ascii' field cannot be empty")
 
-    # Calculate total array size needed
-    array_size = width * height
-    if array_size > MAX_TILES_C_API:
-        raise ValueError(
-            f"Level too large: {width}×{height} = {array_size} tiles > "
-            f"{MAX_TILES_C_API} max (from C API)"
-        )
+    # Validate tileset
+    _validate_tileset(data["tileset"])
 
-    # Always use tileset approach (either provided or default)
-    if tileset is None:
-        tileset = DEFAULT_TILESET
+    # Validate optional fields
+    if "scale" in data:
+        scale = data["scale"]
+        if not isinstance(scale, (int, float)) or scale <= 0:
+            raise ValueError(f"Invalid scale: {scale} (must be positive number)")
 
-    # Validate the tileset
-    _validate_tileset(tileset)
+    if "agent_facing" in data:
+        agent_facing = data["agent_facing"]
+        if not isinstance(agent_facing, list):
+            raise ValueError("'agent_facing' must be a list of angles in radians")
+        for i, angle in enumerate(agent_facing):
+            if not isinstance(angle, (int, float)):
+                raise ValueError(f"Invalid agent_facing[{i}]: {angle} (must be number)")
 
-    # Build character to object ID mapping and randomization parameters
+    if "name" in data:
+        name = data["name"]
+        if not isinstance(name, str):
+            raise ValueError("'name' field must be a string")
+        if len(name) > MAX_LEVEL_NAME_LENGTH:
+            raise ValueError(f"Level name too long: {len(name)} > {MAX_LEVEL_NAME_LENGTH}")
+
+
+def _process_tileset(tileset: Dict) -> Tuple[Dict[str, int], Dict[str, Dict]]:
+    """
+    Process tileset to extract object IDs and randomization parameters.
+
+    Args:
+        tileset: Validated tileset dictionary
+
+    Returns:
+        Tuple of (char_to_tile mapping, char_to_rand parameters)
+
+    Raises:
+        ValueError: If asset cannot be resolved
+    """
     char_to_tile = {}
-    char_to_rand = {}  # Store randomization parameters per character
+    char_to_rand = {}
+
     for char, tile_def in tileset.items():
         asset_name = tile_def["asset"]
+
+        # Get object ID for this asset
         try:
             char_to_tile[char] = _get_asset_object_id(asset_name)
         except ValueError as e:
@@ -274,397 +227,130 @@ def compile_level(
             "rand_rot_z": tile_def.get("rand_rot_z", 0.0),
         }
 
+    return char_to_tile, char_to_rand
+
+
+def _parse_ascii_to_tiles(
+    ascii_str: str,
+    char_to_tile: Dict[str, int],
+    char_to_rand: Dict[str, Dict],
+    scale: float,
+    width: int,
+    height: int,
+) -> Tuple[List[Tuple], List[Tuple], int]:
+    """
+    Parse ASCII string to tile and spawn data.
+
+    Args:
+        ascii_str: ASCII level string
+        char_to_tile: Character to object ID mapping
+        char_to_rand: Character to randomization parameters
+        scale: World units per tile
+        width: Level width in tiles
+        height: Level height in tiles
+
+    Returns:
+        Tuple of (tiles list, spawns list, entity_count)
+
+    Raises:
+        ValueError: If unknown character found
+    """
+    lines = [line.rstrip() for line in ascii_str.strip().split("\n")]
+
     tiles = []
     spawns = []
-    entity_count = 0  # Count entities that need physics bodies
+    entity_count = 0
 
-    # Parse ASCII grid to extract tile positions and types
     for y, line in enumerate(lines):
         for x, char in enumerate(line):
-            if char in char_to_tile:
-                tile_type = char_to_tile[char]
+            if char not in char_to_tile:
+                raise ValueError(f"Unknown character '{char}' at position ({x}, {y})")
 
-                # Convert grid coordinates to world coordinates (center at origin)
-                # Note: Y is inverted because ASCII Y=0 is at top, but world Y+ is up
-                world_x = (x - width / 2.0 + 0.5) * scale
-                world_y = -(y - height / 2.0 + 0.5) * scale
+            tile_type = char_to_tile[char]
 
-                if tile_type == TILE_SPAWN:
-                    spawns.append((world_x, world_y))
-                    # Don't add spawn tiles to tile array - handled by agent placement
-                elif tile_type != TILE_EMPTY:
-                    tiles.append((world_x, world_y, tile_type, char))  # Add char to track source
+            # Convert grid coordinates to world coordinates
+            # Y is inverted because ASCII Y=0 is at top, but world Y+ is up
+            world_x = (x - width / 2.0 + 0.5) * scale
+            world_y = -(y - height / 2.0 + 0.5) * scale
 
-                    # Count entities that will need physics bodies and BVH slots
-                    # Note: This is a simplified count - actual requirements depend on asset
-                    # properties
-                    entity_count += 1
-            else:
-                raise ValueError(f"Unknown character '{char}' at grid position ({x}, {y})")
+            if tile_type == TILE_SPAWN:
+                spawns.append((world_x, world_y))
+            elif tile_type != TILE_EMPTY:
+                tiles.append((world_x, world_y, tile_type, char))
+                entity_count += 1
 
-    # Calculate max_entities for BVH allocation
-    # Must account for:
-    # - Level tiles (entity_count)
-    # - Persistent entities: 1 floor + 2 agents + 3 origin markers = 6
-    # - All 6 persistent entities have ObjectID components and consume BVH slots
-    # - Additional buffer for safety
-    max_entities = entity_count + 6 + 30  # tiles + persistent + buffer
-
-    # Validate constraints
-    if len(tiles) > array_size:
-        raise ValueError(
-            f"Too many non-empty tiles: {len(tiles)} > {array_size} (level dimensions)"
-        )
-    if len(spawns) == 0:
-        raise ValueError("No spawn points (S) found in level - at least one required")
-
-    # Build arrays with MAX_TILES_C_API size for C++ compatibility
-    object_ids = [0] * MAX_TILES_C_API
-    tile_x = [0.0] * MAX_TILES_C_API
-    tile_y = [0.0] * MAX_TILES_C_API
-    tile_persistent = [False] * MAX_TILES_C_API  # Default: all tiles non-persistent
-
-    # Fill arrays with actual tile data
-    for i, (world_x, world_y, tile_type, char) in enumerate(tiles):
-        object_ids[i] = tile_type
-        tile_x[i] = world_x
-        tile_y[i] = world_y
-        # tile_persistent[i] remains False by default
-
-    # Prepare spawn arrays (MAX_SPAWNS from C API)
-    spawn_x = [0.0] * MAX_SPAWNS_C_API
-    spawn_y = [0.0] * MAX_SPAWNS_C_API
-    spawn_facing = [0.0] * MAX_SPAWNS_C_API  # Default facing forward (0 radians)
-    num_spawns = min(len(spawns), MAX_SPAWNS_C_API)
-
-    for i in range(num_spawns):
-        spawn_x[i] = spawns[i][0]
-        spawn_y[i] = spawns[i][1]
-
-        # Set agent facing angles if provided
-        if agent_facing and i < len(agent_facing):
-            spawn_facing[i] = agent_facing[i]
-        else:
-            spawn_facing[i] = 0.0  # Default: face forward
-
-    # Initialize new fields with default values (all arrays size MAX_TILES_C_API)
-    tile_z = [0.0] * MAX_TILES_C_API  # Default Z=0
-    tile_render_only = [False] * MAX_TILES_C_API  # Default: all have physics
-    tile_entity_type = [0] * MAX_TILES_C_API  # Default: EntityType::None
-    tile_response_type = [2] * MAX_TILES_C_API  # Default: ResponseType::Static
-    tile_scale_x = [1.0] * MAX_TILES_C_API  # Default scale 1.0
-    tile_scale_y = [1.0] * MAX_TILES_C_API
-    tile_scale_z = [1.0] * MAX_TILES_C_API
-    tile_rot_w = [1.0] * MAX_TILES_C_API  # Identity quaternion
-    tile_rot_x = [0.0] * MAX_TILES_C_API
-    tile_rot_y = [0.0] * MAX_TILES_C_API
-    tile_rot_z = [0.0] * MAX_TILES_C_API
-
-    # Initialize randomization arrays
-    tile_rand_x = [0.0] * MAX_TILES_C_API
-    tile_rand_y = [0.0] * MAX_TILES_C_API
-    tile_rand_z = [0.0] * MAX_TILES_C_API
-    tile_rand_rot_z = [0.0] * MAX_TILES_C_API
-
-    # Set entity types based on object IDs and apply appropriate scaling
-    # Get the correct asset IDs from the C API
-    from .ctypes_bindings import get_physics_asset_object_id
-
-    wall_id = get_physics_asset_object_id("wall")
-    cube_id = get_physics_asset_object_id("cube")
-    cylinder_id = get_physics_asset_object_id("cylinder")
-
-    # Calculate wall scale factor based on tile spacing
-    # Walls are 1x1 units but tiles are spaced at 'scale' units apart
-    # We need to scale walls to fill the gap between tiles
-    wall_scale_factor = scale  # Scale walls to match tile spacing
-
-    for i, (_, _, tile_type, char) in enumerate(tiles):
-        # Set randomization parameters from tileset
-        rand_params = char_to_rand.get(char, {})
-        tile_rand_x[i] = rand_params.get("rand_x", 0.0)
-        tile_rand_y[i] = rand_params.get("rand_y", 0.0)
-        tile_rand_z[i] = rand_params.get("rand_z", 0.0)
-        tile_rand_rot_z[i] = rand_params.get("rand_rot_z", 0.0)
-
-        if tile_type == wall_id:
-            tile_entity_type[i] = 2  # EntityType::Wall
-            # Scale walls to match tile spacing
-            tile_scale_x[i] = wall_scale_factor
-            tile_scale_y[i] = wall_scale_factor
-            # Keep Z scale at 1.0 to maintain wall height
-            tile_scale_z[i] = 1.0
-        elif tile_type == cube_id:
-            tile_entity_type[i] = 1  # EntityType::Cube
-            # Cubes can stay at default scale
-            tile_scale_x[i] = 1.0
-            tile_scale_y[i] = 1.0
-            tile_scale_z[i] = 1.0
-        elif tile_type == cylinder_id:
-            tile_entity_type[i] = 0  # EntityType::None (generic entity)
-            # Cylinders can stay at default scale
-            tile_scale_x[i] = 1.0
-            tile_scale_y[i] = 1.0
-            tile_scale_z[i] = 1.0
-        else:
-            # For other assets, use EntityType::None and default scale
-            tile_entity_type[i] = 0
-            tile_scale_x[i] = 1.0
-            tile_scale_y[i] = 1.0
-            tile_scale_z[i] = 1.0
-
-    # Calculate world boundaries based on actual tile placement
-    # Tiles are placed at: (grid_pos - width/2 + 0.5) * scale
-    # For a grid from 0 to width-1, this gives tile centers from:
-    #   (0 - width/2 + 0.5) * scale to (width-1 - width/2 + 0.5) * scale
-    # Which simplifies to: (-(width-1)/2) * scale to ((width-1)/2) * scale
-
-    # Calculate min/max positions of tile centers
-    min_tile_center_x = -(width - 1) / 2.0 * scale
-    max_tile_center_x = (width - 1) / 2.0 * scale
-    min_tile_center_y = -(height - 1) / 2.0 * scale
-    max_tile_center_y = (height - 1) / 2.0 * scale
-
-    # Walls are scaled to 'scale' units, so they extend scale/2 from their center
-    # Add this extent to get the actual world boundaries
-    tile_half_extent = scale / 2.0
-
-    world_min_x = min_tile_center_x - tile_half_extent
-    world_max_x = max_tile_center_x + tile_half_extent
-    world_min_y = min_tile_center_y - tile_half_extent
-    world_max_y = max_tile_center_y + tile_half_extent
-    world_min_z = 0.0  # Floor level
-    world_max_z = 10.0 * scale  # Reasonable max height based on scale
-
-    # Return dict with compiler-calculated array sizing
-    return {
-        "num_tiles": len(tiles),
-        "max_entities": max_entities,
-        "width": width,
-        "height": height,
-        "scale": scale,
-        "level_name": level_name,
-        "world_min_x": world_min_x,
-        "world_max_x": world_max_x,
-        "world_min_y": world_min_y,
-        "world_max_y": world_max_y,
-        "world_min_z": world_min_z,
-        "world_max_z": world_max_z,
-        "num_spawns": num_spawns,
-        "spawn_x": spawn_x,
-        "spawn_y": spawn_y,
-        "spawn_facing": spawn_facing,  # Agent facing angles in radians
-        "array_size": array_size,  # NEW: compiler-calculated array size (width × height)
-        "object_ids": object_ids,
-        "tile_x": tile_x,
-        "tile_y": tile_y,
-        "tile_z": tile_z,
-        "tile_persistent": tile_persistent,  # Persistence flags for each tile
-        "tile_render_only": tile_render_only,  # Render-only flags
-        "tile_entity_type": tile_entity_type,  # EntityType values
-        "tile_response_type": tile_response_type,  # ResponseType values
-        "tile_scale_x": tile_scale_x,  # Scale components
-        "tile_scale_y": tile_scale_y,
-        "tile_scale_z": tile_scale_z,
-        "tile_rot_w": tile_rot_w,  # Rotation quaternion components
-        "tile_rot_x": tile_rot_x,
-        "tile_rot_y": tile_rot_y,
-        "tile_rot_z": tile_rot_z,
-        "tile_rand_x": tile_rand_x,  # Randomization arrays
-        "tile_rand_y": tile_rand_y,
-        "tile_rand_z": tile_rand_z,
-        "tile_rand_rot_z": tile_rand_rot_z,
-        # Metadata for debugging/validation (not part of C struct)
-        "_spawn_points": spawns,
-        "_entity_count": entity_count,
-    }
+    return tiles, spawns, entity_count
 
 
-def validate_compiled_level(compiled: Dict) -> None:
+def compile_ascii_level(
+    ascii_str: str,
+    scale: float = 2.5,
+    agent_facing: Optional[List[float]] = None,
+    level_name: str = "unknown_level",
+) -> CompiledLevel:
     """
-    Validate compiled level data before passing to C API.
+    Compile ASCII level string using default tileset.
+
+    This is a convenience wrapper that uses a standard tileset for common ASCII characters.
+    For custom tilesets, use compile_level() directly with JSON format.
 
     Args:
-        compiled: Output from compile_level()
-
-    Raises:
-        ValueError: If validation fails
-    """
-    required_fields = [
-        "num_tiles",
-        "max_entities",
-        "width",
-        "height",
-        "scale",
-        "level_name",
-        "num_spawns",
-        "spawn_x",
-        "spawn_y",
-        "spawn_facing",
-        "array_size",
-        "object_ids",
-        "tile_x",
-        "tile_y",
-        "tile_z",
-        "tile_persistent",
-        "tile_render_only",
-        "tile_entity_type",
-        "tile_response_type",
-        "tile_scale_x",
-        "tile_scale_y",
-        "tile_scale_z",
-        "tile_rot_w",
-        "tile_rot_x",
-        "tile_rot_y",
-        "tile_rot_z",
-        "tile_rand_x",
-        "tile_rand_y",
-        "tile_rand_z",
-        "tile_rand_rot_z",
-    ]
-    for field in required_fields:
-        if field not in compiled:
-            raise ValueError(f"Missing required field: {field}")
-
-    # Validate against actual array size for this level
-    array_size = compiled["array_size"]
-    if compiled["num_tiles"] < 0 or compiled["num_tiles"] > array_size:
-        raise ValueError(f"Invalid num_tiles: {compiled['num_tiles']} (must be 0-{array_size})")
-
-    if compiled["max_entities"] <= 0:
-        raise ValueError(f"Invalid max_entities: {compiled['max_entities']} (must be > 0)")
-
-    if compiled["width"] <= 0 or compiled["height"] <= 0:
-        raise ValueError(f"Invalid dimensions: {compiled['width']}x{compiled['height']}")
-
-    if compiled["scale"] <= 0.0:
-        raise ValueError(f"Invalid scale: {compiled['scale']} (must be > 0)")
-
-    # Check array lengths match MAX_TILES_C_API (fixed size for C++ compatibility)
-    tile_arrays = [
-        "object_ids",
-        "tile_x",
-        "tile_y",
-        "tile_z",
-        "tile_persistent",
-        "tile_render_only",
-        "tile_entity_type",
-        "tile_response_type",
-        "tile_scale_x",
-        "tile_scale_y",
-        "tile_scale_z",
-        "tile_rot_w",
-        "tile_rot_x",
-        "tile_rot_y",
-        "tile_rot_z",
-        "tile_rand_x",
-        "tile_rand_y",
-        "tile_rand_z",
-        "tile_rand_rot_z",
-    ]
-    for array_name in tile_arrays:
-        if len(compiled[array_name]) != MAX_TILES_C_API:
-            raise ValueError(
-                f"Invalid {array_name} array length: {len(compiled[array_name])} "
-                f"(must be {MAX_TILES_C_API} for C++ compatibility)"
-            )
-
-
-def save_compiled_level_binary(compiled: Dict, filepath: str) -> None:
-    """
-    Save compiled level dictionary to binary .lvl file using C API.
-
-    Args:
-        compiled: Output from compile_level()
-        filepath: Path to save .lvl file
-
-    Raises:
-        IOError: If file cannot be written
-    """
-    import ctypes
-
-    from .ctypes_bindings import MER_SUCCESS, dict_to_compiled_level, lib
-
-    level = dict_to_compiled_level(compiled)
-    result = lib.mer_write_compiled_level(filepath.encode("utf-8"), ctypes.byref(level))
-
-    if result != MER_SUCCESS:
-        raise IOError(f"Failed to write level file: {filepath} (error code: {result})")
-
-
-def load_compiled_level_binary(filepath: str) -> Dict:
-    """
-    Load compiled level dictionary from binary .lvl file using C API.
-
-    Args:
-        filepath: Path to .lvl file
+        ascii_str: Multi-line ASCII level string
+        scale: World units per tile (default 2.5)
+        agent_facing: List of agent facing angles in radians (optional)
+        level_name: Name of the level (default "unknown_level")
 
     Returns:
-        Dict matching compile_level() output format
+        CompiledLevel struct ready for C API
 
     Raises:
-        IOError: If file cannot be read
-    """
-    import ctypes
-
-    from .ctypes_bindings import MER_SUCCESS, MER_CompiledLevel, compiled_level_to_dict, lib
-
-    level = MER_CompiledLevel()
-    result = lib.mer_read_compiled_level(filepath.encode("utf-8"), ctypes.byref(level))
-
-    if result != MER_SUCCESS:
-        raise IOError(f"Failed to read level file: {filepath} (error code: {result})")
-
-    return compiled_level_to_dict(level)
-
-
-def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
-    """
-    Compile level from JSON format with parameters.
-
-    JSON formats supported:
-
-    1. Simple format (uses default tileset):
-    {
-        "ascii": "Multi-line ASCII level string",
-        "name": "level_name",  // Optional, default "unknown_level"
-        "scale": 2.5,  // Optional, default 2.5
-        "agent_facing": [0.0, 1.57],  // Optional, radians for each agent
-    }
-
-    2. Tileset format (custom asset mapping):
-    {
-        "ascii": "###O###\\n#S...C#\\n#######",
-        "tileset": {
-            "#": {"asset": "wall"},
-            "C": {"asset": "cube"},
-            "O": {"asset": "cylinder"},
-            "S": {"asset": "spawn"},
-            ".": {"asset": "empty"}
-        },
-        "scale": 2.5,
-        "agent_facing": [0.0]
-    }
-
-    Args:
-        json_data: JSON string or dict containing level data
-
-    Returns:
-        Dict matching compile_level() output format
-
-    Raises:
-        ValueError: If JSON is invalid or missing required fields
+        ValueError: If ASCII contains unknown characters or compilation fails
 
     Example:
-        # Simple format
-        json_level = {
-            "ascii": "###\\n#S#\\n###",
-            "scale": 1.5,
-            "agent_facing": [math.pi/2]  # Face right
-        }
-        compiled = compile_level_from_json(json_level)
+        level = '''
+        ##########
+        #S.......#
+        #..####..#
+        #........#
+        ##########
+        '''
+        compiled = compile_ascii_level(level, scale=2.5, agent_facing=[math.pi/2])
+    """
+    # Default tileset for common ASCII characters
+    default_tileset = {
+        "#": {"asset": "wall"},
+        "C": {"asset": "cube"},
+        "O": {"asset": "cylinder"},
+        "S": {"asset": "spawn"},
+        ".": {"asset": "empty"},
+        " ": {"asset": "empty"},
+    }
 
-        # Tileset format
+    # Build JSON structure
+    json_data = {"ascii": ascii_str, "tileset": default_tileset, "scale": scale, "name": level_name}
+
+    # Add agent facing if provided
+    if agent_facing is not None:
+        json_data["agent_facing"] = agent_facing
+
+    # Compile using the main compile_level function
+    return compile_level(json_data)
+
+
+def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
+    """
+    Compile JSON level definition to CompiledLevel format.
+
+    Args:
+        json_data: JSON string or dictionary with level definition
+
+    Returns:
+        CompiledLevel struct ready for C API
+
+    Raises:
+        ValueError: If JSON is invalid or compilation fails
+
+    Example:
         json_level = {
             "ascii": "###O###\\n#S...C#\\n#######",
             "tileset": {
@@ -673,9 +359,11 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
                 "O": {"asset": "cylinder"},
                 "S": {"asset": "spawn"},
                 ".": {"asset": "empty"}
-            }
+            },
+            "scale": 2.5,
+            "agent_facing": [0.0]
         }
-        compiled = compile_level_from_json(json_level)
+        compiled = compile_level(json_level)
     """
     # Parse JSON if string
     if isinstance(json_data, str):
@@ -686,153 +374,342 @@ def compile_level_from_json(json_data: Union[str, Dict]) -> Dict:
     else:
         data = json_data
 
-    # Validate required fields
-    if "ascii" not in data:
-        raise ValueError("JSON level must contain 'ascii' field with level layout")
+    # Validate JSON structure
+    _validate_json_level(data)
 
-    # Extract parameters with defaults
+    # Extract fields
     ascii_str = data["ascii"]
+    tileset = data["tileset"]
     scale = data.get("scale", 2.5)
     agent_facing = data.get("agent_facing", None)
     level_name = data.get("name", "unknown_level")
-    tileset = data.get("tileset", None)
 
-    # If no tileset provided but ASCII contains special characters, use default tileset
-    if tileset is None:
-        # Check if ASCII contains characters that require tileset (e.g., 'O' for cylinder)
-        legacy_char_map = _get_legacy_char_map()
-        special_chars = set()
-        for line in ascii_str.split("\n"):
-            for char in line:
-                if char not in legacy_char_map and char.strip():  # Non-empty, not in legacy map
-                    special_chars.add(char)
+    # Process tileset to get mappings
+    char_to_tile, char_to_rand = _process_tileset(tileset)
 
-        # If special characters found, use default tileset
-        if special_chars:
-            tileset = DEFAULT_TILESET
+    # Parse ASCII to get dimensions
+    lines = [line.rstrip() for line in ascii_str.strip().split("\n")]
+    if not lines:
+        raise ValueError("Empty level string")
 
-    # Validate parameters
-    if not isinstance(scale, (int, float)) or scale <= 0:
-        raise ValueError(f"Invalid scale: {scale} (must be positive number)")
+    height = len(lines)
+    width = max(len(line) for line in lines) if lines else 0
 
-    if agent_facing is not None:
-        if not isinstance(agent_facing, list):
-            raise ValueError("agent_facing must be a list of angles in radians")
-        for i, angle in enumerate(agent_facing):
-            if not isinstance(angle, (int, float)):
-                raise ValueError(f"Invalid agent_facing[{i}]: {angle} (must be number)")
+    if width == 0 or height == 0:
+        raise ValueError("Level has zero width or height")
 
-    if tileset is not None:
-        _validate_tileset(tileset)
+    # Validate dimensions
+    if width < MIN_LEVEL_WIDTH or width > MAX_GRID_SIZE:
+        raise ValueError(
+            f"Level width {width} must be between {MIN_LEVEL_WIDTH} and {MAX_GRID_SIZE}"
+        )
+    if height < MIN_LEVEL_HEIGHT or height > MAX_GRID_SIZE:
+        raise ValueError(
+            f"Level height {height} must be between {MIN_LEVEL_HEIGHT} and {MAX_GRID_SIZE}"
+        )
 
-    # Compile with parameters
-    return compile_level(ascii_str, scale, agent_facing, level_name, tileset)
+    # Calculate total array size
+    array_size = width * height
+    if array_size > MAX_TILES:
+        raise ValueError(
+            f"Level too large: {width}×{height} = {array_size} tiles > {MAX_TILES} max"
+        )
+
+    # Parse ASCII to tiles and spawns
+    tiles, spawns, entity_count = _parse_ascii_to_tiles(
+        ascii_str, char_to_tile, char_to_rand, scale, width, height
+    )
+
+    # Validate results
+    if len(spawns) == 0:
+        raise ValueError("No spawn points (S) found in level")
+
+    if len(spawns) > MAX_SPAWNS:
+        raise ValueError(f"Too many spawn points: {len(spawns)} > {MAX_SPAWNS}")
+
+    # Calculate max_entities for BVH allocation
+    # Must account for: level tiles + persistent entities (floor, agents, origin markers) + buffer
+    max_entities = entity_count + 6 + 30
+
+    # Create CompiledLevel struct
+    level = create_compiled_level()
+
+    # Set basic fields
+    level.num_tiles = len(tiles)
+    level.max_entities = max_entities
+    level.width = width
+    level.height = height
+    level.world_scale = scale
+    level.done_on_collide = False
+    level.level_name = level_name.encode("utf-8")[:64]  # Ensure it fits in char[64]
+
+    # Set world boundaries
+    min_tile_center_x = -(width - 1) / 2.0 * scale
+    max_tile_center_x = (width - 1) / 2.0 * scale
+    min_tile_center_y = -(height - 1) / 2.0 * scale
+    max_tile_center_y = (height - 1) / 2.0 * scale
+
+    tile_half_extent = scale / 2.0
+
+    level.world_min_x = min_tile_center_x - tile_half_extent
+    level.world_max_x = max_tile_center_x + tile_half_extent
+    level.world_min_y = min_tile_center_y - tile_half_extent
+    level.world_max_y = max_tile_center_y + tile_half_extent
+    level.world_min_z = 0.0
+    level.world_max_z = 10.0 * scale
+
+    # Set spawn data
+    level.num_spawns = len(spawns)
+    for i in range(len(spawns)):
+        level.spawn_x[i] = spawns[i][0]
+        level.spawn_y[i] = spawns[i][1]
+
+        if agent_facing and i < len(agent_facing):
+            level.spawn_facing[i] = agent_facing[i]
+        else:
+            level.spawn_facing[i] = 0.0
+
+    # Get asset IDs for entity type detection
+    from .ctypes_bindings import get_physics_asset_object_id
+
+    wall_id = get_physics_asset_object_id("wall")
+    cube_id = get_physics_asset_object_id("cube")
+    cylinder_id = get_physics_asset_object_id("cylinder")
+
+    wall_scale_factor = scale  # Scale walls to match tile spacing
+
+    # Fill tile arrays
+    for i, (world_x, world_y, tile_type, char) in enumerate(tiles):
+        level.object_ids[i] = tile_type
+        level.tile_x[i] = world_x
+        level.tile_y[i] = world_y
+        level.tile_z[i] = 0.0
+
+        # Set randomization parameters
+        rand_params = char_to_rand.get(char, {})
+        level.tile_rand_x[i] = rand_params.get("rand_x", 0.0)
+        level.tile_rand_y[i] = rand_params.get("rand_y", 0.0)
+        level.tile_rand_z[i] = rand_params.get("rand_z", 0.0)
+        level.tile_rand_rot_z[i] = rand_params.get("rand_rot_z", 0.0)
+
+        # Set entity type and scale based on object type
+        if tile_type == wall_id:
+            level.tile_entity_type[i] = 2  # EntityType::Wall
+            level.tile_scale_x[i] = wall_scale_factor
+            level.tile_scale_y[i] = wall_scale_factor
+            level.tile_scale_z[i] = 1.0
+        elif tile_type == cube_id:
+            level.tile_entity_type[i] = 1  # EntityType::Cube
+            level.tile_scale_x[i] = 1.0
+            level.tile_scale_y[i] = 1.0
+            level.tile_scale_z[i] = 1.0
+        elif tile_type == cylinder_id:
+            level.tile_entity_type[i] = 0  # EntityType::None
+            level.tile_scale_x[i] = 1.0
+            level.tile_scale_y[i] = 1.0
+            level.tile_scale_z[i] = 1.0
+        else:
+            level.tile_entity_type[i] = 0
+            level.tile_scale_x[i] = 1.0
+            level.tile_scale_y[i] = 1.0
+            level.tile_scale_z[i] = 1.0
+
+        # Set other tile properties to defaults
+        level.tile_persistent[i] = False
+        level.tile_render_only[i] = False
+        level.tile_response_type[i] = 2  # ResponseType::Static
+
+        # Identity quaternion for rotation (w, x, y, z)
+        level.tile_rotation[i] = (1.0, 0.0, 0.0, 0.0)
+
+    return level
 
 
-def compile_level_to_binary(ascii_input: str, binary_output: str, scale: float = 2.5) -> None:
+# Alias for backward compatibility with old test files
+compile_level_from_json = compile_level
+
+
+def validate_compiled_level(compiled: CompiledLevel) -> None:
     """
-    Compile ASCII or JSON level file to binary .lvl file.
+    Validate compiled level data before passing to C API.
 
     Args:
-        ascii_input: Path to ASCII/JSON level file or level string
-        binary_output: Path to output .lvl file
-        scale: World units per ASCII character (ignored if JSON file)
+        compiled: CompiledLevel struct from compile_level()
 
     Raises:
-        IOError: If files cannot be read/written
-        ValueError: If level compilation fails
+        ValueError: If validation fails
     """
-    # Check if input is a file path or level string
-    if Path(ascii_input).exists():
-        # Read from file
-        with open(ascii_input, "r") as f:
-            content = f.read()
+    # Validate ranges
+    if compiled.num_tiles < 0 or compiled.num_tiles > MAX_TILES:
+        raise ValueError(f"Invalid num_tiles: {compiled.num_tiles}")
 
-        # Check if it's JSON format (file extension or content)
-        if ascii_input.endswith(".json") or content.strip().startswith("{"):
-            # Compile from JSON
-            compiled = compile_level_from_json(content)
-        else:
-            # Compile from ASCII
-            compiled = compile_level(content, scale)
-    else:
-        # Treat as level string - check if JSON
-        if ascii_input.strip().startswith("{"):
-            compiled = compile_level_from_json(ascii_input)
-        else:
-            compiled = compile_level(ascii_input, scale)
+    if compiled.max_entities <= 0:
+        raise ValueError(f"Invalid max_entities: {compiled.max_entities}")
 
-    # Save to binary file
-    save_compiled_level_binary(compiled, binary_output)
+    if compiled.width <= 0 or compiled.height <= 0:
+        raise ValueError(f"Invalid dimensions: {compiled.width}x{compiled.height}")
+
+    if compiled.world_scale <= 0.0:
+        raise ValueError(f"Invalid scale: {compiled.world_scale}")
+
+    if compiled.num_spawns <= 0 or compiled.num_spawns > MAX_SPAWNS:
+        raise ValueError(f"Invalid num_spawns: {compiled.num_spawns}")
+
+    # Validate array lengths - must be sized to MAX_TILES for C API compatibility
+    if len(compiled.object_ids) != MAX_TILES:
+        raise ValueError(
+            f"Invalid object_ids array length: {len(compiled.object_ids)}, must be {MAX_TILES}"
+        )
+
+    if len(compiled.tile_x) != MAX_TILES:
+        raise ValueError(
+            f"Invalid tile_x array length: {len(compiled.tile_x)}, must be {MAX_TILES}"
+        )
+
+    if len(compiled.tile_y) != MAX_TILES:
+        raise ValueError(
+            f"Invalid tile_y array length: {len(compiled.tile_y)}, must be {MAX_TILES}"
+        )
 
 
-def print_level_info(compiled: Dict) -> None:
+# Binary I/O functions moved to level_io.py
+# Import them for backwards compatibility
+def save_compiled_level_binary(compiled: CompiledLevel, filepath: str) -> None:
+    """Deprecated: Use level_io.save_compiled_level() instead."""
+    from .level_io import save_compiled_level
+
+    save_compiled_level(compiled, filepath)
+
+
+def load_compiled_level_binary(filepath: str) -> CompiledLevel:
+    """Deprecated: Use level_io.load_compiled_level() instead."""
+    from .level_io import load_compiled_level
+
+    return load_compiled_level(filepath)
+
+
+def print_level_info(compiled: CompiledLevel) -> None:
     """Print compiled level information for debugging."""
     print("Compiled Level Info:")
-    print(f"  Dimensions: {compiled['width']}x{compiled['height']} (scale: {compiled['scale']})")
-    print(f"  Tiles: {compiled['num_tiles']}")
-    print(f"  Max entities: {compiled['max_entities']}")
+    print(f"  Name: {compiled.level_name.decode('utf-8', errors='ignore')}")
+    print(f"  Dimensions: {compiled.width}x{compiled.height} (scale: {compiled.world_scale})")
+    print(f"  Tiles: {compiled.num_tiles}")
+    print(f"  Max entities: {compiled.max_entities}")
+    print(f"  Spawn points: {compiled.num_spawns}")
 
-    if "_spawn_points" in compiled:
-        print(f"  Spawn points: {len(compiled['_spawn_points'])}")
-        for i, (x, y) in enumerate(compiled["_spawn_points"]):
-            facing_rad = compiled.get("spawn_facing", [0.0] * 8)[i]
-            facing_deg = facing_rad * 180.0 / math.pi
-            print(f"    Spawn {i}: ({x:.1f}, {y:.1f}) facing {facing_deg:.1f}°")
-
-    if "_entity_count" in compiled:
-        print(f"  Physics entities: {compiled['_entity_count']}")
+    for i in range(compiled.num_spawns):
+        x = compiled.spawn_x[i]
+        y = compiled.spawn_y[i]
+        facing_rad = compiled.spawn_facing[i]
+        facing_deg = facing_rad * 180.0 / math.pi
+        print(f"    Spawn {i}: ({x:.1f}, {y:.1f}) facing {facing_deg:.1f}°")
 
 
 def main():
     """Command line interface for level compiler."""
     parser = argparse.ArgumentParser(
-        description="Compile ASCII level files to binary .lvl format",
+        description="Compile JSON level files to binary .lvl format",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Compile ASCII file to binary level
-  python -m madrona_escape_room.level_compiler maze.txt maze.lvl
+  # Compile JSON file to binary level
+  python -m madrona_escape_room.level_compiler level.json level.lvl
 
-  # Compile with custom scale
-  python -m madrona_escape_room.level_compiler maze.txt maze.lvl --scale 1.5
+  # Display info about binary level
+  python -m madrona_escape_room.level_compiler --info level.lvl
 
-  # Test mode - run built-in tests
+  # Test with example level
   python -m madrona_escape_room.level_compiler --test
-
-  # Load and display info about binary level
-  python -m madrona_escape_room.level_compiler --info maze.lvl
         """,
     )
 
-    parser.add_argument("input", nargs="?", help="Input ASCII level file")
+    parser.add_argument("input", nargs="?", help="Input JSON level file")
     parser.add_argument("output", nargs="?", help="Output binary .lvl file")
-    parser.add_argument(
-        "--scale", type=float, default=2.5, help="World units per ASCII character (default: 2.5)"
-    )
-    parser.add_argument("--test", action="store_true", help="Run built-in test suite")
     parser.add_argument("--info", metavar="FILE", help="Display info about binary level file")
+    parser.add_argument("--test", action="store_true", help="Run test with example level")
 
     args = parser.parse_args()
 
     try:
         if args.test:
-            # Run built-in test suite
-            run_test_suite()
+            # Run test with example level
+            print("=== Level Compiler Test ===\n")
+
+            test_json = {
+                "ascii": """##########
+#S.......#
+#..####..#
+#..#C#...#
+#..###...#
+##########""",
+                "tileset": {
+                    "#": {"asset": "wall"},
+                    "C": {"asset": "cube"},
+                    "S": {"asset": "spawn"},
+                    ".": {"asset": "empty"},
+                },
+                "scale": 2.5,
+                "agent_facing": [math.pi / 2],  # Face right
+                "name": "test_level",
+            }
+
+            print("Compiling test level...")
+            compiled = compile_level(test_json)
+            validate_compiled_level(compiled)
+            print_level_info(compiled)
+
+            # Test save/load round-trip
+            test_file = "/tmp/test_level.lvl"
+            print(f"\nSaving to {test_file}...")
+            save_compiled_level_binary(compiled, test_file)
+
+            print(f"Loading from {test_file}...")
+            loaded = load_compiled_level_binary(test_file)
+
+            # Verify key fields match
+            if compiled.num_tiles != loaded.num_tiles:
+                raise ValueError(
+                    f"Mismatch in num_tiles: {compiled.num_tiles} != {loaded.num_tiles}"
+                )
+            if compiled.width != loaded.width:
+                raise ValueError(f"Mismatch in width: {compiled.width} != {loaded.width}")
+            if compiled.height != loaded.height:
+                raise ValueError(f"Mismatch in height: {compiled.height} != {loaded.height}")
+            if abs(compiled.world_scale - loaded.world_scale) > 0.001:
+                raise ValueError(
+                    f"Mismatch in scale: {compiled.world_scale} != {loaded.world_scale}"
+                )
+
+            print("✓ Test completed successfully!")
+
+            # Clean up
+            Path(test_file).unlink()
+
         elif args.info:
-            # Display info about binary level file
+            # Display info about binary level
             print(f"Loading binary level: {args.info}")
             compiled = load_compiled_level_binary(args.info)
             print_level_info(compiled)
+
         elif args.input and args.output:
-            # Compile ASCII to binary
-            print(f"Compiling '{args.input}' to '{args.output}' (scale: {args.scale})")
-            compile_level_to_binary(args.input, args.output, args.scale)
+            # Compile JSON to binary
+            print(f"Compiling '{args.input}' to '{args.output}'")
+
+            # Read JSON file
+            with open(args.input, "r") as f:
+                json_data = f.read()
+
+            # Compile and validate
+            compiled = compile_level(json_data)
+            validate_compiled_level(compiled)
+
+            # Save to binary
+            save_compiled_level_binary(compiled, args.output)
             print("✓ Level compiled successfully")
 
-            # Load and display info
-            compiled = load_compiled_level_binary(args.output)
+            # Display info
             print_level_info(compiled)
+
         else:
             parser.print_help()
             sys.exit(1)
@@ -842,146 +719,5 @@ Examples:
         sys.exit(1)
 
 
-def run_test_suite():
-    """Run built-in test suite."""
-    print("=== Level Compiler Test Suite ===")
-
-    # Test 1: Simple room
-    print("\n=== Test 1: Simple Room ===")
-    simple_room = """
-    ##########
-    #S.......#
-    #........#
-    #........#
-    ##########
-    """
-
-    try:
-        compiled = compile_level(simple_room)
-        print_level_info(compiled)
-        validate_compiled_level(compiled)
-        print("✓ Simple room compiled and validated successfully")
-    except Exception as e:
-        print(f"✗ Simple room failed: {e}")
-
-    # Test 2: Obstacle course
-    print("\n=== Test 2: Obstacle Course ===")
-    obstacle_course = """
-    ############
-    #S.........#
-    #..###.....#
-    #..#.#.CC..#
-    #..#.#.....#
-    #..#.......#
-    ############
-    """
-
-    try:
-        compiled = compile_level(obstacle_course)
-        print_level_info(compiled)
-        validate_compiled_level(compiled)
-        print("✓ Obstacle course compiled and validated successfully")
-    except Exception as e:
-        print(f"✗ Obstacle course failed: {e}")
-
-    # Test 3: Binary I/O test
-    print("\n=== Test 3: Binary I/O ===")
-    try:
-        # Compile to dict
-        compiled = compile_level(simple_room)
-
-        # Save to binary
-        test_file = "/tmp/test_level.lvl"
-        save_compiled_level_binary(compiled, test_file)
-        print(f"✓ Saved binary level to {test_file}")
-
-        # Load from binary
-        loaded = load_compiled_level_binary(test_file)
-        print("✓ Loaded binary level successfully")
-
-        # Verify data matches
-        for key in ["num_tiles", "max_entities", "width", "height", "scale"]:
-            if compiled[key] != loaded[key]:
-                raise ValueError(f"Mismatch in {key}: {compiled[key]} != {loaded[key]}")
-
-        for i in range(compiled["num_tiles"]):
-            if (
-                compiled["object_ids"][i] != loaded["object_ids"][i]
-                or abs(compiled["tile_x"][i] - loaded["tile_x"][i]) > 0.001
-                or abs(compiled["tile_y"][i] - loaded["tile_y"][i]) > 0.001
-            ):
-                raise ValueError(f"Mismatch in tile {i}")
-
-        print("✓ Binary I/O round-trip successful")
-
-        # Clean up
-        Path(test_file).unlink()
-
-    except Exception as e:
-        print(f"✗ Binary I/O test failed: {e}")
-
-    # Test 4: JSON format test
-    print("\n=== Test 4: JSON Format ===")
-    json_level = {
-        "ascii": """#####
-#S.S#
-#####""",
-        "scale": 1.5,
-        "agent_facing": [0.0, math.pi / 2],  # First agent faces forward, second faces right
-    }
-
-    try:
-        compiled = compile_level_from_json(json_level)
-        print_level_info(compiled)
-        validate_compiled_level(compiled)
-        print("✓ JSON level compiled and validated successfully")
-
-        # Verify agent facing was set
-        if (
-            compiled["spawn_facing"][0] == 0.0
-            and abs(compiled["spawn_facing"][1] - math.pi / 2) < 0.001
-        ):
-            print("✓ Agent facing angles correctly set")
-        else:
-            print("✗ Agent facing angles incorrect")
-    except Exception as e:
-        print(f"✗ JSON format test failed: {e}")
-
-    # Test 5: Error cases
-    print("\n=== Test 5: Error Cases ===")
-
-    # Empty level
-    try:
-        compile_level("")
-        print("✗ Empty level should have failed")
-    except ValueError as e:
-        print(f"✓ Empty level correctly rejected: {e}")
-
-    # No spawn point
-    try:
-        compile_level("""
-        #####
-        #...#
-        #####
-        """)
-        print("✗ No spawn point should have failed")
-    except ValueError as e:
-        print(f"✓ No spawn point correctly rejected: {e}")
-
-    # Unknown character
-    try:
-        compile_level("""
-        #####
-        #S.X#
-        #####
-        """)
-        print("✗ Unknown character should have failed")
-    except ValueError as e:
-        print(f"✓ Unknown character correctly rejected: {e}")
-
-    print("\n🎉 Level compiler tests completed!")
-
-
-# Example usage and test cases
 if __name__ == "__main__":
     main()
