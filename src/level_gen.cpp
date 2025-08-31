@@ -151,13 +151,15 @@ static void resetAgentPhysics(Engine &ctx) {
  * ONLY for physics entities, not render-only.
  */
 static void setupEntityPhysics(Engine& ctx, Entity e, uint32_t objectId,
-                              Vector3 pos, Quat rot, Diag3x3 scale, int32_t entityTypeValue, int32_t responseTypeValue) {
+                              Vector3 pos, Quat rot, Diag3x3 scale, int32_t entityTypeValue, int32_t responseTypeValue, bool doneOnCollide) {
     EntityType entityType = static_cast<EntityType>(entityTypeValue);
     ResponseType responseType = static_cast<ResponseType>(responseTypeValue);
     
     setupRigidBodyEntity(ctx, e, pos, rot, objectId,
                        entityType, responseType, scale);
     registerRigidBodyEntity(ctx, e, objectId);
+    ctx.get<DoneOnCollide>(e).value = doneOnCollide;
+    
 }
 
 /**
@@ -165,11 +167,13 @@ static void setupEntityPhysics(Engine& ctx, Entity e, uint32_t objectId,
  * ONLY for render-only entities.
  */
 static void setupRenderOnlyEntity(Engine& ctx, Entity e, uint32_t objectId,
-                                 Vector3 pos, Quat rot, Diag3x3 scale) {
+                                 Vector3 pos, Quat rot, Diag3x3 scale, bool doneOnCollide) {
     ctx.get<Position>(e) = pos;
     ctx.get<Rotation>(e) = rot;
     ctx.get<Scale>(e) = scale;
     ctx.get<ObjectID>(e) = ObjectID{(int32_t)objectId};
+    ctx.get<DoneOnCollide>(e).value = doneOnCollide;
+    
 }
 
 /**
@@ -303,11 +307,13 @@ static void resetPersistentEntities(Engine &ctx)
                  bool isRenderOnly = level.tile_render_only[i];
                  Quat rotation = level.tile_rotation[i];
                  if (isRenderOnly) {
-                     setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, rotation, scale);
+                     bool doneOnCollideValue = level.tile_done_on_collide[i];
+                     setupRenderOnlyEntity(ctx, e, objectId, Vector3{x, y, z}, rotation, scale, doneOnCollideValue);
                  } else {
                      int32_t entityTypeValue = level.tile_entity_type[i];
                      int32_t responseTypeValue = level.tile_response_type[i];
-                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue, responseTypeValue);
+                     bool doneOnCollideValue = level.tile_done_on_collide[i];
+                     setupEntityPhysics(ctx, e, objectId, Vector3{x, y, z}, rotation, scale, entityTypeValue, responseTypeValue, doneOnCollideValue);
                  }
              }
          }
@@ -412,11 +418,13 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                     ctx.makeRenderableEntity<PhysicsEntity>();
                 
                 if (isRenderOnly) {
-                    setupRenderOnlyEntity(ctx, entity, objectId, position, rotation, scale);
+                    bool doneOnCollideValue = level->tile_done_on_collide[i];
+                    setupRenderOnlyEntity(ctx, entity, objectId, position, rotation, scale, doneOnCollideValue);
                 } else {
                     int32_t entityTypeValue = level->tile_entity_type[i];
                     int32_t responseTypeValue = level->tile_response_type[i];
-                    setupEntityPhysics(ctx, entity, objectId, position, rotation, scale, entityTypeValue, responseTypeValue);
+                    bool doneOnCollideValue = level->tile_done_on_collide[i];
+                    setupEntityPhysics(ctx, entity, objectId, position, rotation, scale, entityTypeValue, responseTypeValue, doneOnCollideValue);
                 }
             }
         }

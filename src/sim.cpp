@@ -50,6 +50,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerComponent<Progress>();
     registry.registerComponent<StepsRemaining>();
     registry.registerComponent<EntityType>();
+    registry.registerComponent<DoneOnCollide>();
 
     // [REQUIRED_INTERFACE] Reset singleton - every episodic env needs this
     registry.registerSingleton<WorldReset>();
@@ -337,22 +338,10 @@ inline void agentCollisionSystem(Engine &ctx,
                 return; // Ignore floor collisions
             }
             
-            // Get the type of the other entity
-            auto other_type_ref = ctx.getCheck<EntityType>(other);
-            if (other_type_ref.valid()) {
-                EntityType other_type = other_type_ref.value();
-                
-                // Trigger done for collision with walls or cubes
-                if (other_type == EntityType::Wall || other_type == EntityType::Cube) {
-                    done.v = 1;
-                    
-                    #ifdef DEBUG_COLLISIONS
-                    printf("[World %d] Agent %u collided with %s (entity %u) - Episode DONE\n", 
-                           ctx.worldID().idx, agent_entity.id, 
-                           other_type == EntityType::Wall ? "Wall" : "Cube",
-                           other.id);
-                    #endif
-                }
+            // Check if this entity should trigger episode termination on collision
+            auto done_on_collide_ref = ctx.getCheck<DoneOnCollide>(other);
+            if (done_on_collide_ref.valid() && done_on_collide_ref.value().value) {
+                done.v = 1;
             }
         }
     });

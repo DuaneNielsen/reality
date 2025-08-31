@@ -49,6 +49,12 @@ namespace madEscape {
                            //          2 is the center/default (no rotation)
     };
 
+    // [GAME_SPECIFIC]
+    // Component to track whether collision with this entity should end the episode
+    struct DoneOnCollide {
+        bool value;
+    };
+
     //[BOILERPLATE]
     // Per-agent reward
     // Exported as an [N * A, 1] float tensor to training code
@@ -125,12 +131,12 @@ namespace madEscape {
     // [BOILERPLATE]
     // Generic archetype for entities that need physics but don't have custom
     // logic associated with them.
-    struct PhysicsEntity : public madrona::Archetype<RigidBody, EntityType, madrona::render::Renderable> {};
+    struct PhysicsEntity : public madrona::Archetype<RigidBody, EntityType, DoneOnCollide, madrona::render::Renderable> {};
 
     // [GAME_SPECIFIC]
     // Archetype for entities that only need rendering, no physics
     struct RenderOnlyEntity : public madrona::Archetype<
-        Position, Rotation, Scale, ObjectID,
+        Position, Rotation, Scale, ObjectID, DoneOnCollide,
         madrona::render::Renderable
     > {};
 
@@ -154,7 +160,6 @@ namespace madEscape {
         int32_t width;                    // Grid width
         int32_t height;                   // Grid height  
         float world_scale;                // World scale factor
-        bool done_on_collide;             // Episode ends on collision
         char level_name[MAX_LEVEL_NAME_LENGTH];  // Level name for identification
         
         // World boundaries in world units (calculated from grid dimensions * scale)
@@ -178,6 +183,7 @@ namespace madEscape {
         float tile_z[MAX_TILES];          // World Z position
         bool tile_persistent[MAX_TILES];  // Whether tile persists across episodes
         bool tile_render_only[MAX_TILES]; // Whether tile is render-only (no physics)
+        bool tile_done_on_collide[MAX_TILES]; // Whether collision with this tile ends episode
         int32_t tile_entity_type[MAX_TILES]; // EntityType value for each tile (0=None, 1=Cube, 2=Wall, 3=Agent)
         int32_t tile_response_type[MAX_TILES]; // ResponseType value for each tile (0=Dynamic, 1=Kinematic, 2=Static)
         

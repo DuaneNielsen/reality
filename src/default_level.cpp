@@ -17,7 +17,6 @@ int main(int argc, char* argv[]) {
     level.width = 16;
     level.height = 16;
     level.world_scale = 1.0f;
-    level.done_on_collide = false;
     level.max_entities = 150;  // Enough for walls (16*4 = 64) and other objects
     std::strcpy(level.level_name, "default_16x16_room");
     
@@ -37,7 +36,8 @@ int main(int argc, char* argv[]) {
         level.tile_scale_y[i] = 1.0f;
         level.tile_scale_z[i] = 1.0f;
         level.tile_rotation[i] = Quat::id();  // Identity quaternion
-        level.tile_response_type[i] = 2;  // Default to Static
+        level.tile_response_type[i] = (int32_t)ResponseType::Static;  // Default to Static
+        level.tile_done_on_collide[i] = false;  // Default to not ending episode on collision
         
         // Initialize randomization arrays to 0 (no randomization)
         level.tile_rand_x[i] = 0.0f;
@@ -81,8 +81,9 @@ int main(int argc, char* argv[]) {
         level.tile_scale_z[tile_index] = 1.0f;
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
-        level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
-        level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+        level.tile_done_on_collide[tile_index] = false;  // Walls don't trigger episode end
+        level.tile_entity_type[tile_index] = (int32_t)EntityType::Wall;
+        level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
         tile_index++;
         
         // Bottom wall
@@ -94,8 +95,9 @@ int main(int argc, char* argv[]) {
         level.tile_scale_z[tile_index] = 1.0f;
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
-        level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
-        level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+        level.tile_done_on_collide[tile_index] = false;  // Walls don't trigger episode end
+        level.tile_entity_type[tile_index] = (int32_t)EntityType::Wall;
+        level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
         tile_index++;
     }
     
@@ -112,8 +114,9 @@ int main(int argc, char* argv[]) {
         level.tile_scale_z[tile_index] = 1.0f;
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
-        level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
-        level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+        level.tile_done_on_collide[tile_index] = false;  // Walls don't trigger episode end
+        level.tile_entity_type[tile_index] = (int32_t)EntityType::Wall;
+        level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
         tile_index++;
         
         // Right wall
@@ -125,8 +128,9 @@ int main(int argc, char* argv[]) {
         level.tile_scale_z[tile_index] = 1.0f;
         level.tile_persistent[tile_index] = true;
         level.tile_render_only[tile_index] = false;
-        level.tile_entity_type[tile_index] = 2;  // EntityType::Wall
-        level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+        level.tile_done_on_collide[tile_index] = false;  // Walls don't trigger episode end
+        level.tile_entity_type[tile_index] = (int32_t)EntityType::Wall;
+        level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
         tile_index++;
     }
     
@@ -136,8 +140,9 @@ int main(int argc, char* argv[]) {
     level.tile_y[tile_index] = 12.5f;
     level.tile_persistent[tile_index] = true;
     level.tile_render_only[tile_index] = true;
-    level.tile_entity_type[tile_index] = 0;  // EntityType::None
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static (render-only)
+    level.tile_done_on_collide[tile_index] = false;  // Render-only, no collision
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::NoEntity;
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;  // ResponseType::Static (render-only)
     tile_index++;
     
     // Add cylinders scattered around the level with 3m XY variance
@@ -154,8 +159,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object (static obstacle)
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles (static obstacle)
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;  // 3m variance in X
     level.tile_rand_y[tile_index] = variance_3m;  // 3m variance in Y
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
@@ -173,8 +179,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
@@ -192,8 +199,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
@@ -211,8 +219,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
@@ -230,8 +239,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
@@ -249,8 +259,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
@@ -268,8 +279,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
@@ -287,8 +299,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Object
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
@@ -311,8 +324,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;  // Has physics
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static (immovable)
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;  // ResponseType::Static (immovable)
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;  // Random Z-axis rotation
@@ -331,8 +345,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
@@ -351,8 +366,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
@@ -371,8 +387,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
@@ -391,8 +408,9 @@ int main(int argc, char* argv[]) {
     level.tile_scale_z[tile_index] = 1.5f;
     level.tile_persistent[tile_index] = false;
     level.tile_render_only[tile_index] = false;
-    level.tile_entity_type[tile_index] = 1;  // EntityType::Cube
-    level.tile_response_type[tile_index] = 2;  // ResponseType::Static
+    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     level.tile_rand_x[tile_index] = variance_3m;
     level.tile_rand_y[tile_index] = variance_3m;
     level.tile_rand_rot_z[tile_index] = rotation_range;
