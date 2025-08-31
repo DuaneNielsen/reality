@@ -2,6 +2,13 @@
 
 Testing patterns and best practices for the Madrona Escape Room project.
 
+## Test Structure Overview
+
+The project uses multiple test frameworks:
+- **Python Tests**: pytest for high-level integration and behavior testing
+- **C++ CPU Tests**: GoogleTest for fast unit testing
+- **C++ GPU Tests**: Separated into fast and stress test executables
+
 ## Key Constraint: GPU Manager Limitation
 
 **Critical**: Madrona only supports **one GPU manager at a time** per process.
@@ -20,6 +27,7 @@ def test_gpu_feature(gpu_manager):
 
 ## Test Execution Order
 
+### Python Tests
 ```bash
 # 1. CPU tests first
 uv run --group dev pytest tests/python/ -v --no-gpu
@@ -28,11 +36,50 @@ uv run --group dev pytest tests/python/ -v --no-gpu
 uv run --group dev pytest tests/python/ -v -k "gpu"
 ```
 
+### C++ Tests
+```bash
+# Fast CPU tests (~30 seconds)
+./build/mad_escape_tests
+
+# Fast GPU tests (~1-2 minutes, shared managers)
+./build/mad_escape_gpu_tests  
+
+# GPU stress tests (~8+ minutes, individual managers)
+./build/mad_escape_gpu_stress_tests
+
+# Or use CMake targets:
+make run_cpp_tests           # CPU tests
+make run_gpu_tests          # Fast GPU tests  
+make run_gpu_stress_tests   # Comprehensive GPU tests
+```
+
+### C++ GPU Test Strategy
+
+**Two-tier approach** for optimal development workflow:
+
+1. **mad_escape_gpu_tests** - Daily development testing
+   - 8 tests using shared managers with reset-based testing
+   - Minimal NVRTC compilation overhead
+   - ~1-2 minutes execution time
+   - Tests: Basic functionality, tensor validation, reset behavior
+
+2. **mad_escape_gpu_stress_tests** - Comprehensive validation  
+   - 7 tests requiring individual manager compilation
+   - Full NVRTC compilation per test (~40+ seconds each)
+   - ~8+ minutes execution time
+   - Tests: Large world counts, memory stress, configuration variations
+
 ## Fixtures
 
+### Python Test Fixtures
 - `gpu_manager`: Session-scoped GPU SimManager (shared across all GPU tests)
 - `gpu_env`: Session-scoped GPU TorchRL environment  
 - `cpu_manager`: Function-scoped CPU manager (new per test, supports custom levels)
+
+### C++ Test Fixtures
+- `ReusableGPUManagerTest`: Shared GPU manager with reset-based isolation
+- `CustomGPUManagerTest`: Creates new managers for configuration-specific tests  
+- `MadronaTestBase`: Base fixture with C API bindings (legacy)
 
 ## Custom Level Testing
 
@@ -90,7 +137,7 @@ def test_corridor_navigation(cpu_manager):
 
 ## Writing GPU Tests
 
-### Correct Pattern
+### Python GPU Tests - Correct Pattern
 ```python
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_gpu_functionality(gpu_manager):
@@ -102,7 +149,46 @@ def test_gpu_functionality(gpu_manager):
     assert obs_tensor.isOnGPU()
 ```
 
+### C++ GPU Tests - Fast Tests Pattern
+```cpp
+// Fast tests using shared manager (mad_escape_gpu_tests)
+TEST_F(ReusableGPUManagerTest, BasicFunctionality) {
+    ASSERT_NE(mgr, nullptr);
+    
+    // Test using shared manager - fast execution
+    mgr->step();
+    
+    auto action_tensor = GetActionTensor();
+    EXPECT_GE(action_tensor.gpuID(), 0);
+}
+
+// Reset is automatic between tests via ResetAllWorlds()
+TEST_F(ReusableGPUManagerTest, TensorValidation) {
+    // Fresh state due to reset, no manager recreation needed
+    auto tensor = GetActionTensor();
+    std::vector<int64_t> expected = {config.numWorlds, 3};
+    EXPECT_TRUE(ValidateTensorShape(tensor, expected));
+}
+```
+
+### C++ GPU Tests - Stress Tests Pattern
+```cpp
+// Stress tests with custom managers (mad_escape_gpu_stress_tests)
+TEST_F(CustomGPUManagerTest, LargeWorldCount) {
+    config.numWorlds = 1024;  // Custom configuration
+    
+    ASSERT_TRUE(CreateManager());  // Creates new manager (~40s compilation)
+    EXPECT_NE(custom_manager, nullptr);
+    
+    // Test with custom configuration
+    auto action_tensor = custom_manager->actionTensor();
+    // ... test large world functionality
+}
+```
+
 ### Common Mistakes
+
+#### Python Tests
 ```python
 # ❌ Creates new GPU manager - will conflict
 def test_bad_gpu_test():
@@ -114,6 +200,26 @@ def test_missing_skip(gpu_manager):  # Will fail if no CUDA
 # ❌ Not using fixture parameter
 def test_ignores_fixture(gpu_manager):
     mgr = SimManager(exec_mode=ExecMode.CUDA, ...)  # Ignores fixture, creates new manager
+```
+
+#### C++ Tests
+```cpp
+// ❌ Wrong test file - expensive test in fast suite
+TEST_F(CustomGPUManagerTest, ExpensiveTest) {
+    // This belongs in mad_escape_gpu_stress_tests, not mad_escape_gpu_tests
+    config.numWorlds = 1024;
+    CreateManager();  // Causes long compilation in fast test suite
+}
+
+// ❌ Not using shared manager efficiently
+TEST_F(ReusableGPUManagerTest, WastefulTest) {
+    CreateSharedManager();  // Unnecessary - manager already created in SetUp()
+}
+
+// ❌ Forgetting to use helper methods
+TEST_F(ReusableGPUManagerTest, ManualTensorAccess) {
+    auto tensor = mgr->actionTensor();  // Use GetActionTensor() instead
+}
 ```
 
 ## Test Flags
