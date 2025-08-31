@@ -1,4 +1,4 @@
-!./tests/quick_pytest.sh
+!./tests/quicktest.sh
 
 Output the tests results in the below format
 
