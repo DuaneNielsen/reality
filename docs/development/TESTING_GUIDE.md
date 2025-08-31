@@ -264,6 +264,81 @@ uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movem
 # test_recordings/test_reward_system.py__test_forward_movement_reward_actions_trajectory.txt
 ```
 
+## Test Scripts
+
+The `tests/` directory contains several utility scripts for running tests and benchmarks:
+
+### Quick Testing Script
+```bash
+tests/quicktest.sh
+```
+**Purpose**: Run both C++ and Python tests in brief mode, only showing failures
+- C++ tests: Uses `--gtest_brief=1` to minimize output
+- Python tests: Uses `-q -m "not slow"` to skip slow tests and reduce output
+- Ideal for rapid development iteration
+
+### Performance Testing Script  
+```bash
+tests/run_perf_test.sh
+```
+**Purpose**: Comprehensive performance benchmarking with baseline comparison
+- **CPU Benchmark**: 1024 worlds, 1000 steps
+- **GPU Benchmark**: 8192 worlds, 1000 steps (if GPU available)  
+- **Features**:
+  - Checks performance against baselines
+  - Saves detailed profiling data to `build/perf_results/TIMESTAMP/`
+  - Generates HTML profile reports using `pyinstrument`
+  - Returns exit codes: 0 (pass), 1 (fail), 2 (warning)
+  - Automatically detects GPU availability
+- **Requirements**: Requires `pyinstrument>=4.0.0` (included in dev dependencies)
+
+**Usage**:
+```bash
+# Run full performance test suite
+./tests/run_perf_test.sh
+
+# Results saved to build/perf_results/YYYYMMDD_HHMMSS/
+# HTML profiles saved to /tmp/sim_bench_profile_*.html
+
+# Run smaller benchmark for quick testing
+uv run python scripts/sim_bench.py --num-worlds 64 --num-steps 100 --check-baseline
+```
+
+### Stability Testing Script
+```bash
+tests/test_headless_loop.sh [num_runs] [level_file]
+```
+**Purpose**: Test simulation stability by running headless mode multiple times
+- **Default**: 10 runs with default level
+- **Parameters**:
+  - `num_runs`: Number of test iterations (default: 10)  
+  - `level_file`: Optional custom level file
+- **Tracks**: Success rate, segfaults, assertion failures
+- **Configuration**: 4 worlds, 5000 steps, seed 42, random actions
+
+**Usage**:
+```bash
+# Run 10 times with default level
+./tests/test_headless_loop.sh
+
+# Run 25 times with custom level
+./tests/test_headless_loop.sh 25 custom_level.bin
+
+# Check specific level stability
+./tests/test_headless_loop.sh 50 test_recordings/debug_level.bin
+```
+
+**Example Output**:
+```
+Run 1/10: SUCCESS (FPS: 2450.5)
+Run 2/10: SUCCESS (FPS: 2445.2)
+...
+Summary:
+  Successful runs: 9/10
+  Failed runs:     1/10
+    - Assertions:   1
+```
+
 ## Best Practices
 
 **Do's:**
@@ -271,12 +346,16 @@ uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movem
 - Add CUDA availability checks to GPU tests  
 - Test CPU before GPU functionality
 - Fix warnings immediately - tests should use `assert` not `return` statements
+- Use `tests/quicktest.sh` for rapid development testing
+- Run `tests/run_perf_test.sh` before performance-critical commits
+- Use `tests/test_headless_loop.sh` to validate simulation stability
 
 **Don'ts:**
 - Create GPU managers directly in tests
 - Mix session/function-scoped GPU fixtures
 - Forget `@pytest.mark.skipif` for GPU tests
 - Return values from test functions (causes `PytestReturnNotNoneWarning`)
+- Skip stability testing for simulation core changes
 
 ## Debugging
 

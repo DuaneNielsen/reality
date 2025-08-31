@@ -11,6 +11,7 @@ from pyinstrument.renderers import JSONRenderer
 from step_timer import FPSCounter
 
 import madrona_escape_room
+from madrona_escape_room.generated_constants import ExecMode
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("--num-worlds", type=int, default=1024)
@@ -27,9 +28,9 @@ args = arg_parser.parse_args()
 
 # Determine execution mode
 if args.gpu_id >= 0:
-    exec_mode = madrona_escape_room.madrona.ExecMode.CUDA
+    exec_mode = ExecMode.CUDA
 else:
-    exec_mode = madrona_escape_room.madrona.ExecMode.CPU
+    exec_mode = ExecMode.CPU
 
 # Create simulator
 sim = madrona_escape_room.SimManager(

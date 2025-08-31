@@ -48,4 +48,5 @@ dev = [
     "ruff",
     "pre-commit",
     "clangd-tidy>=1.1.0.post2",  # Used in git post-commit hooks
+    "pyinstrument>=4.0.0",  # For performance profiling in sim_bench.py
 ]
