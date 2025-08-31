@@ -136,7 +136,8 @@
       "Bash(git -C external/madrona rev-parse origin/main)",
       "Bash(then echo \"YES - HEAD is at origin/main\")",
       "Bash(else echo \"NO - They differ\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(./tests/quicktest.sh:*)"
     ],
     "deny": []
   },
