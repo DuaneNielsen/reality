@@ -34,6 +34,7 @@
 #ifdef MADRONA_CUDA_SUPPORT
 #include <madrona/mw_gpu.hpp>
 #include <madrona/cuda_utils.hpp>
+#include <cuda_runtime.h>
 #endif
 
 using namespace madrona;
@@ -501,6 +502,20 @@ Manager::Impl * Manager::Impl::init(
     switch (mgr_cfg.execMode) {
     case ExecMode::CUDA: {
 #ifdef MADRONA_CUDA_SUPPORT
+        // Validate GPU device exists before attempting initialization
+        int device_count = 0;
+        cudaError_t cuda_result = cudaGetDeviceCount(&device_count);
+        if (cuda_result != cudaSuccess) {
+            std::cerr << "ERROR: CUDA not available: " << cudaGetErrorString(cuda_result) << std::endl;
+            std::abort();
+        }
+        
+        if (mgr_cfg.gpuID >= device_count || mgr_cfg.gpuID < 0) {
+            std::cerr << "ERROR: Invalid GPU ID " << mgr_cfg.gpuID 
+                      << ". Available devices: 0-" << (device_count - 1) << std::endl;
+            std::abort();
+        }
+        
         CUcontext cu_ctx = MWCudaExecutor::initCUDA(mgr_cfg.gpuID);
 
         PhysicsLoader phys_loader(ExecMode::CUDA, 10);

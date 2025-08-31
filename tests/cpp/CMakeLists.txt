@@ -30,7 +30,7 @@ set(CPU_TEST_SOURCES
 # Collect GPU test source files (tests that require GPU)
 set(GPU_TEST_SOURCES
     fixtures/test_base.cpp
-    unit/test_c_api_gpu.cpp
+    unit/test_manager_gpu.cpp
 )
 
 # Create CPU test executable

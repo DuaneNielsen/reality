@@ -255,10 +255,6 @@ inline void collectObservationsSystem(Engine &ctx,
     float world_length = level.world_max_y - level.world_min_y;
     float world_height = level.world_max_z - level.world_min_z;
     
-    if (world_width <= 0.0f || world_length <= 0.0f || world_height <= 0.0f) {
-        printf("ERROR: Invalid world boundaries - width = %f (min_x=%f, max_x=%f), length = %f (min_y=%f, max_y=%f), height = %f (min_z=%f, max_z=%f)\n",
-               world_width, level.world_min_x, level.world_max_x, world_length, level.world_min_y, level.world_max_y, world_height, level.world_min_z, level.world_max_z);
-    }
     
     // Normalize each position using its corresponding axis range
     self_obs.globalX = (pos.x - level.world_min_x) / world_width;
@@ -291,9 +287,6 @@ inline void rewardSystem(Engine &ctx,
         // Use actual world boundaries for normalization
         float world_length = level.world_max_y - level.world_min_y;
         
-        if (world_length <= 0.0f) {
-            printf("ERROR: Invalid world boundaries in reward calculation - world_length = %f\n", world_length);
-        }
         
         float adjusted_progress = progress.maxY - level.world_min_y;
         float normalized_progress = adjusted_progress / world_length;
