@@ -553,7 +553,7 @@ JSON file format:
         structs_to_extract = parse_struct_list(args.structs)
         print(f"Using custom struct list: {structs_to_extract}", file=sys.stderr)
     else:
-        print(f"Using default struct list: {DEFAULT_STRUCTS_TO_EXTRACT}", file=sys.stderr)
+        print(f"Info: Using default struct list: {DEFAULT_STRUCTS_TO_EXTRACT}")
 
     generate_python_bindings(args.library_path, args.output_path, structs_to_extract)
 
