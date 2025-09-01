@@ -189,11 +189,14 @@ class TestCollisionTermination:
                 north_terminated = True
                 break
 
-        # Reset for next test - collision should have terminated, triggering auto-reset
+        # Reset for next test - collision terminated, manual reset needed since auto_reset=False
         if north_terminated:
-            # Wait a step for auto-reset to take effect
+            # Manually trigger reset since auto_reset is disabled in cpu_manager fixture
+            reset_tensor = mgr.reset_tensor().to_torch()
+            reset_tensor[0] = 1  # Reset world 0
             controller.reset_actions()
             mgr.step()
+            reset_tensor[0] = 0  # Clear reset flag
 
         # Test non-terminating collision (east - wall)
         assert not observer.get_done_flag(0), "Should be reset and running for east test"
