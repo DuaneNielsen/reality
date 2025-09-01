@@ -53,6 +53,11 @@ Headless mode runs simulation without graphics for benchmarking, testing, or ser
 
 use the project-builder subagent to build the project
 
+Manual build command (fast, parallel, quiet):
+```bash
+make -C build -j16 -s
+```
+
 ### Running the Simulation
 
 to visualize the simulation for the user, run the viewer, it will create a playable simulation that the user can use to interact eith the simulation

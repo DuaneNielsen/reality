@@ -10,6 +10,7 @@ enable_testing()
 # Collect CPU test source files (tests that don't require GPU)
 set(CPU_TEST_SOURCES
     fixtures/test_base.cpp
+    fixtures/debug_capture.cpp
     unit/test_c_api_cpu.cpp
     unit/test_option_parser.cpp
     unit/test_level_utilities.cpp
