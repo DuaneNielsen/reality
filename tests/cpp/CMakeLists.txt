@@ -5,10 +5,11 @@ enable_testing()
 
 # Note: GoogleTest is already built and configured by Madrona's build system
 # in external/madrona/external/CMakeLists.txt with proper toolchain linking.
-# We just need to use the gtest_main target that Madrona provides.
+# We use a custom main function to support --disable-capture flag instead of gtest_main.
 
 # Collect CPU test source files (tests that don't require GPU)
 set(CPU_TEST_SOURCES
+    fixtures/test_main.cpp
     fixtures/test_base.cpp
     fixtures/debug_capture.cpp
     unit/test_c_api_cpu.cpp
@@ -79,13 +80,12 @@ target_include_directories(mad_escape_gpu_stress_tests PRIVATE
     ${CMAKE_BINARY_DIR}  # For default_level_data.h
 )
 
-# Link libraries for CPU tests
+# Link libraries for CPU tests (using custom main, not gtest_main)
 target_link_libraries(mad_escape_tests
     PRIVATE
         madrona_escape_room_c_api
         mad_escape_mgr
         viewer_core
-        gtest_main
         gtest
 )
 

@@ -211,8 +211,4 @@ TEST(RecordReplayStateMachineEdgeCases, TogglePauseInIdle) {
     EXPECT_EQ(sm.getState(), RecordReplayStateMachine::Idle);
 }
 
-// Main test runner
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
+// Main test runner moved to fixtures/test_main.cpp for centralized flag handling
