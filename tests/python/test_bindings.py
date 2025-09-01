@@ -70,7 +70,7 @@ def test_tensor_shapes(cpu_manager):
     # door_obs = mgr.door_observation_tensor().to_torch()
     # assert len(door_obs.shape) == 4  # [worlds, agents, doors, features]
 
-    steps = mgr.steps_remaining_tensor().to_torch()
+    steps = mgr.steps_taken_tensor().to_torch()
     assert steps.shape == (4, 1, 1)
 
 
@@ -117,18 +117,18 @@ def test_reset_functionality(cpu_manager):
         mgr.step()
 
     # Get current steps for comparison
-    _steps_before = mgr.steps_remaining_tensor().to_torch().clone()
+    _steps_before = mgr.steps_taken_tensor().to_torch().clone()
 
     # Reset only world 0
     reset_tensor[:] = 0  # Clear all reset flags
     reset_tensor[0] = 1  # Set reset flag for world 0
     mgr.step()
 
-    # Check if episode was reset (steps remaining should be back to max)
-    steps_after = mgr.steps_remaining_tensor().to_torch()
-    # World 0 should have maximum steps (200), while others have less
-    assert steps_after[0, 0, 0].item() == 200, "World 0 should be reset to max steps"
-    assert steps_after[1, 0, 0].item() < 200, "World 1 should have fewer steps"
+    # Check if episode was reset (steps taken should be back to 0)
+    steps_after = mgr.steps_taken_tensor().to_torch()
+    # World 0 should have 0 steps taken (just reset), while others have more
+    assert steps_after[0, 0, 0].item() == 0, "World 0 should be reset to 0 steps taken"
+    assert steps_after[1, 0, 0].item() > 0, "World 1 should have taken more steps"
 
 
 def test_tensor_memory_layout(cpu_manager):
@@ -202,10 +202,10 @@ def test_observation_values(cpu_manager):
     positions = self_obs[:, :, :3]
     assert positions.abs().max() < 100, "Positions should be within reasonable bounds"
 
-    # Steps remaining should be positive
-    steps = mgr.steps_remaining_tensor().to_torch()
-    assert steps.min() > 0, "Steps remaining should be positive"
-    assert steps.max() <= 200, "Steps remaining should not exceed episode length"
+    # Steps taken should be non-negative and within episode bounds
+    steps = mgr.steps_taken_tensor().to_torch()
+    assert steps.min() >= 0, "Steps taken should be non-negative"
+    assert steps.max() < 200, "Steps taken should be less than episode length"
 
 
 # Additional test to verify state persistence across tests
@@ -310,11 +310,11 @@ def test_random_actions_comprehensive(cpu_manager):
     assert max_reward_seen > min_reward_seen, "Should see reward variation"
 
     # Check final state
-    final_steps = mgr.steps_remaining_tensor().to_torch()
+    final_steps = mgr.steps_taken_tensor().to_torch()
 
-    # After running for 250 steps (which is 50 steps past episode length of 200),
-    # we expect the step counter to show negative values around -50
-    expected_final_steps = 200 - 250  # -50
+    # After running for 250 steps, we expect the step counter to show around 250
+    # (with count-up system, steps continue incrementing past episode length)
+    expected_final_steps = 250
     assert (
         final_steps >= expected_final_steps - 10
     ).all(), "Final steps should be around expected value"
