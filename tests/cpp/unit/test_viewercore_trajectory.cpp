@@ -92,14 +92,8 @@ protected:
 };
 
 TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
-    // Test env var directly first
-    const char* env = std::getenv("GTEST_DISABLE_CAPTURE");
-    std::cout << "ENV TEST: GTEST_DISABLE_CAPTURE = " << (env ? env : "NULL") << std::endl;
-    
     // Capture stdout to suppress trajectory logging output
     CaptureStdoutDebug();
-    
-    std::cout << "AFTER CAPTURE: This should be visible if capture is disabled" << std::endl;
     
     // Phase 1: Setup and Recording
     // =============================

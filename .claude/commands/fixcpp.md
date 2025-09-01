@@ -6,17 +6,19 @@ Use the following process to fix the test:
 
 ## 1. Run the test to verify the error message
 
-for cpu tests...
+For cpu tests (with debug output visible):
 
 ```bash
-./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
+GTEST_DISABLE_CAPTURE=1 ./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
 ```
 
-for gpu tests
+For gpu tests (with debug output visible):
 
 ```bash
-./build/mad_escape_gpu_tests --gtest_filter="CApiGPUTest.ManagerCreationWithEmbeddedLevels"
+GTEST_DISABLE_CAPTURE=1 ./build/mad_escape_gpu_tests --gtest_filter="CApiGPUTest.ManagerCreationWithEmbeddedLevels"
 ```
+
+**Note:** The `GTEST_DISABLE_CAPTURE=1` environment variable disables GoogleTest's stdout capture, allowing you to see debug output and printf statements during test execution. This is essential for debugging failing tests.
 
 
 ## 2. Read the test code and create a summary
@@ -76,6 +78,11 @@ While hypothesis is false, repeat the following steps:
 
 ```gdb_tool
 gdb_load (MCP)(sessionId: "<session_id>", program: "./build/mad_escape_tests", arguments: ["--gtest_filter=CApiCPUTest.ManagerCreation"])
+```
+
+**Note:** When using GDB with GoogleTest, you may also want to set the environment variable:
+```gdb_tool
+gdb_command (MCP)(sessionId: "<session_id>", command: "set environment GTEST_DISABLE_CAPTURE=1")
 ```
 
 ### b. Set the breakpoint
