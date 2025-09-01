@@ -494,12 +494,12 @@ def test_trajectory_logging_to_file(cpu_manager, tmp_path):
     content = log_file.read_text()
     lines = content.strip().split("\n")
 
-    # Should have 5 lines (one per step)
-    assert len(lines) == 5, f"Expected 5 lines, got {len(lines)}"
+    # Should have 6 lines (initial state + 5 steps)
+    assert len(lines) == 6, f"Expected 6 lines, got {len(lines)}"
 
     # Verify format of each line
     for i, line in enumerate(lines):
-        assert f"Step {i:4d}:" in line, f"Line should contain step number {i}"
+        assert f"Episode step {i:3d}" in line, f"Line should contain step number {i}"
         assert "World 0 Agent 0:" in line, "Line should specify world and agent"
         assert "pos=" in line, "Line should contain position"
         assert "rot=" in line, "Line should contain rotation"
@@ -514,7 +514,7 @@ def test_trajectory_logging_to_file(cpu_manager, tmp_path):
     # Verify second file was created
     assert log_file2.exists(), "Second log file should exist"
     content2 = log_file2.read_text()
-    assert "Step    0:" in content2, "Should have logged step 0"
+    assert "Episode step" in content2, "Should have logged episode step"
 
     # Test 3: Enable logging without filename (stdout)
     mgr.enable_trajectory_logging(0, 0)  # No filename - should log to stdout
@@ -526,8 +526,8 @@ def test_trajectory_logging_to_file(cpu_manager, tmp_path):
     mgr.step()
     mgr.disable_trajectory_logging()
 
-    # File should be overwritten (not appended), so only 1 line
+    # File should be overwritten (not appended), so only 2 lines (initial + 1 step)
     new_content = log_file.read_text()
     new_lines = new_content.strip().split("\n")
-    assert len(new_lines) == 1, "File should be overwritten, not appended"
-    assert "Step    0:" in new_lines[0], "Should restart at step 0"
+    assert len(new_lines) == 2, "File should be overwritten, not appended"
+    assert "Episode step" in new_lines[0], "Should contain episode step in first line"
