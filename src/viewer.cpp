@@ -79,7 +79,7 @@ const option::Descriptor usage[] = {
     {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed <value>, -s <value>  \tSet random seed (default: 5)"},
     {HIDE_MENU, 0, "", "hide-menu", option::Arg::None, "  --hide-menu  \tHide ImGui menu (useful for clean screenshots)"},
     {PAUSE,   0, "p", "pause", ArgChecker::OptionalNumeric, "  --pause [delay], -p [delay]  \tStart paused, optionally auto-resume after delay seconds"},
-    {UNKNOWN, 0, "", "", nullptr, nullptr}
+    {0, 0, 0, 0, 0, 0}
 };
 
 int main(int argc, char *argv[])
@@ -100,14 +100,18 @@ int main(int argc, char *argv[])
         return 1;
     }
     
-    // Debug: Check for unknown options
+    // Check for unknown options
     if (options[UNKNOWN]) {
-        std::cerr << "Warning: Unknown options detected:\n";
+        std::cerr << "Error: Unknown options detected:\n";
         for (option::Option* opt = options[UNKNOWN]; opt; opt = opt->next()) {
             std::cerr << "  Unknown option: ";
             fwrite(opt->name, opt->namelen, 1, stderr);
             std::cerr << "\n";
         }
+        std::cerr << "\nUse --help to see available options.\n";
+        delete[] options;
+        delete[] buffer;
+        return 1;
     }
 
     if (options[HELP]) {
