@@ -279,11 +279,11 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
     auto replay_trajectory = TrajectoryComparer::parseTrajectoryFile("trajectory_replay.csv");
     
     // 2. Compare Trajectories
-    // Both should have 100 points (one per frame)
-    EXPECT_EQ(record_trajectory.size(), 100) 
-        << "Recording trajectory should have 100 points";
-    EXPECT_EQ(replay_trajectory.size(), 100) 
-        << "Replay trajectory should have 100 points";
+    // Both should have 101 points (initial state + 100 simulation frames)
+    EXPECT_EQ(record_trajectory.size(), 101) 
+        << "Recording trajectory should have 101 points (initial state + 100 frames)";
+    EXPECT_EQ(replay_trajectory.size(), 101) 
+        << "Replay trajectory should have 101 points (initial state + 100 frames)";
     
     // Verify trajectories match
     bool trajectories_match = TrajectoryComparer::compareTrajectories(
@@ -954,8 +954,8 @@ TEST_F(ViewerCoreTrajectoryTest, DiagnoseFrameCountMismatch) {
     std::cout << "Frames replayed: " << replay_frames << std::endl;
     
     // The assertion we want to pass
-    EXPECT_EQ(record_trajectory.size(), NUM_FRAMES) 
-        << "Recording should have exactly the requested number of trajectory points";
+    EXPECT_EQ(record_trajectory.size(), NUM_FRAMES + 1) 
+        << "Recording should have initial state + requested number of trajectory points";
     EXPECT_EQ(replay_frames, NUM_FRAMES) 
         << "Replay should run exactly the same number of frames as recorded";
     
