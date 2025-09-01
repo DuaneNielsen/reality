@@ -60,6 +60,8 @@ scratch/
 # Test artifacts (except test data)
 tests/python/data/*.bin
 tests/python/test_recordings/
+tests/individual-test-history.csv
+tests/test-reports/
 
 # Python build artifacts
 *.egg-info/
