@@ -15,11 +15,12 @@ from typing import Dict, List, Optional, Tuple
 
 
 class TestTracker:
-    def __init__(self, base_dir: Path = None):
+    def __init__(self, base_dir: Path = None, full_tests: bool = False):
         self.base_dir = base_dir or Path.cwd()
         self.tests_dir = self.base_dir / "tests"
         self.reports_dir = self.tests_dir / "test-reports"
         self.reports_dir.mkdir(exist_ok=True)
+        self.full_tests = full_tests
 
         # CSV file for individual test tracking (only one we need)
         self.individual_log = self.tests_dir / "individual-test-history.csv"
@@ -81,42 +82,82 @@ class TestTracker:
 
     def run_cpp_tests(self) -> Tuple[str, List[Tuple[str, str]]]:
         """Run C++ tests and return status and individual test results."""
-        print("Running C++ tests...")
+        test_type = "full" if self.full_tests else "standard"
+        print(f"Running C++ tests ({test_type} suite)...")
 
         output_file = self.reports_dir / f"cpp-{self.commit_info['short_commit']}.log"
 
-        try:
-            result = subprocess.run(
-                [
-                    "./build/mad_escape_tests"  # Remove --gtest_brief=1
-                    # to get individual test names
-                ],
-                capture_output=True,
-                text=True,
-                cwd=self.base_dir,
+        # List of test executables to run
+        test_executables = ["./build/mad_escape_tests"]
+
+        if self.full_tests:
+            # Add GPU test executables for full test suite
+            test_executables.extend(
+                ["./build/mad_escape_gpu_tests", "./build/mad_escape_gpu_stress_tests"]
             )
 
+        all_individual_results = []
+        overall_status = "PASS"
+
+        try:
             with open(output_file, "w") as f:
-                f.write(result.stdout)
-                f.write(result.stderr)
+                for executable in test_executables:
+                    print(f"  Running {executable}...")
+                    f.write(f"\n=== Running {executable} ===\n")
 
-            # Parse individual test results
-            individual_results = []
-            output_text = result.stdout + result.stderr
+                    # Set environment for GPU tests
+                    env = None
+                    if self.full_tests and "gpu" in executable:
+                        env = dict(subprocess.os.environ)
+                        env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
 
-            # Parse actual GoogleTest output for individual test names
-            for line in output_text.split("\n"):
-                # Full mode format: "[ RUN      ] TestSuite.TestCase"
-                # then "[       OK ] TestSuite.TestCase"
-                if match := re.search(r"\[\s+OK\s+\]\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)", line):
-                    test_name = f"cpp::{match.group(1)}"
-                    individual_results.append((test_name, "PASS"))
-                elif match := re.search(r"\[\s+FAILED\s+\]\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)", line):
-                    test_name = f"cpp::{match.group(1)}"
-                    individual_results.append((test_name, "FAIL"))
+                    try:
+                        result = subprocess.run(
+                            [executable],
+                            capture_output=True,
+                            text=True,
+                            cwd=self.base_dir,
+                            env=env,
+                        )
 
-            overall_status = "PASS" if result.returncode == 0 else "FAIL"
-            return overall_status, individual_results
+                        f.write(result.stdout)
+                        f.write(result.stderr)
+
+                        # Parse individual test results for this executable
+                        output_text = result.stdout + result.stderr
+                        executable_name = executable.split("/")[-1]  # Get just the filename
+
+                        # Parse actual GoogleTest output for individual test names
+                        for line in output_text.split("\n"):
+                            # Full mode format: "[ RUN      ] TestSuite.TestCase"
+                            # then "[       OK ] TestSuite.TestCase"
+                            if match := re.search(
+                                r"\[\s+OK\s+\]\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)", line
+                            ):
+                                test_name = f"cpp::{executable_name}::{match.group(1)}"
+                                all_individual_results.append((test_name, "PASS"))
+                            elif match := re.search(
+                                r"\[\s+FAILED\s+\]\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)", line
+                            ):
+                                test_name = f"cpp::{executable_name}::{match.group(1)}"
+                                all_individual_results.append((test_name, "FAIL"))
+
+                        # Check if tests passed regardless of exit code
+                        if "[  PASSED  ]" in output_text and "[  FAILED  ]" not in output_text:
+                            print(f"    {executable} PASSED")
+                        else:
+                            overall_status = "FAIL"
+                            print(f"    {executable} FAILED")
+
+                    except FileNotFoundError:
+                        print(f"    {executable} not found, skipping...")
+                        f.write(f"{executable} not found\n")
+                    except Exception as e:
+                        print(f"    Error running {executable}: {e}")
+                        f.write(f"Error running {executable}: {e}\n")
+                        overall_status = "FAIL"
+
+            return overall_status, all_individual_results
 
         except Exception as e:
             print(f"Error running C++ tests: {e}")
@@ -124,26 +165,40 @@ class TestTracker:
 
     def run_python_tests(self) -> Tuple[str, List[Tuple[str, str]], Dict[str, int]]:
         """Run Python tests and return status, individual results, and counts."""
-        print("Running Python tests...")
+        test_type = "full" if self.full_tests else "standard"
+        print(f"Running Python tests ({test_type} suite)...")
 
         output_file = self.reports_dir / f"python-{self.commit_info['short_commit']}.log"
 
+        # Build pytest command based on test mode
+        cmd = [
+            "uv",
+            "run",
+            "pytest",
+            "tests/python",
+            "--tb=line",
+            "-q",
+            "--failed-first",
+        ]
+
+        if self.full_tests:
+            # Full tests: include slow tests and GPU tests, but exclude skipped tests
+            cmd.extend(["--ignore-glob", "**/test_*skip*"])
+            # Set environment variable for GPU tests
+            env = dict(subprocess.os.environ)
+            env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
+        else:
+            # Standard tests: exclude slow tests as before
+            cmd.extend(["-m", "not slow"])
+            env = None
+
         try:
             result = subprocess.run(
-                [
-                    "uv",
-                    "run",
-                    "pytest",
-                    "tests/python",
-                    "--tb=line",
-                    "-q",
-                    "-m",
-                    "not slow",
-                    "--failed-first",
-                ],
+                cmd,
                 capture_output=True,
                 text=True,
                 cwd=self.base_dir,
+                env=env,
             )
 
             with open(output_file, "w") as f:
@@ -303,6 +358,12 @@ class TestTracker:
             print(f"   Logged to: {self.individual_log}")
 
         # Show failed tests
+        if cpp_status == "FAIL":
+            failed_cpp_tests = [name for name, status in cpp_tests if status == "FAIL"]
+            print(f"\n📋 Failed C++ tests ({len(failed_cpp_tests)} total):")
+            for test in failed_cpp_tests:  # Show ALL failed tests
+                print(f"     - {test}")
+
         if py_status == "FAIL":
             failed_tests = [name for name, status in py_tests if status == "FAIL"]
             print(f"\n📋 Failed Python tests ({len(failed_tests)} total):")
@@ -331,10 +392,15 @@ def main():
     parser = argparse.ArgumentParser(description="Track test results across git commits")
     parser.add_argument("--commit", help="Specific commit hash to analyze")
     parser.add_argument("--dry-run", action="store_true", help="Run tests but don't log results")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Run full test suite including GPU tests and slow tests (excludes skipped tests)",
+    )
 
     args = parser.parse_args()
 
-    tracker = TestTracker()
+    tracker = TestTracker(full_tests=args.full)
     tracker.run(dry_run=args.dry_run)
 
 
