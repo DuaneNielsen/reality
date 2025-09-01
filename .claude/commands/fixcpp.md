@@ -9,16 +9,16 @@ Use the following process to fix the test:
 For cpu tests (with debug output visible):
 
 ```bash
-GTEST_DISABLE_CAPTURE=1 ./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation"
+./build/mad_escape_tests --gtest_filter="CApiCPUTest.ManagerCreation" --disable-capture --gtest_print_time=1 --gtest_output=json -v
 ```
 
 For gpu tests (with debug output visible):
 
 ```bash
-GTEST_DISABLE_CAPTURE=1 ./build/mad_escape_gpu_tests --gtest_filter="CApiGPUTest.ManagerCreationWithEmbeddedLevels"
+./build/mad_escape_gpu_tests --gtest_filter="CApiGPUTest.ManagerCreationWithEmbeddedLevels" --disable-capture --gtest_print_time=1 --gtest_output=json -v
 ```
 
-**Note:** The `GTEST_DISABLE_CAPTURE=1` environment variable disables GoogleTest's stdout capture, allowing you to see debug output and printf statements during test execution. This is essential for debugging failing tests.
+**Note:** The `--disable-capture` flag disables GoogleTest's stdout capture, `--gtest_print_time=1` shows execution time, `--gtest_output=json` provides structured output, and `-v` enables verbose output. These flags are essential for debugging failing tests.
 
 
 ## 2. Read the test code and create a summary
@@ -77,13 +77,10 @@ While hypothesis is false, repeat the following steps:
 ### a. Start the test in the debugger
 
 ```gdb_tool
-gdb_load (MCP)(sessionId: "<session_id>", program: "./build/mad_escape_tests", arguments: ["--gtest_filter=CApiCPUTest.ManagerCreation"])
+gdb_load (MCP)(sessionId: "<session_id>", program: "./build/mad_escape_tests", arguments: ["--gtest_filter=CApiCPUTest.ManagerCreation", "--disable-capture", "--gtest_print_time=1", "--gtest_output=json", "-v"])
 ```
 
-**Note:** When using GDB with GoogleTest, you may also want to set the environment variable:
-```gdb_tool
-gdb_command (MCP)(sessionId: "<session_id>", command: "set environment GTEST_DISABLE_CAPTURE=1")
-```
+**Note:** The debugging flags (`--disable-capture --gtest_print_time=1 --gtest_output=json -v`) are included in the arguments to ensure comprehensive debug output is visible during GDB debugging.
 
 ### b. Set the breakpoint
 
