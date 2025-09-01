@@ -63,6 +63,9 @@ tests/python/test_recordings/
 tests/individual-test-history.csv
 tests/test-reports/
 
+# Test recording files (generated during C++ tests)
+tests/cpp/test_data/recordings/*.rec
+
 # Python build artifacts
 *.egg-info/
 dist/
