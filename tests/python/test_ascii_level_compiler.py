@@ -32,7 +32,7 @@ class TestLevelCompiler:
         assert compiled.num_tiles > 0
         assert compiled.max_entities > compiled.num_tiles
         assert len(compiled.object_ids) == MAX_TILES_C_API
-        assert len(compiled.tile_x) == MAX_TILES_C_API 
+        assert len(compiled.tile_x) == MAX_TILES_C_API
         assert len(compiled.tile_y) == MAX_TILES_C_API
 
         # Verify spawn point was found
@@ -58,12 +58,8 @@ class TestLevelCompiler:
         cube_id = get_physics_asset_object_id("cube")
 
         # Should have walls + cubes
-        wall_count = sum(
-            1 for i in range(compiled.num_tiles) if compiled.object_ids[i] == wall_id
-        )
-        cube_count = sum(
-            1 for i in range(compiled.num_tiles) if compiled.object_ids[i] == cube_id
-        )
+        wall_count = sum(1 for i in range(compiled.num_tiles) if compiled.object_ids[i] == wall_id)
+        cube_count = sum(1 for i in range(compiled.num_tiles) if compiled.object_ids[i] == cube_id)
 
         assert wall_count > 0, "Should have wall tiles"
         assert cube_count == 2, f"Should have 2 cubes, got {cube_count}"
@@ -104,11 +100,11 @@ class TestCTypesIntegration:
 
         # CompiledLevel is already a ctypes-compatible dataclass
         # Just verify the structure has the expected fields
-        assert hasattr(compiled, 'num_tiles')
-        assert hasattr(compiled, 'max_entities')
-        assert hasattr(compiled, 'width')
-        assert hasattr(compiled, 'height')
-        assert hasattr(compiled, 'world_scale')
+        assert hasattr(compiled, "num_tiles")
+        assert hasattr(compiled, "max_entities")
+        assert hasattr(compiled, "width")
+        assert hasattr(compiled, "height")
+        assert hasattr(compiled, "world_scale")
 
         # Verify arrays are accessible
         assert compiled.num_tiles > 0
@@ -151,7 +147,7 @@ class TestCTypesIntegration:
         assert compiled2.num_tiles > 0
         assert compiled1.width == 4
         assert compiled2.width == 6
-        
+
         # Each should have their own spawn point
         assert compiled1.num_spawns == 1
         assert compiled2.num_spawns == 1
@@ -187,7 +183,7 @@ class TestManagerIntegration:
         # Compile the level to verify it works
         compiled = compile_ascii_level(level)
         validate_compiled_level(compiled)
-        
+
         # Test simulation runs with multiple worlds (using default level)
         for _ in range(2):
             cpu_manager.step()
@@ -196,7 +192,7 @@ class TestManagerIntegration:
         """Test that SimManager still works without level_ascii"""
         # Should work without level_ascii (uses default level)
         # The cpu_manager fixture already provides a working manager
-        
+
         # Should still run
         cpu_manager.step()
 
@@ -283,6 +279,148 @@ class TestJSONLevelFormat:
             cpu_manager.step()
 
 
+class TestDoneOnCollisionFlags:
+    """Test done_on_collision flag support in level compiler"""
+
+    def test_explicit_done_on_collision_flags(self):
+        """Test that done_on_collision flags are set correctly via JSON"""
+        json_level = {
+            "ascii": """####O####
+#S.....C#
+#........#
+#C......O#
+#########""",
+            "tileset": {
+                "#": {"asset": "wall", "done_on_collision": False},
+                "C": {"asset": "cube", "done_on_collision": True},
+                "O": {"asset": "cylinder", "done_on_collision": True},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "scale": 2.5,
+            "name": "test_collision_flags",
+        }
+
+        compiled = compile_level(json_level)
+
+        # Get asset IDs for verification
+        from madrona_escape_room.ctypes_bindings import (
+            get_physics_asset_object_id,
+            get_render_asset_object_id,
+        )
+
+        wall_id = get_physics_asset_object_id("wall")
+        cube_id = get_physics_asset_object_id("cube")
+        cylinder_id = get_render_asset_object_id("cylinder")
+
+        # Count tiles by type and verify done_on_collide flags
+        walls_correct = 0
+        cubes_correct = 0
+        cylinders_correct = 0
+
+        for i in range(compiled.num_tiles):
+            obj_id = compiled.object_ids[i]
+            done_flag = compiled.tile_done_on_collide[i]
+
+            if obj_id == wall_id:
+                # Walls should have done_on_collision = False
+                assert not done_flag, f"Wall at index {i} has done_on_collide=True (expected False)"
+                walls_correct += 1
+            elif obj_id == cube_id:
+                # Cubes should have done_on_collision = True
+                assert done_flag, f"Cube at index {i} has done_on_collide=False (expected True)"
+                cubes_correct += 1
+            elif obj_id == cylinder_id:
+                # Cylinders should have done_on_collision = True
+                assert done_flag, f"Cylinder at index {i} has done_on_collide=False (expected True)"
+                cylinders_correct += 1
+
+        # Verify counts match ASCII
+        assert walls_correct == json_level["ascii"].count("#")
+        assert cubes_correct == json_level["ascii"].count("C")
+        assert cylinders_correct == json_level["ascii"].count("O")
+
+    def test_default_tileset_done_on_collision(self):
+        """Test that default tileset sets done_on_collision correctly"""
+        ascii_level = """####O####
+#S.....C#
+#........#
+#C......O#
+#########"""
+
+        compiled = compile_ascii_level(ascii_level, scale=2.5, level_name="default_test")
+
+        # Get asset IDs
+        from madrona_escape_room.ctypes_bindings import (
+            get_physics_asset_object_id,
+            get_render_asset_object_id,
+        )
+
+        wall_id = get_physics_asset_object_id("wall")
+        cube_id = get_physics_asset_object_id("cube")
+        cylinder_id = get_render_asset_object_id("cylinder")
+
+        # Check that default tileset applies correct flags
+        for i in range(compiled.num_tiles):
+            obj_id = compiled.object_ids[i]
+            done_flag = compiled.tile_done_on_collide[i]
+
+            if obj_id == wall_id:
+                assert not done_flag, "Wall has incorrect done_on_collide flag"
+            elif obj_id == cube_id:
+                assert done_flag, "Cube missing done_on_collide=True flag"
+            elif obj_id == cylinder_id:
+                assert done_flag, "Cylinder missing done_on_collide=True flag"
+
+    def test_mixed_collision_flags(self):
+        """Test level with mixed collision behavior"""
+        json_level = {
+            "ascii": """######
+#S...#
+#.CC.#
+######""",
+            "tileset": {
+                "#": {"asset": "wall"},  # Default: done_on_collision = False
+                "C": {"asset": "cube", "done_on_collision": True},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "scale": 2.0,
+        }
+
+        compiled = compile_level(json_level)
+
+        from madrona_escape_room.ctypes_bindings import get_physics_asset_object_id
+
+        cube_id = get_physics_asset_object_id("cube")
+
+        # Count tiles with done_on_collide = True
+        collision_tiles = sum(
+            1 for i in range(compiled.num_tiles) if compiled.tile_done_on_collide[i]
+        )
+
+        # Count cubes
+        cube_count = sum(1 for i in range(compiled.num_tiles) if compiled.object_ids[i] == cube_id)
+
+        # Only cubes should have done_on_collide = True
+        assert collision_tiles == cube_count == 2
+
+    def test_validation_of_done_on_collision_type(self):
+        """Test that done_on_collision must be a boolean"""
+        json_level = {
+            "ascii": """###
+#S#
+###""",
+            "tileset": {
+                "#": {"asset": "wall", "done_on_collision": "true"},  # String instead of bool
+                "S": {"asset": "spawn"},
+            },
+        }
+
+        with pytest.raises(ValueError, match="done_on_collision.*must be a boolean"):
+            compile_level(json_level)
+
+
 class TestEndToEndIntegration:
     """Test the complete end-to-end system"""
 
@@ -300,7 +438,7 @@ class TestEndToEndIntegration:
         # Compile and validate the level
         compiled = compile_ascii_level(level)
         validate_compiled_level(compiled)
-        
+
         # Verify level was compiled correctly
         assert compiled.num_tiles > 0
         assert compiled.num_spawns == 1

@@ -56,9 +56,9 @@ MIN_LEVEL_HEIGHT = 3
 # Default tileset as JSON string - can be easily modified/extended
 DEFAULT_TILESET_JSON = """
 {
-    "#": {"asset": "wall"},
-    "C": {"asset": "cube"},
-    "O": {"asset": "cylinder"},
+    "#": {"asset": "wall", "done_on_collision": false},
+    "C": {"asset": "cube", "done_on_collision": true},
+    "O": {"asset": "cylinder", "done_on_collision": true},
     "S": {"asset": "spawn"},
     ".": {"asset": "empty"},
     " ": {"asset": "empty"}
@@ -143,6 +143,14 @@ def _validate_tileset(tileset: Dict) -> None:
                     )
                 if value < 0:
                     raise ValueError(f"{rand_field} for '{char}' must be non-negative, got {value}")
+        
+        # Validate optional done_on_collision flag
+        if "done_on_collision" in tile_def:
+            value = tile_def["done_on_collision"]
+            if not isinstance(value, bool):
+                raise ValueError(
+                    f"done_on_collision for '{char}' must be a boolean, got {type(value)}"
+                )
 
 
 def _validate_json_level(data: Dict) -> None:
@@ -196,19 +204,19 @@ def _validate_json_level(data: Dict) -> None:
 
 def _process_tileset(tileset: Dict) -> Tuple[Dict[str, int], Dict[str, Dict]]:
     """
-    Process tileset to extract object IDs and randomization parameters.
+    Process tileset to extract object IDs and tile properties.
 
     Args:
         tileset: Validated tileset dictionary
 
     Returns:
-        Tuple of (char_to_tile mapping, char_to_rand parameters)
+        Tuple of (char_to_tile mapping, char_to_properties dictionary)
 
     Raises:
         ValueError: If asset cannot be resolved
     """
     char_to_tile = {}
-    char_to_rand = {}
+    char_to_props = {}
 
     for char, tile_def in tileset.items():
         asset_name = tile_def["asset"]
@@ -219,21 +227,22 @@ def _process_tileset(tileset: Dict) -> Tuple[Dict[str, int], Dict[str, Dict]]:
         except ValueError as e:
             raise ValueError(f"Invalid asset '{asset_name}' for character '{char}': {e}")
 
-        # Extract randomization parameters
-        char_to_rand[char] = {
+        # Extract tile properties including randomization and collision
+        char_to_props[char] = {
             "rand_x": tile_def.get("rand_x", 0.0),
             "rand_y": tile_def.get("rand_y", 0.0),
             "rand_z": tile_def.get("rand_z", 0.0),
             "rand_rot_z": tile_def.get("rand_rot_z", 0.0),
+            "done_on_collision": tile_def.get("done_on_collision", False),
         }
 
-    return char_to_tile, char_to_rand
+    return char_to_tile, char_to_props
 
 
 def _parse_ascii_to_tiles(
     ascii_str: str,
     char_to_tile: Dict[str, int],
-    char_to_rand: Dict[str, Dict],
+    char_to_props: Dict[str, Dict],
     scale: float,
     width: int,
     height: int,
@@ -244,7 +253,7 @@ def _parse_ascii_to_tiles(
     Args:
         ascii_str: ASCII level string
         char_to_tile: Character to object ID mapping
-        char_to_rand: Character to randomization parameters
+        char_to_props: Character to tile properties (randomization, collision, etc.)
         scale: World units per tile
         width: Level width in tiles
         height: Level height in tiles
@@ -318,9 +327,9 @@ def compile_ascii_level(
     """
     # Default tileset for common ASCII characters
     default_tileset = {
-        "#": {"asset": "wall"},
-        "C": {"asset": "cube"},
-        "O": {"asset": "cylinder"},
+        "#": {"asset": "wall", "done_on_collision": False},
+        "C": {"asset": "cube", "done_on_collision": True},
+        "O": {"asset": "cylinder", "done_on_collision": True},
         "S": {"asset": "spawn"},
         ".": {"asset": "empty"},
         " ": {"asset": "empty"},
@@ -385,7 +394,7 @@ def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
     level_name = data.get("name", "unknown_level")
 
     # Process tileset to get mappings
-    char_to_tile, char_to_rand = _process_tileset(tileset)
+    char_to_tile, char_to_props = _process_tileset(tileset)
 
     # Parse ASCII to get dimensions
     lines = [line.rstrip() for line in ascii_str.strip().split("\n")]
@@ -417,7 +426,7 @@ def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
 
     # Parse ASCII to tiles and spawns
     tiles, spawns, entity_count = _parse_ascii_to_tiles(
-        ascii_str, char_to_tile, char_to_rand, scale, width, height
+        ascii_str, char_to_tile, char_to_props, scale, width, height
     )
 
     # Validate results
@@ -485,12 +494,13 @@ def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
         level.tile_y[i] = world_y
         level.tile_z[i] = 0.0
 
-        # Set randomization parameters
-        rand_params = char_to_rand.get(char, {})
-        level.tile_rand_x[i] = rand_params.get("rand_x", 0.0)
-        level.tile_rand_y[i] = rand_params.get("rand_y", 0.0)
-        level.tile_rand_z[i] = rand_params.get("rand_z", 0.0)
-        level.tile_rand_rot_z[i] = rand_params.get("rand_rot_z", 0.0)
+        # Set tile properties
+        tile_props = char_to_props.get(char, {})
+        level.tile_rand_x[i] = tile_props.get("rand_x", 0.0)
+        level.tile_rand_y[i] = tile_props.get("rand_y", 0.0)
+        level.tile_rand_z[i] = tile_props.get("rand_z", 0.0)
+        level.tile_rand_rot_z[i] = tile_props.get("rand_rot_z", 0.0)
+        level.tile_done_on_collide[i] = tile_props.get("done_on_collision", False)
 
         # Set entity type and scale based on object type
         if tile_type == wall_id:
@@ -643,8 +653,8 @@ Examples:
 #..###...#
 ##########""",
                 "tileset": {
-                    "#": {"asset": "wall"},
-                    "C": {"asset": "cube"},
+                    "#": {"asset": "wall", "done_on_collision": False},
+                    "C": {"asset": "cube", "done_on_collision": True},
                     "S": {"asset": "spawn"},
                     ".": {"asset": "empty"},
                 },
