@@ -70,6 +70,7 @@ def create_default_level():
         # tile_rotation is auto-initialized to identity quaternion (1,0,0,0) by factory
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
+        level.tile_done_on_collide[tile_index] = False  # Walls don't trigger episode end
         level.tile_entity_type[tile_index] = EntityType.Wall
         level.tile_response_type[tile_index] = ResponseType.Static
         tile_index += 1
@@ -83,6 +84,7 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.0
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
+        level.tile_done_on_collide[tile_index] = False  # Walls don't trigger episode end
         level.tile_entity_type[tile_index] = EntityType.Wall
         level.tile_response_type[tile_index] = ResponseType.Static
         tile_index += 1
@@ -100,6 +102,7 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.0
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
+        level.tile_done_on_collide[tile_index] = False  # Walls don't trigger episode end
         level.tile_entity_type[tile_index] = EntityType.Wall
         level.tile_response_type[tile_index] = ResponseType.Static
         tile_index += 1
@@ -113,6 +116,7 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.0
         level.tile_persistent[tile_index] = True
         level.tile_render_only[tile_index] = False
+        level.tile_done_on_collide[tile_index] = False  # Walls don't trigger episode end
         level.tile_entity_type[tile_index] = EntityType.Wall
         level.tile_response_type[tile_index] = ResponseType.Static
         tile_index += 1
@@ -123,6 +127,7 @@ def create_default_level():
     level.tile_y[tile_index] = 12.5
     level.tile_persistent[tile_index] = True
     level.tile_render_only[tile_index] = True
+    level.tile_done_on_collide[tile_index] = False  # Render-only, no collision
     level.tile_entity_type[tile_index] = EntityType.NoEntity
     level.tile_response_type[tile_index] = ResponseType.Static
     tile_index += 1
@@ -152,6 +157,7 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.7
         level.tile_persistent[tile_index] = False
         level.tile_render_only[tile_index] = False
+        level.tile_done_on_collide[tile_index] = True  # Obstacles trigger episode end
         level.tile_entity_type[tile_index] = EntityType.Cube  # Objects use Cube entity type
         level.tile_response_type[tile_index] = ResponseType.Static
         level.tile_rand_x[tile_index] = variance_3m
@@ -183,6 +189,7 @@ def create_default_level():
         level.tile_scale_z[tile_index] = 1.5
         level.tile_persistent[tile_index] = False
         level.tile_render_only[tile_index] = False
+        level.tile_done_on_collide[tile_index] = True  # Obstacles trigger episode end
         level.tile_entity_type[tile_index] = EntityType.Cube
         level.tile_response_type[tile_index] = ResponseType.Static
         level.tile_rand_x[tile_index] = variance_3m
