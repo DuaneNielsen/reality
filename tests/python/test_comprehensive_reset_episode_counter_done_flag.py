@@ -28,17 +28,17 @@ class TestHelpers:
     """Helper methods for reset/episode/done flag testing"""
 
     @staticmethod
-    def assert_step_sequence(mgr, expected_steps, expected_dones):
+    def assert_step_sequence(mgr, expected_steps_taken, expected_dones):
         """Validate step counter and done flag sequences"""
-        steps_tensor = mgr.steps_remaining_tensor().to_torch()
+        steps_tensor = mgr.steps_taken_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
 
-        for world_idx in range(len(expected_steps)):
+        for world_idx in range(len(expected_steps_taken)):
             actual_steps = steps_tensor[world_idx, 0, 0].item()
             actual_done = done_tensor[world_idx, 0, 0].item()
 
-            assert actual_steps == expected_steps[world_idx], (
-                f"World {world_idx}: expected {expected_steps[world_idx]} steps, "
+            assert actual_steps == expected_steps_taken[world_idx], (
+                f"World {world_idx}: expected {expected_steps_taken[world_idx]} steps taken, "
                 f"got {actual_steps}"
             )
             assert actual_done == expected_dones[world_idx], (
@@ -70,19 +70,19 @@ class TestHelpers:
     @staticmethod
     def validate_tensor_consistency(mgr):
         """Ensure all tensors reflect consistent state post-reset"""
-        steps = mgr.steps_remaining_tensor().to_torch()
+        steps = mgr.steps_taken_tensor().to_torch()
         done = mgr.done_tensor().to_torch()
         obs = mgr.self_observation_tensor().to_torch()
 
         # Basic consistency checks
         assert steps.shape[0] == done.shape[0] == obs.shape[0], "Tensor world dimensions must match"
 
-        # State consistency: if done=0, steps should be > 0
+        # State consistency: if done=0, steps taken should be < episodeLen
         for world_idx in range(steps.shape[0]):
             if done[world_idx, 0, 0].item() == 0:
                 assert (
-                    steps[world_idx, 0, 0].item() > 0
-                ), f"World {world_idx}: done=0 but steps={steps[world_idx, 0, 0].item()}"
+                    steps[world_idx, 0, 0].item() < consts.episodeLen
+                ), f"World {world_idx}: done=0 but steps_taken={steps[world_idx, 0, 0].item()}"
 
 
 # =============================================================================
@@ -101,16 +101,16 @@ class TestBasicResetTiming:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset to clean state
         reset_tensor[:] = 1
         mgr.step()
         reset_tensor[:] = 0
 
-        # Verify initial state: done=0, steps=200
+        # Verify initial state: done=0, steps=0 (no steps taken yet)
         assert not done_tensor.any(), "All done flags should be 0 after reset"
-        assert (steps_remaining == consts.episodeLen).all(), "All steps should be at episodeLen"
+        assert (steps_taken == 0).all(), "All steps taken should be 0 after reset"
 
         # Run a few steps to get mid-episode state
         actions[:] = 0  # Stop movement
@@ -119,10 +119,10 @@ class TestBasicResetTiming:
 
         # Verify mid-episode state
         assert not done_tensor.any(), "Should still be mid-episode"
-        expected_steps = consts.episodeLen - 50
+        expected_steps_taken = 50
         assert (
-            steps_remaining[:, 0, 0] == expected_steps
-        ).all(), f"Expected {expected_steps} steps remaining"
+            steps_taken[:, 0, 0] == expected_steps_taken
+        ).all(), f"Expected {expected_steps_taken} steps taken"
 
         # Test manual reset mid-episode
         reset_tensor[0] = 1  # Reset world 0 only
@@ -130,16 +130,14 @@ class TestBasicResetTiming:
 
         # World 0 should be reset immediately
         assert done_tensor[0, 0, 0] == 0, "World 0 done should be 0 after reset"
-        assert (
-            steps_remaining[0, 0, 0] == consts.episodeLen
-        ), "World 0 steps should be reset to episodeLen"
+        assert steps_taken[0, 0, 0] == 0, "World 0 steps taken should be reset to 0"
 
         # Other worlds should continue unaffected
         for world_idx in range(1, 4):
-            expected_steps = consts.episodeLen - 51  # One more step
+            expected_steps_taken = 51  # One more step taken
             assert (
-                steps_remaining[world_idx, 0, 0] == expected_steps
-            ), f"World {world_idx} should continue with {expected_steps} steps"
+                steps_taken[world_idx, 0, 0] == expected_steps_taken
+            ), f"World {world_idx} should continue with {expected_steps_taken} steps taken"
 
     def test_RT_002_manual_reset_when_done_one(self, cpu_manager):
         """RT-002: Manual reset when done=1 should clear done to 0"""
@@ -149,7 +147,7 @@ class TestBasicResetTiming:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -177,7 +175,7 @@ class TestBasicResetTiming:
 
         # Verify reset clears done flag and resets steps
         assert done_tensor[done_world, 0, 0] == 0, "Done flag should be cleared"
-        assert steps_remaining[done_world, 0, 0] == consts.episodeLen, "Steps should be reset"
+        assert steps_taken[done_world, 0, 0] == 0, "Steps taken should be reset to 0"
 
     def test_RT_003_auto_reset_off_done_one(self, cpu_manager):
         """RT-003: With auto_reset=False, done=1 should stay 1"""
@@ -188,7 +186,7 @@ class TestBasicResetTiming:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -215,15 +213,17 @@ class TestBasicResetTiming:
             assert (
                 done_tensor[done_world, 0, 0] == 1
             ), "Done flag should persist with auto_reset=False"
-            # Note: steps_remaining can go negative when episode is done but no reset occurs
-            # This is expected behavior - the counter continues decrementing
-            assert steps_remaining[done_world, 0, 0] <= 0, "Steps should be <= 0 (can go negative)"
+            # Note: steps_taken can exceed episodeLen when episode is done but no reset occurs
+            # This is expected behavior - the counter continues incrementing
+            assert (
+                steps_taken[done_world, 0, 0] >= consts.episodeLen
+            ), "Steps taken should be >= episodeLen"
 
     def test_RT_004_auto_reset_on_done_one(self, cpu_manager):
         """RT-004: With auto_reset=True, done=1 should trigger automatic reset"""
-        # Note: cpu_manager has auto_reset=False, so we need to create a manager with auto_reset=True
+        # Note: cpu_manager has auto_reset=False, so we need to create a manager 
+        # with auto_reset=True
         # This test demonstrates the behavior difference
-        import madrona_escape_room
         from madrona_escape_room import ExecMode, SimManager, create_default_level
 
         mgr_auto = SimManager(
@@ -238,9 +238,7 @@ class TestBasicResetTiming:
 
         # Get tensor references
         actions = mgr_auto.action_tensor().to_torch()
-        done_tensor = mgr_auto.done_tensor().to_torch()
         reset_tensor = mgr_auto.reset_tensor().to_torch()
-        steps_remaining = mgr_auto.steps_remaining_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -278,7 +276,7 @@ class TestStepCounterPrecision:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -292,21 +290,21 @@ class TestStepCounterPrecision:
         for step in range(consts.episodeLen):
             mgr.step()
 
-            expected_remaining = consts.episodeLen - (step + 1)
+            expected_taken = step + 1
 
             # During episode: done=0, steps decreasing
             if step < consts.episodeLen - 1:
                 assert not done_tensor.any(), f"Done should be 0 at step {step+1}"
                 assert (
-                    steps_remaining[:, 0, 0] == expected_remaining
-                ).all(), f"Step {step+1}: expected {expected_remaining} steps remaining"
+                    steps_taken[:, 0, 0] == expected_taken
+                ).all(), f"Step {step+1}: expected {expected_taken} steps taken"
             else:
-                # At exactly episodeLen steps: done=1, steps=0
+                # At exactly episodeLen steps: done=1, steps_taken=episodeLen
                 for world_idx in range(4):
-                    if steps_remaining[world_idx, 0, 0] == 0:
+                    if steps_taken[world_idx, 0, 0] == consts.episodeLen:
                         assert (
                             done_tensor[world_idx, 0, 0] == 1
-                        ), f"World {world_idx} should be done when steps=0"
+                        ), f"World {world_idx} should be done when steps_taken=episodeLen"
 
     def test_SC_002_reset_at_step_199(self, cpu_manager):
         """SC-002: Reset at step 199 should give fresh episode with steps=200"""
@@ -316,7 +314,7 @@ class TestStepCounterPrecision:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -330,8 +328,10 @@ class TestStepCounterPrecision:
         for _ in range(consts.episodeLen - 1):
             mgr.step()
 
-        # Should be at step 199: steps_remaining=1, done=0
-        assert (steps_remaining[:, 0, 0] == 1).all(), "Should have 1 step remaining"
+        # Should be at step 199: steps_taken=1, done=0
+        assert (
+            steps_taken[:, 0, 0] == consts.episodeLen - 1
+        ).all(), "Should have taken episodeLen-1 steps"
         assert not done_tensor.any(), "Should not be done yet"
 
         # Manual reset world 0
@@ -340,12 +340,14 @@ class TestStepCounterPrecision:
         reset_tensor[0] = 0
 
         # World 0 should be reset with fresh episode
-        assert steps_remaining[0, 0, 0] == consts.episodeLen, "World 0 should have full episode"
+        assert steps_taken[0, 0, 0] == 0, "World 0 should be reset to 0 steps taken"
         assert done_tensor[0, 0, 0] == 0, "World 0 should not be done"
 
         # Other worlds should have completed their episode (steps=0, done=1)
         for world_idx in range(1, 4):
-            assert steps_remaining[world_idx, 0, 0] == 0, f"World {world_idx} should have 0 steps"
+            assert (
+                steps_taken[world_idx, 0, 0] == consts.episodeLen
+            ), f"World {world_idx} should have 0 steps".replace("0 steps", "episodeLen steps taken")
             assert done_tensor[world_idx, 0, 0] == 1, f"World {world_idx} should be done"
 
     def test_SC_003_reset_at_step_200_done_one(self, cpu_manager):
@@ -356,7 +358,7 @@ class TestStepCounterPrecision:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -377,7 +379,9 @@ class TestStepCounterPrecision:
 
             # Verify it's actually done
             assert done_tensor[done_world, 0, 0] == 1, "World should be done"
-            assert steps_remaining[done_world, 0, 0] == 0, "World should have 0 steps"
+            assert (
+                steps_taken[done_world, 0, 0] == consts.episodeLen
+            ), "World should have 0 steps".replace("0 steps", "episodeLen steps taken")
 
             # Reset the done world
             reset_tensor[:] = 0
@@ -385,9 +389,7 @@ class TestStepCounterPrecision:
             mgr.step()
 
             # Should start fresh episode
-            assert (
-                steps_remaining[done_world, 0, 0] == consts.episodeLen
-            ), "Should have full episode"
+            assert steps_taken[done_world, 0, 0] == 0, "Should be reset to 0 steps taken"
             assert done_tensor[done_world, 0, 0] == 0, "Should not be done after reset"
 
     def test_SC_004_multiple_resets_per_episode(self, cpu_manager):
@@ -398,7 +400,7 @@ class TestStepCounterPrecision:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -422,8 +424,8 @@ class TestStepCounterPrecision:
 
             # Verify fresh episode each time
             assert (
-                steps_remaining[0, 0, 0] == consts.episodeLen
-            ), f"Reset {reset_num+1}: World 0 should have full episode"
+                steps_taken[0, 0, 0] == 0
+            ), f"Reset {reset_num+1}: World 0 should be reset to 0 steps taken"
             assert done_tensor[0, 0, 0] == 0, f"Reset {reset_num+1}: World 0 should not be done"
 
 
@@ -443,7 +445,7 @@ class TestCollisionVsStepTermination:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -466,7 +468,7 @@ class TestCollisionVsStepTermination:
 
                 for world_idx in done_worlds.flatten():
                     world_idx = world_idx.item()
-                    remaining_steps = steps_remaining[world_idx, 0, 0].item()
+                    remaining_steps = steps_taken[world_idx, 0, 0].item()
 
                     # Early termination: done=1 with steps remaining > 0 (until reset)
                     assert done_tensor[world_idx, 0, 0] == 1, f"World {world_idx} should be done"
@@ -496,7 +498,7 @@ class TestCollisionVsStepTermination:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -534,7 +536,7 @@ class TestCollisionVsStepTermination:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -566,9 +568,7 @@ class TestCollisionVsStepTermination:
 
             # Reset should override collision termination
             assert done_tensor[collision_world, 0, 0] == 0, "Reset should clear done flag"
-            assert (
-                steps_remaining[collision_world, 0, 0] == consts.episodeLen
-            ), "Steps should be reset"
+            assert steps_taken[collision_world, 0, 0] == consts.episodeLen, "Steps should be reset"
 
             print(
                 f"✓ Manual reset successfully overrode collision termination for world {collision_world}"
@@ -584,7 +584,7 @@ class TestCollisionVsStepTermination:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -600,7 +600,7 @@ class TestCollisionVsStepTermination:
 
         # Should have natural step-based termination
         for world_idx in range(4):
-            if steps_remaining[world_idx, 0, 0] == 0:
+            if steps_taken[world_idx, 0, 0] == consts.episodeLen:
                 assert (
                     done_tensor[world_idx, 0, 0] == 1
                 ), f"World {world_idx} should be done from step limit"
@@ -624,7 +624,7 @@ class TestMultiWorldSynchronization:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset all worlds
         reset_tensor[:] = 1
@@ -639,9 +639,9 @@ class TestMultiWorldSynchronization:
             mgr.step()
 
         # Verify all worlds at same state
-        expected_steps = consts.episodeLen - 100
+        expected_steps_taken = 100
         assert (
-            steps_remaining[:, 0, 0] == expected_steps
+            steps_taken[:, 0, 0] == expected_steps_taken
         ).all(), "All worlds should be synchronized"
 
         # Reset only world 0
@@ -650,15 +650,15 @@ class TestMultiWorldSynchronization:
         reset_tensor[0] = 0
 
         # World 0 should be reset
-        assert steps_remaining[0, 0, 0] == consts.episodeLen, "World 0 should be reset"
+        assert steps_taken[0, 0, 0] == 0, "World 0 should be reset to 0 steps taken"
         assert done_tensor[0, 0, 0] == 0, "World 0 should not be done"
 
         # Other worlds should continue with their previous state
-        expected_steps = consts.episodeLen - 101  # One more step
+        expected_steps_taken = 101  # One more step
         for world_idx in range(1, 4):
             assert (
-                steps_remaining[world_idx, 0, 0] == expected_steps
-            ), f"World {world_idx} should continue with {expected_steps} steps"
+                steps_taken[world_idx, 0, 0] == expected_steps_taken
+            ), f"World {world_idx} should continue with {expected_steps_taken} steps taken"
 
     def test_MW_002_multiple_worlds_done_simultaneously(self, cpu_manager):
         """MW-002: Multiple worlds reaching done=1 should be handled independently"""
@@ -668,7 +668,7 @@ class TestMultiWorldSynchronization:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -695,8 +695,8 @@ class TestMultiWorldSynchronization:
             for world_idx in done_worlds[:2]:
                 world_idx = world_idx.item()
                 assert (
-                    steps_remaining[world_idx, 0, 0] == consts.episodeLen
-                ), f"Reset world {world_idx} should have full episode"
+                    steps_taken[world_idx, 0, 0] == 0
+                ), f"Reset world {world_idx} should be reset to 0 steps taken"
                 assert (
                     done_tensor[world_idx, 0, 0] == 0
                 ), f"Reset world {world_idx} should not be done"
@@ -716,7 +716,7 @@ class TestMultiWorldSynchronization:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -735,29 +735,30 @@ class TestMultiWorldSynchronization:
         mgr.step()
         reset_tensor[:] = 0
 
-        # Now world 0 has 200 steps, others have ~150 steps
-        assert steps_remaining[0, 0, 0] == consts.episodeLen, "World 0 should be reset"
+        # Now world 0 has 0 steps taken, others have ~51 steps taken
+        assert steps_taken[0, 0, 0] == 0, "World 0 should be reset to 0 steps taken"
 
-        expected_others = consts.episodeLen - 51
+        expected_others = 51  # 51 steps taken
         for world_idx in range(1, 4):
             assert (
-                abs(steps_remaining[world_idx, 0, 0].item() - expected_others) <= 1
-            ), f"World {world_idx} should have ~{expected_others} steps"
+                abs(steps_taken[world_idx, 0, 0].item() - expected_others) <= 1
+            ), f"World {world_idx} should have ~{expected_others} steps taken"
 
         # Continue until some worlds are done but not others
-        for _ in range(expected_others):
+        # Need to run enough steps so other worlds finish (they need ~149 more steps)
+        for _ in range(consts.episodeLen - expected_others):
             mgr.step()
 
-        # World 0 should still have steps remaining, others should be done
-        assert steps_remaining[0, 0, 0] > 0, "World 0 should still have steps"
+        # World 0 should still have steps remaining (~149 steps taken), others should be done (200 steps taken)
+        assert steps_taken[0, 0, 0] < consts.episodeLen, "World 0 should still be running"
         assert done_tensor[0, 0, 0] == 0, "World 0 should not be done"
 
         # Other worlds should be done
         for world_idx in range(1, 4):
-            if steps_remaining[world_idx, 0, 0] == 0:
+            if steps_taken[world_idx, 0, 0] == consts.episodeLen:
                 assert (
                     done_tensor[world_idx, 0, 0] == 1
-                ), f"World {world_idx} should be done when steps=0"
+                ), f"World {world_idx} should be done when steps_taken=episodeLen"
 
     def test_MW_004_manual_reset_during_mixed_states(self, cpu_manager):
         """MW-004: Manual reset should work correctly with mixed world states"""
@@ -767,7 +768,7 @@ class TestMultiWorldSynchronization:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -793,7 +794,7 @@ class TestMultiWorldSynchronization:
             reset_tensor[:] = 0
 
         # Verify each world has different step counts
-        step_counts = [steps_remaining[i, 0, 0].item() for i in range(4)]
+        step_counts = [steps_taken[i, 0, 0].item() for i in range(4)]
 
         # Each world should have different step counts due to different reset times
         unique_counts = set(step_counts)
@@ -826,7 +827,7 @@ class TestOrderOfOperations:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -840,8 +841,10 @@ class TestOrderOfOperations:
         for _ in range(consts.episodeLen - 1):
             mgr.step()
 
-        # At this point: steps_remaining=1, done=0
-        assert (steps_remaining[:, 0, 0] == 1).all(), "Should have 1 step remaining"
+        # At this point: steps_taken=1, done=0
+        assert (
+            steps_taken[:, 0, 0] == consts.episodeLen - 1
+        ).all(), "Should have taken episodeLen-1 steps"
         assert not done_tensor.any(), "Should not be done yet"
 
         # Set manual reset for world 0 at the same step it would naturally terminate
@@ -851,12 +854,12 @@ class TestOrderOfOperations:
         mgr.step()
 
         # Reset should take precedence - world 0 should be reset
-        assert steps_remaining[0, 0, 0] == consts.episodeLen, "World 0 should be reset"
+        assert steps_taken[0, 0, 0] == 0, "World 0 should be reset to 0 steps taken"
         assert done_tensor[0, 0, 0] == 0, "World 0 should not be done after reset"
 
         # Other worlds should follow natural progression (done=1, steps=0)
         for world_idx in range(1, 4):
-            if steps_remaining[world_idx, 0, 0] == 0:
+            if steps_taken[world_idx, 0, 0] == consts.episodeLen:
                 assert (
                     done_tensor[world_idx, 0, 0] == 1
                 ), f"World {world_idx} should be done naturally"
@@ -873,7 +876,7 @@ class TestOrderOfOperations:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -888,16 +891,16 @@ class TestOrderOfOperations:
         # Run several steps with movement
         initial_steps = []
         for world_idx in range(4):
-            initial_steps.append(steps_remaining[world_idx, 0, 0].item())
+            initial_steps.append(steps_taken[world_idx, 0, 0].item())
 
         for step in range(50):
             mgr.step()
 
-            # Verify step counter decreases consistently
+            # Verify step counter increases consistently
             # If reward calculation happened after reset, we might see inconsistencies
             for world_idx in range(4):
-                current_steps = steps_remaining[world_idx, 0, 0].item()
-                expected_steps = initial_steps[world_idx] - (step + 1)
+                current_steps = steps_taken[world_idx, 0, 0].item()
+                expected_steps = initial_steps[world_idx] + (step + 1)
 
                 # Allow for early termination due to collision
                 if done_tensor[world_idx, 0, 0] == 0:  # Not done yet
@@ -934,7 +937,7 @@ class TestOrderOfOperations:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
         obs_tensor = mgr.self_observation_tensor().to_torch()
 
         # Initial reset
@@ -973,11 +976,9 @@ class TestOrderOfOperations:
 
         # Test the key behavior: reset should restore state regardless of action
         # Note: Due to execution order (stepTracker → reward → reset), the step counter
-        # decrements before reset occurs, so we expect episodeLen-1 (199)
-        current_steps = steps_remaining[0, 0, 0].item()
-        assert (
-            current_steps == consts.episodeLen - 1
-        ), f"Steps should be {consts.episodeLen-1} due to execution order, got {current_steps}"
+        # increments before reset occurs, so we expect 1 step taken after reset
+        current_steps = steps_taken[0, 0, 0].item()
+        assert current_steps == 1, f"Steps should be 1 due to execution order, got {current_steps}"
         assert done_tensor[0, 0, 0] == 0, "Done flag should be reset"
 
         # Position should be close to spawn (within reasonable tolerance)
@@ -986,7 +987,7 @@ class TestOrderOfOperations:
             distance_to_spawn < 1.0
         ), f"Reset position should be close to spawn, distance: {distance_to_spawn}"
 
-        # Note: steps_remaining was already verified above to be episodeLen-1 (199)
+        # Note: steps_taken was already verified above to be episodeLen-1 (199)
         # due to execution order. The done flag should still be properly reset.
         assert done_tensor[0, 0, 0] == 0, "Should not be done"
 
@@ -1019,7 +1020,7 @@ class TestOrderOfOperations:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
         obs_tensor = mgr.self_observation_tensor().to_torch()
 
         # Initial reset
@@ -1036,7 +1037,7 @@ class TestOrderOfOperations:
             mgr.step()
 
         # Capture pre-reset state
-        steps_before = steps_remaining.clone()
+        steps_before = steps_taken.clone()
         done_before = done_tensor.clone()
         obs_before = obs_tensor.clone()
 
@@ -1047,8 +1048,8 @@ class TestOrderOfOperations:
         # Validate tensor consistency after reset
         TestHelpers.validate_tensor_consistency(mgr)
 
-        # World 1 should be reset
-        assert steps_remaining[1, 0, 0] == consts.episodeLen, "World 1 steps should be reset"
+        # World 1 should be reset (0 steps taken after reset)
+        assert steps_taken[1, 0, 0] == 0, "World 1 steps should be reset to 0"
         assert done_tensor[1, 0, 0] == 0, "World 1 should not be done"
 
         # Test that World 1 state is properly reset
@@ -1065,17 +1066,17 @@ class TestOrderOfOperations:
 
         # Other worlds should be unchanged (within simulation tolerance)
         for world_idx in [0, 2, 3]:
-            # Steps should decrease by 1
-            expected_steps = steps_before[world_idx, 0, 0] - 1
+            # Steps should increase by 1
+            expected_steps = steps_before[world_idx, 0, 0] + 1
             assert (
-                steps_remaining[world_idx, 0, 0] == expected_steps
-            ), f"World {world_idx} should have {expected_steps} steps"
+                steps_taken[world_idx, 0, 0] == expected_steps
+            ), f"World {world_idx} should have {expected_steps} steps taken"
 
             # Done state should be consistent with steps
-            if expected_steps <= 0:
+            if expected_steps >= consts.episodeLen:
                 assert (
                     done_tensor[world_idx, 0, 0] == 1
-                ), f"World {world_idx} should be done with {expected_steps} steps"
+                ), f"World {world_idx} should be done with {expected_steps} steps taken"
             else:
                 assert (
                     done_tensor[world_idx, 0, 0] == done_before[world_idx, 0, 0]
@@ -1098,7 +1099,7 @@ class TestStatePersistence:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -1119,16 +1120,18 @@ class TestStatePersistence:
 
         # Verify pre-reset state: done=1, steps=0
         assert done_tensor[done_world, 0, 0] == 1, "World should be done before reset"
-        assert steps_remaining[done_world, 0, 0] == 0, "World should have 0 steps before reset"
+        assert (
+            steps_taken[done_world, 0, 0] == consts.episodeLen
+        ), "World should have 0 steps before reset".replace("0 steps", "episodeLen steps taken")
 
         # Reset the done world
         reset_tensor[:] = 0
         reset_tensor[done_world] = 1
         mgr.step()
 
-        # Verify post-reset state: done=0, steps=episodeLen
+        # Verify post-reset state: done=0, steps_taken=0
         assert done_tensor[done_world, 0, 0] == 0, "Done flag should be cleared"
-        assert steps_remaining[done_world, 0, 0] == consts.episodeLen, "Steps should be restored"
+        assert steps_taken[done_world, 0, 0] == 0, "Steps taken should be reset to 0"
 
     def test_SP_002_steps_counter_across_reset(self, cpu_manager):
         """SP-002: Steps counter transition: steps=X → reset → steps=200"""
@@ -1138,7 +1141,7 @@ class TestStatePersistence:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
 
         # Initial reset
         reset_tensor[:] = 1
@@ -1162,20 +1165,20 @@ class TestStatePersistence:
                 mgr.step()
 
             # Verify we're at expected step count
-            expected_remaining = consts.episodeLen - test_step
+            expected_taken = test_step
             assert (
-                steps_remaining[0, 0, 0] == expected_remaining
-            ), f"Should have {expected_remaining} steps at test point {test_step}"
+                steps_taken[0, 0, 0] == expected_taken
+            ), f"Should have {expected_taken} steps taken at test point {test_step}"
 
             # Reset world 0
             reset_tensor[0] = 1
             mgr.step()
             reset_tensor[0] = 0
 
-            # Verify restoration to full episode
+            # Verify restoration to fresh episode
             assert (
-                steps_remaining[0, 0, 0] == consts.episodeLen
-            ), f"After reset from step {test_step}, should have {consts.episodeLen} steps"
+                steps_taken[0, 0, 0] == 0
+            ), f"After reset from step {test_step}, should have 0 steps taken"
 
     def test_SP_003_position_rotation_reset(self, cpu_manager):
         """SP-003: Agent should return to spawn position/rotation after reset"""
@@ -1240,7 +1243,7 @@ class TestStatePersistence:
         actions = mgr.action_tensor().to_torch()
         done_tensor = mgr.done_tensor().to_torch()
         reset_tensor = mgr.reset_tensor().to_torch()
-        steps_remaining = mgr.steps_remaining_tensor().to_torch()
+        steps_taken = mgr.steps_taken_tensor().to_torch()
         obs_tensor = mgr.self_observation_tensor().to_torch()
 
         # Initial reset
@@ -1277,7 +1280,7 @@ class TestStatePersistence:
         ), "After reset, agent should be back to initial position"
 
         # Episode state should be fresh
-        assert steps_remaining[0, 0, 0] == consts.episodeLen, "Should have fresh episode"
+        assert steps_taken[0, 0, 0] == 0, "Should have 0 steps taken in fresh episode"
         assert done_tensor[0, 0, 0] == 0, "Should not be done"
 
         # The progress made before reset should not affect the fresh episode
