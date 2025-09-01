@@ -195,9 +195,8 @@ public:
     using KeyboardKey = InputSimulator::Key;
     using UserInput = InputSimulator::UserInput;
     
-    MockViewer(uint32_t num_worlds) 
-        : num_worlds_(num_worlds), 
-          current_world_(0),
+    MockViewer([[maybe_unused]] uint32_t num_worlds) 
+        : current_world_(0),
           is_running_(true) {}
     
     // Simulate the viewer loop with callbacks
