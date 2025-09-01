@@ -8,9 +8,7 @@ with different objects that have specific collision termination behavior.
 import pytest
 from test_helpers import AgentController, ObservationReader
 
-import madrona_escape_room
 from madrona_escape_room.generated_constants import consts
-from madrona_escape_room.level_compiler import compile_level
 
 # Custom 3x3 enclosed level with specific collision behaviors
 # Layout:
@@ -25,9 +23,8 @@ from madrona_escape_room.level_compiler import compile_level
 # # = South: Wall with done_on_collide=false (should continue)
 
 
-def create_collision_test_level():
-    """Create a custom 3x3 level with precise collision behaviors per direction."""
-    level_json = {
+@pytest.mark.json_level(
+    {
         "ascii": "#C#\nOS#\n###",
         "tileset": {
             "#": {"asset": "wall", "done_on_collision": False},  # Non-terminating walls
@@ -39,34 +36,13 @@ def create_collision_test_level():
         "agent_facing": [0.0],  # Face north (0 radians)
         "name": "collision_test_3x3",
     }
-    return compile_level(level_json)
-
-
-@pytest.fixture
-def collision_test_manager():
-    """CPU manager with custom collision test level."""
-    compiled_level = create_collision_test_level()
-
-    mgr = madrona_escape_room.SimManager(
-        exec_mode=madrona_escape_room.ExecMode.CPU,
-        gpu_id=0,
-        num_worlds=1,
-        rand_seed=42,
-        auto_reset=True,
-        enable_batch_renderer=False,
-        compiled_levels=[compiled_level],
-    )
-
-    yield mgr
-    mgr.destroy()
-
-
+)
 class TestCollisionTermination:
     """Test collision-based episode termination with custom per-tile collision flags."""
 
-    def test_north_collision_terminates(self, collision_test_manager):
+    def test_north_collision_terminates(self, cpu_manager):
         """Test collision with terminating cube (north) ends episode."""
-        mgr = collision_test_manager
+        mgr = cpu_manager
         controller = AgentController(mgr)
         observer = ObservationReader(mgr)
 
@@ -83,16 +59,16 @@ class TestCollisionTermination:
             controller.move_forward(speed=consts.action.move_amount.FAST)
             mgr.step()
 
-            # Check if collision terminated the episode
+            # Check if collision terminated the episode (single agent in world 0)
             if observer.get_done_flag(0):
                 return  # SUCCESS - episode terminated as expected
 
         # If we reach here, episode didn't terminate
         assert False, "Episode should have terminated from north collision with terminating cube"
 
-    def test_east_collision_continues(self, collision_test_manager):
+    def test_east_collision_continues(self, cpu_manager):
         """Test collision with non-terminating wall (east) continues episode."""
-        mgr = collision_test_manager
+        mgr = cpu_manager
         controller = AgentController(mgr)
         observer = ObservationReader(mgr)
 
@@ -116,9 +92,9 @@ class TestCollisionTermination:
 
         # SUCCESS - episode continued running after collision with non-terminating wall
 
-    def test_west_collision_terminates(self, collision_test_manager):
+    def test_west_collision_terminates(self, cpu_manager):
         """Test collision with terminating cylinder (west) ends episode."""
-        mgr = collision_test_manager
+        mgr = cpu_manager
         controller = AgentController(mgr)
         observer = ObservationReader(mgr)
 
@@ -142,9 +118,9 @@ class TestCollisionTermination:
         # If we reach here, episode didn't terminate
         assert False, "Episode should have terminated from west collision with terminating cylinder"
 
-    def test_south_collision_continues(self, collision_test_manager):
+    def test_south_collision_continues(self, cpu_manager):
         """Test collision with non-terminating wall (south) continues episode."""
-        mgr = collision_test_manager
+        mgr = cpu_manager
         controller = AgentController(mgr)
         observer = ObservationReader(mgr)
 
@@ -168,9 +144,9 @@ class TestCollisionTermination:
 
         # SUCCESS - episode continued running after collision with non-terminating wall
 
-    def test_level_configuration_validation(self, collision_test_manager):
+    def test_level_configuration_validation(self, cpu_manager):
         """Validate the custom level has correct collision configuration."""
-        mgr = collision_test_manager
+        mgr = cpu_manager
 
         # Verify the custom level was loaded correctly
         # This is more of a sanity check for the level compilation
@@ -190,13 +166,13 @@ class TestCollisionTermination:
 
         # Verify we have proper tensor access
         actions = mgr.action_tensor().to_torch()
-        assert actions.shape[0] == 1, "Should have 1 world"
-        assert actions.shape[1] == 1, "Should have 1 agent"
+        assert actions.shape[0] == 4, "Should have 4 worlds (from cpu_manager fixture)"
+        assert actions.shape[1] == 1, "Should have 1 agent per world"
         assert actions.shape[2] == 3, "Should have 3 action components"
 
-    def test_collision_behavior_differences(self, collision_test_manager):
+    def test_collision_behavior_differences(self, cpu_manager):
         """Test that different collision objects actually behave differently."""
-        mgr = collision_test_manager
+        mgr = cpu_manager
         controller = AgentController(mgr)
         observer = ObservationReader(mgr)
 

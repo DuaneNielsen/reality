@@ -114,7 +114,7 @@ def cpu_manager(request):
 
         # Log debug info after context exits
         if record_actions:
-            recording_path = base_path.with_suffix(".bin")
+            recording_path = base_path.with_suffix(".rec")
             logger.info(f"Actions recorded: {recording_path}")
             logger.info("Worlds: 4, Agents: 1")
             logger.info(f"To visualize: ./build/viewer --num-worlds 4 --replay {recording_path}")
@@ -125,7 +125,7 @@ def cpu_manager(request):
 
         # Launch viewer if requested
         if request.config.getoption("--visualize") and record_actions:
-            recording_path = base_path.with_suffix(".bin")
+            recording_path = base_path.with_suffix(".rec")
             viewer_path = Path("build/viewer")
             if viewer_path.exists():
                 logger.info("Launching viewer...")
