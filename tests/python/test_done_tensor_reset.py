@@ -18,7 +18,7 @@ def test_done_tensor_resets_to_zero(cpu_manager):
     actions = mgr.action_tensor().to_torch()
     done_tensor = mgr.done_tensor().to_torch()
     reset_tensor = mgr.reset_tensor().to_torch()
-    steps_remaining = mgr.steps_remaining_tensor().to_torch()
+    steps_taken = mgr.steps_taken_tensor().to_torch()
 
     # Verify initial state - done should be 0
     assert done_tensor.shape == (
@@ -63,10 +63,9 @@ def test_done_tensor_resets_to_zero(cpu_manager):
         f"got {done_tensor[done_world_idx, 0, 0]}"
     )
 
-    # Steps remaining should be back to maximum for the reset world
-    assert steps_remaining[done_world_idx, 0, 0] == consts.episodeLen, (
-        f"Expected {consts.episodeLen} steps remaining after reset, "
-        f"got {steps_remaining[done_world_idx, 0, 0]}"
+    # Steps taken should be back to 0 for the reset world
+    assert steps_taken[done_world_idx, 0, 0] == 0, (
+        f"Expected 0 steps taken after reset, " f"got {steps_taken[done_world_idx, 0, 0]}"
     )
 
 
@@ -78,7 +77,7 @@ def test_done_tensor_after_episode_length(cpu_manager):
     actions = mgr.action_tensor().to_torch()
     done_tensor = mgr.done_tensor().to_torch()
     reset_tensor = mgr.reset_tensor().to_torch()
-    steps_remaining = mgr.steps_remaining_tensor().to_torch()
+    steps_taken = mgr.steps_taken_tensor().to_torch()
 
     # Reset all worlds to start fresh
     reset_tensor[:] = 1
@@ -86,9 +85,7 @@ def test_done_tensor_after_episode_length(cpu_manager):
 
     # Verify initial state after reset
     assert not done_tensor.any(), "All done flags should be 0 after reset"
-    assert (
-        steps_remaining == consts.episodeLen
-    ).all(), f"All worlds should have {consts.episodeLen} steps remaining after reset"
+    assert (steps_taken == 0).all(), "All worlds should have 0 steps taken after reset"
 
     # Set actions for consistent behavior
     actions[:] = 0
@@ -108,14 +105,14 @@ def test_done_tensor_after_episode_length(cpu_manager):
     # After exactly episodeLen steps, done should be 1
     # Note: The episode might end due to step limit, so check if any episodes are done
     # In collision-based termination, episodes might end earlier, so we need to be flexible
-    steps_after = steps_remaining.clone()
+    steps_after = steps_taken.clone()
 
-    # If steps remaining is 0, then done should be 1
+    # If steps taken equals episode length, then done should be 1
     for world_idx in range(4):
-        if steps_after[world_idx, 0, 0] == 0:
+        if steps_after[world_idx, 0, 0] == consts.episodeLen:
             assert (
                 done_tensor[world_idx, 0, 0] == 1
-            ), f"World {world_idx} should be done when steps remaining is 0"
+            ), f"World {world_idx} should be done when steps taken equals {consts.episodeLen}"
 
 
 def test_done_tensor_stays_zero_before_episode_end(cpu_manager):
@@ -126,7 +123,7 @@ def test_done_tensor_stays_zero_before_episode_end(cpu_manager):
     actions = mgr.action_tensor().to_torch()
     done_tensor = mgr.done_tensor().to_torch()
     reset_tensor = mgr.reset_tensor().to_torch()
-    steps_remaining = mgr.steps_remaining_tensor().to_torch()
+    steps_taken = mgr.steps_taken_tensor().to_torch()
 
     # Reset all worlds
     reset_tensor[:] = 1
@@ -148,12 +145,12 @@ def test_done_tensor_stays_zero_before_episode_end(cpu_manager):
             not done_tensor.any()
         ), f"Done tensor should be 0 at step {step}/{half_episode}, got {done_tensor}"
 
-        # Steps remaining should decrease
-        current_steps = steps_remaining[0, 0, 0].item()
-        expected_steps = consts.episodeLen - (step + 1)
+        # Steps taken should increase
+        current_steps = steps_taken[0, 0, 0].item()
+        expected_steps = step + 1
         assert (
             current_steps == expected_steps
-        ), f"Expected {expected_steps} steps remaining at step {step}, got {current_steps}"
+        ), f"Expected {expected_steps} steps taken at step {step}, got {current_steps}"
 
 
 def test_done_tensor_collision_termination(cpu_manager):

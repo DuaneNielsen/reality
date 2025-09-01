@@ -172,8 +172,9 @@ class ObservationReader:
 
     def get_steps_remaining(self, world_idx: int, agent_idx: int = 0) -> int:
         """Get steps remaining in episode"""
-        steps = self.mgr.steps_remaining_tensor().to_torch()
-        return int(steps[world_idx, agent_idx, 0].item())
+        steps_taken = self.mgr.steps_taken_tensor().to_torch()
+        episode_length = 200  # consts::episodeLen from consts.hpp
+        return max(0, episode_length - int(steps_taken[world_idx, agent_idx, 0].item()))
 
     def print_agent_state(self, world_idx: int, agent_idx: int = 0):
         """Print current agent state for debugging"""
