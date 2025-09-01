@@ -324,22 +324,28 @@ inline void agentCollisionSystem(Engine &ctx,
     auto contact_query = ctx.query<ContactConstraint>();
     
     ctx.iterateQuery(contact_query, [&](ContactConstraint &contact) {
-        // Get entities from the contact's location references
-        Entity ref_entity = ctx.get<Entity>(contact.ref);
-        Entity alt_entity = ctx.get<Entity>(contact.alt);
+        // Get the agent's location for comparison
+        Loc agent_loc = ctx.loc(agent_entity);
         
         // Check if this agent is involved in the contact
-        if (ref_entity == agent_entity || alt_entity == agent_entity) {
-            Entity other = (ref_entity == agent_entity) ? alt_entity : ref_entity;
+        bool agent_is_ref = (contact.ref == agent_loc);
+        bool agent_is_alt = (contact.alt == agent_loc);
+        
+        if (agent_is_ref || agent_is_alt) {
+            // Get the other entity's location
+            Loc other_loc = agent_is_ref ? contact.alt : contact.ref;
+            
+            // Get the floor's location for comparison
+            Loc floor_loc = ctx.loc(ctx.data().floorPlane);
             
             // Check if it's the floor (floor is a special singleton entity)
-            // Floor entity is stored in ctx.data().floorPlane
-            if (other == ctx.data().floorPlane) {
+            if (other_loc == floor_loc) {
                 return; // Ignore floor collisions
             }
             
             // Check if this entity should trigger episode termination on collision
-            auto done_on_collide_ref = ctx.getCheck<DoneOnCollide>(other);
+            // Since we have the location, we can access the component directly
+            auto done_on_collide_ref = ctx.getCheck<DoneOnCollide>(other_loc);
             if (done_on_collide_ref.valid() && done_on_collide_ref.value().value) {
                 done.v = 1;
             }
