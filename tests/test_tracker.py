@@ -155,9 +155,10 @@ class TestTracker:
             seen_tests = set()  # Track to avoid duplicates
 
             for line in result.stdout.split("\n"):
-                # Match format: tests/python/file.py::Class::test_name PASSED/FAILED/ERROR [XX%]
+                # Match format: tests/python/file.py::test_name PASSED/FAILED/ERROR [XX%]
+                # OR: tests/python/file.py::Class::test_name PASSED/FAILED/ERROR [XX%]
                 if match := re.search(
-                    r"^(tests/python/[^:]+::[^:]+::[^\s]+)\s+(PASSED|FAILED|ERROR)", line
+                    r"^(tests/python/[^:]+::[^\s]+)\s+(PASSED|FAILED|ERROR)", line
                 ):
                     test_name = match.group(1)
                     status = "PASS" if match.group(2) == "PASSED" else "FAIL"
