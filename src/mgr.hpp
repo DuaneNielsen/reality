@@ -167,6 +167,7 @@ public:
     // Trajectory logging for debugging
     void enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std::optional<const char*> filename = std::nullopt);
     void disableTrajectoryLogging();
+    void logCurrentTrajectoryState();
 
     madrona::render::RenderManager & getRenderManager();
 

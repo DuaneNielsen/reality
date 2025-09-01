@@ -711,94 +711,8 @@ void Manager::step()
         impl_->renderMgr->batchRender();
     }
     
-    // Print trajectory if logging is enabled
-    if (impl_->enableTrajectoryLogging && 
-        impl_->trackWorldIdx >= 0 && 
-        impl_->trackAgentIdx >= 0) {
-        
-        // Get tensor data
-        auto self_obs = selfObservationTensor();
-        auto progress = progressTensor();
-        auto done = doneTensor();
-        auto steps_taken = stepsTakenTensor();
-        
-        // Calculate index for the specific agent
-        int32_t idx = impl_->trackWorldIdx * madEscape::consts::numAgents + impl_->trackAgentIdx;
-        
-        // Get data pointers based on execution mode
-        const SelfObservation* obs_data;
-        const float* progress_data;
-        const int32_t* done_data;
-        const uint32_t* steps_taken_data;
-        
-        if (impl_->cfg.execMode == ExecMode::CUDA) {
-#ifdef MADRONA_CUDA_SUPPORT
-            // For CUDA, we need to copy data to host
-            SelfObservation host_obs;
-            float host_progress;
-            int32_t host_done;
-            uint32_t host_steps_taken;
-            
-            cudaMemcpy(&host_obs, 
-                      ((const SelfObservation*)self_obs.devicePtr()) + idx,
-                      sizeof(SelfObservation), 
-                      cudaMemcpyDeviceToHost);
-            cudaMemcpy(&host_progress,
-                      ((const float*)progress.devicePtr()) + idx,
-                      sizeof(float),
-                      cudaMemcpyDeviceToHost);
-            cudaMemcpy(&host_done,
-                      ((const int32_t*)done.devicePtr()) + idx,
-                      sizeof(int32_t),
-                      cudaMemcpyDeviceToHost);
-            cudaMemcpy(&host_steps_taken,
-                      ((const uint32_t*)steps_taken.devicePtr()) + idx,
-                      sizeof(uint32_t),
-                      cudaMemcpyDeviceToHost);
-            
-            obs_data = &host_obs;
-            progress_data = &host_progress;
-            done_data = &host_done;
-            steps_taken_data = &host_steps_taken;
-#endif
-        } else {
-            // For CPU, direct access
-            obs_data = ((const SelfObservation*)self_obs.devicePtr()) + idx;
-            progress_data = ((const float*)progress.devicePtr()) + idx;
-            done_data = ((const int32_t*)done.devicePtr()) + idx;
-            steps_taken_data = ((const uint32_t*)steps_taken.devicePtr()) + idx;
-        }
-        
-        // Display step number (1-based counting)
-        uint32_t current_step = *steps_taken_data + 1;
-        if (current_step > madEscape::consts::episodeLen) {
-            current_step = madEscape::consts::episodeLen;  // Cap at episodeLen
-        }
-        
-        // Log trajectory to file or stdout  
-        FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
-        uint32_t remaining_display = (*steps_taken_data >= madEscape::consts::episodeLen) ? 0 : (madEscape::consts::episodeLen - *steps_taken_data);
-        
-        // DEBUG: Trace the done flag issue
-        if (*steps_taken_data == 0 && *done_data == 1) {
-            fprintf(output, "DEBUG: Episode reset detected but done=1! steps_taken=%u, done=%d\n", 
-                    *steps_taken_data, *done_data);
-        }
-        
-        
-        fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f done=%d\n",
-                current_step,
-                remaining_display,
-                impl_->trackWorldIdx,
-                impl_->trackAgentIdx,
-                obs_data->globalX,
-                obs_data->globalY,
-                obs_data->globalZ,
-                obs_data->theta * madEscape::consts::math::degreesInHalfCircle / M_PI,
-                *progress_data,
-                *done_data);
-        fflush(output);  // Ensure output is written immediately
-    }
+    // Log trajectory if enabled
+    logCurrentTrajectoryState();
     
 }
 
@@ -969,6 +883,86 @@ void Manager::setAction(int32_t world_idx,
     }
 }
 
+// Helper function to log current trajectory state
+void Manager::logCurrentTrajectoryState()
+{
+    if (!impl_->enableTrajectoryLogging || 
+        impl_->trackWorldIdx < 0 || 
+        impl_->trackAgentIdx < 0) {
+        return;
+    }
+    
+    // Get tensor data
+    auto self_obs = selfObservationTensor();
+    auto progress = progressTensor();
+    auto done = doneTensor();
+    auto steps_taken = stepsTakenTensor();
+    
+    // Calculate index for the specific agent
+    int32_t idx = impl_->trackWorldIdx * madEscape::consts::numAgents + impl_->trackAgentIdx;
+    
+    // Get data pointers based on execution mode
+    const SelfObservation* obs_data;
+    const float* progress_data;
+    const int32_t* done_data;
+    const uint32_t* steps_taken_data;
+    
+    if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+        // For CUDA, we need to copy data to host
+        static SelfObservation host_obs;
+        static float host_progress;
+        static int32_t host_done;
+        static uint32_t host_steps_taken;
+        
+        cudaMemcpy(&host_obs, 
+                  ((const SelfObservation*)self_obs.devicePtr()) + idx,
+                  sizeof(SelfObservation), 
+                  cudaMemcpyDeviceToHost);
+        cudaMemcpy(&host_progress,
+                  ((const float*)progress.devicePtr()) + idx,
+                  sizeof(float),
+                  cudaMemcpyDeviceToHost);
+        cudaMemcpy(&host_done,
+                  ((const int32_t*)done.devicePtr()) + idx,
+                  sizeof(int32_t),
+                  cudaMemcpyDeviceToHost);
+        cudaMemcpy(&host_steps_taken,
+                  ((const uint32_t*)steps_taken.devicePtr()) + idx,
+                  sizeof(uint32_t),
+                  cudaMemcpyDeviceToHost);
+        
+        obs_data = &host_obs;
+        progress_data = &host_progress;
+        done_data = &host_done;
+        steps_taken_data = &host_steps_taken;
+#endif
+    } else {
+        // For CPU, direct access
+        obs_data = ((const SelfObservation*)self_obs.devicePtr()) + idx;
+        progress_data = ((const float*)progress.devicePtr()) + idx;
+        done_data = ((const int32_t*)done.devicePtr()) + idx;
+        steps_taken_data = ((const uint32_t*)steps_taken.devicePtr()) + idx;
+    }
+    
+    // Log trajectory to file or stdout  
+    FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
+    uint32_t remaining_display = (*steps_taken_data >= madEscape::consts::episodeLen) ? 0 : (madEscape::consts::episodeLen - *steps_taken_data);
+    
+    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f done=%d\n",
+            *steps_taken_data,
+            remaining_display,
+            impl_->trackWorldIdx,
+            impl_->trackAgentIdx,
+            obs_data->globalX,
+            obs_data->globalY,
+            obs_data->globalZ,
+            obs_data->theta * madEscape::consts::math::degreesInHalfCircle / M_PI,
+            *progress_data,
+            *done_data);
+    fflush(output);
+}
+
 void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std::optional<const char*> filename)
 {
     // Validate world index
@@ -1008,6 +1002,9 @@ void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std:
     impl_->enableTrajectoryLogging = true;
     impl_->trackWorldIdx = world_idx;
     impl_->trackAgentIdx = agent_idx;
+    
+    // Log initial state (step 0) immediately
+    logCurrentTrajectoryState();
 }
 
 void Manager::disableTrajectoryLogging()

@@ -45,11 +45,20 @@ public:
         
         std::string line;
         while (std::getline(file, line)) {
-            // Parse line format: "Step %4u: World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f\n"
             TrajectoryPoint point;
+            uint32_t remaining = 0;
+            int32_t done = 0;
             
-            // Use sscanf for robust parsing
+            // Try new format first
             if (sscanf(line.c_str(), 
+                      "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° progress=%f done=%d",
+                      &point.step, &remaining, &point.world, &point.agent,
+                      &point.x, &point.y, &point.z,
+                      &point.rotation, &point.progress, &done) == 10) {
+                points.push_back(point);
+            }
+            // Then try old format
+            else if (sscanf(line.c_str(), 
                       "Step %u: World %d Agent %d: pos=(%f,%f,%f) rot=%f° progress=%f",
                       &point.step, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,
@@ -81,7 +90,6 @@ public:
     }
 };
 
-// Utility class for comparing levels
 class LevelComparer {
 public:
     static bool compareLevels(const MER_CompiledLevel& level1, 
