@@ -167,8 +167,7 @@ class TestCollisionTermination:
         # Verify we have proper tensor access
         actions = mgr.action_tensor().to_torch()
         assert actions.shape[0] == 4, "Should have 4 worlds (from cpu_manager fixture)"
-        assert actions.shape[1] == 1, "Should have 1 agent per world"
-        assert actions.shape[2] == 3, "Should have 3 action components"
+        assert actions.shape[1] == 3, "Should have 3 action components (single agent per world)"
 
     def test_collision_behavior_differences(self, cpu_manager):
         """Test that different collision objects actually behave differently."""
