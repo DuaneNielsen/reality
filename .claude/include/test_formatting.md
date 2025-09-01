@@ -3,6 +3,7 @@
    - **IMPORTANT**: For Python tests, always include the full test name format: `test_file.py::test_name` (not just `test_name`)
    - **IMPORTANT**: clearly provide the output formatting of the agent so they can be reproduced
    eg: uv run --group dev pytest tests/python/test_bindings.py::test_deterministic_actions -v
+   eg: ./build/mad_escape_tests --gtest_filter="ViewerCoreTrajectoryTest.TrajectoryPointsMatchRecordedFrames" --disable-capture --gtest_print_time=1 -v
 
    **Python/Pytest Output Format**:
    When reporting pytest results, use this structured format:
@@ -40,4 +41,5 @@
    uv run --group dev pytest tests/python/test_spawn_locations.py::test_single_spawn_center -v
    uv run --group dev pytest tests/python/test_reward_system.py::test_reward_normalization -v
    uv run --group dev pytest tests/python/test_level_compiler.py::test_compiled_level_structure_validation -v
+   ./build/mad_escape_tests --gtest_filter="ViewerCoreTrajectoryTest.TrajectoryPointsMatchRecordedFrames" --disable-capture --gtest_print_time=1 -v
    ```
