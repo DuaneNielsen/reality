@@ -1,145 +1,155 @@
-# Python Test Fixing Process
+---
+argument-hint: [pytest test path]
+description: iteratively debug and fix failing Python tests using structured debugging process
+---
+@.claude/include/substitutions.md
 
-The pytest `$ARGUMENTS` is failing and we need to fix it.
+# algorithm
 
-**IMPORTANT: Test Selection Strategy**
-- Always start by working on the actual failing unit test
-- If the failing test doesn't adequately cover the scenario, you have options:
-  1. **Enhance the existing test** - Add assertions or steps to make it more comprehensive
-  2. **Add a new test function** - Create a properly structured test in the same file
-  3. **Create a debug test** - For quick debugging only, write a minimal throwaway test that you can reliably execute in one shot
+failing_test = $ARGUMENTS
+hypothesis_verified = false
+fixes_applied = []
 
-**Key Principle:** Production tests can be complex and thorough. Debug/throwaway tests must be simple and reliable - if you can't write it correctly on the first try, it's too complex for a debug test.
+1. run test to verify error message
+2. read test code and create summary
+3. validate test premise
 
-Use the following process to fix the test:
+while (hypothesis not verified) todo:
+   1. formulate working hypothesis
+   2. choose debug method based on code location
+   3. debug and validate hypothesis
+   4. accept or reject hypothesis
 
-## 0. Add the following task list
-* Run the test to verify the error message
-* Read the test code and create a summary
-* Validate Test Premise
-* Formulate Working Hypothesis
-* Start Debug Loop
-* Decision Point - Reject/Accept Working Hypothesis
+5. implement fix based on verified hypothesis
+6. verify fix with test execution
 
-## 1. Run the test to verify the error message
+## run test to verify error message
 
+Execute the specific failing test with verbose output to capture the exact error:
+
+**For detailed error analysis:**
 ```bash
-# Run specific test with verbose output
-uv run pytest python/$ARGUMENTS -vs --log-cli-level=INFO
-
-# Or run with more detail
+# Run with extended debugging information
 uv run --group dev pytest tests/python/$ARGUMENTS -vs --tb=long --log-cli-level=DEBUG
 ```
 
-## 2. Read the test code and create a summary
+Use the Bash tool to execute these commands and capture the exact error messages, stack traces, and failure details.
+
+Document the specific assertion that failed and the expected vs actual values.
+
+## read test code and create summary
+
+Use the Read tool to examine the failing test file and understand its structure:
+
+```tool
+Read(file_path="tests/python/[TEST_FILE].py")
+```
+
+Create a structured summary following this format:
 
 ### Test Summary Format
 
-#### `<testname>` Summary
+**Test Name:** `[test_function_name]`
 
-**What is being tested:** `<description of the intent of the test>`
+**What is being tested:** Brief description of the test's intent and purpose
 
 **The test process:**
-1. SimManager is initialized with CPU/GPU mode
-2. Initial observations are captured
-3. Actions are applied to agents
-4. Step() is called
-5. ...
+1. SimManager initialization (CPU/GPU mode specification)
+2. Initial state capture (observations, tensors)
+3. Action application to agents
+4. Simulation step execution
+5. State verification and assertions
 
-**Assertions:**
-1. Agent position should be within level boundaries
-2. Reward should be positive for forward movement
-3. Done flag should be True when episode ends
+**Assertions being made:**
+1. [Assertion 1 description] - Expected outcome
+2. [Assertion 2 description] - Expected outcome  
+3. [Assertion 3 description] - Expected outcome
 
-**Reason for failure:**
-- Assert 2. failed, reward was 0.0 instead of expected positive value
+**Specific failure point:**
+- [Assertion X] failed: [actual_value] vs [expected_value]
+- Error message: [exact_error_text]
 
-## 3. Validate Test Premise
+## validate test premise
 
-**Decision Point:** Is the premise of the test correct?
+**Decision Point:** Determine if the test premise and assertions are correct.
 
-- Prompt the user to validate if the test is valid and the assertions are correct
-- Check if the test uses proper fixtures (cpu_manager, gpu_manager)
-- Verify the test follows testing patterns from TESTING_GUIDE.md
-- If valid, proceed to step 4
-- If not, work with the user to redefine the test
+**Validation checklist:**
+- Does the test use proper fixtures (cpu_manager, gpu_manager)?
+- Are the assertions logically correct for the intended behavior?
+- Does the test follow patterns from TESTING_GUIDE.md?
+- Is the test setup appropriate for what's being tested?
 
-## 4. Formulate Working Hypothesis
-
-Read the code and think. When sufficient information is gathered, formulate a hypothesis about what is causing the test assertions to fail.
-
-### Hypothesis Format
-
-**Working hypothesis:** `<hypothesis and reasoning>`
-
-**Assertion:** When `[method]` in `[filename]:[lineno]` is called, `[variable]` is expected to be `[value]`
-
-### Example:
-
-**Hypothesis:** The test is failing because the reward calculation in the step() method is not accounting for the agent's forward movement correctly.
-
-**Assertion:** When `mgr.step()` in `madrona_escape_room/__init__.py:245` is called, `rewards[0,0]` should be > 0.0 after forward movement
-
-Verify the working hypothesis by looking for evidence of the assertion using the debug loop.
-
-Add the debug loop task list
-* Start the test and set the breakpoint
-* Run to the breakpoint and inspect variables to verify the assertion as true or false
-* Reject or accept the hypothesis
-
-## 5. Debug Loop
-
-Add the following to the task list
-
-While hypothesis is false, repeat the following steps:
-
-### Choose Debug Method Based on Code Location
-
-**For Python variables:** Use Python debugger (PDB)
-**For C++ variables:** Use GDB debugger
-
----
-
-### Option A: Python Debugging (for Python variables)
-
-#### a. Start the test in the Python debugger
-
+Use the Read tool to examine:
 ```tool
-mcp__python-debugger-mcp__start_debug(file_path="tests/python/test_reward_system.py", use_pytest=true, args="--pdb -x test_reward_system.py::test_forward_movement_reward")
+Read(file_path="docs/development/TESTING_GUIDE.md")
+Read(file_path="tests/python/conftest.py")
 ```
 
-Alternative for single test function:
+**If test premise is invalid:** Work with user to redefine test requirements
+**If test premise is valid:** Proceed to hypothesis formulation
+
+## hypothesis not verified
+
+Continue the debug loop until a working hypothesis is supported by evidence.
+
+Check if current hypothesis assertion has been validated through debugging:
+- **TRUE**: Hypothesis is supported, proceed to fix implementation
+- **FALSE**: Hypothesis is rejected, formulate new hypothesis
+
+## formulate working hypothesis
+
+Analyze the code and failure point to create a testable hypothesis:
+
+**Working hypothesis:** [Detailed explanation of what is believed to be causing the failure, including the specific mechanism and reasoning]
+
+**Assertion:** When `[specific_method]` in `[filename]:[line_number]` is called, `[variable_name]` is expected to be `[expected_value]`
+
+**Example:**
+- **Hypothesis:** The reward calculation system is not properly accounting for forward movement because the position delta calculation in the step() method uses incorrect coordinate system mapping
+- **Assertion:** When `mgr.step()` in `madrona_escape_room/__init__.py:245` is called, `rewards[0,0]` should be > 0.0 after forward movement action
+
+## choose debug method based on code location
+
+Determine the appropriate debugging approach based on where the suspected issue lies:
+
+**For Python variables and logic:**
+- Use Python debugger (PDB) via MCP tools
+- Suitable for: Python tensor operations, SimManager method calls, test logic
+
+**For C++ simulation code:**  
+- Use GDB debugger via MCP tools
+- Suitable for: ECS system behavior, physics calculations, C++ simulation core
+
+**Decision criteria:**
+- If hypothesis involves Python bindings, tensor shapes, or manager operations → Use Python debugging
+- If hypothesis involves simulation physics, ECS components, or core C++ logic → Use GDB debugging
+
+## debug and validate hypothesis
+
+### Python Debugging Path
+
+**Start debugging session:**
 ```tool
-mcp__python-debugger-mcp__start_debug(file_path="tests/python/test_reward_system.py::test_forward_movement_reward", use_pytest=true)
+mcp__python-debugger-mcp__start_debug(file_path="tests/python/[TEST_FILE].py", use_pytest=true, args="--pdb -x [TEST_NAME]")
 ```
 
-#### b. Set the breakpoint
-
+**Set strategic breakpoints:**
 ```tool
-mcp__python-debugger-mcp__set_breakpoint(file_path="madrona_escape_room/__init__.py", line_number=245)
+mcp__python-debugger-mcp__set_breakpoint(file_path="[TARGET_FILE].py", line_number=[LINE_NUMBER])
 ```
 
-Or use relative path from project root:
-```tool
-mcp__python-debugger-mcp__set_breakpoint(file_path="tests/python/test_reward_system.py", line_number=50)
-```
-
-#### c. Run to the breakpoint
-
+**Execute to breakpoint:**
 ```tool
 mcp__python-debugger-mcp__send_pdb_command(command="c")
 ```
 
-#### d. Examine variables at breakpoint
-
+**Examine variables at breakpoint:**
 ```tool
-mcp__python-debugger-mcp__examine_variable(variable_name="rewards")
-mcp__python-debugger-mcp__examine_variable(variable_name="self.numWorlds")
-mcp__python-debugger-mcp__examine_variable(variable_name="obs[0, 0, :3]")
+mcp__python-debugger-mcp__examine_variable(variable_name="[KEY_VARIABLE]")
+mcp__python-debugger-mcp__examine_variable(variable_name="[HYPOTHESIS_VARIABLE]")
 ```
 
-#### e. Step through code
-
+**Step through code execution:**
 ```tool
 # Next line (step over)
 mcp__python-debugger-mcp__send_pdb_command(command="n")
@@ -147,264 +157,149 @@ mcp__python-debugger-mcp__send_pdb_command(command="n")
 # Step into function
 mcp__python-debugger-mcp__send_pdb_command(command="s")
 
-# Return from current function
-mcp__python-debugger-mcp__send_pdb_command(command="r")
-
 # List current code context
 mcp__python-debugger-mcp__send_pdb_command(command="l")
-
-# List longer code context
-mcp__python-debugger-mcp__send_pdb_command(command="ll")
-
-# Print arguments of current function
-mcp__python-debugger-mcp__send_pdb_command(command="a")
-
-# Print stack trace
-mcp__python-debugger-mcp__send_pdb_command(command="w")
 ```
 
----
+### C++ Debugging Path
 
-### Option B: C++ Debugging with GDB (for C++ variables)
-
-#### a. Start GDB session
-
+**Start GDB session:**
 ```tool
 mcp__gdb__gdb_start(gdbPath="gdb", workingDir="/home/duane/madrona_escape_room")
 ```
 
-#### b. Configure GDB for Python test execution
-
+**Configure for Python test execution:**
 ```tool
-# Enable pending breakpoints (for shared libraries loaded later)
-mcp__gdb__gdb_command(sessionId="<session_id>", command="set breakpoint pending on")
-
-# Load Python executable
-mcp__gdb__gdb_command(sessionId="<session_id>", command="file /home/duane/madrona_escape_room/.venv/bin/python")
-
-# Set arguments for pytest
-mcp__gdb__gdb_command(sessionId="<session_id>", command="set args -m pytest tests/python/$ARGUMENTS -v --tb=short")
+mcp__gdb__gdb_command(sessionId="[SESSION_ID]", command="set breakpoint pending on")
+mcp__gdb__gdb_command(sessionId="[SESSION_ID]", command="file /home/duane/madrona_escape_room/.venv/bin/python")
+mcp__gdb__gdb_command(sessionId="[SESSION_ID]", command="set args -m pytest tests/python/$ARGUMENTS -v --tb=short")
 ```
 
-#### c. Set C++ breakpoints
-
+**Set C++ breakpoints:**
 ```tool
-# Set breakpoint by function name
-mcp__gdb__gdb_set_breakpoint(sessionId="<session_id>", location="resetAgentPhysics")
-
-# Or by file:line
-mcp__gdb__gdb_set_breakpoint(sessionId="<session_id>", location="level_gen.cpp:118")
-
-# Or by class::method
-mcp__gdb__gdb_set_breakpoint(sessionId="<session_id>", location="madEscape::Sim::Sim")
+mcp__gdb__gdb_set_breakpoint(sessionId="[SESSION_ID]", location="[FUNCTION_NAME]")
+mcp__gdb__gdb_set_breakpoint(sessionId="[SESSION_ID]", location="[FILE]:[LINE]")
 ```
 
-#### d. Run the test
-
+**Run test and examine variables:**
 ```tool
-mcp__gdb__gdb_command(sessionId="<session_id>", command="run")
+mcp__gdb__gdb_command(sessionId="[SESSION_ID]", command="run")
+mcp__gdb__gdb_print(sessionId="[SESSION_ID]", expression="[VARIABLE_NAME]")
+mcp__gdb__gdb_command(sessionId="[SESSION_ID]", command="info locals")
 ```
 
-#### e. Examine C++ variables at breakpoint
-
+**Navigate through execution:**
 ```tool
-# Print variable values
-mcp__gdb__gdb_print(sessionId="<session_id>", expression="level.num_spawns")
-mcp__gdb__gdb_print(sessionId="<session_id>", expression="level.spawn_x[0]")
-mcp__gdb__gdb_print(sessionId="<session_id>", expression="pos.x")
-
-# Print complex structures (may need to increase max-value-size)
-mcp__gdb__gdb_command(sessionId="<session_id>", command="set max-value-size unlimited")
-mcp__gdb__gdb_print(sessionId="<session_id>", expression="ctx.singleton<CompiledLevel>()")
-
-# Show local variables
-mcp__gdb__gdb_command(sessionId="<session_id>", command="info locals")
-
-# Show function arguments
-mcp__gdb__gdb_command(sessionId="<session_id>", command="info args")
+mcp__gdb__gdb_next(sessionId="[SESSION_ID]")
+mcp__gdb__gdb_step(sessionId="[SESSION_ID]")
+mcp__gdb__gdb_continue(sessionId="[SESSION_ID]")
 ```
 
-#### f. Step through C++ code
+### Validation Process
 
+Compare observed values with hypothesis assertion:
+- Document actual variable values at key execution points
+- Trace execution flow to identify deviations from expected behavior
+- Capture evidence that supports or refutes the hypothesis
+
+## accept or reject hypothesis
+
+**If hypothesis assertion is TRUE (supported by debugging evidence):**
+- Document the confirmed root cause
+- Proceed to fix implementation
+- Create plan for addressing the identified issue
+
+**If hypothesis assertion is FALSE (contradicted by debugging evidence):**
+- Document why hypothesis was incorrect
+- Analyze new evidence gathered during debugging
+- Return to "formulate working hypothesis" step with new information
+
+## implement fix based on verified hypothesis
+
+Based on the confirmed root cause, implement the appropriate fix:
+
+**For Python code issues:**
 ```tool
-# Step to next line (step over)
-mcp__gdb__gdb_next(sessionId="<session_id>")
-
-# Step into function
-mcp__gdb__gdb_step(sessionId="<session_id>")
-
-# Continue to next breakpoint
-mcp__gdb__gdb_continue(sessionId="<session_id>")
-
-# Finish current function
-mcp__gdb__gdb_finish(sessionId="<session_id>")
-
-# Show current code
-mcp__gdb__gdb_command(sessionId="<session_id>", command="list")
-
-# Show call stack
-mcp__gdb__gdb_backtrace(sessionId="<session_id>")
-
-# Show current location
-mcp__gdb__gdb_command(sessionId="<session_id>", command="where")
+Edit(file_path="[PYTHON_FILE].py", old_string="[PROBLEMATIC_CODE]", new_string="[CORRECTED_CODE]")
 ```
 
-#### g. Managing GDB session
-
+**For C++ code issues:**
 ```tool
-# Check all breakpoints
-mcp__gdb__gdb_command(sessionId="<session_id>", command="info breakpoints")
-
-# Disable/enable breakpoints
-mcp__gdb__gdb_command(sessionId="<session_id>", command="disable 1")
-mcp__gdb__gdb_command(sessionId="<session_id>", command="enable 1")
-
-# Delete breakpoints
-mcp__gdb__gdb_command(sessionId="<session_id>", command="delete 1")
-
-# Check thread state
-mcp__gdb__gdb_command(sessionId="<session_id>", command="info threads")
-
-# Terminate GDB session when done
-mcp__gdb__gdb_terminate(sessionId="<session_id>")
+Edit(file_path="src/[CPP_FILE].cpp", old_string="[PROBLEMATIC_CODE]", new_string="[CORRECTED_CODE]")
 ```
 
-### Common GDB Tips for Python Tests
+**For configuration issues:**
+```tool
+Edit(file_path="[CONFIG_FILE]", old_string="[OLD_CONFIG]", new_string="[NEW_CONFIG]")
+```
 
-1. **Optimized variables**: If you see `<optimized out>`, try:
-   - Rebuild with debug symbols: `cmake -DCMAKE_BUILD_TYPE=Debug ..`
-   - Step forward/backward to where the variable is actively used
-   - Print the memory address directly
+Document the specific change made and the reasoning behind it.
 
-2. **Finding the right breakpoint during initialization vs reset**:
-   - Many functions are called during both world creation and reset
-   - You may need to disable early breakpoints to reach the actual test execution
-   - Use conditional breakpoints: `break level_gen.cpp:118 if i == 0`
+**If C++ changes were made:**
+```tool
+Task(subagent_type="project-builder", description="build project after C++ changes", prompt="Build the project after making C++ code changes to ensure compilation succeeds")
+```
 
-3. **Navigating Python/C++ boundary**:
-   - The call stack will show Python frames mixed with C++ frames
-   - Focus on the C++ frames for debugging C++ variables
-   - Use `frame <n>` to switch between stack frames
+## verify fix with test execution
 
-### f. Decision Point - validate assertions
+Execute comprehensive verification to ensure fix works and doesn't introduce regressions:
 
-- **If hypothesis assertion is TRUE:** Create a plan for a fix and propose it to the user
-- **If hypothesis assertion is FALSE:** Add the following task list
-
-* Formulate Working Hypothesis
-* Start Debug Loop
-* Decision Point - Reject/Accept Working Hypothesis
-
-### Reformulate
-
-Read the code and think. When sufficient information is gathered, formulate a new hypothesis:
-
-**Working hypothesis:** `<hypothesis and reasoning>`
-
-**Assertion:** When `[method]` in `[filename]:[lineno]` is called, `[variable]` is expected to be `[value]`
-
-### h. iterate in the Debug Loop until working hypothesis is supported
-
-## 9. Fix Verification
-
-After implementing the fix:
-
+**Run the specific fixed test:**
 ```bash
-# Run the specific test
 uv run --group dev pytest tests/python/$ARGUMENTS -v
+```
 
-# Run related tests to ensure no regression
+**Run related tests for regression checking:**
+```bash
+# Run all Python tests (excluding GPU if not relevant)
 uv run --group dev pytest tests/python/ -v --no-gpu
 
-# If GPU test was fixed, verify GPU tests
+# Run GPU tests if the fix involved GPU code
 uv run --group dev pytest tests/python/ -v -k "gpu"
 ```
 
+**Verify test results:**
+- Confirm the originally failing test now passes
+- Ensure no new test failures were introduced
+- Document any remaining issues or edge cases discovered
 
-## Additional Debug Techniques for Python Tests
+Use the Bash tool for test execution and capture results according to the standardized test output format from the testing guide.
 
-### Managing Debug Sessions
+## output format
 
-```tool
-# Check current debug status
-mcp__python-debugger-mcp__get_debug_status()
+if fix successful
 
-# List all breakpoints
-mcp__python-debugger-mcp__list_breakpoints()
+    ✅ **Test Fix Successful** \n\n
+    
+    **Test:** $ARGUMENTS \n\n
+    
+    **Root Cause:** [VERIFIED_HYPOTHESIS] \n\n
+    
+    **Fix Applied:** [DESCRIPTION_OF_CHANGE] \n\n
+    
+    **Files Modified:** \n\n
+    - `[FILE_1]:[LINE_RANGE]` - [CHANGE_DESCRIPTION] \n\n
+    - `[FILE_2]:[LINE_RANGE]` - [CHANGE_DESCRIPTION] \n\n
+    
+    **Debug Method Used:** [PDB/GDB] debugging \n\n
+    
+    **Verification:** ✅ Target test passes, ✅ No regressions detected \n\n
 
-# Clear a specific breakpoint
-mcp__python-debugger-mcp__clear_breakpoint(file_path="tests/python/test_reward_system.py", line_number=50)
+else
 
-# Restart debugging session with same parameters
-mcp__python-debugger-mcp__restart_debug()
-
-# End the debugging session
-mcp__python-debugger-mcp__end_debug()
-```
-
-### Using Debug Flags
-
-```bash
-# Record actions for replay debugging
-uv run --group dev pytest tests/python/$ARGUMENTS --record-actions
-
-# Trace agent trajectories
-uv run --group dev pytest tests/python/$ARGUMENTS --trace-trajectories
-
-# Auto-launch viewer after test
-uv run --group dev pytest tests/python/$ARGUMENTS --record-actions --visualize
-```
-
-### Interactive Debugging with pytest -s
-
-```bash
-# Allow print statements and pdb.set_trace()
-uv run --group dev pytest tests/python/$ARGUMENTS -s
-
-# In test code, add:
-import pdb; pdb.set_trace()
-```
-
-### Using Madrona REPL for Exploration
-
-```tool
-# Use mcp__madrona_repl__execute_python to explore simulation state
-mcp__madrona_repl__execute_python(code="""
-mgr = SimManager(exec_mode=madrona.ExecMode.CPU, num_worlds=1)
-obs = mgr.self_observation_tensor().to_numpy()
-print(f"Initial position: {obs[0, 0, :3]}")
-print(f"Observation shape: {obs.shape}")
-""")
-
-# List variables in REPL session
-mcp__madrona_repl__list_variables()
-
-# Reset REPL session if needed
-mcp__madrona_repl__execute_python(code="", reset=true)
-```
-
-## Common Python Test Issues
-
-### GPU Manager Constraint
-- Only one GPU manager per process
-- Use gpu_manager fixture for GPU tests
-- Never create SimManager(exec_mode=ExecMode.CUDA) directly in tests
-
-### Custom Level Issues
-- Ensure @pytest.mark.custom_level() decorator is used correctly
-- Check that spawn points ('S') are placed in valid locations
-- Verify level compilation with scale=2.5
-
-### Tensor Shape Mismatches
-- Action tensor: [numWorlds * numAgents, 3]
-- Observation tensors: [numWorlds, numAgents, features]
-- Always verify shapes match expected dimensions
-
-### Import Errors
-```bash
-# Rebuild if C API changes
-make -C build -j8 -s
-
-# Reinstall Python package
-uv pip install -e .
-```
+    ❌ **Test Fix Incomplete** \n\n
+    
+    **Test:** $ARGUMENTS \n\n
+    
+    **Hypotheses Tested:** [COUNT] \n\n
+    
+    **Last Hypothesis:** [FINAL_HYPOTHESIS] \n\n
+    
+    **Evidence Gathered:** \n\n
+    - [FINDING_1] \n\n
+    - [FINDING_2] \n\n
+    - [FINDING_3] \n\n
+    
+    **Remaining Issues:** [UNRESOLVED_PROBLEMS] \n\n
+    
+    **Recommended Next Steps:** [MANUAL_INVESTIGATION_NEEDED]
