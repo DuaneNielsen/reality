@@ -99,13 +99,12 @@ namespace madEscape {
     // Removed RoomEntityObservations - no longer tracking room entities
     // since interaction mechanics have been removed
 
-    // [BOILERPLATE]
-    // Number of steps remaining in the episode. Allows non-recurrent policies
-    // to track the progression of time.
-    struct StepsRemaining {
+    // [GAME_SPECIFIC]  
+    // Number of steps taken in the episode (counts up from 0)
+    struct StepsTaken {
         uint32_t t;
     };
-    inline constexpr size_t StepsRemainingCount = 1;  // Single value
+    inline constexpr size_t StepsTakenCount = 1;  // Single value
 
     //[GAME_SPECIFIC]
     // Tracks progress the agent has made through the challenge, used to add
@@ -264,7 +263,7 @@ namespace madEscape {
                   Action,
 
                   // Observations
-                  SelfObservation, StepsRemaining,
+                  SelfObservation, StepsTaken,
 
                   // Reward, episode termination
                   Reward, Done,
@@ -280,6 +279,6 @@ namespace madEscape {
     inline constexpr size_t AgentIDDimension = 1;  // Agent ID for multi-agent scenarios
     
     // Total observation size for the RL environment
-    inline constexpr size_t TotalObservationSize = SelfObservationFloatCount + StepsRemainingCount + AgentIDDimension;
+    inline constexpr size_t TotalObservationSize = SelfObservationFloatCount + StepsTakenCount + AgentIDDimension;
 
 } // namespace madEscape

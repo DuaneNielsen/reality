@@ -120,8 +120,8 @@ class SimManager:
     def self_observation_tensor(self):
         return self._get_tensor(lib.mer_get_self_observation_tensor)
 
-    def steps_remaining_tensor(self):
-        return self._get_tensor(lib.mer_get_steps_remaining_tensor)
+    def steps_taken_tensor(self):
+        return self._get_tensor(lib.mer_get_steps_taken_tensor)
 
     def progress_tensor(self):
         return self._get_tensor(lib.mer_get_progress_tensor)

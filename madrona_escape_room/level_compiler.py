@@ -143,7 +143,7 @@ def _validate_tileset(tileset: Dict) -> None:
                     )
                 if value < 0:
                     raise ValueError(f"{rand_field} for '{char}' must be non-negative, got {value}")
-        
+
         # Validate optional done_on_collision flag
         if "done_on_collision" in tile_def:
             value = tile_def["done_on_collision"]

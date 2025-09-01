@@ -440,15 +440,15 @@ int main(int argc, char *argv[])
 
     // Printers for debugging (kept from original)
     auto self_printer = mgr.selfObservationTensor().makePrinter();
-    auto steps_remaining_printer = mgr.stepsRemainingTensor().makePrinter();
+    auto steps_taken_printer = mgr.stepsTakenTensor().makePrinter();
     auto reward_printer = mgr.rewardTensor().makePrinter();
 
     auto printObs = [&]() {
         printf("Self\n");
         self_printer.print();
 
-        printf("Steps Remaining\n");
-        steps_remaining_printer.print();
+        printf("Steps Taken\n");
+        steps_taken_printer.print();
 
         printf("Reward\n");
         reward_printer.print();

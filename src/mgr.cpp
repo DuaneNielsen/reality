@@ -720,7 +720,7 @@ void Manager::step()
         auto self_obs = selfObservationTensor();
         auto progress = progressTensor();
         auto done = doneTensor();
-        auto steps_remaining = stepsRemainingTensor();
+        auto steps_taken = stepsTakenTensor();
         
         // Calculate index for the specific agent
         int32_t idx = impl_->trackWorldIdx * madEscape::consts::numAgents + impl_->trackAgentIdx;
@@ -729,7 +729,7 @@ void Manager::step()
         const SelfObservation* obs_data;
         const float* progress_data;
         const int32_t* done_data;
-        const uint32_t* steps_remaining_data;
+        const uint32_t* steps_taken_data;
         
         if (impl_->cfg.execMode == ExecMode::CUDA) {
 #ifdef MADRONA_CUDA_SUPPORT
@@ -737,7 +737,7 @@ void Manager::step()
             SelfObservation host_obs;
             float host_progress;
             int32_t host_done;
-            uint32_t host_steps_remaining;
+            uint32_t host_steps_taken;
             
             cudaMemcpy(&host_obs, 
                       ((const SelfObservation*)self_obs.devicePtr()) + idx,
@@ -751,44 +751,38 @@ void Manager::step()
                       ((const int32_t*)done.devicePtr()) + idx,
                       sizeof(int32_t),
                       cudaMemcpyDeviceToHost);
-            cudaMemcpy(&host_steps_remaining,
-                      ((const uint32_t*)steps_remaining.devicePtr()) + idx,
+            cudaMemcpy(&host_steps_taken,
+                      ((const uint32_t*)steps_taken.devicePtr()) + idx,
                       sizeof(uint32_t),
                       cudaMemcpyDeviceToHost);
             
             obs_data = &host_obs;
             progress_data = &host_progress;
             done_data = &host_done;
-            steps_remaining_data = &host_steps_remaining;
+            steps_taken_data = &host_steps_taken;
 #endif
         } else {
             // For CPU, direct access
             obs_data = ((const SelfObservation*)self_obs.devicePtr()) + idx;
             progress_data = ((const float*)progress.devicePtr()) + idx;
             done_data = ((const int32_t*)done.devicePtr()) + idx;
-            steps_remaining_data = ((const uint32_t*)steps_remaining.devicePtr()) + idx;
+            steps_taken_data = ((const uint32_t*)steps_taken.devicePtr()) + idx;
         }
         
-        // Calculate current episode step from steps remaining
-        // Handle underflow case where steps_remaining wraps around after episode ends
-        uint32_t current_step;
-        if (*steps_remaining_data > madEscape::consts::episodeLen) {
-            // Underflow occurred - calculate how far past the end we are
-            // When underflow happens, steps_remaining = UINT32_MAX - (steps_past_end - 1)
-            uint32_t steps_past_end = UINT32_MAX - *steps_remaining_data + 1;
-            current_step = madEscape::consts::episodeLen + steps_past_end;
-        } else {
-            current_step = madEscape::consts::episodeLen - *steps_remaining_data + 1;
+        // Display step number (1-based counting)
+        uint32_t current_step = *steps_taken_data + 1;
+        if (current_step > madEscape::consts::episodeLen) {
+            current_step = madEscape::consts::episodeLen;  // Cap at episodeLen
         }
         
         // Log trajectory to file or stdout  
         FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
-        uint32_t remaining_display = (*steps_remaining_data > madEscape::consts::episodeLen) ? 0 : *steps_remaining_data;
+        uint32_t remaining_display = (*steps_taken_data >= madEscape::consts::episodeLen) ? 0 : (madEscape::consts::episodeLen - *steps_taken_data);
         
         // DEBUG: Trace the done flag issue
-        if (*steps_remaining_data == madEscape::consts::episodeLen && *done_data == 1) {
-            fprintf(output, "DEBUG: Episode reset detected but done=1! steps_remaining=%u, done=%d\n", 
-                    *steps_remaining_data, *done_data);
+        if (*steps_taken_data == 0 && *done_data == 1) {
+            fprintf(output, "DEBUG: Episode reset detected but done=1! steps_taken=%u, done=%d\n", 
+                    *steps_taken_data, *done_data);
         }
         
         
@@ -877,9 +871,9 @@ Tensor Manager::selfObservationTensor() const
 
 
 //[BOILERPLATE]
-Tensor Manager::stepsRemainingTensor() const
+Tensor Manager::stepsTakenTensor() const
 {
-    return impl_->exportTensor(ExportID::StepsRemaining,
+    return impl_->exportTensor(ExportID::StepsTaken,
                                TensorElementType::Int32,
                                {
                                    impl_->cfg.numWorlds,

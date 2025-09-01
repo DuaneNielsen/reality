@@ -105,17 +105,13 @@ MER_ManagerHandle = c_void_p
 # Import constants
 from .generated_constants import limits
 
-# Import dataclass structs - these are the ONLY structs we use now
+# Import API boundary structs - these are the ONLY structs we use now
+# ECS components (Action, SelfObservation, Done, Reward, Progress, StepsTaken)
+# are accessed through tensor exports, not direct struct manipulation
 from .generated_dataclasses import (
-    Action,
     CompiledLevel,
-    Done,
     ManagerConfig,
-    Progress,
     ReplayMetadata,
-    Reward,
-    SelfObservation,
-    StepsRemaining,
     to_ctypes,
 )
 
@@ -232,8 +228,8 @@ lib.mer_get_done_tensor.restype = c_int
 lib.mer_get_self_observation_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_self_observation_tensor.restype = c_int
 
-lib.mer_get_steps_remaining_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
-lib.mer_get_steps_remaining_tensor.restype = c_int
+lib.mer_get_steps_taken_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
+lib.mer_get_steps_taken_tensor.restype = c_int
 
 lib.mer_get_progress_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_progress_tensor.restype = c_int

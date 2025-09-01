@@ -26,7 +26,7 @@ enum class ExportID : uint32_t {
     Reward,
     Done,
     SelfObservation,
-    StepsRemaining,
+    StepsTaken,
     Progress,
     NumExports,
 };

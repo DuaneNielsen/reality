@@ -74,7 +74,7 @@ protected:
         level.width = 8;
         level.height = 5;
         level.world_scale = 2.5f;
-        level.done_on_collide = false;
+        // level.done_on_collide = false;  // This field was renamed/moved
         level.num_tiles = 22;
         level.max_entities = 58;
         
@@ -105,7 +105,7 @@ protected:
         level.width = 5;
         level.height = 4;
         level.world_scale = 1.5f;
-        level.done_on_collide = false;
+        // level.done_on_collide = false;  // This field was renamed/moved
         std::strcpy(level.level_name, "embedded_test_level");
         level.num_spawns = 1;
         level.spawn_x[0] = 0.0f;

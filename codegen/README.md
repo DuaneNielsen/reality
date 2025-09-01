@@ -30,16 +30,23 @@ python codegen/generate_dataclass_structs.py \
 
 **Generated Output**: `madrona_escape_room/generated_dataclasses.py`
 
-**Structs Extracted**:
-- `CompiledLevel` - Level data with tile positions and spawn configurations
-- `Action` - Agent action structure (movement and rotation)
-- `SelfObservation` - Agent observation data
-- `Done` - Episode completion flag
-- `Reward` - Reward value
-- `Progress` - Agent progress tracking
-- `StepsRemaining` - Episode steps counter
-- `ReplayMetadata` - Recording file metadata
-- `ManagerConfig` - Simulation configuration
+**API Boundary Structs Extracted**:
+- `CompiledLevel` - Level data passed to C API functions for world generation
+- `ReplayMetadata` - Recording file format struct for save/load operations  
+- `ManagerConfig` - Simulation configuration passed to manager creation
+
+**Note on ECS Components**: 
+ECS simulation state (Action, SelfObservation, Done, Reward, Progress, StepsTaken) is accessed through **tensor exports via DLPack**, not direct struct manipulation. These components are never passed directly across the Python-C boundary and therefore should not be included in the codegen. Use the tensor interface instead:
+
+```python
+# Correct way to access ECS data - through tensors
+actions = mgr.action_tensor().to_numpy()
+observations = mgr.self_observation_tensor().to_numpy() 
+rewards = mgr.reward_tensor().to_numpy()
+done_flags = mgr.done_tensor().to_numpy()
+steps_taken = mgr.steps_taken_tensor().to_numpy()
+progress = mgr.progress_tensor().to_numpy()
+```
 
 **How it works**:
 1. Runs `pahole -C <struct_name> <library>` for each struct to extract memory layout
@@ -55,6 +62,25 @@ python codegen/generate_dataclass_structs.py \
 5. Adds padding fields (`_pad_N`) where gaps exist in memory layout
 6. Includes size assertions to validate layout matches C++ exactly
 7. Extracts `MAX_TILES` constant from CompiledLevel array field size
+
+**Struct Export Mechanism**:
+
+API boundary structs are made available to `pahole` through `src/struct_export.cpp`, a dummy file that forces these structs to be compiled into the C API binary with debug symbols. This file contains:
+
+- Volatile dummy instances of each API boundary struct to prevent compiler optimization
+- Export functions that reference each struct to ensure symbols are kept in debug info
+- Direct inclusion of `types.hpp` to access struct definitions
+
+This mechanism is only needed for structs that cross the Python-C API boundary but aren't naturally included in the C API functions (like `ReplayMetadata` which is only used in file I/O).
+
+To add new API boundary structs for Python extraction:
+1. Verify the struct actually needs direct Python access (not tensor access)
+2. Add a volatile dummy instance in the anonymous namespace
+3. Add a corresponding `_export_StructName()` function in the `extern "C"` block  
+4. Add the struct name to the codegen script's `DEFAULT_STRUCTS_TO_EXTRACT` list
+5. Rebuild the C API library
+
+**Do not add ECS components** - they should be accessed through the tensor interface.
 
 ### `generate_python_constants.py`
 

@@ -142,7 +142,7 @@ static void resetAgentPhysics(Engine &ctx) {
             .rotate = consts::numTurnBuckets / 2,
         };
 
-        ctx.get<StepsRemaining>(agent_entity).t = consts::episodeLen;
+        ctx.get<StepsTaken>(agent_entity).t = 0;  // Reset to 0 for new episode
         ctx.get<Done>(agent_entity).v = 0;  // Reset done flag for new episode
     }
 }

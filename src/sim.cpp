@@ -48,7 +48,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Escape room specific components
     registry.registerComponent<SelfObservation>();
     registry.registerComponent<Progress>();
-    registry.registerComponent<StepsRemaining>();
+    registry.registerComponent<StepsTaken>();
     registry.registerComponent<EntityType>();
     registry.registerComponent<DoneOnCollide>();
 
@@ -81,8 +81,8 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Export escape room observations
     registry.exportColumn<Agent, SelfObservation>(
         (uint32_t)ExportID::SelfObservation);
-    registry.exportColumn<Agent, StepsRemaining>(
-        (uint32_t)ExportID::StepsRemaining);
+    registry.exportColumn<Agent, StepsTaken>(
+        (uint32_t)ExportID::StepsTaken);
     registry.exportColumn<Agent, Progress>(
         (uint32_t)ExportID::Progress);
 }
@@ -277,7 +277,7 @@ inline void rewardSystem(Engine &ctx,
                          Progress &progress,
                          Reward &out_reward,
                          Done &done,
-                         StepsRemaining &steps_remaining)
+                         StepsTaken &__attribute__((unused)) steps_taken)
 {
     // Update max Y reached during episode
     if (pos.y > progress.maxY) {
@@ -285,7 +285,7 @@ inline void rewardSystem(Engine &ctx,
     }
 
     // Only give reward at the end of the episode
-    if (done.v == 1 || steps_remaining.t == 0) {
+    if (done.v == 1) {
         // Get world boundaries from the compiled level singleton
         const CompiledLevel& level = ctx.singleton<CompiledLevel>();
         
@@ -347,19 +347,18 @@ inline void agentCollisionSystem(Engine &ctx,
     });
 }
 
-// [REQUIRED_INTERFACE] Keep track of the number of steps remaining in the episode and
+// [REQUIRED_INTERFACE] Track the number of steps taken in the episode and
 // notify training that an episode has completed by
-// setting done = 1 on the final step of the episode
+// setting done = 1 when the episode limit is reached
 inline void stepTrackerSystem(Engine &,
-                              StepsRemaining &steps_remaining,
+                              StepsTaken &steps_taken,
                               Done &done)
 {
-    int32_t num_remaining = --steps_remaining.t;
-    // Done flag is now properly reset by resetAgentPhysics during episode reset
-    if (num_remaining == 0) {
-        done.v = 1;  // Mark episode as done when steps are exhausted
+    uint32_t num_taken = ++steps_taken.t;
+    // Done flag is reset by resetAgentPhysics during episode reset
+    if (num_taken >= consts::episodeLen) {
+        done.v = 1;  // Mark episode as done when step limit is reached
     }
-
 }
 
 // [BOILERPLATE] Helper function for sorting nodes in the taskgraph.
@@ -489,7 +488,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     // [REQUIRED_INTERFACE] Check if the episode is over
     auto done_sys = builder.addToGraph<ParallelForNode<Engine,
         stepTrackerSystem,
-            StepsRemaining,
+            StepsTaken,
             Done
         >>({phys_cleanup});
 
@@ -500,7 +499,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Progress,
             Reward,
             Done,
-            StepsRemaining
+            StepsTaken
         >>({done_sys});
 
     // [REQUIRED_INTERFACE] Conditionally reset the world if the episode is over

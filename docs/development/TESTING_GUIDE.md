@@ -339,9 +339,70 @@ Summary:
     - Assertions:   1
 ```
 
+## Agent Movement Controls
+
+### CRITICAL: Always Use Helper Functions
+
+**❌ DO NOT manually set action tensors:**
+```python
+# WRONG - Agent will move in circles due to unset rotation
+actions = mgr.action_tensor().to_torch()
+actions[:] = 0
+actions[:, 0] = 3  # FAST movement
+actions[:, 1] = 0  # FORWARD - but rotation not set!
+```
+
+**✅ Use AgentController helper class:**
+```python
+from test_helpers import AgentController
+
+controller = AgentController(mgr)
+controller.reset_actions()  # Sets rotation to NONE (no spin)
+controller.move_forward(speed=consts.action.move_amount.FAST)
+```
+
+### Action Components
+The action tensor has 3 components: `[move_amount, move_angle, rotate]`
+- **move_amount**: `STOP=0, SLOW=1, MEDIUM=2, FAST=3`
+- **move_angle**: `FORWARD=0, FORWARD_RIGHT=1, RIGHT=2, BACKWARD_RIGHT=3, BACKWARD=4, BACKWARD_LEFT=5, LEFT=6, FORWARD_LEFT=7`
+- **rotate**: `FAST_LEFT=0, SLOW_LEFT=1, NONE=2, SLOW_RIGHT=3, FAST_RIGHT=4`
+
+### Common Movement Patterns
+```python
+controller = AgentController(mgr)
+
+# Essential: Reset actions before setting new ones
+controller.reset_actions()  # Sets rotate=NONE to prevent spinning
+
+# Basic movement
+controller.move_forward(speed=consts.action.move_amount.MEDIUM)
+controller.move_backward(speed=consts.action.move_amount.SLOW)
+controller.strafe_left(speed=consts.action.move_amount.FAST)
+controller.strafe_right(speed=consts.action.move_amount.MEDIUM)
+controller.stop()
+
+# Rotation without movement
+controller.rotate_only(rotation=consts.action.rotate.SLOW_LEFT)
+
+# Custom actions for specific worlds
+controller.set_custom_action(
+    world_idx=0,
+    move_amount=consts.action.move_amount.FAST,
+    move_angle=consts.action.move_angle.FORWARD_RIGHT,
+    rotate=consts.action.rotate.NONE
+)
+```
+
+### Why This Matters
+- **Unset rotation causes circular movement** - agents spin while moving
+- **Manual tensor manipulation is error-prone** - easy to forget rotation component
+- **Helper functions ensure consistent behavior** - all components properly set
+- **Makes tests more readable** - clear intent vs cryptic tensor indices
+
 ## Best Practices
 
 **Do's:**
+- **Always use `AgentController` for movement** - prevents circular movement bugs
 - Use `gpu_manager` fixture for all GPU tests
 - Add CUDA availability checks to GPU tests  
 - Test CPU before GPU functionality
@@ -351,6 +412,7 @@ Summary:
 - Use `tests/test_headless_loop.sh` to validate simulation stability
 
 **Don'ts:**
+- **Manually set action tensors** - use AgentController instead
 - Create GPU managers directly in tests
 - Mix session/function-scoped GPU fixtures
 - Forget `@pytest.mark.skipif` for GPU tests
