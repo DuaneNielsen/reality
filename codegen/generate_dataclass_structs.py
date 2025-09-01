@@ -59,10 +59,9 @@ from typing import Dict, List, Optional, Tuple
 # These represent the core data structures used by the Madrona Escape Room simulation
 DEFAULT_STRUCTS_TO_EXTRACT = [
     # API Boundary Structs - These cross the Python-C boundary directly
-    "CompiledLevel",    # Level data passed to C API functions
-    "ReplayMetadata",   # Recording file format struct
-    "ManagerConfig",    # Configuration struct passed to C API
-    
+    "CompiledLevel",  # Level data passed to C API functions
+    "ReplayMetadata",  # Recording file format struct
+    "ManagerConfig",  # Configuration struct passed to C API
     # Note: ECS components (Action, SelfObservation, Done, Reward, Progress, StepsTaken)
     # are accessed through tensor exports via DLPack, not direct struct manipulation.
     # They should not be included here as they never cross the API boundary directly.

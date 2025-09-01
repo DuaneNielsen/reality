@@ -186,7 +186,7 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
     levels_ptr = cast(levels_array, c_void_p)
 
     result = lib.mer_create_manager(handle_ptr, config_ptr, levels_ptr, num_levels)
-    
+
     # Return result, config, and array (all must be kept alive!)
     return result, c_config, levels_array
 
