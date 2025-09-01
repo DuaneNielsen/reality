@@ -11,11 +11,19 @@
 #include <limits>
 #include <cmath>
 
-// For capturing stdout/stderr output in tests
-using testing::internal::CaptureStdout;
-using testing::internal::GetCapturedStdout;
+// For capturing stdout/stderr output in tests - with debug support
+#include "debug_capture.hpp"
+using DebugCapture::CaptureStdoutDebug;
+using DebugCapture::GetCapturedStdoutDebug;
 
 using namespace madEscape;
+
+// Test the flag directly
+TEST(DebugCaptureTest, FlagWorks) {
+    std::cout << "DEBUG: g_disable_capture = " << DebugCapture::g_disable_capture << std::endl;
+    const char* env = std::getenv("GTEST_DISABLE_CAPTURE");
+    std::cout << "DEBUG: GTEST_DISABLE_CAPTURE = " << (env ? env : "NULL") << std::endl;
+}
 
 // Test fixture for ViewerCore trajectory verification
 class ViewerCoreTrajectoryTest : public ::testing::Test {
@@ -84,8 +92,14 @@ protected:
 };
 
 TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
+    // Test env var directly first
+    const char* env = std::getenv("GTEST_DISABLE_CAPTURE");
+    std::cout << "ENV TEST: GTEST_DISABLE_CAPTURE = " << (env ? env : "NULL") << std::endl;
+    
     // Capture stdout to suppress trajectory logging output
-    CaptureStdout();
+    CaptureStdoutDebug();
+    
+    std::cout << "AFTER CAPTURE: This should be visible if capture is disabled" << std::endl;
     
     // Phase 1: Setup and Recording
     // =============================
@@ -330,14 +344,14 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
     }
     
     // Get captured output and verify trajectory logging occurred
-    std::string captured_output = GetCapturedStdout();
+    std::string captured_output = GetCapturedStdoutDebug();
     EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
 }
 
 // Test ViewerCore state machine transitions
 TEST_F(ViewerCoreTrajectoryTest, StateMachineTransitions) {
     // Capture stdout to suppress any logging output
-    CaptureStdout();
+    CaptureStdoutDebug();
     
     // Create minimal manager for testing state transitions
     CompiledLevel test_level = loadTestLevel();
@@ -404,7 +418,7 @@ TEST_F(ViewerCoreTrajectoryTest, StateMachineTransitions) {
     EXPECT_FALSE(state_machine.isPaused());
     
     // Get captured output - this test may have minimal logging
-    std::string captured_output = GetCapturedStdout();
+    std::string captured_output = GetCapturedStdoutDebug();
     // No specific logging assertions needed for state machine test
 }
 
@@ -512,7 +526,7 @@ TEST_F(ViewerCoreTrajectoryTest, ActionComputationFromInput) {
 // Test trajectory tracking toggle
 TEST_F(ViewerCoreTrajectoryTest, TrajectoryTrackingToggle) {
     // Capture stdout to suppress trajectory logging output
-    CaptureStdout();
+    CaptureStdoutDebug();
     
     // Create minimal manager
     CompiledLevel test_level = loadTestLevel();
@@ -557,7 +571,7 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryTrackingToggle) {
     EXPECT_FALSE(core.isTrackingTrajectory(0));
     
     // Get captured output and verify trajectory logging occurred
-    std::string captured_output = GetCapturedStdout();
+    std::string captured_output = GetCapturedStdoutDebug();
     EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
     EXPECT_TRUE(captured_output.find("Trajectory logging disabled") != std::string::npos);
 }
@@ -565,7 +579,7 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryTrackingToggle) {
 // Test that trajectory points match the number of recorded frames
 TEST_F(ViewerCoreTrajectoryTest, TrajectoryPointsMatchRecordedFrames) {
     // Capture stdout to suppress trajectory logging output
-    CaptureStdout();
+    CaptureStdoutDebug();
     
     // This test verifies that the number of trajectory points written
     // matches the number of frames recorded in the action file.
@@ -762,14 +776,14 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryPointsMatchRecordedFrames) {
     }
     
     // Get captured output and verify trajectory logging occurred
-    std::string captured_output = GetCapturedStdout();
+    std::string captured_output = GetCapturedStdoutDebug();
     EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
 }
 
 // Test to diagnose frame count mismatch between recording and replay
 TEST_F(ViewerCoreTrajectoryTest, DiagnoseFrameCountMismatch) {
     // Capture stdout to suppress trajectory logging output
-    CaptureStdout();
+    CaptureStdoutDebug();
     
     // This test helps diagnose why replay might run more frames than recording
     
@@ -946,6 +960,6 @@ TEST_F(ViewerCoreTrajectoryTest, DiagnoseFrameCountMismatch) {
     }
     
     // Get captured output and verify trajectory logging occurred
-    std::string captured_output = GetCapturedStdout();
+    std::string captured_output = GetCapturedStdoutDebug();
     EXPECT_TRUE(captured_output.find("Trajectory logging enabled") != std::string::npos);
 }
