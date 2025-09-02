@@ -129,6 +129,11 @@ ViewerCore::ViewerCore(const Config& cfg, Manager* mgr)
     // Setup initial state based on config
     if (!config_.replay_path.empty()) {
         state_machine_.startReplay();
+        if (config_.start_paused) {
+            state_machine_.togglePause();  // Transition from Replaying to ReplayingPaused
+            initial_pause_active_ = true;
+            pause_start_time_ = std::chrono::steady_clock::now();
+        }
     } else if (!config_.record_path.empty()) {
         state_machine_.startRecording();
         printf("Recording mode: Starting PAUSED (press SPACE to start recording)\n");
