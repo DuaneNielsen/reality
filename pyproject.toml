@@ -55,6 +55,4 @@ dev = [
 exclude = [
     "madrona_escape_room/generated_constants.py",
     "madrona_escape_room/generated_dataclasses.py",
-    "src/../madrona_escape_room/generated_constants.py",
-    "src/../madrona_escape_room/generated_dataclasses.py",
 ]
