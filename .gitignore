@@ -82,7 +82,7 @@ venv/
 env/
 
 # Performance testing data
-/perf_results/
+/tests/performance/perf_results/
 
 # Benchmark profile outputs
 /tmp/sim_bench_profile_*.html

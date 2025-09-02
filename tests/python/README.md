@@ -2,6 +2,22 @@
 
 This directory contains the Python test suite for the Madrona Escape Room environment. The tests use pytest and cover core functionality, bindings, level compilation, and various simulation features.
 
+## Key Constraint: GPU Manager Limitation
+
+**Critical**: Madrona only supports **one GPU manager at a time** per process.
+
+```python
+# ❌ Multiple GPU managers - will fail
+mgr1 = SimManager(exec_mode=ExecMode.CUDA, ...)
+mgr2 = SimManager(exec_mode=ExecMode.CUDA, ...)  # FAILS
+
+# ✅ Use session fixture instead  
+def test_gpu_feature(gpu_manager):
+    mgr = gpu_manager  # Shared session manager
+```
+
+**Why**: CUDA static initialization causes deadlocks with multiple GPU managers.
+
 ## Test Structure
 
 ### Test Configuration
@@ -52,6 +68,79 @@ This directory contains the Python test suite for the Madrona Escape Room enviro
 ### Test Data
 - **data/reward_test.bin** - Binary test data for reward system validation
 
+## Test Execution Order
+
+```bash
+# 1. CPU tests first
+uv run --group dev pytest tests/python/ -v --no-gpu
+
+# 2. GPU tests after CPU tests pass
+uv run --group dev pytest tests/python/ -v -k "gpu"
+```
+
+## Fixtures
+
+### Main Test Fixtures
+- **cpu_manager** - Function-scoped CPU SimManager (new per test, supports custom levels)
+- **gpu_manager** - Session-scoped GPU SimManager (shared across all GPU tests)
+- **gpu_env** - Session-scoped GPU TorchRL environment  
+- **log_and_verify_replay_cpu_manager** - CPU manager with automatic replay verification
+- **test_manager_from_replay** - Factory for creating managers from replay files
+
+## Custom Level Testing
+
+The `cpu_manager` fixture supports custom ASCII levels using the `@pytest.mark.custom_level()` decorator:
+
+### Basic Usage
+```python
+# Define ASCII level with walls and spawn points
+TEST_LEVEL = """
+##########
+#S.......#
+#........#
+#...#....#
+#...#....#
+#........#
+##########
+"""
+
+@pytest.mark.custom_level(TEST_LEVEL)
+def test_with_custom_level(cpu_manager):
+    """Test uses the custom level instead of default"""
+    mgr = cpu_manager  # Manager initialized with TEST_LEVEL
+    # Test your custom level behavior
+```
+
+### Key Features
+- **Spawn Points**: Mark agent spawn locations with 'S' 
+- **Walls**: Use '#' for walls and obstacles
+- **Empty Space**: Use '.' for walkable areas
+- **Auto-compilation**: Levels are automatically compiled with scale=2.5
+
+### Example: Testing Movement Constraints
+```python
+# Level with narrow corridor
+CORRIDOR_LEVEL = """
+################################
+#S.............................#
+#..............................#
+#############........###########
+#..............................#
+################################
+"""
+
+@pytest.mark.custom_level(CORRIDOR_LEVEL)
+def test_corridor_navigation(cpu_manager):
+    """Test agent navigation through narrow passage"""
+    mgr = cpu_manager
+    # Agent must navigate through the gap in the wall
+```
+
+### Notes
+- Only works with `cpu_manager` fixture (function-scoped)
+- Module-scoped fixtures don't support per-test custom levels
+- GPU tests should not use custom levels (violates single GPU manager constraint)
+
 ## Running Tests
 
 ### Basic Test Execution
@@ -64,18 +153,51 @@ uv run --group dev pytest tests/python/test_bindings.py
 
 # Run with verbose output
 uv run --group dev pytest tests/python/ -v
+
+# Run quick tests (skip slow stress tests and GPU tests)  
+uv run --group dev pytest tests/python/ -m "not slow"
 ```
 
-### Recording and Visualization
+### Test Flags
+
+#### Basic Flags
 ```bash
-# Record actions during tests for later replay
-uv run --group dev pytest tests/python/ --record-actions
+--no-gpu              # Skip all GPU tests
+```
 
-# Record and automatically launch viewer
-uv run --group dev pytest tests/python/ --record-actions --visualize
+#### Debugging and Visualization Flags
+```bash
+--record-actions      # Record actions to binary files for viewer replay
+--trace-trajectories  # Log agent trajectories to text files
+--visualize           # Auto-launch viewer after tests (requires --record-actions)
+```
 
-# Enable trajectory logging to files
-uv run --group dev pytest tests/python/ --trace-trajectories
+#### Usage Examples
+```bash
+# Record actions for debugging
+uv run --group dev pytest tests/python/test_reward_system.py --record-actions
+
+# Record both actions and trajectories
+uv run --group dev pytest tests/python/test_reward_system.py --record-actions --trace-trajectories
+
+# Record, trace, and auto-launch viewer
+uv run --group dev pytest tests/python/test_reward_system.py --record-actions --trace-trajectories --visualize
+
+# Debug specific test
+uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movement_reward -v --record-actions
+```
+
+### Output Files
+When using debugging flags, files are created in `test_recordings/` with automatic naming:
+- **Actions**: `test_recordings/test_module.py__test_function_actions.bin`  
+- **Trajectories**: `test_recordings/test_module.py__test_function_actions_trajectory.txt`
+
+Example:
+```bash
+uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movement_reward --record-actions --trace-trajectories
+# Creates:
+# test_recordings/test_reward_system.py__test_forward_movement_reward_actions.bin
+# test_recordings/test_reward_system.py__test_forward_movement_reward_actions_trajectory.txt
 ```
 
 ### GPU Testing
@@ -95,9 +217,6 @@ uv run --group dev pytest tests/python/ -m "slow" -k "gpu"
 # Run only stress tests
 uv run --group dev pytest tests/python/ -k "stress" -v
 
-# Run quick tests (skip slow stress tests and GPU tests)  
-uv run --group dev pytest tests/python/ -m "not slow" 
-
 # Run all stress tests including slow ones
 uv run --group dev pytest tests/python/test_stress.py -v
 
@@ -105,33 +224,138 @@ uv run --group dev pytest tests/python/test_stress.py -v
 uv run --group dev pytest tests/python/test_stress.py --record-actions -v
 ```
 
-## Key Features
+## Writing GPU Tests
 
-### Fixtures
-- **cpu_manager** - Function-scoped CPU SimManager with optional recording
-- **gpu_manager** - Session-scoped GPU SimManager  
-- **log_and_verify_replay_cpu_manager** - CPU manager with automatic replay verification
-- **test_manager_from_replay** - Factory for creating managers from replay files
+### Correct Pattern
+```python
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+def test_gpu_functionality(gpu_manager):
+    """Test GPU features using shared manager"""
+    mgr = gpu_manager
+    
+    # Use the shared manager for testing
+    obs_tensor = mgr.self_observation_tensor()
+    assert obs_tensor.isOnGPU()
+```
 
-### Test Markers
-- Use `@pytest.mark.custom_level("level_ascii")` to provide custom levels to tests
+### Common Mistakes
+```python
+# ❌ Creates new GPU manager - will conflict
+def test_bad_gpu_test():
+    mgr = SimManager(exec_mode=ExecMode.CUDA, ...)  # FAILS
 
-### Recording Capabilities
+# ❌ Missing pytest.mark.skipif for CUDA
+def test_missing_skip(gpu_manager):  # Will fail if no CUDA
+
+# ❌ Not using fixture parameter
+def test_ignores_fixture(gpu_manager):
+    mgr = SimManager(exec_mode=ExecMode.CUDA, ...)  # Ignores fixture, creates new manager
+```
+
+## Agent Movement Controls
+
+### CRITICAL: Always Use Helper Functions
+
+**❌ DO NOT manually set action tensors:**
+```python
+# WRONG - Agent will move in circles due to unset rotation
+actions = mgr.action_tensor().to_torch()
+actions[:] = 0
+actions[:, 0] = 3  # FAST movement
+actions[:, 1] = 0  # FORWARD - but rotation not set!
+```
+
+**✅ Use AgentController helper class:**
+```python
+from test_helpers import AgentController
+
+controller = AgentController(mgr)
+controller.reset_actions()  # Sets rotation to NONE (no spin)
+controller.move_forward(speed=consts.action.move_amount.FAST)
+```
+
+### Action Components
+The action tensor has 3 components: `[move_amount, move_angle, rotate]`
+- **move_amount**: `STOP=0, SLOW=1, MEDIUM=2, FAST=3`
+- **move_angle**: `FORWARD=0, FORWARD_RIGHT=1, RIGHT=2, BACKWARD_RIGHT=3, BACKWARD=4, BACKWARD_LEFT=5, LEFT=6, FORWARD_LEFT=7`
+- **rotate**: `FAST_LEFT=0, SLOW_LEFT=1, NONE=2, SLOW_RIGHT=3, FAST_RIGHT=4`
+
+### Common Movement Patterns
+```python
+controller = AgentController(mgr)
+
+# Essential: Reset actions before setting new ones
+controller.reset_actions()  # Sets rotate=NONE to prevent spinning
+
+# Basic movement
+controller.move_forward(speed=consts.action.move_amount.MEDIUM)
+controller.move_backward(speed=consts.action.move_amount.SLOW)
+controller.strafe_left(speed=consts.action.move_amount.FAST)
+controller.strafe_right(speed=consts.action.move_amount.MEDIUM)
+controller.stop()
+
+# Rotation without movement
+controller.rotate_only(rotation=consts.action.rotate.SLOW_LEFT)
+
+# Custom actions for specific worlds
+controller.set_custom_action(
+    world_idx=0,
+    move_amount=consts.action.move_amount.FAST,
+    move_angle=consts.action.move_angle.FORWARD_RIGHT,
+    rotate=consts.action.rotate.NONE
+)
+```
+
+### Why This Matters
+- **Unset rotation causes circular movement** - agents spin while moving
+- **Manual tensor manipulation is error-prone** - easy to forget rotation component
+- **Helper functions ensure consistent behavior** - all components properly set
+- **Makes tests more readable** - clear intent vs cryptic tensor indices
+
+## Best Practices
+
+**Do's:**
+- **Always use `AgentController` for movement** - prevents circular movement bugs
+- Use `gpu_manager` fixture for all GPU tests
+- Add CUDA availability checks to GPU tests  
+- Test CPU before GPU functionality
+- Fix warnings immediately - tests should use `assert` not `return` statements
+- Use custom levels with `cpu_manager` for specific test scenarios
+
+**Don'ts:**
+- **Manually set action tensors** - use AgentController instead
+- Create GPU managers directly in tests
+- Mix session/function-scoped GPU fixtures
+- Forget `@pytest.mark.skipif` for GPU tests
+- Return values from test functions (causes `PytestReturnNotNoneWarning`)
+- Use custom levels with GPU tests
+
+## Test Markers
+- `@pytest.mark.custom_level("level_ascii")` - Provide custom ASCII levels to tests
+- `@pytest.mark.skipif(not torch.cuda.is_available(), ...)` - Skip tests when CUDA unavailable
+- `@pytest.mark.slow` - Mark tests that take significant time (GPU compilation, stress tests)
+
+## Recording Capabilities
 Tests can optionally record actions and trajectories:
 - Actions saved to `.bin` files for viewer replay
 - Trajectories logged to `.txt` files for analysis
 - Automatic replay verification in specialized fixtures
+- Use `--record-actions` and `--trace-trajectories` flags
 
-### GPU Support
-GPU tests automatically skip when CUDA is unavailable and can be explicitly disabled with `--no-gpu`.
+## Debugging
 
-## Test Organization
+**GPU test failures** (`Fatal Python error`, deadlocks): Check if test creates its own GPU manager instead of using the `gpu_manager` fixture.
 
-Tests are organized by functionality:
-- **Core functionality** - Basic imports, manager creation, tensor operations
-- **Level system** - ASCII compilation, spawn validation, level loading
-- **Simulation** - Movement, rewards, physics, episode management  
-- **Integration** - Recording/replay, environment wrappers, external APIs
-- **Performance** - Memory layout, zero-copy operations, DLPack compatibility
+## Known Limitations
 
-Each test file focuses on a specific subsystem and includes both positive and negative test cases where appropriate.
+### GPU Replay Factory Method
+
+**Issue**: The new `SimManager.from_replay()` factory method cannot be used in GPU tests because it creates a fresh GPU manager, violating the "one GPU manager per process" constraint.
+
+**Current Status**: 
+- CPU tests: Use `SimManager.from_replay()` (no warnings)
+- GPU tests: Continue using `mgr.load_replay()` (with warnings) 
+
+**Workaround**: GPU replay tests use the existing session-scoped `gpu_manager` fixture with the legacy `load_replay()` method.
+
+**Future**: Consider adding GPU-compatible replay factory that reuses existing GPU context.

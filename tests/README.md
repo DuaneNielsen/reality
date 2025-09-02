@@ -6,22 +6,20 @@ This directory contains the testing infrastructure for the Madrona Escape Room p
 
 - `cpp/` - C++ tests using GoogleTest framework
 - `python/` - Python tests using pytest framework
+- `test_recordings/` - Recorded test sessions for replay testing
 
-## Test Scripts
+## Main Testing Entrypoint
 
-### Quick Testing
-- `quicktest.sh` - Runs both C++ and Python tests quickly (brief mode, no slow tests)
+**`test_tracker.py`** - The primary test runner that executes both C++ and Python tests, tracks individual test results across commits, and provides regression analysis.
 
-### Performance Testing
-- `run_perf_test.sh` - Performance testing script
-- `test_headless_loop.sh` - Headless testing loop
+## Additional Test Scripts
 
-### Test Result Tracking
-- `test_tracker.py` - **Individual test result tracker** - tracks every test result across commits
+- `run_perf_test.sh` - Performance testing script for benchmarking
+- `test_headless_loop.sh` - Headless simulation testing loop
 
 ## Test Tracker Usage
 
-The test tracker provides commit-level tracking of individual test results for regression analysis.
+The test tracker is the main entrypoint for running tests. It automatically runs both C++ and Python tests, tracks results, and identifies regressions.
 
 ### Basic Usage
 ```bash
@@ -30,11 +28,37 @@ uv run python tests/test_tracker.py
 
 # Dry run (don't save results)
 uv run python tests/test_tracker.py --dry-run
+
+# Run full test suite (includes GPU and slow tests)
+uv run python tests/test_tracker.py --full
 ```
+
+### Command-Line Options
+
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Run tests but don't save results to CSV. Useful for testing or checking current state without recording. |
+| `--full` | Run the full test suite including GPU tests and slow tests. Without this flag, only standard CPU tests are run. |
+| `--commit HASH` | Analyze a specific commit hash instead of the current HEAD. |
+
+### Test Suite Differences
+
+**Standard Mode** (default):
+- Runs `./build/mad_escape_tests` (C++ CPU tests)
+- Runs Python tests with `-m not slow` (excludes slow tests)
+- Suitable for quick iteration during development
+
+**Full Mode** (`--full`):
+- Runs all C++ test executables:
+  - `./build/mad_escape_tests`
+  - `./build/mad_escape_gpu_tests` 
+  - `./build/mad_escape_gpu_stress_tests`
+- Runs Python tests including slow tests but excluding skipped tests
+- Sets `ALLOW_GPU_TESTS_IN_SUITE=1` environment variable
+- Suitable for comprehensive testing before merging
 
 ### Output Files
 - `individual-test-history.csv` - Every individual test result per commit with branch info
-- `test-reports/` - Detailed test output logs per commit
 
 ### Finding Test Regressions
 ```bash
@@ -85,5 +109,6 @@ chmod +x .git/hooks/post-commit
    grep 'test_name' individual-test-history.csv
 ```
 
-## Test Data
-- `test_recordings/` - Recorded test sessions for replay testing
+## Output Files
+
+- `individual-test-history.csv` - Complete test history database with per-test results for every commit

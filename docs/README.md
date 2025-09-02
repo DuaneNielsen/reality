@@ -25,8 +25,8 @@ Guides for developers working on the codebase.
 - [**Trajectory Logging**](development/using_trajectory_logging.md) - Enable and monitor agent position tracking during simulation
 - [**Recording and Debugging**](development/using_recording_debugging.md) - Use context managers to record actions and track trajectories for debugging workflows
 - [**Testing Guide**](development/TESTING_GUIDE.md) - Learn testing patterns and understand GPU manager constraints for reliable tests
-- [**C++ Testing Guide**](development/CPP_TESTING_GUIDE.md) - Write and run C++ unit tests using GoogleTest framework
-- [**Performance Test Guide**](development/PERFORMANCE_TEST_GUIDE.md) - Run performance benchmarks and maintain baseline thresholds
+- [**C++ Testing Guide**](../tests/cpp/README.md) - Write and run C++ unit tests using GoogleTest framework
+- [**Performance Test Guide**](../tests/performance/README.md) - Run performance benchmarks and maintain baseline thresholds
 - [**GDB Guide**](development/GDB_GUIDE.md) - Debug C++ code step-by-step using the MCP GDB server
 - [**C Stdout Capture**](development/C_STDOUT_CAPTURE.md) - Capture C-level stdout output in Python environments for debugging
 - [**Python REPL MCP Setup**](development/PYTHON_REPL_MCP_SETUP.md) - Interactive development with MCP server for debugging and exploration

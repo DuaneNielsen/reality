@@ -99,7 +99,7 @@ IMPORTANT: NEVER use sys.path.insert(..) ALWAYS place modules in the correct loc
 
 This project uses pytest for python tests and GoogleTest for C++ tests
 The pytests are documented in [TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)
-c++ unit tests are documented in [CPP_TESTING_GUIDE.md](docs/development/CPP_TESTING_GUIDE.md)
+c++ unit tests are documented in [CPP_TESTING_GUIDE.md](tests/cpp/README.md)
 
 IMPORTANT:  Whenever tests fail, ALWAYS report it using the standardized format below.  We may decide to take no action, but we should ALWAYS ALWAYS mention the failure in the correct format first.
 

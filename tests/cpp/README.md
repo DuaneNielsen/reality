@@ -6,6 +6,27 @@ This guide covers writing and running C++ unit tests for the Madrona Escape Room
 
 The project uses GoogleTest (gtest) for C++ unit testing, leveraging Madrona's pre-configured GoogleTest build to ensure ABI compatibility with the custom toolchain. Tests are located in `tests/cpp/` and are built separately from the main project to keep the build clean.
 
+## Test Organization
+
+The C++ tests are organized into three test executables:
+
+### 1. **mad_escape_tests** - CPU Tests (Fast)
+- **Runtime**: ~30 seconds
+- **Purpose**: Core functionality testing without GPU dependencies
+- **When to run**: During development for quick feedback
+
+### 2. **mad_escape_gpu_tests** - Fast GPU Tests  
+- **Runtime**: ~1-2 minutes
+- **Purpose**: Basic GPU functionality with shared managers
+- **Features**: Uses reset-based testing to avoid manager recreation
+- **When to run**: Daily development testing
+
+### 3. **mad_escape_gpu_stress_tests** - Comprehensive GPU Tests
+- **Runtime**: ~8+ minutes
+- **Purpose**: Stress testing with large world counts
+- **Features**: Individual manager compilation per test (~40s each)
+- **When to run**: Before merging, in CI/nightly builds
+
 ## Project Constraints
 
 The Madrona project has specific constraints that affect testing:
@@ -53,6 +74,24 @@ make -C build mad_escape_tests -j8
 
 ## Running Tests
 
+### Quick Test Execution
+
+```bash
+# Fast CPU tests (~30 seconds)
+./build/mad_escape_tests
+
+# Fast GPU tests (~1-2 minutes, shared managers)
+./build/mad_escape_gpu_tests  
+
+# GPU stress tests (~8+ minutes, individual managers)
+./build/mad_escape_gpu_stress_tests
+
+# Or use CMake targets:
+make run_cpp_tests           # CPU tests
+make run_gpu_tests          # Fast GPU tests  
+make run_gpu_stress_tests   # Comprehensive GPU tests
+```
+
 ### Using the Test Script
 
 The easiest way to run tests:
@@ -82,6 +121,9 @@ The easiest way to run tests:
 
 # Run GPU tests in main suite (requires environment variable)
 ALLOW_GPU_TESTS_IN_SUITE=1 ./build/mad_escape_tests --gtest_filter="*GPU*"
+
+# Brief output for quick testing
+./build/mad_escape_tests --gtest_brief=1
 
 # List available tests
 ./build/mad_escape_tests --gtest_list_tests
@@ -197,6 +239,8 @@ class MyTest : public MadronaTestBase {
 
 #### Direct C++ Test Fixtures (Recommended)
 
+##### For CPU Tests
+
 **MadronaCppTestBase** - Base fixture for direct C++ tests:
 ```cpp
 class MyTest : public MadronaCppTestBase {
@@ -221,6 +265,45 @@ protected:
     // Inherits from MadronaCppTestBase
     // Provides CreateViewer() helper
 };
+```
+
+##### For GPU Tests
+
+**ReusableGPUManagerTest** - Fast GPU tests with shared manager (mad_escape_gpu_tests):
+```cpp
+// Fast tests using shared manager
+TEST_F(ReusableGPUManagerTest, BasicFunctionality) {
+    ASSERT_NE(mgr, nullptr);
+    
+    // Test using shared manager - fast execution
+    mgr->step();
+    
+    auto action_tensor = GetActionTensor();
+    EXPECT_GE(action_tensor.gpuID(), 0);
+}
+
+// Reset is automatic between tests via ResetAllWorlds()
+TEST_F(ReusableGPUManagerTest, TensorValidation) {
+    // Fresh state due to reset, no manager recreation needed
+    auto tensor = GetActionTensor();
+    std::vector<int64_t> expected = {config.numWorlds, 3};
+    EXPECT_TRUE(ValidateTensorShape(tensor, expected));
+}
+```
+
+**CustomGPUManagerTest** - Stress tests with custom managers (mad_escape_gpu_stress_tests):
+```cpp
+// Stress tests with custom managers
+TEST_F(CustomGPUManagerTest, LargeWorldCount) {
+    config.numWorlds = 1024;  // Custom configuration
+    
+    ASSERT_TRUE(CreateManager());  // Creates new manager (~40s compilation)
+    EXPECT_NE(custom_manager, nullptr);
+    
+    // Test with custom configuration
+    auto action_tensor = custom_manager->actionTensor();
+    // ... test large world functionality
+}
 ```
 
 **MadronaCppGPUTest** - GPU test fixture with mutex for process safety:
@@ -269,6 +352,27 @@ ASSERT_NO_THROW(statement);
 
 ### GPU Test Patterns
 
+#### Common Mistakes
+```cpp
+// ❌ Wrong test file - expensive test in fast suite
+TEST_F(CustomGPUManagerTest, ExpensiveTest) {
+    // This belongs in mad_escape_gpu_stress_tests, not mad_escape_gpu_tests
+    config.numWorlds = 1024;
+    CreateManager();  // Causes long compilation in fast test suite
+}
+
+// ❌ Not using shared manager efficiently
+TEST_F(ReusableGPUManagerTest, WastefulTest) {
+    CreateSharedManager();  // Unnecessary - manager already created in SetUp()
+}
+
+// ❌ Forgetting to use helper methods
+TEST_F(ReusableGPUManagerTest, ManualTensorAccess) {
+    auto tensor = mgr->actionTensor();  // Use GetActionTensor() instead
+}
+```
+
+#### Correct Patterns
 ```cpp
 TEST_F(MadronaGPUTest, GPUSpecificTest) {
     // Test automatically skipped if no CUDA

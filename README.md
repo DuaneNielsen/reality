@@ -179,8 +179,8 @@ This repository includes comprehensive documentation covering all aspects of dev
 
 ### 🛠️ Development
 - [**Testing Guide**](docs/development/TESTING_GUIDE.md) - Python testing with pytest
-- [**C++ Testing Guide**](docs/development/CPP_TESTING_GUIDE.md) - C++ unit tests with GoogleTest
-- [**Performance Testing**](docs/development/PERFORMANCE_TEST_GUIDE.md) - Benchmarking and baselines
+- [**C++ Testing Guide**](tests/cpp/README.md) - C++ unit tests with GoogleTest
+- [**Performance Testing**](tests/performance/README.md) - Benchmarking and baselines
 - [**GDB Guide**](docs/development/GDB_GUIDE.md) - Debugging with GDB MCP server
 - [**Level Format**](docs/development/LEVEL_FORMAT.md) - Test-driven level creation
 - [**JSON Level Format**](docs/development/JSON_LEVEL_FORMAT_SUMMARY.md) - JSON-based levels with parameters
