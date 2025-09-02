@@ -480,6 +480,7 @@ Manager::Impl * Manager::Impl::init(
     Sim::Config sim_cfg;
     sim_cfg.autoReset = mgr_cfg.autoReset;
     sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);
+    sim_cfg.customVerticalFov = mgr_cfg.customVerticalFov;
     // REQUIRE per-world compiled levels - no defaults allowed
     if (mgr_cfg.perWorldCompiledLevels.empty() || 
         !std::any_of(mgr_cfg.perWorldCompiledLevels.begin(), mgr_cfg.perWorldCompiledLevels.end(),

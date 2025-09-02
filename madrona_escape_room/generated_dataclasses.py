@@ -102,6 +102,7 @@ class ManagerConfig(NativeEndianCDataMixIn):
     _pad_18: bytes = field(metadata=meta(ctypes.c_byte * 2), default=b'\x00' * 2)
     batch_render_view_width: int = field(metadata=meta(ctypes.c_uint32), default=0)
     batch_render_view_height: int = field(metadata=meta(ctypes.c_uint32), default=0)
+    custom_vertical_fov: float = field(metadata=meta(ctypes.c_float), default=0)
 
 
 # Size validation
@@ -111,8 +112,8 @@ assert CompiledLevel.size() == 85200, \
 assert ReplayMetadata.size() == 192, \
     f"ReplayMetadata size mismatch: {ReplayMetadata.size()} != 192"
 
-assert ManagerConfig.size() == 28, \
-    f"ManagerConfig size mismatch: {ManagerConfig.size()} != 28"
+assert ManagerConfig.size() == 32, \
+    f"ManagerConfig size mismatch: {ManagerConfig.size()} != 32"
 
 
 

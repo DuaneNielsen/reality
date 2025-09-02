@@ -584,6 +584,7 @@ Sim::Sim(Engine &ctx,
     // [GAME_SPECIFIC] Store configuration
     initRandKey = cfg.initRandKey;
     autoReset = cfg.autoReset;
+    customVerticalFov = cfg.customVerticalFov;
 
     // [BOILERPLATE] Initialize rendering if enabled
     enableRender = cfg.renderBridge != nullptr;

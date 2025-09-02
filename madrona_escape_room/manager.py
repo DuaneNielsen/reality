@@ -41,6 +41,9 @@ class SimManager:
         auto_reset,
         enable_batch_renderer=False,
         compiled_levels=None,  # Pass CompiledLevel objects directly
+        batch_render_view_width=64,  # Custom render view width 
+        batch_render_view_height=64,  # Custom render view height
+        custom_vertical_fov=0.0,  # Custom vertical FOV in degrees (0 = use default)
     ):
         # Import ExecMode for type checking
         from .generated_constants import ExecMode
@@ -53,8 +56,9 @@ class SimManager:
         config.rand_seed = rand_seed
         config.auto_reset = auto_reset
         config.enable_batch_renderer = enable_batch_renderer
-        config.batch_render_view_width = 64
-        config.batch_render_view_height = 64
+        config.batch_render_view_width = batch_render_view_width
+        config.batch_render_view_height = batch_render_view_height
+        config.custom_vertical_fov = custom_vertical_fov
 
         # If no level provided, use default level
         if compiled_levels is None:
