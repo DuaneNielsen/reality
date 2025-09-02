@@ -41,7 +41,7 @@ class SimManager:
         auto_reset,
         enable_batch_renderer=False,
         compiled_levels=None,  # Pass CompiledLevel objects directly
-        batch_render_view_width=64,  # Custom render view width 
+        batch_render_view_width=64,  # Custom render view width
         batch_render_view_height=64,  # Custom render view height
         custom_vertical_fov=0.0,  # Custom vertical FOV in degrees (0 = use default)
     ):
@@ -434,7 +434,7 @@ class DebugSession:
         # Generate file paths - use .name to avoid issues with dots in filename
         base_name = self.base_path.name
         self.recording_path = (
-            self.base_path.with_name(f"{base_name}.bin") if enable_recording else None
+            self.base_path.with_name(f"{base_name}.rec") if enable_recording else None
         )
         self.trajectory_path = (
             self.base_path.with_name(f"{base_name}_trajectory.txt") if enable_tracing else None
