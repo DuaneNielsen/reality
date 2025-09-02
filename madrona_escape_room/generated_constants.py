@@ -15,7 +15,6 @@ class ExecMode:
     CPU = 0
     CUDA = 1
 
-
 class TensorElementType:
     """Enum from madrona.py"""
 
@@ -29,7 +28,6 @@ class TensorElementType:
     Float16 = 5
     Float32 = 6
 
-
 class ResponseType:
     """Enum from madrona.phys"""
 
@@ -39,7 +37,6 @@ class ResponseType:
     Kinematic = 1
     Static = 2
 
-
 class Solver:
     """Enum from madrona.phys.PhysicsSystem"""
 
@@ -47,7 +44,6 @@ class Solver:
 
     XPBD = 0
     TGS = 1
-
 
 class EntityType:
     """Enum from madEscape"""
@@ -59,7 +55,6 @@ class EntityType:
     Wall = 2
     Agent = 3
     NumTypes = 4
-
 
 class Result:
     """Enum from madEscape"""
@@ -75,7 +70,6 @@ class Result:
     ErrorFileNotFound = -6
     ErrorInvalidFile = -7
     ErrorFileIO = -8
-
 
 class consts:
     """Constants from consts namespace"""
@@ -135,6 +129,7 @@ class consts:
             NONE = 2
             SLOW_LEFT = 1
             SLOW_RIGHT = 3
+
 
     class display:
         """Constants from display namespace"""
@@ -225,6 +220,7 @@ class consts:
             plane = 3
             wall = 1
 
+
     class rendering:
         """Constants from rendering namespace"""
 
@@ -308,6 +304,7 @@ class consts:
             wallGray = 0.4
             white = 1.0
 
+
     class viewer:
         """Constants from viewer namespace"""
 
@@ -333,7 +330,6 @@ class limits:
     maxTiles = 1024
     maxWorlds = 10000
 
-
 class AssetIDs:
     """Constants from AssetIDs namespace"""
 
@@ -350,7 +346,6 @@ class AssetIDs:
     MAX_ASSETS = 256
     PLANE = 4
     WALL = 2
-
 
 # Convenience aliases for common use
 action = consts.action
