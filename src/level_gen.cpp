@@ -76,7 +76,7 @@ static void createAgentEntities(Engine &ctx) {
         if (ctx.data().enableRender) {
             render::RenderingSystem::attachEntityToView(ctx,
                     agent,
-                    consts::rendering::cameraDistance, consts::rendering::cameraOffsetZ,
+                    consts::rendering::cameraFovYDegrees, consts::rendering::cameraZNear,
                     consts::rendering::agentHeightMultiplier * math::up);
         }
 
