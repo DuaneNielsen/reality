@@ -18,8 +18,6 @@ class TestTracker:
     def __init__(self, base_dir: Path = None, full_tests: bool = False):
         self.base_dir = base_dir or Path.cwd()
         self.tests_dir = self.base_dir / "tests"
-        self.reports_dir = self.tests_dir / "test-reports"
-        self.reports_dir.mkdir(exist_ok=True)
         self.full_tests = full_tests
 
         # CSV file for individual test tracking (only one we need)
@@ -85,8 +83,6 @@ class TestTracker:
         test_type = "full" if self.full_tests else "standard"
         print(f"Running C++ tests ({test_type} suite)...")
 
-        output_file = self.reports_dir / f"cpp-{self.commit_info['short_commit']}.log"
-
         # List of test executables to run
         test_executables = ["./build/mad_escape_tests"]
 
@@ -99,76 +95,60 @@ class TestTracker:
         all_individual_results = []
         overall_status = "PASS"
 
-        try:
-            with open(output_file, "w") as f:
-                for executable in test_executables:
-                    print(f"  Running {executable}...")
-                    f.write(f"\n=== Running {executable} ===\n")
+        for executable in test_executables:
+            print(f"  Running {executable}...")
 
-                    # Set environment for GPU tests
-                    env = None
-                    if self.full_tests and "gpu" in executable:
-                        env = dict(subprocess.os.environ)
-                        env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
+            # Set environment for GPU tests
+            env = None
+            if self.full_tests and "gpu" in executable:
+                env = dict(subprocess.os.environ)
+                env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
 
-                    try:
-                        result = subprocess.run(
-                            [executable],
-                            capture_output=True,
-                            text=True,
-                            cwd=self.base_dir,
-                            env=env,
-                        )
+            try:
+                result = subprocess.run(
+                    [executable],
+                    capture_output=True,
+                    text=True,
+                    cwd=self.base_dir,
+                    env=env,
+                )
 
-                        f.write(result.stdout)
-                        f.write(result.stderr)
+                # Parse individual test results for this executable
+                output_text = result.stdout + result.stderr
+                executable_name = executable.split("/")[-1]  # Get just the filename
 
-                        # Parse individual test results for this executable
-                        output_text = result.stdout + result.stderr
-                        executable_name = executable.split("/")[-1]  # Get just the filename
+                # Parse actual GoogleTest output for individual test names
+                for line in output_text.split("\n"):
+                    # Full mode format: "[ RUN      ] TestSuite.TestCase"
+                    # then "[       OK ] TestSuite.TestCase"
+                    if match := re.search(r"\[\s+OK\s+\]\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)", line):
+                        test_name = f"cpp::{executable_name}::{match.group(1)}"
+                        all_individual_results.append((test_name, "PASS"))
+                    elif match := re.search(
+                        r"\[\s+FAILED\s+\]\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)", line
+                    ):
+                        test_name = f"cpp::{executable_name}::{match.group(1)}"
+                        all_individual_results.append((test_name, "FAIL"))
 
-                        # Parse actual GoogleTest output for individual test names
-                        for line in output_text.split("\n"):
-                            # Full mode format: "[ RUN      ] TestSuite.TestCase"
-                            # then "[       OK ] TestSuite.TestCase"
-                            if match := re.search(
-                                r"\[\s+OK\s+\]\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)", line
-                            ):
-                                test_name = f"cpp::{executable_name}::{match.group(1)}"
-                                all_individual_results.append((test_name, "PASS"))
-                            elif match := re.search(
-                                r"\[\s+FAILED\s+\]\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)", line
-                            ):
-                                test_name = f"cpp::{executable_name}::{match.group(1)}"
-                                all_individual_results.append((test_name, "FAIL"))
+                # Check if tests passed regardless of exit code
+                if "[  PASSED  ]" in output_text and "[  FAILED  ]" not in output_text:
+                    print(f"    {executable} PASSED")
+                else:
+                    overall_status = "FAIL"
+                    print(f"    {executable} FAILED")
 
-                        # Check if tests passed regardless of exit code
-                        if "[  PASSED  ]" in output_text and "[  FAILED  ]" not in output_text:
-                            print(f"    {executable} PASSED")
-                        else:
-                            overall_status = "FAIL"
-                            print(f"    {executable} FAILED")
+            except FileNotFoundError:
+                print(f"    {executable} not found, skipping...")
+            except Exception as e:
+                print(f"    Error running {executable}: {e}")
+                overall_status = "FAIL"
 
-                    except FileNotFoundError:
-                        print(f"    {executable} not found, skipping...")
-                        f.write(f"{executable} not found\n")
-                    except Exception as e:
-                        print(f"    Error running {executable}: {e}")
-                        f.write(f"Error running {executable}: {e}\n")
-                        overall_status = "FAIL"
-
-            return overall_status, all_individual_results
-
-        except Exception as e:
-            print(f"Error running C++ tests: {e}")
-            return "ERROR", []
+        return overall_status, all_individual_results
 
     def run_python_tests(self) -> Tuple[str, List[Tuple[str, str]], Dict[str, int]]:
         """Run Python tests and return status, individual results, and counts."""
         test_type = "full" if self.full_tests else "standard"
         print(f"Running Python tests ({test_type} suite)...")
-
-        output_file = self.reports_dir / f"python-{self.commit_info['short_commit']}.log"
 
         # Build pytest command based on test mode
         cmd = [
@@ -200,10 +180,6 @@ class TestTracker:
                 cwd=self.base_dir,
                 env=env,
             )
-
-            with open(output_file, "w") as f:
-                f.write(result.stdout)
-                f.write(result.stderr)
 
             # Parse individual test results
             individual_results = []
