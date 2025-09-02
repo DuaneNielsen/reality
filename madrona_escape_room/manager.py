@@ -430,7 +430,7 @@ class DebugSession:
         # Generate file paths - use .name to avoid issues with dots in filename
         base_name = self.base_path.name
         self.recording_path = (
-            self.base_path.with_name(f"{base_name}.bin") if enable_recording else None
+            self.base_path.with_name(f"{base_name}.rec") if enable_recording else None
         )
         self.trajectory_path = (
             self.base_path.with_name(f"{base_name}_trajectory.txt") if enable_tracing else None
