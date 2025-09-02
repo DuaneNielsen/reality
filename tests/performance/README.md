@@ -8,19 +8,19 @@ This guide covers the performance testing framework for the Madrona Escape Room,
 
 ```bash
 # Quick CPU test (manual mode)
-uv run python scripts/run_perf.py --worlds 1024 --steps 1000
+uv run python tests/performance/run_perf.py --worlds 1024 --steps 1000
 
 # GPU test with CUDA
-uv run python scripts/run_perf.py --worlds 1024 --steps 1000 --cuda 0
+uv run python tests/performance/run_perf.py --worlds 1024 --steps 1000 --cuda 0
 
 # Test specific commit
-uv run python scripts/run_perf.py --commit abc123 --worlds 2048 --steps 500
+uv run python tests/performance/run_perf.py --commit abc123 --worlds 2048 --steps 500
 
 # Nightly mode - test all untested commits
-uv run python scripts/run_perf.py --nightly
+uv run python tests/performance/run_perf.py --nightly
 
 # Legacy: Detailed profiling with sim_bench.py
-uv run python scripts/sim_bench.py \
+uv run python tests/performance/sim_bench.py \
     --num-worlds 2048 \
     --num-steps 500 \
     --gpu-id 0 \
@@ -32,25 +32,25 @@ uv run python scripts/sim_bench.py \
 
 ### Core Components
 
-1. **scripts/run_perf.py** - Main performance testing script
+1. **tests/performance/run_perf.py** - Main performance testing script
    - **Manual mode**: Test specific commits with custom parameters
    - **Nightly mode**: Automated testing of all untested commits
    - Uses headless executable for cross-branch compatibility
    - Saves comprehensive raw data for each test run
    - Compares against baseline thresholds
 
-2. **scripts/sim_bench.py** - Advanced benchmark script
+2. **tests/performance/sim_bench.py** - Advanced benchmark script
    - Detailed Python-based profiling with pyinstrument
    - PyTorch tensor operations timing
    - Interactive profiling analysis
    - Used for detailed performance investigation
 
-3. **scripts/performance_baselines.json** - Performance thresholds
+3. **tests/performance/performance_baselines.json** - Performance thresholds
    - Defines minimum and warning FPS levels
    - Separate baselines for CPU and GPU configurations
    - Easy to update when hardware or optimizations change
 
-4. **perf_results/** - Performance data storage
+4. **tests/performance/perf_results/** - Performance data storage
    - `runs/{commit_hash}/` - Individual test run data
    - `history.csv` - Summary performance tracking
    - `latest.txt` - Morning reports for nightly runs
@@ -109,7 +109,7 @@ Baseline Check:
 #### run_perf.py Output Structure
 
 ```
-perf_results/
+tests/performance/perf_results/
 ├── runs/{commit_hash}/
 │   ├── benchmark_output.txt    # Raw headless executable output
 │   ├── build_log.txt          # Compilation logs
@@ -123,7 +123,7 @@ perf_results/
 #### sim_bench.py Output Structure (Advanced Profiling)
 
 ```
-build/perf_results/20250112_143022/
+tests/performance/perf_results/20250112_143022/
 ├── cpu/
 │   ├── profile.html      # Interactive profiler visualization
 │   ├── profile.json      # Raw profiling data for analysis
@@ -218,18 +218,18 @@ Update baselines when:
    ```bash
    # Using run_perf.py (recommended)
    for i in {1..5}; do
-     uv run python scripts/run_perf.py --worlds 1024 --steps 1000
+     uv run python tests/performance/run_perf.py --worlds 1024 --steps 1000
    done
    
    # Using sim_bench.py (for detailed profiling)
    for i in {1..5}; do
-     uv run python scripts/sim_bench.py --num-worlds 1024 --num-steps 1000
+     uv run python tests/performance/sim_bench.py --num-worlds 1024 --num-steps 1000
    done
    ```
 
 2. Calculate average FPS from runs
 
-3. Edit `scripts/performance_baselines.json`:
+3. Edit `tests/performance/performance_baselines.json`:
    ```json
    {
      "cpu_1024": {
@@ -270,7 +270,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: performance-results
-          path: build/perf_results/
+          path: tests/performance/perf_results/
 ```
 
 ### Local Pre-commit Hook
@@ -280,7 +280,7 @@ Add to `.git/hooks/pre-commit`:
 ```bash
 #!/bin/bash
 # Run quick CPU performance check
-uv run python scripts/run_perf.py \
+uv run python tests/performance/run_perf.py \
     --worlds 100 \
     --steps 100
 
@@ -320,14 +320,14 @@ fi
 
 ```bash
 # Quick performance test
-uv run python scripts/run_perf.py --worlds 10 --steps 100
+uv run python tests/performance/run_perf.py --worlds 10 --steps 100
 
 # View saved raw data
-cat perf_results/runs/{commit_hash}/benchmark_output.txt
-cat perf_results/runs/{commit_hash}/metadata.json
+cat tests/performance/perf_results/runs/{commit_hash}/benchmark_output.txt
+cat tests/performance/perf_results/runs/{commit_hash}/metadata.json
 
 # Generate detailed profile for analysis
-uv run python scripts/sim_bench.py \
+uv run python tests/performance/sim_bench.py \
     --num-worlds 10 \
     --num-steps 100 \
     --save-profile \
@@ -372,7 +372,7 @@ Create specialized benchmarks for specific scenarios:
 ```python
 # benchmark_complex_level.py
 import madrona_escape_room
-from scripts.sim_bench import run_benchmark
+from tests.performance.sim_bench import run_benchmark
 
 # Load complex level
 with open("levels/complex.lvl") as f:
@@ -392,12 +392,12 @@ results = run_benchmark(
 ```bash
 # Compare branches using run_perf.py
 git checkout main
-uv run python scripts/run_perf.py --worlds 1024 --steps 1000
-main_fps=$(grep "FPS:" perf_results/runs/*/metadata.json | tail -1)
+uv run python tests/performance/run_perf.py --worlds 1024 --steps 1000
+main_fps=$(grep "FPS:" tests/performance/perf_results/runs/*/metadata.json | tail -1)
 
 git checkout feature-branch  
-uv run python scripts/run_perf.py --worlds 1024 --steps 1000
-feature_fps=$(grep "FPS:" perf_results/runs/*/metadata.json | tail -1)
+uv run python tests/performance/run_perf.py --worlds 1024 --steps 1000
+feature_fps=$(grep "FPS:" tests/performance/perf_results/runs/*/metadata.json | tail -1)
 
 echo "Main: $main_fps"
 echo "Feature: $feature_fps"
@@ -405,16 +405,16 @@ echo "Feature: $feature_fps"
 # Compare using sim_bench.py for detailed analysis
 git checkout main
 ./tests/run_perf_test.sh
-mv build/perf_results build/perf_results_main
+mv tests/performance/perf_results tests/performance/perf_results_main
 
 git checkout feature-branch  
 ./tests/run_perf_test.sh
-mv build/perf_results build/perf_results_feature
+mv tests/performance/perf_results tests/performance/perf_results_feature
 
 # Analyze differences
-python scripts/compare_perf.py \
-    build/perf_results_main \
-    build/perf_results_feature
+python tests/performance/compare_perf.py \
+    tests/performance/perf_results_main \
+    tests/performance/perf_results_feature
 ```
 
 ## Usage Examples
@@ -423,34 +423,34 @@ python scripts/compare_perf.py \
 
 ```bash
 # Test current commit with default settings
-uv run python scripts/run_perf.py
+uv run python tests/performance/run_perf.py
 
 # Test specific commit with custom parameters
-uv run python scripts/run_perf.py --commit abc123 --worlds 2048 --steps 500
+uv run python tests/performance/run_perf.py --commit abc123 --worlds 2048 --steps 500
 
 # GPU performance test
-uv run python scripts/run_perf.py --cuda 0 --worlds 8192 --steps 1000
+uv run python tests/performance/run_perf.py --cuda 0 --worlds 8192 --steps 1000
 
 # Quick smoke test
-uv run python scripts/run_perf.py --worlds 10 --steps 50
+uv run python tests/performance/run_perf.py --worlds 10 --steps 50
 ```
 
 ### Nightly Testing
 
 ```bash
 # Run nightly performance testing (tests all untested commits)
-uv run python scripts/run_perf.py --nightly
+uv run python tests/performance/run_perf.py --nightly
 
 # View morning report
-cat perf_results/latest.txt
+cat tests/performance/perf_results/latest.txt
 
 # Check performance history
-cat perf_results/history.csv
+cat tests/performance/perf_results/history.csv
 ```
 
 ## Related Documentation
 
 - [Testing Guide](TESTING_GUIDE.md) - General testing practices
-- [run_perf.py](../../../scripts/run_perf.py) - Main performance testing script
-- [sim_bench.py](../../../scripts/sim_bench.py) - Advanced benchmark script
+- [run_perf.py](run_perf.py) - Main performance testing script
+- [sim_bench.py](sim_bench.py) - Advanced benchmark script
 - [Headless Mode](../../deployment/headless/HEADLESS_MODE.md) - Running without graphics

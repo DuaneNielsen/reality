@@ -17,13 +17,13 @@ from datetime import datetime
 from pathlib import Path
 
 # Configuration
-REPO_ROOT = Path(__file__).parent.parent
-PERF_RESULTS_DIR = REPO_ROOT / "perf_results"
+REPO_ROOT = Path(__file__).parent.parent.parent  # Go up to madrona_escape_room root
+PERF_RESULTS_DIR = Path(__file__).parent / "perf_results"  # Save in tests/performance/perf_results
 RUNS_DIR = PERF_RESULTS_DIR / "runs"
 LAST_COMMIT_FILE = PERF_RESULTS_DIR / "last_tested_commit.txt"
 HISTORY_FILE = PERF_RESULTS_DIR / "history.csv"
 LATEST_REPORT_FILE = PERF_RESULTS_DIR / "latest.txt"
-BASELINES_FILE = REPO_ROOT / "scripts" / "performance_baselines.json"
+BASELINES_FILE = Path(__file__).parent / "performance_baselines.json"
 
 
 # Command line argument parsing

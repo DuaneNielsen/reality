@@ -79,7 +79,7 @@ for i in range(args.num_steps):
     rewards = sim.reward_tensor().to_torch()
     dones = sim.done_tensor().to_torch()
     self_obs = sim.self_observation_tensor().to_torch()
-    steps_remaining = sim.steps_remaining_tensor().to_torch()
+    steps_taken = sim.steps_taken_tensor().to_torch()
 
     fps_counter.frame()
 
@@ -157,7 +157,7 @@ if args.save_profile or args.output_dir:
     else:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         device = "gpu" if args.gpu_id >= 0 else "cpu"
-        output_dir = Path(f"build/perf_results/{timestamp}/{device}")
+        output_dir = Path(__file__).parent / f"perf_results/{timestamp}/{device}"
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
