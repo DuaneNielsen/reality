@@ -50,3 +50,11 @@ dev = [
     "clangd-tidy>=1.1.0.post2",  # Used in git post-commit hooks
     "pyinstrument>=4.0.0",  # For performance profiling in sim_bench.py
 ]
+
+[tool.ruff]
+exclude = [
+    "madrona_escape_room/generated_constants.py",
+    "madrona_escape_room/generated_dataclasses.py",
+    "src/../madrona_escape_room/generated_constants.py",
+    "src/../madrona_escape_room/generated_dataclasses.py",
+]
