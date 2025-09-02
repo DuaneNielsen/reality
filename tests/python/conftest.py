@@ -48,6 +48,9 @@ def pytest_configure(config):
     )
     config.addinivalue_line("markers", "ascii_level: mark test to use custom ASCII level layout")
     config.addinivalue_line("markers", "json_level: mark test to use custom JSON level definition")
+    config.addinivalue_line(
+        "markers", "depth_config: mark test with custom depth sensor config (width, height, fov)"
+    )
 
 
 def pytest_runtest_setup(item):
@@ -68,7 +71,15 @@ def pytest_runtest_setup(item):
             pytest.skip("Skipping GPU test due to --no-gpu flag")
 
 
-def _create_sim_manager(request, exec_mode, enable_depth_override=None, auto_reset=False):
+def _create_sim_manager(
+    request,
+    exec_mode,
+    enable_depth_override=None,
+    auto_reset=False,
+    batch_render_width=64,
+    batch_render_height=64,
+    custom_vertical_fov=0.0,
+):
     """Helper function to create SimManager with reduced boilerplate
 
     Args:
@@ -76,6 +87,9 @@ def _create_sim_manager(request, exec_mode, enable_depth_override=None, auto_res
         exec_mode: ExecMode.CPU or ExecMode.CUDA
         enable_depth_override: Optional bool to force enable/disable depth sensor
         auto_reset: Whether to enable automatic episode resets
+        batch_render_width: Custom render view width (default 64)
+        batch_render_height: Custom render view height (default 64)
+        custom_vertical_fov: Custom vertical FOV in degrees (0 = use default)
     """
     import madrona_escape_room
     from madrona_escape_room import ExecMode, SimManager, create_default_level
@@ -85,6 +99,7 @@ def _create_sim_manager(request, exec_mode, enable_depth_override=None, auto_res
     ascii_marker = request.node.get_closest_marker("ascii_level")
     json_marker = request.node.get_closest_marker("json_level")
     depth_marker = request.node.get_closest_marker("depth_sensor")
+    depth_config_marker = request.node.get_closest_marker("depth_config")
 
     if ascii_marker:
         ascii_str = ascii_marker.args[0]
@@ -103,11 +118,22 @@ def _create_sim_manager(request, exec_mode, enable_depth_override=None, auto_res
     if enable_depth_override is not None:
         enable_renderer = enable_depth_override
     else:
-        enable_renderer = depth_marker is not None
+        enable_renderer = depth_marker is not None or depth_config_marker is not None
+
+    # Override render parameters from depth_config marker
+    if depth_config_marker:
+        if len(depth_config_marker.args) >= 2:
+            batch_render_width = depth_config_marker.args[0]
+            batch_render_height = depth_config_marker.args[1]
+        if len(depth_config_marker.args) >= 3:
+            custom_vertical_fov = depth_config_marker.args[2]
 
     if enable_renderer:
         exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
-        logger.info(f"Depth sensor enabled for {exec_mode_name} manager")
+        logger.info(
+            f"Depth sensor enabled for {exec_mode_name} manager: "
+            f"{batch_render_width}x{batch_render_height}, FOV={custom_vertical_fov}"
+        )
 
     return SimManager(
         exec_mode=exec_mode,
@@ -117,6 +143,9 @@ def _create_sim_manager(request, exec_mode, enable_depth_override=None, auto_res
         enable_batch_renderer=enable_renderer,
         auto_reset=auto_reset,
         compiled_levels=compiled_level,
+        batch_render_view_width=batch_render_width,
+        batch_render_view_height=batch_render_height,
+        custom_vertical_fov=custom_vertical_fov,
     )
 
 

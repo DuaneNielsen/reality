@@ -11,11 +11,30 @@ from madrona_escape_room import ExecMode
 from madrona_escape_room.level_compiler import compile_ascii_level
 from madrona_escape_room.manager import SimManager
 
+# Large open level for testing - same as movement test
+LARGE_OPEN_LEVEL = """################################
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............S...............#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+################################"""
+
 
 class TestHorizontalLidar:
     """Test horizontal lidar functionality"""
 
-    def test_128_beam_horizontal_lidar(self):
+    @pytest.mark.ascii_level(LARGE_OPEN_LEVEL)
+    @pytest.mark.depth_config(128, 1, 1.55)  # width, height, fov
+    def test_128_beam_horizontal_lidar_with_fixture(self, cpu_manager):
         """
         Test 128 horizontal lidar beams with 120° FOV using wall-in-front scenario.
 
@@ -26,49 +45,8 @@ class TestHorizontalLidar:
         - Lidar should read consistent ~5.0 unit distances across all beams
         """
 
-        # Create lidar test level
-        # Scale 2.5 means: 6-wide level = 15 units, 4-tall level = 10 units
-        # Agent 'S' at grid (1,1) = world (-5, 2.5)
-        # Need agent at (0, 5) with wall at y=10, so need different approach
-
-        # Create custom level with proper dimensions
-        # For a 21x9 grid with scale 1.0: 21 units wide, 9 units tall
-        # Agent at grid position (10, 5) = world position (0, 5)
-        # Wall at row 0 (y=8.5) is close, wall at row 8 would be at y=0.5
-        # We need wall at y=10, so we need the agent further south
-
-        # Let's use scale=1.25 and 17x13 grid:
-        # Grid 17x13 with scale 1.25 = 21.25x16.25 world units
-        # Agent at (8,4) = world (0, 5)
-        # Wall at row 0 = y=15 (too far)
-        # Let's adjust: Agent at (8,8) = world (0,0), wall at row 0 = y=15
-
-        # Use a simple test level first
-        lidar_level = """#####
-#S..#
-#...#
-#####"""
-
-        # Import required modules
-        from madrona_escape_room import ExecMode, SimManager
-
-        # Phase 2: Hardcode lidar configuration - use default FOV to fix infinity issue
-        batch_render_view_width = 128  # 128 horizontal beams for lidar
-        batch_render_view_height = 1  # Single pixel height works with default FOV
-        # custom_vertical_fov removed - using default 100° FOV to fix infinity readings
-
-        mgr = SimManager(
-            exec_mode=ExecMode.CPU,
-            gpu_id=0,
-            num_worlds=1,
-            rand_seed=42,
-            auto_reset=True,
-            enable_batch_renderer=True,
-            batch_render_view_width=batch_render_view_width,
-            batch_render_view_height=batch_render_view_height,
-            # custom_vertical_fov parameter removed to use working default FOV
-            compiled_levels=compile_ascii_level(lidar_level),
-        )
+        # Use the standard cpu_manager with depth_config marker
+        mgr = cpu_manager
 
         # Step once to get initial observations
         mgr.step()
@@ -86,7 +64,7 @@ class TestHorizontalLidar:
         # Phase 4.2: Validation Logic
 
         # Verify tensor shape: (worlds, agents, height, width, channels)
-        expected_shape = (1, 1, 1, 128, 1)
+        expected_shape = (4, 1, 1, 128, 1)  # 4 worlds from fixture
         assert (
             depth_array.shape == expected_shape
         ), f"Expected shape {expected_shape}, got {depth_array.shape}"
@@ -94,7 +72,8 @@ class TestHorizontalLidar:
         # Extract depth readings for analysis - single row configuration
         depth_readings = depth_array[0, 0, 0, :, 0]  # Shape: (128,) - horizontal lidar line
         print(
-            f"Lidar readings: min={depth_readings.min():.3f}, max={depth_readings.max():.3f}, mean={depth_readings.mean():.3f}"
+            f"Lidar readings: min={depth_readings.min():.3f}, "
+            f"max={depth_readings.max():.3f}, mean={depth_readings.mean():.3f}"
         )
         print(f"Sample readings: {depth_readings[::32]}")  # Every 32nd reading
 
@@ -157,15 +136,16 @@ class TestHorizontalLidar:
 
         # 1. Basic functionality: At least some beams should detect walls
         assert finite_count > 0, (
-            f"Horizontal lidar completely non-functional - all {total_beams} beams report infinity. "
-            f"Expected at least some wall detection for 128x1 configuration with default FOV."
+            f"Horizontal lidar completely non-functional - all {total_beams} beams "
+            f"report infinity. Expected at least some wall detection for 128x1 configuration."
         )
 
         # 2. Reasonable finite readings quality
         if finite_count > 0:
-            assert np.all(
-                finite_readings > 0.001
-            ), f"Some finite readings too close to zero: {finite_readings[finite_readings <= 0.001]}"
+            assert np.all(finite_readings > 0.001), (
+                f"Some finite readings too close to zero: "
+                f"{finite_readings[finite_readings <= 0.001]}"
+            )
             assert np.all(
                 finite_readings < 100.0
             ), f"Some finite readings unreasonably far: {finite_readings[finite_readings >= 100.0]}"
@@ -175,7 +155,8 @@ class TestHorizontalLidar:
         actual_coverage = finite_count / total_beams
 
         assert actual_coverage >= required_coverage, (
-            f"HORIZONTAL LIDAR FAILED: {finite_count}/{total_beams} ({actual_coverage:.1%}) coverage. "
+            f"HORIZONTAL LIDAR FAILED: {finite_count}/{total_beams} "
+            f"({actual_coverage:.1%}) coverage. "
             f"REQUIREMENT: 100% coverage ({total_beams}/{total_beams} beams must work). "
             f"Current coverage is {required_coverage - actual_coverage:.1%} below requirement."
         )
@@ -205,7 +186,8 @@ class TestHorizontalLidar:
         )
         if finite_count > 0:
             print(
-                f"✅ Distance range: {finite_readings.min():.3f} - {finite_readings.max():.3f} units"
+                f"✅ Distance range: {finite_readings.min():.3f} - "
+                f"{finite_readings.max():.3f} units"
             )
             print(f"✅ Finite beam positions: {list(finite_indices)}")
         print("✅ Configuration: 128x1 horizontal lidar with default 100° FOV")
@@ -299,7 +281,8 @@ class TestHorizontalLidar:
                 if actual_success:
                     finite_readings = depth_readings[np.isfinite(depth_readings)]
                     print(
-                        f"✅ SUCCESS - Range: {finite_readings.min():.3f} - {finite_readings.max():.3f}"
+                        f"✅ SUCCESS - Range: {finite_readings.min():.3f} - "
+                        f"{finite_readings.max():.3f}"
                     )
                 else:
                     print("❌ FAILED - All readings are infinity")
@@ -380,7 +363,6 @@ class TestHorizontalLidar:
 
             # Check FOV patterns
             working_fovs = set(fov for _, _, _, fov, _ in working_configs)
-            failing_fovs = set(fov for _, _, _, fov, _ in failing_configs)
 
             if 100.0 in working_fovs and all(
                 fov != 100.0 for _, _, _, fov, _ in failing_configs if fov < 50
