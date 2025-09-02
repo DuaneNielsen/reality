@@ -1,6 +1,6 @@
 # Python Test Suite
 
-This directory contains the Python test suite for the Madrona Escape Room environment. The tests use pytest and cover core functionality, bindings, level compilation, and various simulation features.
+This directory contains the Python test suite for the Madrona Escape Room environment with **33 test files**. The tests use pytest and cover core functionality, bindings, level compilation, simulation features, recording/replay, and comprehensive system validation.
 
 ## Key Constraint: GPU Manager Limitation
 
@@ -27,21 +27,29 @@ def test_gpu_feature(gpu_manager):
 - **test_00_ctypes_cpu_only.py** - Import order independence tests between PyTorch and madrona_escape_room
 - **test_bindings.py** - Comprehensive Python bindings test covering tensor operations, simulation steps, and GPU functionality  
 - **test_ctypes_basic.py** - Basic ctypes bindings test for CPU/GPU manager creation
+- **test_asset_descriptors_api.py** - C API functions for physics and render asset descriptors
 
 ### Level System Tests
 - **test_ascii_level_compiler.py** - ASCII level compilation pipeline from ASCII art to C API structs
 - **test_level_compiler_c_api.py** - Level compiler C API integration tests
 - **test_spawn_locations.py** - Tests for agent spawn point validation and positioning
+- **test_world_boundaries.py** - World boundary calculations for different level sizes and scales
+- **test_tileset_compiler.py** - Tileset compilation functionality
+- **test_default_level_binary_comparison.py** - Binary comparison of default level generation
 
 ### Simulation System Tests
 - **test_movement_system.py** - Agent movement including forward movement, strafing, and rotation
 - **test_reward_system.py** - Reward system testing for Y-progress based scoring at episode end
+- **test_collision_termination.py** - Collision-based episode termination with per-tile collision flags
+- **test_done_tensor_reset.py** - Done tensor reset behavior and episode length handling
+- **test_comprehensive_reset_episode_counter_done_flag.py** - Comprehensive testing of reset/episode counter/done flag interactions
 
 ### Recording and Replay Tests
 - **test_native_recording.py** - Native recording functionality tests
 - **test_native_recording_gpu.py** - GPU-specific recording tests
 - **test_native_recording_replay_roundtrip.py** - Recording/replay roundtrip validation
 - **test_native_replay.py** - Replay system functionality tests
+- **test_recording_binary_format.py** - Binary recording format validation
 
 ### Tensor and Memory Tests
 - **test_dlpack.py** - DLPack tensor format interoperability
@@ -53,6 +61,7 @@ def test_gpu_feature(gpu_manager):
 ### API Validation Tests
 - **test_c_api_struct_validation.py** - C API struct validation and memory layout
 - **test_helpers.py** - Test utilities for agent control and observation reading
+- **test_custom_level_fixture.py** - Custom level fixture functionality testing
 
 ### Environment Integration Tests
 - **test_env_wrapper.py** - Environment wrapper functionality
@@ -89,7 +98,7 @@ uv run --group dev pytest tests/python/ -v -k "gpu"
 
 ## Custom Level Testing
 
-The `cpu_manager` fixture supports custom ASCII levels using the `@pytest.mark.custom_level()` decorator:
+The `cpu_manager` fixture supports custom ASCII levels using the `@pytest.mark.ascii_level()` decorator:
 
 ### Basic Usage
 ```python
@@ -104,7 +113,7 @@ TEST_LEVEL = """
 ##########
 """
 
-@pytest.mark.custom_level(TEST_LEVEL)
+@pytest.mark.ascii_level(TEST_LEVEL)
 def test_with_custom_level(cpu_manager):
     """Test uses the custom level instead of default"""
     mgr = cpu_manager  # Manager initialized with TEST_LEVEL
@@ -129,7 +138,7 @@ CORRIDOR_LEVEL = """
 ################################
 """
 
-@pytest.mark.custom_level(CORRIDOR_LEVEL)
+@pytest.mark.ascii_level(CORRIDOR_LEVEL)
 def test_corridor_navigation(cpu_manager):
     """Test agent navigation through narrow passage"""
     mgr = cpu_manager
@@ -140,6 +149,7 @@ def test_corridor_navigation(cpu_manager):
 - Only works with `cpu_manager` fixture (function-scoped)
 - Module-scoped fixtures don't support per-test custom levels
 - GPU tests should not use custom levels (violates single GPU manager constraint)
+- JSON levels can also be used with `@pytest.mark.json_level()` for more complex level definitions
 
 ## Running Tests
 
@@ -205,7 +215,7 @@ uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movem
 # Skip GPU tests if CUDA unavailable
 uv run --group dev pytest tests/python/ --no-gpu
 
-# Run only GPU tests (expect ~60s NVRTC compilation on first GPU test)
+# Run only GPU tests (~11 GPU test files, expect ~60s NVRTC compilation on first GPU test)
 uv run --group dev pytest tests/python/ -k "gpu" -v
 
 # GPU tests are marked as 'slow' due to NVRTC compilation time
@@ -331,7 +341,8 @@ controller.set_custom_action(
 - Use custom levels with GPU tests
 
 ## Test Markers
-- `@pytest.mark.custom_level("level_ascii")` - Provide custom ASCII levels to tests
+- `@pytest.mark.ascii_level("level_ascii")` - Provide custom ASCII levels to tests
+- `@pytest.mark.json_level("level_json")` - Provide custom JSON levels to tests
 - `@pytest.mark.skipif(not torch.cuda.is_available(), ...)` - Skip tests when CUDA unavailable
 - `@pytest.mark.slow` - Mark tests that take significant time (GPU compilation, stress tests)
 

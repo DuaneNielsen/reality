@@ -128,8 +128,8 @@ mgr = madrona_escape_room.SimManager(
 
 # Get tensor references (zero-copy views)
 actions = mgr.action_tensor().to_torch()      # Shape: [num_worlds, 3]
-obs = mgr.self_observation_tensor().to_torch() # Shape: [num_worlds, 5]
-rewards = mgr.reward_tensor().to_torch()       # Shape: [num_worlds]
+obs = mgr.self_observation_tensor().to_torch() # Shape: [num_worlds, 1, 5]
+rewards = mgr.reward_tensor().to_torch()       # Shape: [num_worlds, 1, 1]
 
 # Training loop
 for step in range(1000):

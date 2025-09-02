@@ -46,7 +46,8 @@ tests/cpp/
 │   ├── cpp_test_base.hpp       # Direct C++ test fixture classes
 │   ├── viewer_test_base.hpp    # ViewerCore test fixtures
 │   ├── mock_components.hpp     # Mock objects for testing
-│   └── test_levels.hpp         # Test level data and helpers
+│   ├── test_level_helper.hpp   # Test level data and helpers
+│   └── reusable_gpu_test.hpp   # GPU test fixtures with shared managers
 ├── unit/                        # Unit test files
 │   ├── test_c_api_cpu.cpp     # C API CPU tests
 │   ├── test_c_api_gpu.cpp     # C API GPU tests
@@ -54,8 +55,9 @@ tests/cpp/
 │   └── test_viewer_core.cpp   # ViewerCore tests
 ├── integration/                 # Integration test files
 │   └── test_viewer_integration.cpp
-└── e2e/                        # End-to-end test files
-    └── test_viewer_workflows.cpp
+├── e2e/                        # End-to-end test files
+│   └── test_viewer_workflows.cpp
+└── test_asset_registry.cpp    # Asset registry tests
 ```
 
 ## Building Tests
@@ -92,22 +94,19 @@ make run_gpu_tests          # Fast GPU tests
 make run_gpu_stress_tests   # Comprehensive GPU tests
 ```
 
-### Using the Test Script
+### Running Tests Directly
 
-The easiest way to run tests:
+Run the test executables directly from the build directory:
 
 ```bash
-# Run all tests
-./tests/run_cpp_tests.sh
+# Run CPU tests (fast, ~30 seconds)
+./build/mad_escape_tests
 
-# Run only CPU tests (recommended for quick feedback)
-./tests/run_cpp_tests.sh --cpu-only
+# Run GPU tests with shared managers (~1-2 minutes)
+./build/mad_escape_gpu_tests
 
-# Run only GPU tests (requires CUDA, expect 10+ minutes)
-./tests/run_cpp_tests.sh --gpu-only
-
-# Build tests without running
-./tests/run_cpp_tests.sh --build-only
+# Run GPU stress tests (~8+ minutes)
+./build/mad_escape_gpu_stress_tests
 ```
 
 ### Direct Execution
@@ -151,19 +150,13 @@ This is a Madrona framework limitation where CUDA device state is not properly r
 
 #### Workarounds
 
-1. **Use the provided isolation script** (recommended):
-```bash
-# Automatically runs each GPU test in a separate process
-./tests/run_gpu_tests_isolated.sh
-```
-
-2. **Run GPU tests individually**:
+1. **Run GPU tests individually**:
 ```bash
 # Run a single GPU test
 ./build/mad_escape_tests --gtest_filter="CApiGPUTest.ManagerCreation"
 ```
 
-3. **Skip GPU tests during development**:
+2. **Skip GPU tests during development**:
 ```bash
 # Run only CPU tests for quick iteration
 ./build/mad_escape_tests --gtest_filter="*CPU*"
@@ -252,6 +245,15 @@ protected:
     // Automatically creates test levels in SetUp()
     // Provides CreateManager() helper that handles level creation
     // Provides ValidateTensorShape() for tensor validation
+};
+```
+
+**ViewerTestBase** - Fixture for viewer integration tests (from viewer_test_base.hpp):
+```cpp
+class MyViewerTest : public ViewerTestBase {
+protected:
+    // Provides viewer creation helpers
+    // Inherits from MadronaTestBase for C API testing
 };
 ```
 
