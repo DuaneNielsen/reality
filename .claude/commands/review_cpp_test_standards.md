@@ -166,7 +166,7 @@ Grep(pattern="CheckCudaAvailable|ALLOW_GPU_TESTS_IN_SUITE|GTEST_SKIP", path="$AR
 
 ## clean test output
 
-Check for and remove extraneous output that pollutes GoogleTest results:
+Ensure debug output is properly captured to maintain clean GoogleTest results:
 
 **Clean GoogleTest Output Patterns:**
 - `[==========]` test run headers/footers
@@ -175,29 +175,45 @@ Check for and remove extraneous output that pollutes GoogleTest results:
 - `[       OK ]` / `[  FAILED  ]` test results
 - `[  PASSED  ]` / `[  SKIPPED ]` summaries
 
-**Common Dirty Output Sources:**
-- `std::cout` / `printf` statements in tests
+**Debug Output is Acceptable When Captured:**
+Debug output is useful for understanding test failures, but it MUST be captured to avoid polluting test results. Common sources that need capture:
+- `std::cout` / `printf` statements for debugging
 - `Recording to:` / `Recording complete:` messages
-- Debug output from manager creation
-- Custom GTEST_SKIP messages
+- Manager creation/destruction logging
+- Custom diagnostic messages
 
-Check for output statements:
+Check for uncaptured output statements:
 ```tool
 Grep(pattern="std::cout|printf|fprintf|std::cerr|DEBUG|Recording", path="$ARGUMENT", output_mode="content", -n=true)
 ```
 
-**Output Capture Pattern for Tests:**
+Then verify if output capture is present:
+```tool
+Grep(pattern="CaptureStdout|CaptureStderr|GetCaptured", path="$ARGUMENT", output_mode="content", -n=true)
+```
+
+**Required Output Capture Pattern for Tests with Debug Output:**
 ```cpp
-// Add GoogleTest output capture
+// Add GoogleTest output capture includes
 #include <gtest/gtest-internal-inl.h>
 using testing::internal::CaptureStdout;
 using testing::internal::GetCapturedStdout;
+using testing::internal::CaptureStderr;
+using testing::internal::GetCapturedStderr;
 
 TEST_F(TestFixture, TestName) {
-    CaptureStdout();  // Capture output
-    // Test code that produces output
-    std::string output = GetCapturedStdout();
-    // Optionally verify output
+    CaptureStdout();  // Capture stdout
+    CaptureStderr();  // Capture stderr if needed
+    
+    // Test code that produces debug output
+    std::cout << "Debug: Testing feature X" << std::endl;
+    
+    // Get captured output (prevents it from appearing in test results)
+    std::string stdout_output = GetCapturedStdout();
+    std::string stderr_output = GetCapturedStderr();
+    
+    // Optionally verify expected output
+    EXPECT_TRUE(stdout_output.find("Testing feature X") != std::string::npos);
 }
 ```
 
@@ -219,18 +235,25 @@ Edit(file_path="$ARGUMENT",
      new_string="TEST_F(MyGPUTest, TestName) {\n    if (!CheckCudaAvailable()) {\n        GTEST_SKIP() << \"CUDA not available\";\n    }")
 ```
 
-**Remove Debug Output:**
+**Add Output Capture for Debug Statements:**
 ```tool
 Edit(file_path="$ARGUMENT",
-     old_string="std::cout << \"Debug: \" << value << std::endl;",
-     new_string="// Debug output removed for clean test output")
+     old_string="TEST_F(TestFixture, TestName) {\n    std::cout << \"Debug: \" << value << std::endl;",
+     new_string="TEST_F(TestFixture, TestName) {\n    CaptureStdout();  // Capture debug output\n    std::cout << \"Debug: \" << value << std::endl;")
 ```
 
-**Add Output Capture:**
+**Complete Output Capture Pattern:**
 ```tool
 Edit(file_path="$ARGUMENT",
-     old_string="TEST_F(TestFixture, TestName) {\n    // Test with output",
-     new_string="TEST_F(TestFixture, TestName) {\n    CaptureStdout();  // Capture output for clean test results\n    // Test with output")
+     old_string="    // End of test\n}",
+     new_string="    // Get captured output to prevent test pollution\n    std::string output = GetCapturedStdout();\n    // End of test\n}")
+```
+
+**Add Capture Includes if Missing:**
+```tool
+Edit(file_path="$ARGUMENT",
+     old_string="#include <gtest/gtest.h>",
+     new_string="#include <gtest/gtest.h>\n#include <gtest/gtest-internal-inl.h>\n\nusing testing::internal::CaptureStdout;\nusing testing::internal::GetCapturedStdout;\nusing testing::internal::CaptureStderr;\nusing testing::internal::GetCapturedStderr;")
 ```
 
 **Fix Test Naming:**
