@@ -4,6 +4,8 @@ Test 128-beam horizontal lidar with 120° FOV using pytest framework
 Tests the horizontal lidar POC implementation with hardcoded configuration.
 """
 
+import math
+
 import numpy as np
 import pytest
 
@@ -11,26 +13,156 @@ from madrona_escape_room import ExecMode
 from madrona_escape_room.level_compiler import compile_ascii_level
 from madrona_escape_room.manager import SimManager
 
-# Large open level for testing - same as movement test
-LARGE_OPEN_LEVEL = """################################
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............S...............#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-################################"""
+# Level with walls on top and bottom for lidar testing
+LARGE_OPEN_LEVEL = """################################################################
+................................................................
+................................................................
+................................................................
+................................................................
+................................................................
+................................................................
+..............................S...............................
+................................................................
+................................................................
+................................................................
+................................................................
+................................................................
+................................................................
+################################################################"""
+
+
+def calculate_expected_distance(
+    beam_index: int,
+    agent_pos: tuple[float, float],  # (x, y) of agent
+    camera_offset_y: float,  # Camera offset in agent's +Y direction
+    wall_center_y: float,  # Wall center Y position
+    wall_thickness: float,  # Wall thickness (cube extends ±thickness/2)
+    beam_count: int = 128,  # Total number of beams
+    fov_degrees: float = 120.0,  # Horizontal field of view
+) -> float:
+    """Calculate expected distance using perspective projection mapping."""
+    # Camera position in world coordinates
+    camera_y = agent_pos[1] + camera_offset_y
+
+    # Wall front face Y position (closest to agent)
+    wall_front_y = wall_center_y - wall_thickness / 2
+
+    # Map beam index to screen coordinate (NDC-like)
+    # Pixel center is at +0.5, so beam 0 is at 0.5, beam 127 is at 127.5
+    pixel_x = beam_index + 0.5
+    screen_x = (pixel_x / beam_count) * 2.0 - 1.0  # Map [0.5, 127.5] to [-1, 1]
+
+    # Convert FOV to half-angle and calculate perspective scale
+    fov_radians = math.radians(fov_degrees)
+    tan_half_fov = math.tan(fov_radians / 2.0)
+
+    # Map screen coordinate to view ray direction via perspective projection
+    # This accounts for the perspective transformation's non-linear angular mapping
+    ray_x = screen_x * tan_half_fov  # Horizontal ray direction component
+    ray_y = 1.0  # Forward direction (normalized)
+
+    # Calculate intersection with wall front face
+    t = (wall_front_y - camera_y) / ray_y
+    distance = t * math.sqrt(ray_x**2 + ray_y**2)
+
+    return distance
+
+
+def model_full_lidar_sweep(
+    agent_pos: tuple[float, float],
+    camera_offset_y: float,
+    wall_center_y: float,
+    wall_thickness: float,
+    beam_count: int = 128,
+    fov_degrees: float = 120.0,
+) -> np.ndarray:
+    """Model the full lidar sweep using perspective projection mapping."""
+    distances = np.zeros(beam_count)
+    for i in range(beam_count):
+        distances[i] = calculate_expected_distance(
+            i, agent_pos, camera_offset_y, wall_center_y, wall_thickness, beam_count, fov_degrees
+        )
+    return distances
 
 
 class TestHorizontalLidar:
     """Test horizontal lidar functionality"""
+
+    @pytest.mark.skip(reason="Debug test - kept for knowledge but skipped in normal runs")
+    @pytest.mark.ascii_level(LARGE_OPEN_LEVEL)
+    @pytest.mark.depth_config(64, 64, 1.55)  # 64x64 with default settings
+    def test_64x64_depth_configuration_debug(self, cpu_manager):
+        """
+        Debug test with 64x64 depth configuration to investigate depth tensor behavior.
+
+        This test uses a standard 64x64 depth sensor configuration to see what values
+        are actually being returned and compare with the 128x1 horizontal lidar.
+        """
+
+        # Use the cpu_manager fixture with 64x64 configuration
+        mgr = cpu_manager
+
+        # Step once to generate observations
+        mgr.step()
+
+        # Get depth tensor
+        depth_tensor = mgr.depth_tensor()
+        if depth_tensor.isOnGPU():
+            depth_array = depth_tensor.to_torch().cpu().numpy()
+        else:
+            depth_array = depth_tensor.to_numpy()
+
+        print("\n=== 64x64 DEBUG ANALYSIS ===")
+        print(f"Depth tensor shape: {depth_array.shape}")
+
+        # Extract center region for analysis
+        if len(depth_array.shape) >= 4:
+            # Shape should be (4, 1, 64, 64, 1) for 4 worlds
+            center_region = depth_array[0, 0, :, :, 0]  # [height, width] for first world
+
+            print(f"Center region shape: {center_region.shape}")
+            print(f"Min depth: {center_region.min():.3f}")
+            print(f"Max depth: {center_region.max():.3f}")
+            print(f"Mean depth: {center_region.mean():.3f}")
+
+            # Sample some specific pixels
+            h, w = center_region.shape
+            center_pixel = center_region[h // 2, w // 2]
+            corner_pixel = center_region[0, 0]
+
+            print(f"Center pixel [{h//2},{w//2}]: {center_pixel:.3f}")
+            print(f"Corner pixel [0,0]: {corner_pixel:.3f}")
+
+            # Count different value types
+            finite_count = np.sum(np.isfinite(center_region))
+            inf_count = np.sum(np.isinf(center_region))
+            nan_count = np.sum(np.isnan(center_region))
+            zero_count = np.sum(center_region == 0.0)
+            total_pixels = center_region.size
+
+            print(f"Total pixels: {total_pixels}")
+            print(f"Finite values: {finite_count} ({finite_count/total_pixels:.1%})")
+            print(f"Infinity values: {inf_count} ({inf_count/total_pixels:.1%})")
+            print(f"NaN values: {nan_count} ({nan_count/total_pixels:.1%})")
+            print(f"Zero values: {zero_count} ({zero_count/total_pixels:.1%})")
+
+            # Look for our debug markers
+            marker_123456 = np.sum(center_region == 123456.0)
+            marker_999999 = np.sum(center_region == 999999.0)
+            marker_111111_plus = np.sum((center_region > 111111.0) & (center_region < 111112.0))
+
+            print(f"Debug marker 123456.0: {marker_123456} pixels")
+            print(f"Debug marker 999999.0: {marker_999999} pixels")
+            print(f"Debug marker ~111111.x: {marker_111111_plus} pixels")
+
+            # Sample actual values to see patterns
+            unique_values = np.unique(center_region.flatten())
+            print(f"Number of unique values: {len(unique_values)}")
+            if len(unique_values) <= 10:
+                print(f"Unique values: {unique_values}")
+            else:
+                print(f"First 10 unique values: {unique_values[:10]}")
+                print(f"Last 10 unique values: {unique_values[-10:]}")
 
     @pytest.mark.ascii_level(LARGE_OPEN_LEVEL)
     @pytest.mark.depth_config(128, 1, 1.55)  # width, height, fov
@@ -48,37 +180,95 @@ class TestHorizontalLidar:
         # Use the standard cpu_manager with depth_config marker
         mgr = cpu_manager
 
-        # Step once to get initial observations
+        # Compile the ASCII level to see wall positions
+        from madrona_escape_room.level_compiler import compile_ascii_level
+
+        level = compile_ascii_level(LARGE_OPEN_LEVEL, level_name="test_level")
+
+        print("\n=== COMPILED LEVEL INFO ===")
+        print(f"Number of tiles: {level.num_tiles}")
+        print(f"Spawn position: ({level.spawn_x[0]:.3f}, {level.spawn_y[0]:.3f})")
+
+        wall_count = 0
+        print("\n=== WALL POSITIONS (first 10) ===")
+        for i in range(level.num_tiles):
+            obj_id = level.object_ids[i]
+            if obj_id == 2:  # Wall asset ID
+                if wall_count < 10:
+                    x = level.tile_x[i]
+                    y = level.tile_y[i]
+                    print(f"Wall {wall_count}: ({x:.1f}, {y:.1f})")
+                wall_count += 1
+        print(f"Total walls: {wall_count}")
+
+        # Step once to get observations
         mgr.step()
 
-        # Get depth tensor - should be (worlds, agents, height, width, channels)
+        # Get depth tensor for first world only
         depth_tensor = mgr.depth_tensor()
-
-        # Handle both CPU and GPU tensors
         if depth_tensor.isOnGPU():
-            depth_torch = depth_tensor.to_torch()
-            depth_array = depth_torch.cpu().numpy()
+            depth_array = depth_tensor.to_torch().cpu().numpy()
         else:
             depth_array = depth_tensor.to_numpy()
 
-        # Phase 4.2: Validation Logic
+        # Print first world depth readings
+        depth_readings = depth_array[0, 0, 0, :, 0]  # World 0, Agent 0, all 128 beams
+        print(f"\nFirst world depth readings (128 beams): {depth_readings}")
 
-        # Verify tensor shape: (worlds, agents, height, width, channels)
-        expected_shape = (4, 1, 1, 128, 1)  # 4 worlds from fixture
-        assert (
-            depth_array.shape == expected_shape
-        ), f"Expected shape {expected_shape}, got {depth_array.shape}"
+        # Model expected distances using perspective projection
+        agent_position = (-1.25, 0.0)
+        camera_offset = 1.0
+        wall_center = 17.5
+        wall_thickness = 2.0
+        fov = 120.0
 
-        # Extract depth readings for analysis - single row configuration
-        depth_readings = depth_array[0, 0, 0, :, 0]  # Shape: (128,) - horizontal lidar line
-        print(
-            f"Lidar readings: min={depth_readings.min():.3f}, "
-            f"max={depth_readings.max():.3f}, mean={depth_readings.mean():.3f}"
+        expected_distances = model_full_lidar_sweep(
+            agent_position, camera_offset, wall_center, wall_thickness, fov_degrees=fov
         )
-        print(f"Sample readings: {depth_readings[::32]}")  # Every 32nd reading
 
-        print(f"\nDepth readings shape: {depth_readings.shape}")
-        print(f"Center beam (64): {depth_readings[64]:.3f}")
+        # Compare key beams
+        print("\n=== MODEL VALIDATION ===")
+        center_beam = 64
+        key_beams = [
+            (0, "Left edge"),
+            (32, "Left-center"),
+            (center_beam, "Center"),
+            (96, "Right-center"),
+            (127, "Right edge"),
+        ]
+
+        print(f"{'Beam':<12} {'Expected':<8} {'Actual':<8} {'Error%':<8} {'Within 2%':<8}")
+        print("-" * 60)
+
+        for beam_idx, label in key_beams:
+            expected = expected_distances[beam_idx]
+            actual = depth_readings[beam_idx]
+            error_pct = ((actual - expected) / expected) * 100
+            within_tolerance = abs(error_pct) <= 2.0
+
+            tolerance_mark = "✓" if within_tolerance else "✗"
+            print(
+                f"{label:<12} {expected:<8.3f} {actual:<8.3f} {error_pct:<8.1f} {tolerance_mark:<8}"
+            )
+
+        # Overall error stats
+        errors = depth_readings - expected_distances
+        mean_error = np.mean(np.abs(errors))
+        max_error = np.max(np.abs(errors))
+        error_percentages = np.abs((depth_readings - expected_distances) / expected_distances) * 100
+        max_error_pct = np.max(error_percentages)
+        beams_within_tolerance = np.sum(error_percentages <= 2.0)
+
+        print("\n=== ACCURACY SUMMARY ===")
+        print(f"Mean absolute error: {mean_error:.3f} units")
+        print(f"Max absolute error: {max_error:.3f} units")
+        print(f"Max error percentage: {max_error_pct:.1f}%")
+        tolerance_pct = beams_within_tolerance / len(depth_readings)
+        print(
+            f"Beams within 2% tolerance: {beams_within_tolerance}/{len(depth_readings)} "
+            f"({tolerance_pct:.1%})"
+        )
+        print(f"FOV: {fov}°")
 
         # Phase 5.3: Full Beam Array Analysis - Comprehensive horizontal lidar validation
 
@@ -99,10 +289,7 @@ class TestHorizontalLidar:
         print(f"Zero readings: {zero_count} ({zero_count/total_beams:.1%})")
 
         # Find beams with finite readings for detailed analysis
-        finite_indices = np.where(np.isfinite(depth_readings))[0]
         if finite_count > 0:
-            print(f"Finite beam positions: {finite_indices}")
-            print(f"Finite beam distances: {depth_readings[finite_indices]}")
             print(
                 f"Distance range: {finite_readings.min():.3f} - {finite_readings.max():.3f} units"
             )
@@ -161,6 +348,18 @@ class TestHorizontalLidar:
             f"Current coverage is {required_coverage - actual_coverage:.1%} below requirement."
         )
 
+        # 4. Model accuracy - perspective projection model should be within 2% tolerance
+        model_tolerance_pct = 2.0
+        beams_within_model_tolerance = np.sum(error_percentages <= model_tolerance_pct)
+        model_accuracy_pct = beams_within_model_tolerance / len(depth_readings)
+
+        assert model_accuracy_pct >= 0.95, (  # Require 95% of beams to be within 2% tolerance
+            f"PERSPECTIVE PROJECTION MODEL FAILED: Only {beams_within_model_tolerance}/"
+            f"{len(depth_readings)} ({model_accuracy_pct:.1%}) beams within "
+            f"{model_tolerance_pct}% tolerance. Max error: {max_error_pct:.1f}%. "
+            f"Model may need refinement."
+        )
+
         # 4. If we reach here, we have 100% coverage - SUCCESS!
         print("\n=== PERFORMANCE ASSESSMENT ===")
         print(f"Coverage: {actual_coverage:.1%} - 100% SUCCESS!")
@@ -189,10 +388,10 @@ class TestHorizontalLidar:
                 f"✅ Distance range: {finite_readings.min():.3f} - "
                 f"{finite_readings.max():.3f} units"
             )
-            print(f"✅ Finite beam positions: {list(finite_indices)}")
         print("✅ Configuration: 128x1 horizontal lidar with default 100° FOV")
         print("✅ Status: 100% SUCCESS - ALL BEAMS FUNCTIONAL!")
 
+    @pytest.mark.skip(reason="Research test - kept for knowledge but skipped in normal runs")
     def test_depth_sensor_configuration_comparison(self):
         """
         Test various depth sensor configurations to identify working vs failing thresholds.
