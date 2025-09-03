@@ -44,13 +44,11 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     """Configure pytest markers"""
     config.addinivalue_line(
-        "markers", "depth_sensor: mark test to enable depth sensor (batch renderer)"
+        "markers",
+        "depth_sensor: enable depth sensor (width, height, fov). Default: 64x64, 100° FOV",
     )
     config.addinivalue_line("markers", "ascii_level: mark test to use custom ASCII level layout")
     config.addinivalue_line("markers", "json_level: mark test to use custom JSON level definition")
-    config.addinivalue_line(
-        "markers", "depth_config: mark test with custom depth sensor config (width, height, fov)"
-    )
 
 
 def pytest_runtest_setup(item):
@@ -79,6 +77,7 @@ def _create_sim_manager(
     batch_render_width=64,
     batch_render_height=64,
     custom_vertical_fov=0.0,
+    render_mode=None,
 ):
     """Helper function to create SimManager with reduced boilerplate
 
@@ -90,6 +89,7 @@ def _create_sim_manager(
         batch_render_width: Custom render view width (default 64)
         batch_render_height: Custom render view height (default 64)
         custom_vertical_fov: Custom vertical FOV in degrees (0 = use default)
+        render_mode: RenderMode enum value (None = use default RGBD)
     """
     import madrona_escape_room
     from madrona_escape_room import ExecMode, SimManager, create_default_level
@@ -99,7 +99,6 @@ def _create_sim_manager(
     ascii_marker = request.node.get_closest_marker("ascii_level")
     json_marker = request.node.get_closest_marker("json_level")
     depth_marker = request.node.get_closest_marker("depth_sensor")
-    depth_config_marker = request.node.get_closest_marker("depth_config")
 
     if ascii_marker:
         ascii_str = ascii_marker.args[0]
@@ -118,15 +117,24 @@ def _create_sim_manager(
     if enable_depth_override is not None:
         enable_renderer = enable_depth_override
     else:
-        enable_renderer = depth_marker is not None or depth_config_marker is not None
+        enable_renderer = depth_marker is not None
 
-    # Override render parameters from depth_config marker
-    if depth_config_marker:
-        if len(depth_config_marker.args) >= 2:
-            batch_render_width = depth_config_marker.args[0]
-            batch_render_height = depth_config_marker.args[1]
-        if len(depth_config_marker.args) >= 3:
-            custom_vertical_fov = depth_config_marker.args[2]
+    # Override render parameters from depth_sensor marker
+    if depth_marker:
+        # depth_sensor marker with optional parameters: (width, height, fov)
+        if len(depth_marker.args) >= 2:
+            batch_render_width = depth_marker.args[0]
+            batch_render_height = depth_marker.args[1]
+        if len(depth_marker.args) >= 3:
+            custom_vertical_fov = depth_marker.args[2]
+
+    # Determine render mode from markers
+    if render_mode is None:  # Only set from marker if not explicitly passed
+        if depth_marker is not None:
+            from madrona_escape_room import RenderMode
+
+            render_mode = RenderMode.Depth
+        # Otherwise use default (RGBD)
 
     if enable_renderer:
         exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
@@ -146,6 +154,7 @@ def _create_sim_manager(
         batch_render_view_width=batch_render_width,
         batch_render_view_height=batch_render_height,
         custom_vertical_fov=custom_vertical_fov,
+        render_mode=render_mode,
     )
 
 

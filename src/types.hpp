@@ -243,6 +243,7 @@ namespace madEscape {
         uint32_t batch_render_view_width;   // Default: 64
         uint32_t batch_render_view_height;  // Default: 64
         float custom_vertical_fov;          // Custom vertical FOV in degrees (0 = use default)
+        int32_t render_mode;                // Render mode: 0=RGBD, 1=Depth (default: 0)
     };
 
     /* ECS Archetypes for the game */

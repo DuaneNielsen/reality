@@ -134,6 +134,7 @@ public:
         uint32_t batchRenderViewWidth = consts::display::defaultBatchRenderSize;
         uint32_t batchRenderViewHeight = consts::display::defaultBatchRenderSize;
         float customVerticalFov = 0.0f; // Custom vertical FOV in degrees (0 = use default)
+        int32_t renderMode = 0; // Render mode: 0=RGBD, 1=Depth (default: 0=RGBD)
         madrona::render::APIBackend *extRenderAPI = nullptr;
         madrona::render::GPUDevice *extRenderDev = nullptr;
         bool enableTrajectoryTracking = false; // Print agent trajectories to stdout

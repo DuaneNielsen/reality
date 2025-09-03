@@ -9,7 +9,7 @@ import math
 import numpy as np
 import pytest
 
-from madrona_escape_room import ExecMode
+from madrona_escape_room import ExecMode, RenderMode
 from madrona_escape_room.level_compiler import compile_ascii_level
 from madrona_escape_room.manager import SimManager
 
@@ -90,7 +90,7 @@ class TestHorizontalLidar:
 
     @pytest.mark.skip(reason="Debug test - kept for knowledge but skipped in normal runs")
     @pytest.mark.ascii_level(LARGE_OPEN_LEVEL)
-    @pytest.mark.depth_config(64, 64, 1.55)  # 64x64 with default settings
+    @pytest.mark.depth_sensor(64, 64, 1.55)  # 64x64 with default settings
     def test_64x64_depth_configuration_debug(self, cpu_manager):
         """
         Debug test with 64x64 depth configuration to investigate depth tensor behavior.
@@ -165,7 +165,7 @@ class TestHorizontalLidar:
                 print(f"Last 10 unique values: {unique_values[-10:]}")
 
     @pytest.mark.ascii_level(LARGE_OPEN_LEVEL)
-    @pytest.mark.depth_config(128, 1, 1.55)  # width, height, fov
+    @pytest.mark.depth_sensor(128, 1, 1.55)  # width, height, fov
     def test_128_beam_horizontal_lidar_with_fixture(self, cpu_manager):
         """
         Test 128 horizontal lidar beams with 120° FOV using wall-in-front scenario.
@@ -390,6 +390,89 @@ class TestHorizontalLidar:
             )
         print("✅ Configuration: 128x1 horizontal lidar with default 100° FOV")
         print("✅ Status: 100% SUCCESS - ALL BEAMS FUNCTIONAL!")
+
+    def test_render_mode_constants_available(self):
+        """Test that RenderMode constants are properly imported and have correct values"""
+        # Should be able to import RenderMode
+        assert hasattr(RenderMode, "RGBD"), "RenderMode.RGBD not available"
+        assert hasattr(RenderMode, "Depth"), "RenderMode.Depth not available"
+
+        # Check values are correct
+        assert RenderMode.RGBD == 0, f"Expected RGBD=0, got {RenderMode.RGBD}"
+        assert RenderMode.Depth == 1, f"Expected Depth=1, got {RenderMode.Depth}"
+
+        print(f"✅ RenderMode constants: RGBD={RenderMode.RGBD}, Depth={RenderMode.Depth}")
+
+    @pytest.mark.depth_sensor  # Uses Depth render mode, 64x64, 100° FOV
+    def test_render_mode_depth_only(self, cpu_manager):
+        """Test Depth render mode provides depth data efficiently"""
+        mgr = cpu_manager
+
+        # Step once to generate data
+        mgr.step()
+
+        # Test depth tensor access
+        depth_tensor = mgr.depth_tensor()
+        if depth_tensor.isOnGPU():
+            depth_np = depth_tensor.to_torch().cpu().numpy()
+        else:
+            depth_np = depth_tensor.to_numpy()
+
+        # Verify tensor shape and data (4 worlds from fixture)
+        assert depth_np.shape == (
+            4,
+            1,
+            64,
+            64,
+            1,
+        ), f"Expected depth shape (4,1,64,64,1), got {depth_np.shape}"
+        assert depth_np.dtype == np.float32, f"Expected depth dtype float32, got {depth_np.dtype}"
+
+        print(f"✅ Depth-only mode: depth shape {depth_np.shape}")
+
+    def test_render_mode_rgbd_explicit(self):
+        """Test RGBD render mode (default) provides both RGB and depth data"""
+        mgr = SimManager(
+            exec_mode=ExecMode.CPU,
+            gpu_id=0,
+            num_worlds=1,
+            rand_seed=42,
+            auto_reset=True,
+            enable_batch_renderer=True,
+            render_mode=RenderMode.RGBD,
+        )
+
+        # Step once to generate data
+        mgr.step()
+
+        # Test RGB and depth tensor access
+        rgb_tensor = mgr.rgb_tensor()
+        depth_tensor = mgr.depth_tensor()
+
+        if rgb_tensor.isOnGPU():
+            rgb_np = rgb_tensor.to_torch().cpu().numpy()
+            depth_np = depth_tensor.to_torch().cpu().numpy()
+        else:
+            rgb_np = rgb_tensor.to_numpy()
+            depth_np = depth_tensor.to_numpy()
+
+        # Verify tensor shapes for single world
+        assert rgb_np.shape == (
+            1,
+            1,
+            64,
+            64,
+            4,
+        ), f"Expected RGB shape (1,1,64,64,4), got {rgb_np.shape}"
+        assert depth_np.shape == (
+            1,
+            1,
+            64,
+            64,
+            1,
+        ), f"Expected depth shape (1,1,64,64,1), got {depth_np.shape}"
+
+        print(f"✅ RGBD mode: RGB shape {rgb_np.shape}, depth shape {depth_np.shape}")
 
     @pytest.mark.skip(reason="Research test - kept for knowledge but skipped in normal runs")
     def test_depth_sensor_configuration_comparison(self):

@@ -8,7 +8,7 @@ Provides the same API as the original nanobind version
 # Import generated constants
 # Import default level creator
 from .default_level import create_default_level
-from .generated_constants import ExecMode, Result, TensorElementType, action, consts
+from .generated_constants import ExecMode, RenderMode, Result, TensorElementType, action, consts
 
 # Import SimManager from manager module
 from .manager import SimManager
@@ -26,6 +26,7 @@ __all__ = [
     # Constants
     "ExecMode",
     "Result",
+    "RenderMode",
     "TensorElementType",
     "action",
     "consts",

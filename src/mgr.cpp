@@ -96,7 +96,7 @@ static inline Optional<render::RenderManager> initRenderManager(
 
     return render::RenderManager(render_api, render_dev, {
         .enableBatchRenderer = mgr_cfg.enableBatchRenderer,
-        .renderMode = render::RenderManager::Config::RenderMode::Depth,
+        .renderMode = static_cast<render::RenderManager::Config::RenderMode>(mgr_cfg.renderMode),
         .agentViewWidth = mgr_cfg.batchRenderViewWidth,
         .agentViewHeight = mgr_cfg.batchRenderViewHeight,
         .numWorlds = mgr_cfg.numWorlds,
