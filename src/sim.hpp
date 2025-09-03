@@ -48,6 +48,7 @@ struct Sim : public madrona::WorldBase {
         madrona::phys::ObjectManager *rigidBodyObjMgr;
         const madrona::render::RenderECSBridge *renderBridge;
         CompiledLevel compiledLevel;  // Compiled level data
+        float customVerticalFov = 0.0f;  // Custom vertical FOV in degrees (0 = use default)
     };
 
     // Per-world initialization data
@@ -82,6 +83,9 @@ struct Sim : public madrona::WorldBase {
 
     // Are we enabling rendering? (whether with the viewer or not)
     bool enableRender;
+    
+    // Custom vertical FOV for camera/lidar (0 = use default)
+    float customVerticalFov;
 
     // Current episode within this world
     uint32_t curWorldEpisode;

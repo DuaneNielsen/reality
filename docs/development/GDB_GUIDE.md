@@ -111,3 +111,81 @@ For debugging simulation issues:
 - `physicsSystem` - Physics simulation
 - `rewardSystem` - Reward calculation
 - `resetSystem` - Episode reset logic
+
+## Debugging Python Tests with GDB
+
+When debugging C++ code that's called from Python tests, follow this specific process:
+
+### The Problem with Common Approaches
+
+Don't make these mistakes:
+1. **Running shared library directly in GDB** - Shared libraries need an executable to load them
+2. **Debugging the test runner directly** - Overly complex and doesn't load right symbols
+3. **Not setting up pending breakpoints** - C++ symbols aren't loaded until shared library loads
+
+### Correct Process for Python Test Debugging
+
+#### Step 1: Find Your Python Executable
+```bash
+# For uv-managed projects
+uv run which python
+# Output: /home/duane/madrona_escape_room/.venv/bin/python
+```
+
+#### Step 2: Load Python in GDB
+Using MCP GDB tools:
+```python
+mcp__gdb__gdb_start()
+mcp__gdb__gdb_load(
+    sessionId="your_session_id", 
+    program="/home/duane/madrona_escape_room/.venv/bin/python",
+    arguments=["-m", "pytest", "tests/python/test_file.py::test_function", "-v", "-s"]
+)
+```
+
+#### Step 3: Enable Pending Breakpoints (CRUCIAL)
+```python
+mcp__gdb__gdb_command(sessionId="your_session_id", command="set breakpoint pending on")
+```
+
+#### Step 4: Set C++ Breakpoints
+```python
+mcp__gdb__gdb_set_breakpoint(sessionId="your_session_id", location="batch_renderer.cpp:178")
+# Shows as "pending" until shared library loads
+```
+
+#### Step 5: Run and Debug
+```python
+mcp__gdb__gdb_continue(sessionId="your_session_id")
+```
+
+### Execution Flow
+1. Python starts and loads pytest
+2. Python imports your modules
+3. C++ shared library loads (breakpoints become active)
+4. Test executes and hits your C++ breakpoints
+
+### Real Example: Shader Path Bug Discovery
+```gdb
+Thread 1 "python" hit Breakpoint 1, madrona::render::makeDrawShaders (
+    dev=..., 
+    repeat_sampler=0xb2ba420, 
+    clamp_sampler=0xb2ba420, 
+    depth_only=false  # <-- KEY: Using RGB shader, not depth shader!
+) at batch_renderer.cpp:184
+```
+
+This revealed tests were using `batch_draw_rgb.hlsl` instead of `batch_draw_depth.hlsl`.
+
+### Key Success Factors
+- ✅ Use correct Python executable (from your venv)
+- ✅ Always enable pending breakpoints first
+- ✅ Set breakpoints before running
+- ✅ Be patient with Python/pytest startup
+- ✅ Check function arguments for execution flow insights
+
+### Common Mistakes to Avoid
+- ❌ Loading shared library directly: `gdb build/libmadrona_escape_room_c_api.so`
+- ❌ Not enabling pending breakpoints
+- ❌ Using system Python instead of venv Python
+- ❌ Setting breakpoints after program already ran

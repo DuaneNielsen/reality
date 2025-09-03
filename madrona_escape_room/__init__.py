@@ -7,11 +7,16 @@ Provides the same API as the original nanobind version
 
 # Import generated constants
 # Import default level creator
+# Import sensor_config module as namespace
+from . import sensor_config
 from .default_level import create_default_level
-from .generated_constants import ExecMode, Result, TensorElementType, action, consts
+from .generated_constants import ExecMode, RenderMode, Result, TensorElementType, action, consts
 
 # Import SimManager from manager module
 from .manager import SimManager
+
+# Import SensorConfig class
+from .sensor_config import SensorConfig
 
 # Import Tensor from separate module
 from .tensor import Tensor
@@ -21,11 +26,15 @@ __all__ = [
     # Main classes
     "SimManager",
     "Tensor",
+    "SensorConfig",
     # Level creation
     "create_default_level",
+    # Sensor config namespace
+    "sensor_config",
     # Constants
     "ExecMode",
     "Result",
+    "RenderMode",
     "TensorElementType",
     "action",
     "consts",

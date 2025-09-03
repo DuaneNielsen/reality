@@ -76,11 +76,28 @@ While hypothesis is false, repeat the following steps:
 
 ### a. Start the test in the debugger
 
+For C++ tests (direct executable):
 ```gdb_tool
 gdb_load (MCP)(sessionId: "<session_id>", program: "./build/mad_escape_tests", arguments: ["--gtest_filter=CApiCPUTest.ManagerCreation", "--disable-capture", "--gtest_print_time=1", "--gtest_output=json", "-v"])
 ```
 
-**Note:** The debugging flags (`--disable-capture --gtest_print_time=1 --gtest_output=json -v`) are included in the arguments to ensure comprehensive debug output is visible during GDB debugging.
+For Python tests calling C++ code (requires different approach):
+```gdb_tool
+# First find the Python executable
+# uv run which python -> /home/duane/madrona_escape_room/.venv/bin/python
+
+gdb_start()
+gdb_load(
+    sessionId="<session_id>", 
+    program="/home/duane/madrona_escape_room/.venv/bin/python",
+    arguments=["-m", "pytest", "tests/python/test_file.py::test_function", "-v", "-s"]
+)
+
+# CRUCIAL: Enable pending breakpoints before setting them
+gdb_command(sessionId="<session_id>", command="set breakpoint pending on")
+```
+
+**Note:** For Python tests, C++ symbols aren't loaded until the shared library loads during test execution, requiring pending breakpoints.
 
 ### b. Set the breakpoint
 
@@ -120,3 +137,26 @@ Read the code and think. When sufficient information is gathered, formulate a ne
 **Assertion:** When `[methodcall]` in `[filename]:[lineno]` is called, `[variable]` is expected to be `[value]`
 
 ### h. return to step a and repeat until working hypothesis is correct
+
+## Additional Python Test Debugging Notes
+
+### Common Mistakes to Avoid
+- ❌ Loading shared library directly: `gdb build/libmadrona_escape_room_c_api.so`
+- ❌ Not enabling pending breakpoints for Python tests
+- ❌ Using system Python instead of venv Python
+- ❌ Setting breakpoints after program already ran
+
+### Execution Flow for Python Tests
+1. Python starts and loads pytest
+2. Python imports your modules  
+3. C++ shared library loads (breakpoints become active)
+4. Test executes and hits your C++ breakpoints
+
+### Real Example: Shader Path Bug Discovery
+When debugging Python test calling C++ rendering code:
+```gdb
+Thread 1 "python" hit Breakpoint 1, madrona::render::makeDrawShaders (
+    depth_only=false  # <-- KEY: Using RGB shader, not depth shader!
+) at batch_renderer.cpp:184
+```
+This revealed tests were using `batch_draw_rgb.hlsl` instead of `batch_draw_depth.hlsl`.

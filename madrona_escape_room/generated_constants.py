@@ -7,48 +7,6 @@ DO NOT EDIT - this file is automatically regenerated.
 # ruff: noqa
 
 
-class ExecMode:
-    """Enum from madrona"""
-
-    __slots__ = ()
-
-    CPU = 0
-    CUDA = 1
-
-
-class TensorElementType:
-    """Enum from madrona.py"""
-
-    __slots__ = ()
-
-    UInt8 = 0
-    Int8 = 1
-    Int16 = 2
-    Int32 = 3
-    Int64 = 4
-    Float16 = 5
-    Float32 = 6
-
-
-class ResponseType:
-    """Enum from madrona.phys"""
-
-    __slots__ = ()
-
-    Dynamic = 0
-    Kinematic = 1
-    Static = 2
-
-
-class Solver:
-    """Enum from madrona.phys.PhysicsSystem"""
-
-    __slots__ = ()
-
-    XPBD = 0
-    TGS = 1
-
-
 class EntityType:
     """Enum from madEscape"""
 
@@ -77,6 +35,134 @@ class Result:
     ErrorFileIO = -8
 
 
+class ArchetypeFlags:
+    """Enum from madrona"""
+
+    __slots__ = ()
+
+    None_ = 0  # Renamed from 'None' (Python keyword)
+    ImportOffsets = 1
+
+
+class ComponentFlags:
+    """Enum from madrona"""
+
+    __slots__ = ()
+
+    None_ = 0  # Renamed from 'None' (Python keyword)
+    ExportMemory = 1
+    ImportMemory = 2
+    CudaReserveMemory = 4
+    CudaAllocMemory = 8
+
+
+class ExecMode:
+    """Enum from madrona"""
+
+    __slots__ = ()
+
+    CPU = 0
+    CUDA = 1
+
+
+class Op:
+    """Enum from madrona.Transaction"""
+
+    __slots__ = ()
+
+    Make = 0
+    Destroy = 1
+    Modify = 2
+
+
+class ResponseType:
+    """Enum from madrona.phys"""
+
+    __slots__ = ()
+
+    Dynamic = 0
+    Kinematic = 1
+    Static = 2
+
+
+class Type:
+    """Enum from madrona.phys.JointConstraint"""
+
+    __slots__ = ()
+
+    Fixed = 0
+    Hinge = 1
+
+
+class Type:
+    """Enum from madrona.phys.CollisionPrimitive"""
+
+    __slots__ = ()
+
+    Sphere = 1
+    Hull = 2
+    Plane = 4
+
+
+class Solver:
+    """Enum from madrona.phys.PhysicsSystem"""
+
+    __slots__ = ()
+
+    XPBD = 0
+    TGS = 1
+
+
+class Type:
+    """Enum from madrona.render.LightDesc"""
+
+    __slots__ = ()
+
+    Directional = -1
+    Spotlight = 0
+
+
+class unnamed_enum_at_home_duane_madrona_escape_room_src_external_madrona_include_madrona_render_ecs_hpp_123_5:
+    """Enum from madrona.render.MaterialOverride"""
+
+    __slots__ = ()
+
+    UseDefaultMaterial = -1
+    UseOverrideColor = -2
+
+
+class RenderMode:
+    """Enum from madrona.render.RenderManager.Config"""
+
+    __slots__ = ()
+
+    RGBD = 0
+    Depth = 1
+
+
+class TensorElementType:
+    """Enum from madrona.py"""
+
+    __slots__ = ()
+
+    UInt8 = 0
+    Int8 = 1
+    Int16 = 2
+    Int32 = 3
+    Int64 = 4
+    Float16 = 5
+    Float32 = 6
+
+
+class SourceTextureFormat:
+    """Enum from madrona.imp"""
+
+    __slots__ = ()
+
+    R8G8B8A8 = 0
+    BC7 = 1
+
+
 class consts:
     """Constants from consts namespace"""
 
@@ -88,8 +174,13 @@ class consts:
     # maxMoveAmountValue = numMoveAmountBuckets-1  # TODO: Resolve expression
     # maxMoveAngleValue = numMoveAngleBuckets-1  # TODO: Resolve expression
     # maxTurnValue = numTurnBuckets-1  # TODO: Resolve expression
+    numActionComponents = 3
     numAgents = 1
+    numMoveAmountBuckets = 4
+    numMoveAngleBuckets = 8
+    numPhysicsSubsteps = 4.0
     numRooms = 1
+    numTurnBuckets = 5
     rewardPerDist = 0.05
     slackReward = -0.005
     wallWidth = 1.0
@@ -232,8 +323,9 @@ class consts:
 
         agentHeightMultiplier = 1.5
         agentSpacing = 2.0
-        cameraDistance = 100.0
-        cameraOffsetZ = 0.001
+        cameraFovYDegrees = 100.0
+        cameraFovYDegreesLidar = 1.55
+        cameraZNear = 0.001
         cubeHeightRatio = 1.5
         cubeScaleFactor = 2.0
         lightPositionZ = -2.0
@@ -357,12 +449,21 @@ action = consts.action
 asset_ids = AssetIDs
 
 __all__ = [
-    "ExecMode",
-    "TensorElementType",
-    "ResponseType",
-    "Solver",
     "EntityType",
     "Result",
+    "ArchetypeFlags",
+    "ComponentFlags",
+    "ExecMode",
+    "Op",
+    "ResponseType",
+    "Type",
+    "Type",
+    "Solver",
+    "Type",
+    "unnamed_enum_at_home_duane_madrona_escape_room_src_external_madrona_include_madrona_render_ecs_hpp_123_5",
+    "RenderMode",
+    "TensorElementType",
+    "SourceTextureFormat",
     "consts",
     "limits",
     "AssetIDs",

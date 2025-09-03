@@ -313,9 +313,12 @@ add_custom_target(generate_python_bindings ALL
     COMMAND ${BUILD_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_dataclass_structs.py
             $<TARGET_FILE:madrona_escape_room_c_api>
             ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_dataclasses.py
-    COMMAND ${CMAKE_COMMAND} -E echo "Generating Python constants from headers..."
+    COMMAND ${CMAKE_COMMAND} -E echo "Generating Python constants from project headers..."
     COMMAND ${BUILD_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
-            ${CMAKE_CURRENT_SOURCE_DIR}/../madrona_escape_room/generated_constants.py
+            --config ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/project_constants.json
+    COMMAND ${CMAKE_COMMAND} -E echo "Generating Python constants from Madrona headers..."
+    COMMAND ${BUILD_PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/generate_python_constants.py
+            --config ${CMAKE_CURRENT_SOURCE_DIR}/../codegen/madrona_constants.json
     DEPENDS madrona_escape_room_c_api
     COMMENT "Auto-generating Python bindings using pahole and libclang (using isolated build venv)"
     VERBATIM

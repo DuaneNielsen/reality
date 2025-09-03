@@ -74,10 +74,13 @@ static void createAgentEntities(Engine &ctx) {
 
         // Create a render view for the agent
         if (ctx.data().enableRender) {
+            float fov = ctx.data().customVerticalFov > 0.0f ? 
+                       ctx.data().customVerticalFov : 
+                       consts::rendering::cameraFovYDegrees;
             render::RenderingSystem::attachEntityToView(ctx,
                     agent,
-                    consts::rendering::cameraDistance, consts::rendering::cameraOffsetZ,
-                    consts::rendering::agentHeightMultiplier * math::up);
+                    fov, consts::rendering::cameraZNear,
+                    Vector3{0.0f, 1.0f, 1.0f}); // 1.0 units in front of agent (agent looks down +Y), at centerline
         }
 
         ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };

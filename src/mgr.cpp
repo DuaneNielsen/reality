@@ -96,7 +96,7 @@ static inline Optional<render::RenderManager> initRenderManager(
 
     return render::RenderManager(render_api, render_dev, {
         .enableBatchRenderer = mgr_cfg.enableBatchRenderer,
-        .renderMode = render::RenderManager::Config::RenderMode::RGBD,
+        .renderMode = static_cast<render::RenderManager::Config::RenderMode>(mgr_cfg.renderMode),
         .agentViewWidth = mgr_cfg.batchRenderViewWidth,
         .agentViewHeight = mgr_cfg.batchRenderViewHeight,
         .numWorlds = mgr_cfg.numWorlds,
@@ -480,6 +480,7 @@ Manager::Impl * Manager::Impl::init(
     Sim::Config sim_cfg;
     sim_cfg.autoReset = mgr_cfg.autoReset;
     sim_cfg.initRandKey = rand::initKey(mgr_cfg.randSeed);
+    sim_cfg.customVerticalFov = mgr_cfg.customVerticalFov;
     // REQUIRE per-world compiled levels - no defaults allowed
     if (mgr_cfg.perWorldCompiledLevels.empty() || 
         !std::any_of(mgr_cfg.perWorldCompiledLevels.begin(), mgr_cfg.perWorldCompiledLevels.end(),

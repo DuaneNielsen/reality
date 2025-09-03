@@ -1,12 +1,57 @@
 #!/usr/bin/env python3
 """
 Generate Python constants from C++ headers using libclang AST parsing.
-This script extracts constants from consts.hpp and types.hpp and generates
+This script extracts constants from C++ headers and generates
 a Python module with nested classes matching the C++ namespace structure.
+
+Supports JSON configuration for flexible constant generation from different sources.
+
+JSON Configuration Format:
+{
+  "name": "Human-readable name for this generation",
+  "description": "Description of what constants are being generated",
+  "output": "path/to/output.py",
+  "include_dirs": [
+    # System include paths (required for libclang to parse headers correctly)
+    "/usr/include",
+    "/usr/include/c++/13",
+    "/usr/include/x86_64-linux-gnu/c++/13",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/include",
+    # Project include paths (relative to project root)
+    "src",
+    "external/madrona/include"
+  ],
+  "headers": [
+    # Headers to parse (relative to project root)
+    "src/consts.hpp",
+    "src/types.hpp"
+  ],
+  "processable_files": [
+    # Filenames to process when encountered during AST traversal
+    "consts.hpp",
+    "types.hpp"
+  ],
+  "namespace_classes": [
+    # Map C++ namespaces to Python classes
+    {"path": ["madEscape", "consts"], "class_name": "consts"},
+    {"path": ["madEscape", "AssetIDs"], "class_name": "AssetIDs"}
+  ],
+  "aliases": [
+    # Create module-level convenience aliases
+    {"name": "action", "target": "consts.action",
+     "condition_path": ["madEscape", "consts", "action"]}
+  ]
+}
+
+IMPORTANT: System include paths are required to prevent libclang parse errors.
+Without them, namespace parsing may be incorrect (e.g., madEscape appearing under std).
 """
 
+import argparse
+import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import clang.cindex
@@ -15,42 +60,6 @@ import clang.native
 # Set libclang path
 libclang_path = os.path.join(os.path.dirname(clang.native.__file__), "libclang.so")
 clang.cindex.Config.set_library_file(libclang_path)
-
-# Header files to process from src directory
-HEADER_FILES = ["consts.hpp", "types.hpp", "mgr.hpp", "asset_ids.hpp"]
-
-# Generation configuration - specifies what to generate and how
-GENERATION_CONFIG = {
-    # Namespace classes to generate as Python classes
-    "namespace_classes": [
-        {
-            "path": ["madEscape", "consts"],  # Path through namespace tree
-            "class_name": "consts",  # Name of Python class to generate
-        },
-        {
-            "path": ["madEscape", "consts", "limits"],  # Structural limits and bounds
-            "class_name": "limits",  # Generate as limits class
-        },
-        {
-            "path": ["madEscape", "AssetIDs"],  # Asset ID constants
-            "class_name": "AssetIDs",  # Generate as AssetIDs class
-        },
-        {"path": ["types"], "class_name": "types"},
-    ],
-    # Convenience aliases to create at module level
-    "aliases": [
-        {
-            "name": "action",  # Alias name
-            "target": "consts.action",  # What it points to
-            "condition_path": ["madEscape", "consts", "action"],  # Only create if this path exists
-        },
-        {
-            "name": "asset_ids",  # Alias name for asset IDs
-            "target": "AssetIDs",  # What it points to
-            "condition_path": ["madEscape", "AssetIDs"],  # Only create if this path exists
-        },
-    ],
-}
 
 
 class NamespaceNode:
@@ -80,10 +89,12 @@ class NamespaceNode:
 class ConstantExtractor:
     """Extracts constants from C++ headers using libclang."""
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, config: Dict[str, Any], verbose: bool = False):
         self.index = clang.cindex.Index.create()
         self.root = NamespaceNode("root")
         self.verbose = verbose
+        self.config = config
+        self.processable_files = config.get("processable_files", [])
 
     def extract_value(self, cursor) -> Optional[Any]:
         """Extract the literal value from a variable declaration."""
@@ -130,9 +141,24 @@ class ConstantExtractor:
         """Process an enum declaration."""
         enum_name = cursor.spelling
         if not enum_name:
-            if self.verbose:
-                print(f"DEBUG: Skipping unnamed enum in {namespace_path}", file=sys.stderr)
-            return
+            # Generate a name for unnamed enums based on location
+            if cursor.location and cursor.location.file:
+                filename = Path(cursor.location.file.name).name
+                line = cursor.location.line
+                enum_name = f"UnnamedEnum_{filename.replace('.', '_')}_{line}"
+                if self.verbose:
+                    print(
+                        f"DEBUG: Generated name '{enum_name}' for unnamed enum at "
+                        f"{cursor.location.file.name}:{line}",
+                        file=sys.stderr,
+                    )
+            else:
+                if self.verbose:
+                    print(
+                        f"DEBUG: Skipping unnamed enum without location in {namespace_path}",
+                        file=sys.stderr,
+                    )
+                return
 
         if self.verbose:
             print(
@@ -199,32 +225,9 @@ class ConstantExtractor:
                 file=sys.stderr,
             )
 
-        # Look for static constexpr members
-        for child in cursor.get_children():
-            if self.verbose and child.kind == clang.cindex.CursorKind.VAR_DECL:
-                print(
-                    f"DEBUG: Found VAR_DECL '{child.spelling}' in struct {struct_name}, "
-                    f"const={child.type.is_const_qualified()}",
-                    file=sys.stderr,
-                )
-
-            if child.kind == clang.cindex.CursorKind.VAR_DECL:
-                # Check if it's static constexpr
-                if child.type.is_const_qualified():
-                    var_name = child.spelling
-                    value = self.extract_value(child)
-                    if value is not None:
-                        # Add to struct's namespace
-                        node = self.root
-                        for ns in namespace_path:
-                            node = node.add_child(ns)
-                        struct_node = node.add_child(struct_name)
-                        struct_node.add_constant(var_name, value)
-                        print(
-                            f"Generated struct const "
-                            f"{'.'.join(namespace_path)}.{struct_name}.{var_name} = {value}",
-                            file=sys.stderr,
-                        )
+        # For structs like Config within RenderManager, traverse children to find enums
+        new_path = namespace_path + [struct_name]
+        self.traverse(cursor, new_path)
 
     def traverse(self, cursor, namespace_path: List[str] = None):
         """Traverse the AST and extract constants."""
@@ -243,21 +246,19 @@ class ConstantExtractor:
             should_process = False
             if child.location.file:
                 filename = child.location.file.name
-                # Process if in our target files OR in madrona namespace (could be under std)
-                should_process = (
-                    "consts.hpp" in filename
-                    or "types.hpp" in filename
-                    or "asset_ids.hpp" in filename
-                    or "physics.hpp" in filename
-                    or (namespace_path and namespace_path[0] == "madrona")
-                    or (
-                        len(namespace_path) >= 2
-                        and namespace_path[0] == "std"
-                        and namespace_path[1] == "madrona"
-                    )
+                # Check if file is in our processable list
+                file_match = any(target in filename for target in self.processable_files)
+
+                # Check if we're in madrona namespace (could be under std)
+                namespace_match = (namespace_path and namespace_path[0] == "madrona") or (
+                    len(namespace_path) >= 2
+                    and namespace_path[0] == "std"
+                    and namespace_path[1] == "madrona"
                 )
+
+                should_process = file_match or namespace_match
             else:
-                # If no file location, inherit from parent context
+                # If no file location, inherit from parent context based on namespace
                 should_process = (namespace_path and namespace_path[0] == "madrona") or (
                     len(namespace_path) >= 2
                     and namespace_path[0] == "std"
@@ -295,6 +296,12 @@ class ConstantExtractor:
                     # Process struct for static constants
                     self.process_struct_constants(child, namespace_path)
 
+                elif child.kind == clang.cindex.CursorKind.CLASS_DECL:
+                    # Process class declarations (like RenderManager)
+                    # Add class name to path and continue traversing
+                    new_path = namespace_path + [child.spelling]
+                    self.traverse(child, new_path)
+
                 # Note: USING_DECLARATION doesn't work reliably with libclang
                 # We now include the Madrona headers directly instead
             elif child.kind == clang.cindex.CursorKind.ENUM_DECL:
@@ -309,31 +316,26 @@ class ConstantExtractor:
                 # Continue traversing
                 self.traverse(child, namespace_path)
 
-    def parse_headers(self, consts_path: str, types_path: str, asset_ids_path: str = None):
+    def parse_headers(self):
         """Parse the C++ headers and extract constants."""
-        # Get the Madrona include directory from environment
-        madrona_include = os.environ.get("MADRONA_INCLUDE_DIR", "")
+        # Get project root
+        project_root = Path(__file__).parent.parent.absolute()
 
-        # Create wrapper that includes headers directly
-        # Include Madrona headers directly to avoid parse errors from types.hpp
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        wrapper_code = f"""
-#include <cstdint>
+        # Build wrapper code with includes
+        wrapper_code = """#include <cstdint>
 #include <cstddef>
 
-// Include Madrona headers directly for better parsing
-#include "{os.path.join(project_root, "external/madrona/include/madrona/exec_mode.hpp")}"
-#include "{os.path.join(project_root, "external/madrona/include/madrona/py/utils.hpp")}"
-#include "{os.path.join(project_root, "external/madrona/include/madrona/physics.hpp")}"
-
-// Include our project headers
-#include "{os.path.abspath(consts_path)}"
-#include "{os.path.abspath(types_path)}"
 """
 
-        # Include asset_ids.hpp if provided
-        if asset_ids_path and os.path.exists(asset_ids_path):
-            wrapper_code += f'#include "{os.path.abspath(asset_ids_path)}"\n'
+        # Add headers from config
+        for header in self.config.get("headers", []):
+            header_path = project_root / header
+            if header_path.exists():
+                wrapper_code += f'#include "{header_path}"\n'
+                if self.verbose:
+                    print(f"Including header: {header_path}", file=sys.stderr)
+            else:
+                print(f"Warning: Header not found: {header_path}", file=sys.stderr)
 
         if self.verbose:
             print(f"DEBUG: Wrapper code:\n{wrapper_code}", file=sys.stderr)
@@ -342,11 +344,16 @@ class ConstantExtractor:
         include_args = [
             "-std=c++20",
             "-xc++",
-            f"-I{os.path.dirname(consts_path)}",
         ]
 
-        if madrona_include:
-            include_args.append(f"-I{madrona_include}")
+        # Add include directories from config
+        for include_dir in self.config.get("include_dirs", []):
+            # Handle both absolute and relative paths
+            if os.path.isabs(include_dir):
+                include_args.append(f"-I{include_dir}")
+            else:
+                include_path = project_root / include_dir
+                include_args.append(f"-I{include_path}")
 
         # Parse
         tu = self.index.parse(
@@ -374,8 +381,9 @@ class ConstantExtractor:
 class PythonGenerator:
     """Generates Python code from the extracted constant tree."""
 
-    def __init__(self, root: NamespaceNode):
+    def __init__(self, root: NamespaceNode, config: Dict[str, Any]):
         self.root = root
+        self.config = config
         self.lines: List[str] = []
         self.indent_level = 0
 
@@ -466,12 +474,27 @@ class PythonGenerator:
 
         # Check what we have and generate appropriately
 
-        # Generate ALL enums found, recursively through namespace tree
-        def generate_all_enums(node, path=""):
-            """Recursively generate all enums as top-level classes."""
+        # Helper to sanitize class names for Python
+        def sanitize_class_name(name: str) -> str:
+            """Convert a name to a valid Python identifier."""
+            # Replace special characters with underscores
+            import re
+
+            name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
+            # Ensure it doesn't start with a digit
+            if name and name[0].isdigit():
+                name = f"_{name}"
+            # Remove duplicate underscores
+            name = re.sub(r"_+", "_", name)
+            return name.strip("_") or "UnnamedClass"
+
+        # Generate all enums from all namespaces
+        def generate_all_enums_safe(node, path=""):
+            """Recursively generate all enums as top-level classes with sanitized names."""
             # Generate enums at this level
             for enum_name, enum_values in node.enums.items():
-                self.add_line(f"class {enum_name}:")
+                safe_name = sanitize_class_name(enum_name)
+                self.add_line(f"class {safe_name}:")
                 self.indent_level += 1
                 self.add_line(f'"""Enum from {path if path else "root"}"""')
                 self.add_line()
@@ -517,9 +540,9 @@ class PythonGenerator:
                         "async",
                     ):
                         # Append underscore to avoid keyword conflict
-                        safe_name = name + "_"
+                        safe_name_field = name + "_"
                         self.add_line(
-                            f"{safe_name} = {value}  # Renamed from '{name}' (Python keyword)"
+                            f"{safe_name_field} = {value}  # Renamed from '{name}' (Python keyword)"
                         )
                     else:
                         self.add_line(f"{name} = {value}")
@@ -529,13 +552,13 @@ class PythonGenerator:
             # Recurse into child namespaces
             for child_name, child_node in node.children.items():
                 child_path = f"{path}.{child_name}" if path else child_name
-                generate_all_enums(child_node, child_path)
+                generate_all_enums_safe(child_node, child_path)
 
         # Generate all enums from all namespaces
-        generate_all_enums(self.root)
+        generate_all_enums_safe(self.root)
 
         # Generate namespace classes based on configuration
-        for ns_config in GENERATION_CONFIG["namespace_classes"]:
+        for ns_config in self.config.get("namespace_classes", []):
             # Navigate to the specified node
             node = self.root
             for part in ns_config["path"]:
@@ -551,7 +574,7 @@ class PythonGenerator:
 
         # Add convenience aliases based on configuration
         aliases_added = False
-        for alias_config in GENERATION_CONFIG["aliases"]:
+        for alias_config in self.config.get("aliases", []):
             # Check if condition path exists
             node = self.root
             for part in alias_config["condition_path"]:
@@ -574,11 +597,20 @@ class PythonGenerator:
         # Build __all__ export list dynamically
         all_exports = []
 
-        # Collect all enum names that were generated
+        # Collect all enum names that were generated (with sanitized names)
         def collect_enum_names(node):
+            import re
+
+            def sanitize(name):
+                name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
+                if name and name[0].isdigit():
+                    name = f"_{name}"
+                name = re.sub(r"_+", "_", name)
+                return name.strip("_") or "UnnamedClass"
+
             names = []
             for enum_name in node.enums.keys():
-                names.append(enum_name)
+                names.append(sanitize(enum_name))
             for child in node.children.values():
                 names.extend(collect_enum_names(child))
             return names
@@ -586,7 +618,7 @@ class PythonGenerator:
         all_exports.extend(collect_enum_names(self.root))
 
         # Add namespace classes from configuration
-        for ns_config in GENERATION_CONFIG["namespace_classes"]:
+        for ns_config in self.config.get("namespace_classes", []):
             # Check if the namespace exists
             node = self.root
             for part in ns_config["path"]:
@@ -599,7 +631,7 @@ class PythonGenerator:
                 all_exports.append(ns_config["class_name"])
 
         # Add aliases from configuration
-        for alias_config in GENERATION_CONFIG["aliases"]:
+        for alias_config in self.config.get("aliases", []):
             # Check if condition path exists
             node = self.root
             for part in alias_config["condition_path"]:
@@ -621,58 +653,65 @@ class PythonGenerator:
 
 def main():
     """Main entry point."""
-    # Check for verbose flag
-    verbose = "--verbose" in sys.argv
-    if verbose:
-        sys.argv.remove("--verbose")
+    parser = argparse.ArgumentParser(
+        description="Generate Python constants from C++ headers using libclang"
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Path to JSON configuration file",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        help="Output file path (overrides config)",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output",
+    )
 
-    if len(sys.argv) != 2:
-        print(
-            "Usage: generate_python_constants.py [--verbose] <output.py>",
-            file=sys.stderr,
-        )
+    args = parser.parse_args()
+
+    # Load JSON configuration
+    config_path = Path(args.config)
+    if not config_path.exists():
+        print(f"Error: Config file not found: {config_path}", file=sys.stderr)
         sys.exit(1)
 
-    output_path = sys.argv[1]
+    with open(config_path) as f:
+        config = json.load(f)
 
-    # Determine src directory (assume script is in codegen/ and src is ../src)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    src_dir = os.path.join(script_dir, "..", "src")
+    print(f"Loading configuration: {config.get('name', 'Unknown')}", file=sys.stderr)
 
-    # Build full paths and check files exist
-    header_paths = []
-    for header in HEADER_FILES:
-        full_path = os.path.join(src_dir, header)
-        if os.path.exists(full_path):
-            header_paths.append(full_path)
-            print(f"Processing: {header}", file=sys.stderr)
-        else:
-            print(f"Warning: {header} not found at {full_path}, skipping", file=sys.stderr)
+    # Override output if specified
+    if args.output:
+        config["output"] = args.output
 
-    if not header_paths:
-        print("Error: No header files found to process", file=sys.stderr)
+    output_path = config.get("output")
+    if not output_path:
+        print("Error: No output path specified in config or command line", file=sys.stderr)
         sys.exit(1)
 
-    # Extract constants from all headers
-    extractor = ConstantExtractor(verbose=verbose)
+    # Resolve output path relative to project root
+    project_root = Path(__file__).parent.parent.absolute()
+    output_path = project_root / output_path
 
-    # Pass the first available header paths to the existing method
-    # (The method will handle None values gracefully)
-    consts_path = header_paths[0] if len(header_paths) > 0 else None
-    types_path = header_paths[1] if len(header_paths) > 1 else None
-    asset_ids_path = header_paths[3] if len(header_paths) > 3 else None  # Skip mgr.hpp at index 2
+    # Extract constants from headers
+    extractor = ConstantExtractor(config, verbose=args.verbose)
 
     # Parse the headers
-    extractor.parse_headers(consts_path, types_path, asset_ids_path)
+    extractor.parse_headers()
 
     # Generate Python code
-    generator = PythonGenerator(extractor.root)
+    generator = PythonGenerator(extractor.root, config)
     python_code = generator.generate()
 
     # Write output
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w") as f:
-        f.write(python_code)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(python_code)
 
     print(f"Generated {output_path}", file=sys.stderr)
 

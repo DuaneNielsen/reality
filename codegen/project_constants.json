@@ -1,0 +1,58 @@
+{
+  "name": "Project Constants",
+  "description": "Constants from the Madrona Escape Room project headers",
+  "output": "madrona_escape_room/generated_constants.py",
+  "include_dirs": [
+    "/usr/include",
+    "/usr/include/c++/13",
+    "/usr/include/x86_64-linux-gnu/c++/13",
+    "/usr/include/c++/13/backward",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/include",
+    "/usr/local/include",
+    "/usr/include/x86_64-linux-gnu",
+    "src",
+    "external/madrona/include"
+  ],
+  "headers": [
+    "src/consts.hpp",
+    "src/types.hpp",
+    "src/mgr.hpp",
+    "src/asset_ids.hpp"
+  ],
+  "processable_files": [
+    "consts.hpp",
+    "types.hpp",
+    "asset_ids.hpp",
+    "mgr.hpp"
+  ],
+  "namespace_classes": [
+    {
+      "path": ["madEscape", "consts"],
+      "class_name": "consts"
+    },
+    {
+      "path": ["madEscape", "consts", "limits"],
+      "class_name": "limits"
+    },
+    {
+      "path": ["madEscape", "AssetIDs"],
+      "class_name": "AssetIDs"
+    },
+    {
+      "path": ["types"],
+      "class_name": "types"
+    }
+  ],
+  "aliases": [
+    {
+      "name": "action",
+      "target": "consts.action",
+      "condition_path": ["madEscape", "consts", "action"]
+    },
+    {
+      "name": "asset_ids",
+      "target": "AssetIDs",
+      "condition_path": ["madEscape", "AssetIDs"]
+    }
+  ]
+}

@@ -90,33 +90,85 @@ Automatically generates Python constants from C++ headers using libclang AST par
 
 **Usage**:
 ```bash
-python codegen/generate_python_constants.py [--verbose] <consts.hpp> <types.hpp> <output.py>
+python codegen/generate_python_constants.py --config <config.json> [--verbose]
 
-# Example (automatically run by CMake):
+# Examples (automatically run by CMake):
+# Generate project constants
 python codegen/generate_python_constants.py \
-    src/consts.hpp \
-    src/types.hpp \
-    madrona_escape_room/generated_constants.py
+    --config codegen/project_constants.json
+
+# Generate Madrona framework constants
+python codegen/generate_python_constants.py \
+    --config codegen/madrona_constants.json
 ```
 
 **Command-line Options**:
+- `--config` - Path to JSON configuration file (required)
 - `--verbose` - Enable detailed debug output showing AST traversal
+- `--output` - Override output path from config file
 
 **Requirements**:
 - `libclang` Python package (install with: `pip install libclang` or `uv pip install libclang`)
 - `clang.native` package for libclang.so path resolution
 - System libclang library (typically installed with clang)
-- Optional: `MADRONA_INCLUDE_DIR` environment variable for Madrona headers
+- System C++ headers in standard locations (for stddef.h, cstdint, etc.)
 
-**Generated Output**: `madrona_escape_room/generated_constants.py`
+**Generated Outputs**: 
+- `madrona_escape_room/generated_constants.py` - Project-specific constants
+- `madrona_escape_room/generated_madrona_constants.py` - Madrona framework constants
 
-**Configuration** (in `GENERATION_CONFIG` dict):
-- **namespace_classes**: Maps C++ namespaces to Python classes
-  - `madEscape::consts` → `consts` class
-  - `madEscape::consts::limits` → `limits` class
-  - `types` → `types` class
-- **aliases**: Creates module-level convenience aliases
-  - `action = consts.action` (if action namespace exists)
+**JSON Configuration Format**:
+
+Configuration files in the `codegen/` directory control the generation process:
+
+```json
+{
+  "name": "Human-readable name",
+  "description": "What constants are being generated",
+  "output": "path/to/output.py",
+  "include_dirs": [
+    // IMPORTANT: System includes required to prevent parse errors
+    "/usr/include",
+    "/usr/include/c++/13",
+    "/usr/include/x86_64-linux-gnu/c++/13",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/include",
+    // Project includes (relative to project root)
+    "src",
+    "external/madrona/include"
+  ],
+  "headers": [
+    // Headers to parse (relative to project root)
+    "src/consts.hpp",
+    "src/types.hpp"
+  ],
+  "processable_files": [
+    // Filter which files to process during AST traversal
+    "consts.hpp",
+    "types.hpp"
+  ],
+  "namespace_classes": [
+    // Map C++ namespaces to Python classes
+    {"path": ["madEscape", "consts"], "class_name": "consts"}
+  ],
+  "aliases": [
+    // Create convenience aliases at module level
+    {
+      "name": "action",
+      "target": "consts.action",
+      "condition_path": ["madEscape", "consts", "action"]
+    }
+  ]
+}
+```
+
+**Configuration Files**:
+- `project_constants.json` - Project-specific constants from madEscape namespace
+- `madrona_constants.json` - Madrona framework constants
+
+**Important Notes**:
+- **System include paths are critical** - Without them, libclang cannot find standard headers like `stddef.h`, causing parse errors and incorrect namespace resolution (e.g., `madEscape` appearing under `std` namespace)
+- Include paths can be absolute or relative to project root
+- The script processes all included headers but only extracts from files matching `processable_files`
 
 **How it works**:
 1. Creates a wrapper C++ file including all headers and dependencies

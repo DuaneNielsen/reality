@@ -149,6 +149,8 @@ MER_Result mer_create_manager(
             mgr_cfg->batch_render_view_width : consts::display::defaultBatchRenderSize,
         .batchRenderViewHeight = mgr_cfg->batch_render_view_height ? 
             mgr_cfg->batch_render_view_height : consts::display::defaultBatchRenderSize,
+        .customVerticalFov = mgr_cfg->custom_vertical_fov,
+        .renderMode = mgr_cfg->render_mode,
         .perWorldCompiledLevels = std::move(cpp_per_world_levels),  // Per-world compiled levels
     };
     

@@ -41,6 +41,26 @@ def pytest_addoption(parser):
     )
 
 
+def pytest_configure(config):
+    """Configure pytest markers"""
+    config.addinivalue_line(
+        "markers",
+        "depth_sensor: enable depth sensor (width, height, fov). Default: 64x64, 100° FOV",
+    )
+    config.addinivalue_line("markers", "ascii_level: mark test to use custom ASCII level layout")
+
+    # Named sensor configuration markers
+    config.addinivalue_line("markers", "sensor.rgb_default: Use default 64x64 RGB camera")
+    config.addinivalue_line("markers", "sensor.rgb_high_res: Use 128x128 high-res RGB camera")
+    config.addinivalue_line("markers", "sensor.depth_default: Use default 64x64 depth sensor")
+    config.addinivalue_line("markers", "sensor.depth_high_res: Use 128x128 high-res depth sensor")
+    config.addinivalue_line("markers", "sensor.lidar_128: Use 128-beam horizontal lidar (120° FOV)")
+    config.addinivalue_line("markers", "sensor.lidar_64: Use 64-beam horizontal lidar (120° FOV)")
+    config.addinivalue_line("markers", "sensor.lidar_256: Use 256-beam high-res lidar (120° FOV)")
+    config.addinivalue_line("markers", "sensor.rgbd_default: Use default 64x64 RGBD sensor")
+    config.addinivalue_line("markers", "json_level: mark test to use custom JSON level definition")
+
+
 def pytest_runtest_setup(item):
     """Hook to skip tests with GPU fixtures when --no-gpu is passed"""
     if item.config.getoption("--no-gpu"):
@@ -48,23 +68,70 @@ def pytest_runtest_setup(item):
         fixtures_used = item.fixturenames
 
         # List of GPU-related fixtures to skip
-        gpu_fixtures = {"gpu_manager", "gpu_env"}  # Add any other GPU fixtures here
+        gpu_fixtures = {
+            "gpu_manager",
+            "gpu_env",
+            "gpu_manager_with_depth",
+        }  # Add any other GPU fixtures here
 
         # Check if test uses any GPU fixtures
         if any(fixture in gpu_fixtures for fixture in fixtures_used):
             pytest.skip("Skipping GPU test due to --no-gpu flag")
 
 
-@pytest.fixture(scope="function")
-def cpu_manager(request):
-    """Create a CPU SimManager with optional native recording and trajectory tracing"""
+def _create_sim_manager(
+    request,
+    exec_mode,
+    enable_depth_override=None,
+    auto_reset=False,
+    batch_render_width=64,
+    batch_render_height=64,
+    custom_vertical_fov=0.0,
+    render_mode=None,
+):
+    """Helper function to create SimManager with reduced boilerplate
+
+    Args:
+        request: pytest request object
+        exec_mode: ExecMode.CPU or ExecMode.CUDA
+        enable_depth_override: Optional bool to force enable/disable depth sensor
+        auto_reset: Whether to enable automatic episode resets
+        batch_render_width: Custom render view width (default 64)
+        batch_render_height: Custom render view height (default 64)
+        custom_vertical_fov: Custom vertical FOV in degrees (0 = use default)
+        render_mode: RenderMode enum value (None = use default RGBD)
+    """
     import madrona_escape_room
     from madrona_escape_room import ExecMode, SimManager, create_default_level
     from madrona_escape_room.level_compiler import compile_ascii_level
+    from madrona_escape_room.sensor_config import SensorConfig
 
     # Check for level markers
     ascii_marker = request.node.get_closest_marker("ascii_level")
     json_marker = request.node.get_closest_marker("json_level")
+    depth_marker = request.node.get_closest_marker("depth_sensor")
+
+    # Check for named sensor configuration markers
+    sensor_config = None
+    sensor_markers = {
+        "sensor.rgb_default": SensorConfig.rgb_default,
+        "sensor.rgb_high_res": SensorConfig.rgb_high_res,
+        "sensor.depth_default": SensorConfig.depth_default,
+        "sensor.depth_high_res": SensorConfig.depth_high_res,
+        "sensor.lidar_128": SensorConfig.lidar_horizontal_128,
+        "sensor.lidar_64": SensorConfig.lidar_horizontal_64,
+        "sensor.lidar_256": SensorConfig.lidar_horizontal_256,
+        "sensor.rgbd_default": SensorConfig.rgbd_default,
+    }
+
+    # Find which sensor marker is used (if any)
+    for marker_name, config_factory in sensor_markers.items():
+        # Extract the short name after "sensor."
+        short_name = marker_name.split(".")[-1]
+        if request.node.get_closest_marker(short_name):
+            sensor_config = config_factory()
+            logger.info(f"Using sensor config: {sensor_config}")
+            break
 
     if ascii_marker:
         ascii_str = ascii_marker.args[0]
@@ -77,18 +144,74 @@ def cpu_manager(request):
 
         compiled_level = compile_level(json_str)
     else:
-        logger.info("No level markers, using default level")
         compiled_level = create_default_level()
 
-    mgr = SimManager(
-        exec_mode=ExecMode.CPU,
+    # Use sensor config if available, otherwise fall back to old marker system
+    if sensor_config:
+        # Sensor config takes precedence - apply its settings
+        enable_renderer = True
+        batch_render_width = sensor_config.width
+        batch_render_height = sensor_config.height
+        custom_vertical_fov = sensor_config.vertical_fov
+        render_mode = sensor_config.render_mode
+
+        exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
+        logger.info(
+            f"Using {sensor_config.name} for {exec_mode_name} manager: "
+            f"{batch_render_width}x{batch_render_height}, V-FOV={custom_vertical_fov:.1f}°"
+        )
+    else:
+        # Fall back to old depth_sensor marker system
+        if enable_depth_override is not None:
+            enable_renderer = enable_depth_override
+        else:
+            enable_renderer = depth_marker is not None
+
+        # Override render parameters from depth_sensor marker
+        if depth_marker:
+            # depth_sensor marker with optional parameters: (width, height, fov)
+            if len(depth_marker.args) >= 2:
+                batch_render_width = depth_marker.args[0]
+                batch_render_height = depth_marker.args[1]
+            if len(depth_marker.args) >= 3:
+                custom_vertical_fov = depth_marker.args[2]
+
+        # Determine render mode from markers
+        if render_mode is None:  # Only set from marker if not explicitly passed
+            if depth_marker is not None:
+                from madrona_escape_room import RenderMode
+
+                render_mode = RenderMode.Depth
+            # Otherwise use default (RGBD)
+
+        if enable_renderer:
+            exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
+            logger.info(
+                f"Depth sensor enabled for {exec_mode_name} manager: "
+                f"{batch_render_width}x{batch_render_height}, FOV={custom_vertical_fov}"
+            )
+
+    return SimManager(
+        exec_mode=exec_mode,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
-        enable_batch_renderer=False,
-        auto_reset=False,  # Manual control for reward tests
-        compiled_levels=compiled_level,  # Use compiled level
+        enable_batch_renderer=enable_renderer,
+        auto_reset=auto_reset,
+        compiled_levels=compiled_level,
+        batch_render_view_width=batch_render_width,
+        batch_render_view_height=batch_render_height,
+        custom_vertical_fov=custom_vertical_fov,
+        render_mode=render_mode,
     )
+
+
+@pytest.fixture(scope="function")
+def cpu_manager(request):
+    """Create a CPU SimManager with optional native recording and trajectory tracing"""
+    from madrona_escape_room import ExecMode
+
+    mgr = _create_sim_manager(request, ExecMode.CPU)
 
     # Check for debug flags
     record_actions = request.config.getoption("--record-actions")
@@ -157,18 +280,9 @@ def log_and_verify_replay_cpu_manager(request):
     import os
     import tempfile
 
-    import madrona_escape_room
-    from madrona_escape_room import ExecMode, SimManager, create_default_level
+    from madrona_escape_room import ExecMode
 
-    mgr = SimManager(
-        exec_mode=ExecMode.CPU,
-        gpu_id=0,
-        num_worlds=4,
-        rand_seed=42,
-        enable_batch_renderer=False,
-        auto_reset=True,
-        compiled_levels=create_default_level(),
-    )
+    mgr = _create_sim_manager(request, ExecMode.CPU, auto_reset=True)
 
     # Always create a debug session for this fixture
     test_name = request.node.nodeid.replace("::", "__")
@@ -195,6 +309,8 @@ def log_and_verify_replay_cpu_manager(request):
 
     try:
         # Create replay manager and trace file
+        from madrona_escape_room import SimManager
+
         replay_mgr = SimManager.from_replay(str(debug_session.recording_path), ExecMode.CPU)
 
         with tempfile.NamedTemporaryFile(suffix="_replay_trace.txt", delete=False) as f:
@@ -289,18 +405,9 @@ def gpu_manager(request):
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
 
-    import madrona_escape_room
-    from madrona_escape_room import ExecMode, SimManager, create_default_level
+    from madrona_escape_room import ExecMode
 
-    mgr = SimManager(
-        exec_mode=ExecMode.CUDA,
-        gpu_id=0,
-        num_worlds=4,
-        rand_seed=42,
-        enable_batch_renderer=False,
-        auto_reset=True,
-        compiled_levels=create_default_level(),
-    )
+    mgr = _create_sim_manager(request, ExecMode.CUDA, auto_reset=True)
 
     # With session scope, we can't do per-test recording here
     # Just yield the manager
@@ -335,18 +442,9 @@ def _test_manager(request):
     Note: Use cpu_manager instead for individual tests that need custom levels.
     This fixture is module-scoped and doesn't support per-test custom levels.
     """
-    import madrona_escape_room
-    from madrona_escape_room import ExecMode, SimManager, create_default_level
+    from madrona_escape_room import ExecMode
 
-    mgr = SimManager(
-        exec_mode=ExecMode.CPU,
-        gpu_id=0,
-        num_worlds=4,
-        rand_seed=42,
-        enable_batch_renderer=False,
-        auto_reset=False,  # Manual control over resets
-        compiled_levels=create_default_level(),
-    )
+    mgr = _create_sim_manager(request, ExecMode.CPU, auto_reset=False)
 
     yield mgr
 
@@ -432,3 +530,24 @@ def test_manager_from_replay():
         return SimManager.from_replay(str(replay_path), ExecMode.CPU)
 
     return _create_manager
+
+
+@pytest.fixture(scope="function")
+def cpu_manager_with_depth(request):
+    """Create a CPU SimManager with depth sensor (batch renderer) always enabled"""
+    from madrona_escape_room import ExecMode
+
+    return _create_sim_manager(request, ExecMode.CPU, enable_depth_override=True)
+
+
+@pytest.fixture(scope="function")
+def gpu_manager_with_depth(request):
+    """Create a GPU SimManager with depth sensor (batch renderer) always enabled"""
+    if request.config.getoption("--no-gpu"):
+        pytest.skip("Skipping GPU fixture due to --no-gpu flag")
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+
+    from madrona_escape_room import ExecMode
+
+    return _create_sim_manager(request, ExecMode.CUDA, enable_depth_override=True)

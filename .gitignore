@@ -47,6 +47,7 @@ imgui.ini
 .idea/
 .cache/
 .clangd/
+.vscode/
 
 # MCP server directories
 .serena/
@@ -72,6 +73,9 @@ dist/
 .eggs/
 *.egg
 
+# Testing artifacts
+.pytest_cache/
+
 # Generated Python bindings - both tracked in git for stable imports
 # madrona_escape_room/generated_structs.py
 # madrona_escape_room/generated_constants.py
@@ -80,6 +84,19 @@ dist/
 .venv/
 venv/
 env/
+.build_venv/
+
+# Temporary and log files
+*.log
+*.tmp
+*.bak
+*.old
+*~
+.DS_Store
+Thumbs.db
+
+# Core dumps and crash files
+core.*
 
 # Performance testing data
 /tests/performance/perf_results/

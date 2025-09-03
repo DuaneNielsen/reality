@@ -177,8 +177,9 @@ namespace rendering {
     }
     
     // Camera positioning for agents
-    inline constexpr float cameraDistance = 100.f;
-    inline constexpr float cameraOffsetZ = 0.001f;
+    inline constexpr float cameraFovYDegrees = 100.f;  // Vertical field of view in degrees
+    inline constexpr float cameraFovYDegreesLidar = 1.55f;  // Lidar vertical FOV for 120° horizontal with 128:1 aspect
+    inline constexpr float cameraZNear = 0.001f;       // Near clipping plane distance
     inline constexpr float agentHeightMultiplier = 1.5f;
     
     // Geometric constants for scaling
