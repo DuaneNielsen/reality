@@ -1,0 +1,36 @@
+{
+  "name": "Madrona Framework Constants",
+  "description": "Constants from the Madrona framework headers",
+  "output": "madrona_escape_room/generated_madrona_constants.py",
+  "include_dirs": [
+    "/usr/include",
+    "/usr/include/c++/13",
+    "/usr/include/x86_64-linux-gnu/c++/13",
+    "/usr/include/c++/13/backward",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/include",
+    "/usr/local/include",
+    "/usr/include/x86_64-linux-gnu",
+    "external/madrona/include"
+  ],
+  "headers": [
+    "external/madrona/include/madrona/render/render_mgr.hpp",
+    "external/madrona/include/madrona/exec_mode.hpp",
+    "external/madrona/include/madrona/physics.hpp"
+  ],
+  "processable_files": [
+    "render_mgr.hpp",
+    "exec_mode.hpp",
+    "physics.hpp"
+  ],
+  "namespace_classes": [
+    {
+      "path": ["madrona", "render", "RenderManager", "Config"],
+      "class_name": "RenderManagerConfig"
+    },
+    {
+      "path": ["madrona", "phys"],
+      "class_name": "Physics"
+    }
+  ],
+  "aliases": []
+}
