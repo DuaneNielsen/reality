@@ -80,7 +80,7 @@ static void createAgentEntities(Engine &ctx) {
             render::RenderingSystem::attachEntityToView(ctx,
                     agent,
                     fov, consts::rendering::cameraZNear,
-                    consts::rendering::agentHeightMultiplier * math::up);
+                    Vector3{0.0f, 1.0f, 1.0f}); // 1.0 units in front of agent (agent looks down +Y), at centerline
         }
 
         ctx.get<Scale>(agent) = Diag3x3 { 1, 1, 1 };
