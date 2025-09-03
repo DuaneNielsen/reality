@@ -12,6 +12,7 @@
 - [ ] **GPU Memory Optimization**: Profile and optimize GPU memory usage for larger simulations
 - [ ] **Batch Rendering Performance**: Optimize rendering pipeline for high world counts
 - [ ] **Physics Performance**: Profile physics system bottlenecks at scale
+- [ ] **Shader 128x1 Lidar Optimization**: Optimize compute shader thread dispatch for extreme aspect ratios (128x1 viewports) for better performance
 
 ## 🔧 Technical Improvements
 
