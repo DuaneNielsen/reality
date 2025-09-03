@@ -1,62 +1,37 @@
 # Depth Sensor Quickstart Guide
 
-This guide explains how to use the depth sensor capabilities in Madrona Escape Room for reinforcement learning applications.
+This guide provides detailed information about using depth sensors in Madrona Escape Room for spatial perception and navigation tasks.
+
+> **Note**: For general sensor information and configuration options, see the [Sensors README](README.md).
 
 ## Overview
 
-The depth sensor provides agents with distance measurements from their camera viewpoint, similar to how lidar or depth cameras work in real robotics applications. Unlike traditional Z-buffer depth, Madrona provides **linear world-space distances** that are ideal for RL spatial reasoning.
+The depth sensor provides agents with distance measurements from their camera viewpoint, similar to how depth cameras or time-of-flight sensors work in real robotics. Unlike traditional Z-buffer depth, Madrona provides **linear world-space distances** that are ideal for RL spatial reasoning.
 
-## Basic Usage
+## Quick Start with SensorConfig
 
-### Enable Depth Sensor
 ```python
-from madrona_escape_room import SimManager, ExecMode
+from madrona_escape_room import SimManager, sensor_config, ExecMode
 
-# Create manager with batch renderer enabled (required for depth sensor)
+# Use predefined depth sensor configuration
 mgr = SimManager(
-    exec_mode=ExecMode.CPU,  # or ExecMode.CUDA
+    exec_mode=ExecMode.CPU,
     num_worlds=4,
-    enable_batch_renderer=True  # ← Required for depth sensor
+    **sensor_config.DEPTH_DEFAULT.to_manager_kwargs()
 )
-```
 
-### Access Depth Data
-```python
-import numpy as np
+# Or use high-resolution depth
+mgr = SimManager(
+    exec_mode=ExecMode.CPU,
+    num_worlds=4,
+    **sensor_config.DEPTH_HIGH_RES.to_manager_kwargs()
+)
 
-# Step the simulation
+# Access depth data
 mgr.step()
-
-# Get depth tensor
 depth_tensor = mgr.depth_tensor()
-
-# Convert to numpy for processing
-if depth_tensor.isOnGPU():
-    depth_np = depth_tensor.to_torch().cpu().numpy()
-else:
-    depth_np = depth_tensor.to_numpy()
-
-print(f"Depth tensor shape: {depth_np.shape}")
-# Output: (num_worlds, num_agents, height, width, 1)
-# Default: (4, 1, 64, 64, 1)
-```
-
-## Camera Configuration
-
-### Default Settings
-- **Resolution**: 64×64 pixels
-- **Vertical FOV**: 100° (very wide angle)
-- **Horizontal FOV**: 100° (calculated from 1:1 aspect ratio)
-- **Near plane**: 0.001 world units
-- **Far plane**: 20,000 world units
-- **Camera position**: 1.5 units above agent center
-- **Camera orientation**: Follows agent rotation
-
-### Camera Position Relative to Agent
-```
-Agent position: (x, y, 0)
-Camera position: (x, y, 1.5)  ← 1.5 units above agent
-Field of view: 100° vertical, 100° horizontal (for square resolution)
+depth_np = depth_tensor.to_numpy()
+print(f"Depth shape: {depth_np.shape}")  # (4, 1, 128, 128, 1) for high-res
 ```
 
 ## Depth Data Format
@@ -83,27 +58,22 @@ print(f"Nearest obstacle: {nearest:.2f} units")
 print(f"Farthest visible: {farthest:.2f} units")
 ```
 
-## Coordinate System
+## Interpreting Depth Values
 
-### Tensor Layout
-- **Dimension 0**: World index
-- **Dimension 1**: Agent index  
-- **Dimension 2**: Image height (Y axis, top-to-bottom)
-- **Dimension 3**: Image width (X axis, left-to-right)
-- **Dimension 4**: Single depth channel
-
-### Spatial Mapping
+### Spatial Correspondence
 ```python
-# Tensor coordinate to spatial meaning:
-depth_value = depth_np[world, agent, y, x, 0]
+# Extract depth for specific agent
+depth_value = depth_np[world_idx, agent_idx, y, x, 0]
 
-# Where:
-# y=0: Top of agent's view (looking up)
-# y=31: Center vertically (looking forward)  
-# y=63: Bottom of agent's view (looking down)
-# x=0: Left side of agent's view
-# x=31: Center horizontally (straight ahead)
-# x=63: Right side of agent's view
+# Pixel positions correspond to view directions:
+# Center pixel = straight ahead
+# Top pixels = looking up
+# Bottom pixels = looking down
+# Left/right pixels = peripheral vision
+
+# Example: Get distance straight ahead for agent 0 in world 0
+h, w = depth_np.shape[2:4]
+forward_distance = depth_np[0, 0, h//2, w//2, 0]
 ```
 
 ## Example: Obstacle Detection
@@ -148,93 +118,99 @@ print(f"Forward clear: {obstacles['forward_clear']}")
 print(f"Distance ahead: {obstacles['forward_distance']:.2f}")
 ```
 
-## Custom Resolution (Advanced)
+## Custom Resolution and FOV
 
-The default 64×64 resolution can be customized for different applications:
-
-```python
-# Note: This requires C++ code modifications (see advanced documentation)
-# Example configurations:
-
-# High resolution for detailed perception
-# config.batchRenderViewWidth = 128
-# config.batchRenderViewHeight = 128
-
-# Lidar-like horizontal scanning (128 beams across horizon)  
-# config.batchRenderViewWidth = 128
-# config.batchRenderViewHeight = 1
-# Requires custom vertical FOV configuration
-
-# Current default
-# config.batchRenderViewWidth = 64
-# config.batchRenderViewHeight = 64
-```
-
-## Testing with Pytest
+Use `SensorConfig` for custom depth sensor configurations:
 
 ```python
-import pytest
-from madrona_escape_room import SimManager, ExecMode
+from madrona_escape_room import SensorConfig, RenderMode
 
-@pytest.mark.depth_sensor
-def test_depth_sensor_basic():
-    """Test basic depth sensor functionality."""
-    
-    mgr = SimManager(
-        exec_mode=ExecMode.CPU,
-        num_worlds=1,
-        enable_batch_renderer=True
-    )
-    
-    # Step simulation  
-    mgr.step()
-    
-    # Get depth data
-    depth = mgr.depth_tensor()
-    depth_np = depth.to_numpy()
-    
-    # Verify tensor properties
-    assert depth_np.shape == (1, 1, 64, 64, 1)
-    assert depth_np.dtype == np.float32
-    assert np.all(depth_np >= 0.001)  # No values below near plane
-    assert np.all(depth_np <= 20000)  # No values above far plane
+# Create custom depth sensor
+custom_depth = SensorConfig.custom(
+    width=96,
+    height=72,
+    vertical_fov=60.0,  # Narrower FOV for focused vision
+    render_mode=RenderMode.Depth,
+    name="Custom Depth Sensor"
+)
+
+# Use in simulation
+mgr = SimManager(
+    exec_mode=ExecMode.CPU,
+    num_worlds=4,
+    **custom_depth.to_manager_kwargs()
+)
 ```
 
-## Performance Considerations
+## Depth-Specific Applications
 
-### Memory Usage
-- **64×64 resolution**: ~16KB per agent per world (float32)
-- **128×128 resolution**: ~65KB per agent per world  
-- **GPU memory**: Allocated on GPU when using CUDA execution mode
-
-### Computational Cost
-- **Lower resolution**: Faster rendering, less memory, reduced spatial detail
-- **Higher resolution**: Better spatial awareness, more GPU work, increased memory
-- **Aspect ratio effects**: Wide/tall resolutions change horizontal/vertical FOV
-
-## Integration with RGB Data
-
-Depth and RGB sensors can be used together:
+### Navigation and Path Planning
 
 ```python
-# Get both depth and RGB data
-depth = mgr.depth_tensor()      # Shape: (worlds, agents, 64, 64, 1)
-rgb = mgr.rgb_tensor()          # Shape: (worlds, agents, 64, 64, 4)
-
-# Convert to numpy
-depth_np = depth.to_numpy() if not depth.isOnGPU() else depth.to_torch().cpu().numpy()
-rgb_np = rgb.to_numpy() if not rgb.isOnGPU() else rgb.to_torch().cpu().numpy()
-
-# Both sensors share the same viewpoint and resolution
-# Pixel correspondence: depth_np[w,a,y,x,0] corresponds to rgb_np[w,a,y,x,:]
+def find_clear_path(depth_tensor, turn_threshold=15.0):
+    """Find clear path direction using depth sensor."""
+    depth_np = depth_tensor.to_numpy()[0, 0, :, :, 0]
+    h, w = depth_np.shape
+    
+    # Divide view into three sections
+    left_region = depth_np[:, :w//3]
+    center_region = depth_np[:, w//3:2*w//3]
+    right_region = depth_np[:, 2*w//3:]
+    
+    # Calculate average distances
+    left_dist = np.mean(left_region)
+    center_dist = np.mean(center_region)
+    right_dist = np.mean(right_region)
+    
+    # Recommend turn direction
+    if center_dist > turn_threshold:
+        return "forward"
+    elif left_dist > right_dist:
+        return "turn_left"
+    else:
+        return "turn_right"
 ```
 
-## Next Steps
+### Wall Following
 
-- **Advanced configurations**: See `/docs/sensors/DEPTH_SENSOR_ADVANCED.md` (future)
-- **Lidar simulation**: See `/docs/sensors/LIDAR_CONFIGURATION.md` (future)
-- **Custom FOV settings**: See `/docs/sensors/CAMERA_CONFIGURATION.md` (future)
-- **Performance optimization**: See `/docs/development/PERFORMANCE_GUIDE.md`
+```python
+def wall_follow_distance(depth_tensor, side="right", target_distance=3.0):
+    """Calculate error for wall following behavior."""
+    depth_np = depth_tensor.to_numpy()[0, 0, :, :, 0]
+    h, w = depth_np.shape
+    
+    # Sample side region
+    if side == "right":
+        side_region = depth_np[h//3:2*h//3, 3*w//4:]
+    else:  # left
+        side_region = depth_np[h//3:2*h//3, :w//4]
+    
+    # Get minimum distance to wall
+    wall_distance = np.min(side_region)
+    error = wall_distance - target_distance
+    
+    return error, wall_distance
+```
+
+### Collision Prediction
+
+```python
+def time_to_collision(depth_tensor, velocity, safety_margin=0.5):
+    """Estimate time until collision based on depth and velocity."""
+    depth_np = depth_tensor.to_numpy()[0, 0, :, :, 0]
+    h, w = depth_np.shape
+    
+    # Focus on forward region
+    forward_region = depth_np[h//3:2*h//3, w//3:2*w//3]
+    min_distance = np.min(forward_region) - safety_margin
+    
+    if velocity > 0:
+        ttc = min_distance / velocity
+    else:
+        ttc = float('inf')
+    
+    return ttc, min_distance
+```
 
 ## Advanced: Render Pipeline Architecture
 

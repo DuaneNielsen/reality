@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 
-@pytest.mark.depth_sensor
+@pytest.mark.depth_default
 def test_depth_tensor_basic(cpu_manager):
-    """Test that depth tensor is accessible with @depth_sensor marker"""
+    """Test that depth tensor is accessible with @depth_default marker"""
     mgr = cpu_manager
 
     # Step the simulation to get initial observations
@@ -60,7 +60,7 @@ def test_depth_tensor_always_enabled(cpu_manager_with_depth):
     assert np.all(depth_np >= 0)
 
 
-@pytest.mark.depth_sensor
+@pytest.mark.rgbd_default
 def test_depth_and_rgb_together(cpu_manager):
     """Test that both depth and RGB work together in RGBD mode"""
     mgr = cpu_manager
@@ -96,7 +96,7 @@ def test_depth_and_rgb_together(cpu_manager):
 
 
 @pytest.mark.skipif(True, reason="GPU test - enable manually")
-@pytest.mark.depth_sensor
+@pytest.mark.depth_default
 def test_depth_gpu(gpu_manager_with_depth):
     """Test depth sensor on GPU (manual enable)"""
     mgr = gpu_manager_with_depth

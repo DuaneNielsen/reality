@@ -12,6 +12,7 @@ import pytest
 from madrona_escape_room import ExecMode, RenderMode
 from madrona_escape_room.level_compiler import compile_ascii_level
 from madrona_escape_room.manager import SimManager
+from madrona_escape_room.sensor_config import SensorConfig
 
 # Level with walls on top and bottom for lidar testing
 LARGE_OPEN_LEVEL = """################################################################
@@ -90,7 +91,7 @@ class TestHorizontalLidar:
 
     @pytest.mark.skip(reason="Debug test - kept for knowledge but skipped in normal runs")
     @pytest.mark.ascii_level(LARGE_OPEN_LEVEL)
-    @pytest.mark.depth_sensor(64, 64, 1.55)  # 64x64 with default settings
+    @pytest.mark.depth_default  # Use named sensor config
     def test_64x64_depth_configuration_debug(self, cpu_manager):
         """
         Debug test with 64x64 depth configuration to investigate depth tensor behavior.
@@ -165,7 +166,7 @@ class TestHorizontalLidar:
                 print(f"Last 10 unique values: {unique_values[-10:]}")
 
     @pytest.mark.ascii_level(LARGE_OPEN_LEVEL)
-    @pytest.mark.depth_sensor(128, 1, 1.55)  # width, height, fov
+    @pytest.mark.lidar_128  # Use 128-beam horizontal lidar preset
     def test_128_beam_horizontal_lidar_with_fixture(self, cpu_manager):
         """
         Test 128 horizontal lidar beams with 120° FOV using wall-in-front scenario.
@@ -432,14 +433,14 @@ class TestHorizontalLidar:
 
     def test_render_mode_rgbd_explicit(self):
         """Test RGBD render mode (default) provides both RGB and depth data"""
+        config = SensorConfig.rgbd_default()
         mgr = SimManager(
             exec_mode=ExecMode.CPU,
             gpu_id=0,
             num_worlds=1,
             rand_seed=42,
             auto_reset=True,
-            enable_batch_renderer=True,
-            render_mode=RenderMode.RGBD,
+            **config.to_manager_kwargs(),
         )
 
         # Step once to generate data
@@ -516,17 +517,23 @@ class TestHorizontalLidar:
             print(f"Config: {width}x{height}, FOV: {fov}°")
 
             try:
+                # Create custom sensor config for testing various configurations
+                sensor_config = SensorConfig.custom(
+                    width=width,
+                    height=height,
+                    vertical_fov=fov,
+                    render_mode=RenderMode.Depth,
+                    name=config_name,
+                )
+
                 mgr = SimManager(
                     exec_mode=ExecMode.CPU,
                     gpu_id=0,
                     num_worlds=1,
                     rand_seed=42,
                     auto_reset=True,
-                    enable_batch_renderer=True,
-                    batch_render_view_width=width,
-                    batch_render_view_height=height,
-                    custom_vertical_fov=fov,
                     compiled_levels=compile_ascii_level(test_level),
+                    **sensor_config.to_manager_kwargs(),
                 )
 
                 mgr.step()
