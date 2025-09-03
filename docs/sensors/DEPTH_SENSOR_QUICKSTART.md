@@ -236,14 +236,79 @@ rgb_np = rgb.to_numpy() if not rgb.isOnGPU() else rgb.to_torch().cpu().numpy()
 - **Custom FOV settings**: See `/docs/sensors/CAMERA_CONFIGURATION.md` (future)
 - **Performance optimization**: See `/docs/development/PERFORMANCE_GUIDE.md`
 
+## Advanced: Render Pipeline Architecture
+
+### Two-Stage Rendering Process
+
+The Madrona depth sensor uses a sophisticated two-stage rendering pipeline:
+
+1. **Stage 1: Geometry Rendering** 
+   - Uses `batch_draw_*.hlsl` shaders to render scene geometry
+   - Populates a visibility buffer (vizBuffer) with depth and object data
+   - Shader selection: RGB mode uses `batch_draw_rgb.hlsl`, depth-only mode uses `batch_draw_depth.hlsl`
+
+2. **Stage 2: Depth Processing**
+   - Uses `draw_deferred_*.hlsl` shaders to process the vizBuffer
+   - Extracts final depth values and writes to depth tensor
+   - Shader selection: RGB mode uses `draw_deferred_rgb.hlsl`, depth-only mode uses `draw_deferred_depth.hlsl`
+
+### Render Mode Configuration
+
+The render mode determines which shaders are used and can be modified in `src/mgr.cpp`:
+
+```cpp
+return render::RenderManager(render_api, render_dev, {
+    .enableBatchRenderer = mgr_cfg.enableBatchRenderer,
+    .renderMode = render::RenderManager::Config::RenderMode::Depth,
+    .agentViewWidth = mgr_cfg.batchRenderViewWidth,
+    .agentViewHeight = mgr_cfg.batchRenderViewHeight,
+    .numWorlds = mgr_cfg.numWorlds,
+    .maxViewsPerWorld = madEscape::consts::numAgents,
+    .maxInstancesPerWorld = madEscape::consts::performance::maxProgressEntries,
+});
+```
+
+**RGBD Mode** (default):
+- Stage 1: `batch_draw_rgb.hlsl` 
+- Stage 2: `draw_deferred_rgb.hlsl`
+- Generates both RGB and depth data
+
+**Depth Mode**:  
+- Stage 1: `batch_draw_depth.hlsl`
+- Stage 2: `draw_deferred_depth.hlsl`
+- Generates only depth data (more efficient)
+
+### Data Flow Path
+
+```
+Python: mgr.depth_tensor()
+    ↓
+Manager::depthTensor() (mgr.cpp:828)
+    ↓  
+RenderManager::batchRendererDepthOut() (render_mgr.cpp:74)
+    ↓
+BatchRenderer::getDepthCUDAPtr() (batch_renderer.cpp:2432)
+    ↓
+depthOutputCUDA buffer (written by draw_deferred_*.hlsl)
+```
+
 ## Troubleshooting
 
 ### Common Issues
 
 **Empty depth tensor**: Ensure `enable_batch_renderer=True` when creating SimManager
 
+**All-zero depth values**: 
+- Check if vizBuffer is being populated in Stage 1 geometry rendering
+- Verify camera frustum intersects scene geometry  
+- For custom resolutions (e.g., 128×1), ensure FOV settings are appropriate
+
 **GPU memory errors**: Reduce resolution or number of worlds for GPU execution
 
 **Unexpected depth values**: Check that scenes have geometry within the 0.001-20,000 unit range
 
 **Resolution mismatch**: Verify tensor shapes match expected (worlds, agents, height, width, 1)
+
+**Shader debugging**: 
+- 64×64 configuration: Known working baseline
+- 128×1 configuration: May have camera frustum issues requiring investigation

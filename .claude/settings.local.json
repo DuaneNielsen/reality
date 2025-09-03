@@ -137,7 +137,8 @@
       "Bash(then echo \"YES - HEAD is at origin/main\")",
       "Bash(else echo \"NO - They differ\")",
       "Bash(fi)",
-      "Bash(./tests/quicktest.sh:*)"
+      "Bash(./tests/quicktest.sh:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   },
