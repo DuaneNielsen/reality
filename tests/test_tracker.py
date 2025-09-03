@@ -111,6 +111,7 @@ class TestTracker:
                     text=True,
                     cwd=self.base_dir,
                     env=env,
+                    errors="replace",  # Replace invalid UTF-8 with replacement character
                 )
 
                 # Parse individual test results for this executable

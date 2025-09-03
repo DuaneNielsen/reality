@@ -70,10 +70,19 @@ class SensorConfig:
     def __str__(self) -> str:
         """String representation of the sensor config."""
         name = self.name or f"{self.sensor_type.value}"
+
+        # Handle both enum objects and integer constants from generated_constants
+        if hasattr(self.render_mode, "name"):
+            mode_str = self.render_mode.name
+        else:
+            # Map integer values to names for generated constants
+            mode_map = {0: "RGBD", 1: "Depth"}
+            mode_str = mode_map.get(self.render_mode, f"Unknown({self.render_mode})")
+
         return (
             f"{name}: {self.width}x{self.height}, "
             f"V-FOV: {self.vertical_fov:.1f}°, H-FOV: {self.horizontal_fov:.1f}°, "
-            f"Mode: {self.render_mode.name}"
+            f"Mode: {mode_str}"
         )
 
     # ===== Standard Presets =====
