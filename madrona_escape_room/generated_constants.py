@@ -18,7 +18,6 @@ class EntityType:
     Agent = 3
     NumTypes = 4
 
-
 class Result:
     """Enum from madEscape"""
 
@@ -34,7 +33,6 @@ class Result:
     ErrorInvalidFile = -7
     ErrorFileIO = -8
 
-
 class ArchetypeFlags:
     """Enum from madrona"""
 
@@ -42,7 +40,6 @@ class ArchetypeFlags:
 
     None_ = 0  # Renamed from 'None' (Python keyword)
     ImportOffsets = 1
-
 
 class ComponentFlags:
     """Enum from madrona"""
@@ -55,7 +52,6 @@ class ComponentFlags:
     CudaReserveMemory = 4
     CudaAllocMemory = 8
 
-
 class ExecMode:
     """Enum from madrona"""
 
@@ -63,7 +59,6 @@ class ExecMode:
 
     CPU = 0
     CUDA = 1
-
 
 class Op:
     """Enum from madrona.Transaction"""
@@ -74,7 +69,6 @@ class Op:
     Destroy = 1
     Modify = 2
 
-
 class ResponseType:
     """Enum from madrona.phys"""
 
@@ -84,7 +78,6 @@ class ResponseType:
     Kinematic = 1
     Static = 2
 
-
 class Type:
     """Enum from madrona.phys.JointConstraint"""
 
@@ -92,7 +85,6 @@ class Type:
 
     Fixed = 0
     Hinge = 1
-
 
 class Type:
     """Enum from madrona.phys.CollisionPrimitive"""
@@ -103,7 +95,6 @@ class Type:
     Hull = 2
     Plane = 4
 
-
 class Solver:
     """Enum from madrona.phys.PhysicsSystem"""
 
@@ -111,7 +102,6 @@ class Solver:
 
     XPBD = 0
     TGS = 1
-
 
 class Type:
     """Enum from madrona.render.LightDesc"""
@@ -121,7 +111,6 @@ class Type:
     Directional = -1
     Spotlight = 0
 
-
 class unnamed_enum_at_home_duane_madrona_escape_room_src_external_madrona_include_madrona_render_ecs_hpp_123_5:
     """Enum from madrona.render.MaterialOverride"""
 
@@ -130,7 +119,6 @@ class unnamed_enum_at_home_duane_madrona_escape_room_src_external_madrona_includ
     UseDefaultMaterial = -1
     UseOverrideColor = -2
 
-
 class RenderMode:
     """Enum from madrona.render.RenderManager.Config"""
 
@@ -138,7 +126,6 @@ class RenderMode:
 
     RGBD = 0
     Depth = 1
-
 
 class TensorElementType:
     """Enum from madrona.py"""
@@ -153,7 +140,6 @@ class TensorElementType:
     Float16 = 5
     Float32 = 6
 
-
 class SourceTextureFormat:
     """Enum from madrona.imp"""
 
@@ -161,7 +147,6 @@ class SourceTextureFormat:
 
     R8G8B8A8 = 0
     BC7 = 1
-
 
 class consts:
     """Constants from consts namespace"""
@@ -226,6 +211,7 @@ class consts:
             NONE = 2
             SLOW_LEFT = 1
             SLOW_RIGHT = 3
+
 
     class display:
         """Constants from display namespace"""
@@ -316,6 +302,7 @@ class consts:
             plane = 3
             wall = 1
 
+
     class rendering:
         """Constants from rendering namespace"""
 
@@ -400,6 +387,7 @@ class consts:
             wallGray = 0.4
             white = 1.0
 
+
     class viewer:
         """Constants from viewer namespace"""
 
@@ -425,7 +413,6 @@ class limits:
     maxTiles = 1024
     maxWorlds = 10000
 
-
 class AssetIDs:
     """Constants from AssetIDs namespace"""
 
@@ -442,7 +429,6 @@ class AssetIDs:
     MAX_ASSETS = 256
     PLANE = 4
     WALL = 2
-
 
 # Convenience aliases for common use
 action = consts.action
