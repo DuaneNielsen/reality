@@ -444,7 +444,7 @@ def create_sim_manager(
     enable_batch_renderer=None,
 ):
     """Factory function to create SimManager with flexible configuration
-    
+
     Args:
         exec_mode: ExecMode.CPU or ExecMode.CUDA
         sensor_config: Optional SensorConfig object for sensor settings
@@ -458,45 +458,48 @@ def create_sim_manager(
         custom_vertical_fov: Custom vertical FOV in degrees (0 = use default)
         render_mode: RenderMode enum value (None = use default RGBD)
         enable_batch_renderer: Force enable/disable renderer (None = auto-detect from sensor_config)
-    
+
     Returns:
         SimManager: Configured simulation manager
-        
+
     Examples:
         # Simple CPU manager with defaults
         mgr = create_sim_manager(ExecMode.CPU)
-        
+
         # With custom sensor configuration
         sensor = SensorConfig.lidar_horizontal_128()
         mgr = create_sim_manager(ExecMode.CPU, sensor_config=sensor)
-        
+
         # With custom ASCII level
         level = "###\\n#@#\\n###"
         mgr = create_sim_manager(ExecMode.CPU, level_data=level)
     """
     from .generated_constants import ExecMode, RenderMode
-    
+
     # Handle level data
     compiled_level = None
     if level_data is None:
         # Use default level
         from .default_level import create_default_level
+
         compiled_level = create_default_level()
     elif isinstance(level_data, str):
         # Check if it's JSON or ASCII
         level_str = level_data.strip()
-        if level_str.startswith('{') or level_str.startswith('['):
+        if level_str.startswith("{") or level_str.startswith("["):
             # JSON level string
             from .level_compiler import compile_level
+
             compiled_level = compile_level(level_str)
         else:
             # ASCII level
             from .level_compiler import compile_ascii_level
+
             compiled_level = compile_ascii_level(level_str, level_name="custom_level")
     else:
         # Assume it's already a CompiledLevel object
         compiled_level = level_data
-    
+
     # Handle sensor configuration
     if sensor_config is not None:
         # Apply sensor config settings
@@ -511,11 +514,11 @@ def create_sim_manager(
             enable_renderer = False  # Default to no renderer if no sensor config provided
         else:
             enable_renderer = enable_batch_renderer
-            
+
         # Use default RGBD render mode if not specified
         if render_mode is None:
             render_mode = RenderMode.RGBD
-    
+
     return SimManager(
         exec_mode=exec_mode,
         gpu_id=gpu_id,

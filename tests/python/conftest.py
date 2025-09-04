@@ -59,7 +59,9 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "sensor.lidar_256: Use 256-beam high-res lidar (120° FOV)")
     config.addinivalue_line("markers", "sensor.rgbd_default: Use default 64x64 RGBD sensor")
     config.addinivalue_line("markers", "json_level: mark test to use custom JSON level definition")
-    config.addinivalue_line("markers", "slow: mark test as slow running (e.g., GPU compilation tests)")
+    config.addinivalue_line(
+        "markers", "slow: mark test as slow running (e.g., GPU compilation tests)"
+    )
 
 
 def pytest_runtest_setup(item):
@@ -91,7 +93,7 @@ def _create_sim_manager(
     render_mode=None,
 ):
     """Helper function to create SimManager with pytest marker support
-    
+
     This is a pytest-specific wrapper around create_sim_manager that handles
     pytest markers for level and sensor configuration.
 
@@ -122,6 +124,7 @@ def _create_sim_manager(
         json_dict = json_marker.args[0]
         # Convert dictionary to JSON string for proper processing
         import json
+
         level_data = json.dumps(json_dict)
         logger.info(f"Using JSON level:\n{level_data}")
 
@@ -153,7 +156,7 @@ def _create_sim_manager(
         width = batch_render_width
         height = batch_render_height
         fov = custom_vertical_fov if custom_vertical_fov > 0 else 100.0
-        
+
         # Override with depth_sensor marker parameters
         if depth_marker:
             if len(depth_marker.args) >= 2:
@@ -161,23 +164,24 @@ def _create_sim_manager(
                 height = depth_marker.args[1]
             if len(depth_marker.args) >= 3:
                 fov = depth_marker.args[2]
-        
+
         # Determine if depth should be enabled
-        enable_depth = (enable_depth_override 
-                       if enable_depth_override is not None 
-                       else depth_marker is not None)
-        
+        enable_depth = (
+            enable_depth_override if enable_depth_override is not None else depth_marker is not None
+        )
+
         if enable_depth:
             from madrona_escape_room import RenderMode
+
             mode = render_mode if render_mode is not None else RenderMode.Depth
             sensor_config = SensorConfig.custom(
                 width=width,
                 height=height,
                 vertical_fov=fov,
                 render_mode=mode,
-                name=f"Legacy Depth {width}x{height}"
+                name=f"Legacy Depth {width}x{height}",
             )
-            
+
             exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
             logger.info(f"Legacy depth sensor for {exec_mode_name}: {sensor_config}")
 
