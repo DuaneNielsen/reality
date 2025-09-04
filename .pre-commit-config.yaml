@@ -12,6 +12,8 @@ repos:
         name: ruff
         description: Run ruff linter
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^madrona_escape_room/generated_.*\.py$
       - id: ruff-format
         name: ruff format
         description: Run ruff formatter
+        exclude: ^madrona_escape_room/generated_.*\.py$

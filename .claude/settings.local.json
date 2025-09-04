@@ -138,7 +138,8 @@
       "Bash(else echo \"NO - They differ\")",
       "Bash(fi)",
       "Bash(./tests/quicktest.sh:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(./build.sh)"
     ],
     "deny": []
   },
