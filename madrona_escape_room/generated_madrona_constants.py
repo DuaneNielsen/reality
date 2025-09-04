@@ -15,6 +15,7 @@ class ExecMode:
     CPU = 0
     CUDA = 1
 
+
 class ArchetypeFlags:
     """Enum from madrona"""
 
@@ -22,6 +23,7 @@ class ArchetypeFlags:
 
     None_ = 0  # Renamed from 'None' (Python keyword)
     ImportOffsets = 1
+
 
 class ComponentFlags:
     """Enum from madrona"""
@@ -34,6 +36,7 @@ class ComponentFlags:
     CudaReserveMemory = 4
     CudaAllocMemory = 8
 
+
 class SourceTextureFormat:
     """Enum from madrona.imp"""
 
@@ -41,6 +44,7 @@ class SourceTextureFormat:
 
     R8G8B8A8 = 0
     BC7 = 1
+
 
 class Op:
     """Enum from madrona.Transaction"""
@@ -51,6 +55,7 @@ class Op:
     Destroy = 1
     Modify = 2
 
+
 class Type:
     """Enum from madrona.render.LightDesc"""
 
@@ -58,6 +63,7 @@ class Type:
 
     Directional = -1
     Spotlight = 0
+
 
 class unnamed_enum_at_home_duane_madrona_escape_room_src_external_madrona_include_madrona_render_ecs_hpp_123_5:
     """Enum from madrona.render.MaterialOverride"""
@@ -67,6 +73,7 @@ class unnamed_enum_at_home_duane_madrona_escape_room_src_external_madrona_includ
     UseDefaultMaterial = -1
     UseOverrideColor = -2
 
+
 class RenderMode:
     """Enum from madrona.render.RenderManager.Config"""
 
@@ -74,6 +81,7 @@ class RenderMode:
 
     RGBD = 0
     Depth = 1
+
 
 class ResponseType:
     """Enum from madrona.phys"""
@@ -84,6 +92,7 @@ class ResponseType:
     Kinematic = 1
     Static = 2
 
+
 class Type:
     """Enum from madrona.phys.JointConstraint"""
 
@@ -91,6 +100,7 @@ class Type:
 
     Fixed = 0
     Hinge = 1
+
 
 class Type:
     """Enum from madrona.phys.CollisionPrimitive"""
@@ -101,6 +111,7 @@ class Type:
     Hull = 2
     Plane = 4
 
+
 class Solver:
     """Enum from madrona.phys.PhysicsSystem"""
 
@@ -109,6 +120,7 @@ class Solver:
     XPBD = 0
     TGS = 1
 
+
 class RenderManagerConfig:
     """Constants from RenderManagerConfig namespace"""
 
@@ -116,6 +128,7 @@ class RenderManagerConfig:
 
     class RenderMode:
         """Enum values for RenderMode"""
+
         __slots__ = ()
 
         RGBD = 0
@@ -129,6 +142,7 @@ class Physics:
 
     class ResponseType:
         """Enum values for ResponseType"""
+
         __slots__ = ()
 
         Dynamic = 0
@@ -142,12 +156,12 @@ class Physics:
 
         class Type:
             """Enum values for Type"""
+
             __slots__ = ()
 
             Sphere = 1
             Hull = 2
             Plane = 4
-
 
     class JointConstraint:
         """Constants from JointConstraint namespace"""
@@ -156,11 +170,11 @@ class Physics:
 
         class Type:
             """Enum values for Type"""
+
             __slots__ = ()
 
             Fixed = 0
             Hinge = 1
-
 
     class PhysicsSystem:
         """Constants from PhysicsSystem namespace"""
@@ -169,11 +183,11 @@ class Physics:
 
         class Solver:
             """Enum values for Solver"""
+
             __slots__ = ()
 
             XPBD = 0
             TGS = 1
-
 
     class broadphase:
         """Constants from broadphase namespace"""
@@ -186,7 +200,6 @@ class Physics:
             __slots__ = ()
 
             sentinel_ = "0xFFFF'FFFF_i32"
-
 
 
 __all__ = [

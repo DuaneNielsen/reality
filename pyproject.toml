@@ -53,7 +53,6 @@ dev = [
 
 [tool.ruff]
 exclude = [
-    "madrona_escape_room/generated_constants.py",
-    "madrona_escape_room/generated_dataclasses.py",
-    "madrona_escape_room/generated_madrona_constants.py",
+    "madrona_escape_room/generated_*.py",
+    "**/generated_*.py",
 ]
