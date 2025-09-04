@@ -18,6 +18,7 @@ struct TrajectoryPoint {
     int32_t agent;
     float x, y, z;
     float rotation;  // in degrees
+    int32_t compass;  // compass bucket index (0-127)
     float progress;
     
     bool operator==(const TrajectoryPoint& other) const {
@@ -29,6 +30,7 @@ struct TrajectoryPoint {
                std::abs(y - other.y) < epsilon &&
                std::abs(z - other.z) < epsilon &&
                std::abs(rotation - other.rotation) < epsilon &&
+               compass == other.compass &&
                std::abs(progress - other.progress) < epsilon;
     }
 };
@@ -49,12 +51,21 @@ public:
             uint32_t remaining = 0;
             int32_t done = 0;
             
-            // Try new format first
+            // Try new format with compass first
             if (sscanf(line.c_str(), 
+                      "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° compass=%d progress=%f done=%d",
+                      &point.step, &remaining, &point.world, &point.agent,
+                      &point.x, &point.y, &point.z,
+                      &point.rotation, &point.compass, &point.progress, &done) == 11) {
+                points.push_back(point);
+            }
+            // Try format without compass
+            else if (sscanf(line.c_str(), 
                       "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° progress=%f done=%d",
                       &point.step, &remaining, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.progress, &done) == 10) {
+                point.compass = -1;  // Default compass value for old format
                 points.push_back(point);
             }
             // Then try old format
@@ -63,6 +74,7 @@ public:
                       &point.step, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.progress) == 8) {
+                point.compass = -1;  // Default compass value for old format
                 points.push_back(point);
             }
         }
