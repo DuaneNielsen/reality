@@ -152,9 +152,9 @@ def test_sim_interface_adapter_creation(cpu_manager):
     else:
         assert sim_interface.actions.shape == (4, 1, 3)  # [worlds, agents, action_dim]
 
-    # Rewards and dones should have agent dimension
-    assert sim_interface.rewards.shape == (4, 1, 1)  # [worlds, agents, 1]
-    assert sim_interface.dones.shape == (4, 1, 1)  # [worlds, agents, 1]
+    # Rewards and dones for single-agent environment
+    assert sim_interface.rewards.shape == (4, 1)  # [worlds, 1] - single agent per world
+    assert sim_interface.dones.shape == (4, 1)  # [worlds, 1] - single agent per world
 
 
 def test_process_observations():
@@ -229,12 +229,8 @@ def test_sim_interface_step_integration(cpu_manager):
     new_self_obs = sim_interface.obs[ObsIndex.SELF_OBS]
 
     # Position should have changed (agents moved forward)
-    initial_position = initial_self_obs[
-        :, :, SelfObsIndex.X : SelfObsIndex.Z + 1
-    ]
-    new_position = new_self_obs[
-        :, :, SelfObsIndex.X : SelfObsIndex.Z + 1
-    ]
+    initial_position = initial_self_obs[:, :, SelfObsIndex.X : SelfObsIndex.Z + 1]
+    new_position = new_self_obs[:, :, SelfObsIndex.X : SelfObsIndex.Z + 1]
     position_changed = not torch.allclose(initial_position, new_position)
     assert position_changed, "Agent positions should have changed after forward movement"
 
@@ -324,16 +320,13 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
         sim_interface.dones.data_ptr() == original_done_tensor.data_ptr()
     ), "Done tensor should be zero-copy reference to original"
     assert (
-        sim_interface.obs[ObsIndex.SELF_OBS].data_ptr()
-        == original_self_obs_tensor.data_ptr()
+        sim_interface.obs[ObsIndex.SELF_OBS].data_ptr() == original_self_obs_tensor.data_ptr()
     ), "Self observation tensor should be zero-copy reference to original"
     assert (
-        sim_interface.obs[ObsIndex.COMPASS].data_ptr()
-        == original_compass_tensor.data_ptr()
+        sim_interface.obs[ObsIndex.COMPASS].data_ptr() == original_compass_tensor.data_ptr()
     ), "Compass tensor should be zero-copy reference to original"
     assert (
-        sim_interface.obs[ObsIndex.DEPTH].data_ptr()
-        == original_depth_tensor.data_ptr()
+        sim_interface.obs[ObsIndex.DEPTH].data_ptr() == original_depth_tensor.data_ptr()
     ), "Depth tensor should be zero-copy reference to original"
 
     print("✅ Zero-copy verification passed - all tensors share memory with originals")
@@ -400,21 +393,15 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
     # === VERIFY INTERFACE REFLECTS SAME CHANGES ===
     # The interface tensors should show the exact same values as original tensors
     assert torch.allclose(
-        sim_interface.obs[ObsIndex.SELF_OBS][
-            0, 0, SelfObsIndex.X : SelfObsIndex.Z + 1
-        ],
+        sim_interface.obs[ObsIndex.SELF_OBS][0, 0, SelfObsIndex.X : SelfObsIndex.Z + 1],
         new_position,
     ), "Interface should show same position as original tensor"
     assert torch.allclose(
-        sim_interface.obs[ObsIndex.SELF_OBS][
-            0, 0, SelfObsIndex.PROGRESS
-        ],
+        sim_interface.obs[ObsIndex.SELF_OBS][0, 0, SelfObsIndex.PROGRESS],
         new_progress,
     ), "Interface should show same progress as original tensor"
     assert torch.allclose(
-        sim_interface.obs[ObsIndex.SELF_OBS][
-            0, 0, SelfObsIndex.ROTATION
-        ],
+        sim_interface.obs[ObsIndex.SELF_OBS][0, 0, SelfObsIndex.ROTATION],
         new_rotation,
     ), "Interface should show same rotation as original tensor"
     assert torch.allclose(

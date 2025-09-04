@@ -24,8 +24,7 @@ def test_done_tensor_resets_to_zero(cpu_manager):
     assert done_tensor.shape == (
         4,
         1,
-        1,
-    ), f"Expected done tensor shape (4,1,1), got {done_tensor.shape}"
+    ), f"Expected done tensor shape (4,1), got {done_tensor.shape}"
     assert done_tensor.dtype == torch.int32, f"Expected dtype int32, got {done_tensor.dtype}"
 
     # First reset all worlds to ensure clean state
@@ -58,9 +57,9 @@ def test_done_tensor_resets_to_zero(cpu_manager):
     mgr.step()
 
     # After reset, done tensor should be 0 for the reset world
-    assert done_tensor[done_world_idx, 0, 0] == 0, (
+    assert done_tensor[done_world_idx, 0] == 0, (
         f"Expected done=0 after reset for world {done_world_idx}, "
-        f"got {done_tensor[done_world_idx, 0, 0]}"
+        f"got {done_tensor[done_world_idx, 0]}"
     )
 
     # Steps taken should be back to 0 for the reset world
@@ -111,7 +110,7 @@ def test_done_tensor_after_episode_length(cpu_manager):
     for world_idx in range(4):
         if steps_after[world_idx, 0, 0] == consts.episodeLen:
             assert (
-                done_tensor[world_idx, 0, 0] == 1
+                done_tensor[world_idx, 0] == 1
             ), f"World {world_idx} should be done when steps taken equals {consts.episodeLen}"
 
 

@@ -42,6 +42,13 @@ def test_forward_movement_reward(cpu_manager):
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
 
+    # Verify reward tensor has correct shape [num_worlds, 1] for single-agent environment
+    reward_tensor = mgr.reward_tensor().to_torch()
+    assert reward_tensor.shape == (
+        4,
+        1,
+    ), f"Expected reward tensor shape (4, 1), got {reward_tensor.shape}"
+
     # Reset world 0
     reset_world(mgr, 0)
 
@@ -117,6 +124,13 @@ def test_reward_normalization(cpu_manager):
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
 
+    # Verify reward tensor has correct shape [num_worlds, 1] for single-agent environment
+    reward_tensor = mgr.reward_tensor().to_torch()
+    assert reward_tensor.shape == (
+        4,
+        1,
+    ), f"Expected reward tensor shape (4, 1), got {reward_tensor.shape}"
+
     # Reset world 0 - manager already has the custom level
     reset_world(mgr, 0)
 
@@ -146,6 +160,32 @@ def test_reward_normalization(cpu_manager):
     assert (
         0.85 < final_reward < 0.95
     ), "Reward should reflect nearly complete progress through the gap"
+
+
+def test_reward_tensor_shape(cpu_manager):
+    """Test that reward tensor has correct shape for single-agent environment"""
+    mgr = cpu_manager
+
+    # Verify reward tensor shape
+    reward_tensor = mgr.reward_tensor().to_torch()
+    num_worlds = reward_tensor.shape[0]
+
+    # Single-agent environment should have shape [num_worlds, 1] not [num_worlds, num_agents, 1]
+    assert (
+        len(reward_tensor.shape) == 2
+    ), f"Reward tensor should be 2D, got {len(reward_tensor.shape)}D shape {reward_tensor.shape}"
+    assert (
+        reward_tensor.shape[1] == 1
+    ), f"Reward tensor should have 1 reward per world, got {reward_tensor.shape[1]}"
+
+    print(
+        f"✓ Reward tensor shape: {reward_tensor.shape} (num_worlds={num_worlds}, rewards_per_world=1)"
+    )
+
+    # Verify we can access rewards correctly
+    for world_idx in range(num_worlds):
+        reward_val = reward_tensor[world_idx, 0].item()
+        assert isinstance(reward_val, float), f"Reward should be float, got {type(reward_val)}"
 
 
 # NOTE: Removed test_recorded_actions_reward - replaced by comprehensive native recording tests

@@ -163,12 +163,12 @@ class ObservationReader:
     def get_reward(self, world_idx: int, agent_idx: int = 0) -> float:
         """Get agent's current reward"""
         rewards = self.mgr.reward_tensor().to_torch()
-        return rewards[world_idx, agent_idx, 0].item()
+        return rewards[world_idx, 0].item()
 
     def get_done_flag(self, world_idx: int, agent_idx: int = 0) -> bool:
         """Check if episode is done"""
         dones = self.mgr.done_tensor().to_torch()
-        return bool(dones[world_idx, agent_idx, 0].item())
+        return bool(dones[world_idx, 0].item())
 
     def get_steps_remaining(self, world_idx: int, agent_idx: int = 0) -> int:
         """Get steps remaining in episode"""

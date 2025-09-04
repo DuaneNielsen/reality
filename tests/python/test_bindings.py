@@ -50,14 +50,14 @@ def test_tensor_shapes(cpu_manager):
     assert actions.shape == (4, 3), f"Expected shape (4, 3), got {actions.shape}"
     assert actions.dtype == torch.int32
 
-    # Test reward tensor
+    # Test reward tensor - single-agent environment has shape [num_worlds, 1]
     rewards = mgr.reward_tensor().to_torch()
-    assert rewards.shape == (4, 1, 1), f"Expected shape (4, 1, 1), got {rewards.shape}"
+    assert rewards.shape == (4, 1), f"Expected shape (4, 1), got {rewards.shape}"
     assert rewards.dtype == torch.float32
 
-    # Test done tensor
+    # Test done tensor - single-agent environment has shape [num_worlds, 1]
     dones = mgr.done_tensor().to_torch()
-    assert dones.shape == (4, 1, 1), f"Expected shape (4, 1, 1), got {dones.shape}"
+    assert dones.shape == (4, 1), f"Expected shape (4, 1), got {dones.shape}"
     assert dones.dtype == torch.int32
 
     # Test observation tensors
@@ -224,7 +224,7 @@ def test_state_persistence(cpu_manager):
     # Verify tensors are still accessible
     rewards = mgr.reward_tensor().to_torch()
     assert rewards is not None
-    assert rewards.shape == (4, 1, 1)
+    assert rewards.shape == (4, 1)
 
 
 def test_progress_tensor(cpu_manager):
@@ -278,9 +278,9 @@ def test_random_actions_comprehensive(cpu_manager):
 
     actions = mgr.action_tensor().to_torch()
 
-    # Track statistics
-    total_rewards = torch.zeros(4, 2)
-    episodes_completed = torch.zeros(4, 2, dtype=torch.int32)
+    # Track statistics - single agent per world
+    total_rewards = torch.zeros(4, 1)
+    episodes_completed = torch.zeros(4, 1, dtype=torch.int32)
     max_reward_seen = float("-inf")
     min_reward_seen = float("inf")
 
@@ -298,8 +298,8 @@ def test_random_actions_comprehensive(cpu_manager):
         rewards = mgr.reward_tensor().to_torch()
         dones = mgr.done_tensor().to_torch()
 
-        total_rewards += rewards.squeeze(-1)
-        episodes_completed += dones.squeeze(-1).int()
+        total_rewards += rewards
+        episodes_completed += dones.int()
 
         max_reward_seen = max(max_reward_seen, rewards.max().item())
         min_reward_seen = min(min_reward_seen, rewards.min().item())

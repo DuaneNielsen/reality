@@ -753,7 +753,6 @@ Tensor Manager::rewardTensor() const
     return impl_->exportTensor(ExportID::Reward, TensorElementType::Float32,
                                {
                                    impl_->cfg.numWorlds,
-                                   madEscape::consts::numAgents,
                                    1,
                                });
 }
@@ -764,7 +763,6 @@ Tensor Manager::doneTensor() const
     return impl_->exportTensor(ExportID::Done, TensorElementType::Int32,
                                {
                                    impl_->cfg.numWorlds,
-                                   madEscape::consts::numAgents,
                                    1,
                                });
 }
