@@ -16,9 +16,9 @@ class DepthIndex:
     CHANNEL_DIM = 4  # Channel dimension index
 
     # For horizontal lidar [worlds, agents, 1, 128, 1]
-    BEAM_0 = 0  # First lidar beam (leftmost)
-    BEAM_64 = 64  # Middle lidar beam (center)
-    BEAM_127 = 127  # Last lidar beam (rightmost)
+    LEFTMOST = 0  # First lidar beam (leftmost)
+    CENTER = 64  # Middle lidar beam (center)
+    RIGHTMOST = 127  # Last lidar beam (rightmost)
 
     @staticmethod
     def beam_count():
@@ -29,9 +29,9 @@ class DepthIndex:
 class CompassIndex:
     """Compass tensor bucket indices (128-bucket one-hot encoding)"""
 
-    COMPASS_0 = 0  # First compass bucket (0/128)
-    COMPASS_64 = 64  # Middle compass bucket (64/128) - North
-    COMPASS_127 = 127  # Last compass bucket (127/128)
+    FIRST = 0  # First compass bucket (0/128)
+    CENTER = 64  # Middle compass bucket (64/128)
+    LAST = 127  # Last compass bucket (127/128)
 
     @staticmethod
     def bucket_count():

@@ -167,7 +167,7 @@ def test_process_observations():
     self_obs[:, :, SelfObsIndex.PROGRESS] = torch.tensor([[0.25], [0.75]])  # Set progress values
 
     compass = torch.zeros(batch_size, num_agents, CompassIndex.bucket_count())
-    compass[0, 0, CompassIndex.COMPASS_64] = 1.0  # One-hot at center for first batch
+    compass[0, 0, CompassIndex.CENTER] = 1.0  # One-hot at center for first batch
     compass[1, 0, 32] = 1.0  # One-hot at index 32 for second batch
 
     depth_height, depth_width = 64, 64
