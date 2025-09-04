@@ -139,7 +139,8 @@
       "Bash(fi)",
       "Bash(./tests/quicktest.sh:*)",
       "Bash(git checkout:*)",
-      "Bash(./build.sh)"
+      "Bash(./build.sh)",
+      "Bash(git worktree:*)"
     ],
     "deny": []
   },
