@@ -111,6 +111,25 @@ test_my_code.py <---- DO NOT DO THIS
 
 IMPORTANT: NEVER use sys.path.insert(..) ALWAYS place modules in the correct locations so they can be imported correctly by python
 
+**CRITICAL: NEVER reassign constants or create redundant assignments**
+
+NEVER do this idiotic pattern:
+```python
+# BAD - Creates fragile, stupid code
+from some_module import SomeConstant
+class MyClass:
+    SomeConstant = SomeConstant  # NEVER DO THIS GARBAGE
+```
+
+ALWAYS use proper imports:
+```python
+# GOOD - Clean, maintainable imports
+from some_module import SomeConstant
+# Just use SomeConstant directly in your code
+```
+
+This prevents NameError disasters during refactoring and keeps code clean.
+
 #### C++ coding standards
 
 # Testing

@@ -7,6 +7,56 @@ import madrona_escape_room
 from .cfg import SimInterface
 
 
+class DepthIndex:
+    """Depth tensor indices for horizontal lidar"""
+
+    # For tensor shape [worlds, agents, height, width, channels]
+    HEIGHT_DIM = 2  # Height dimension index
+    WIDTH_DIM = 3  # Width dimension index (beam index)
+    CHANNEL_DIM = 4  # Channel dimension index
+
+    # For horizontal lidar [worlds, agents, 1, 128, 1]
+    BEAM_0 = 0  # First lidar beam (leftmost)
+    BEAM_64 = 64  # Middle lidar beam (center)
+    BEAM_127 = 127  # Last lidar beam (rightmost)
+
+    @staticmethod
+    def beam_count():
+        """Total number of lidar beams for horizontal lidar"""
+        return 128
+
+
+class CompassIndex:
+    """Compass tensor bucket indices (128-bucket one-hot encoding)"""
+
+    COMPASS_0 = 0  # First compass bucket (0/128)
+    COMPASS_64 = 64  # Middle compass bucket (64/128) - North
+    COMPASS_127 = 127  # Last compass bucket (127/128)
+
+    @staticmethod
+    def bucket_count():
+        """Total number of compass buckets"""
+        return 128
+
+
+class SelfObsIndex:
+    """Indices for self observation tensor components"""
+
+    X = 0  # Position X coordinate
+    Y = 1  # Position Y coordinate
+    Z = 2  # Position Z coordinate
+    PROGRESS = 3  # Progress (maxY reached)
+    ROTATION = 4  # Agent rotation
+
+
+class ObsIndex:
+    """Observation tensor indices for SimInterface.obs list"""
+
+    SELF_OBS = 0  # Self observation tensor [worlds, agents, 5]
+    COMPASS = 1  # Compass tensor [worlds, agents, 128]
+    DEPTH = 2  # Depth tensor [worlds, agents, height, width, channels]
+
+
 def create_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterface:
     """Create SimInterface from SimManager with live tensor references."""
 
