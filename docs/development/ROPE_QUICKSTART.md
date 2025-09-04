@@ -57,6 +57,31 @@ proj.do(changes)
 uv run rope list path/to/file.py
 ```
 
+## What Works Well with Rope
+
+### ✅ Moving Classes with CLI - RECOMMENDED APPROACH
+**Use Case**: Moving entire classes between modules
+
+**Command**: 
+```bash
+uv run rope move source_file.py::ClassName target_file.py
+```
+
+**Real Example that WORKED**:
+```bash
+# Successfully moved constants from test to proper module
+uv run rope move tests/python/test_sim_interface_adapter.py::ObsIndex train_src/madrona_escape_room_learn/sim_interface_adapter.py
+uv run rope move tests/python/test_sim_interface_adapter.py::SelfObsIndex train_src/madrona_escape_room_learn/sim_interface_adapter.py
+uv run rope move tests/python/test_sim_interface_adapter.py::CompassIndex train_src/madrona_escape_room_learn/sim_interface_adapter.py
+uv run rope move tests/python/test_sim_interface_adapter.py::DepthIndex train_src/madrona_escape_room_learn/sim_interface_adapter.py
+```
+
+**What Rope Automatically Does**:
+- ✅ Moves the class definition to target file
+- ✅ Adds necessary import statements
+- ✅ Updates most direct references (e.g., `SelfObsIndex.PROGRESS` → `module.SelfObsIndex.PROGRESS`)
+- ✅ Maintains code structure and comments
+
 ## Common Issues & Solutions
 
 ### Issue: External Dependencies Cause Syntax Errors
@@ -67,45 +92,35 @@ uv run rope list path/to/file.py
 prefs['ignored_resources'] = ['external*', 'build*', 'scratch*']
 ```
 
-### Issue: Class Attributes Not Renameable via CLI
-**Problem**: `rope rename file.py::Class.attribute new_name` fails
+### ⚠️ Issue: Rope Misses Constant Reassignments
+**Problem**: Code like `SomeConstant = SomeConstant` inside classes creates NameErrors after move
 
-**Solution**: Use rope library directly with offset-based renaming:
+**Root Cause**: This is terrible code practice - rope correctly removes the class but can't update these idiotic assignments
+
+**Solution**: Fix the bad code pattern FIRST, then use rope:
 ```python
-import rope.base.project
-from rope.refactor.rename import Rename
+# BAD - Will break during rope refactoring
+class MyClass:
+    SomeConstant = SomeConstant  # NEVER DO THIS
 
-proj = rope.base.project.Project('.')
-file_resource = proj.get_file('file.py')
-content = file_resource.read()
-attribute_offset = content.find('attribute_name')
-renamer = Rename(proj, file_resource, attribute_offset)
-changes = renamer.get_changes('new_attribute_name')
-proj.do(changes)
+# GOOD - Works perfectly with rope
+from some_module import SomeConstant
+class MyClass:
+    pass  # Just use SomeConstant directly in methods
 ```
 
-### Issue: Cross-File References Not Updated
-**Problem**: Renaming in one file doesn't update imports/references in other files
+### Issue: Long Qualified Names After Move
+**Problem**: Rope creates long imports like `module.submodule.Class.CONSTANT`
 
-**Root Cause**: Each rope operation creates separate project instances, losing cross-file context
-
-**Solution**: Use single rope project instance for related operations:
+**Solution**: Clean up with proper imports:
 ```python
-import rope.base.project
-from rope.refactor.rename import Rename
+# Rope generates this
+import module.submodule
+result = module.submodule.Class.CONSTANT
 
-# Create ONE project instance for all operations
-proj = rope.base.project.Project('.')
-
-# Do multiple renames with same project instance
-for old_name, new_name in [('COMPASS_0', 'FIRST'), ('COMPASS_64', 'NORTH')]:
-    file_resource = proj.get_file('target_file.py')
-    content = file_resource.read()
-    offset = content.find(old_name)
-    if offset != -1:
-        renamer = Rename(proj, file_resource, offset)
-        changes = renamer.get_changes(new_name)
-        proj.do(changes)
+# Clean it up to this
+from module.submodule import Class
+result = Class.CONSTANT
 ```
 
 ## Debugging Rope Issues
@@ -137,55 +152,47 @@ for test_file in test_files:
     print(f'{test_file}: {"IGNORED" if matches else "NOT IGNORED"}')
 ```
 
-## Best Practices
+## Best Practices (Based on Real Experience)
 
-1. **Always test configuration first** - verify ignored patterns work
-2. **Use library interface for complex operations** - CLI has limitations
-3. **Keep single project instance** - for related refactoring operations
-4. **Test after refactoring** - run tests to verify all references updated
-5. **Commit frequently** - rope changes can be extensive
+1. **Use rope CLI for class moves** - It works great and is much simpler than library interface
+2. **Fix bad code patterns FIRST** - Remove `SomeConstant = SomeConstant` assignments before refactoring
+3. **Always test configuration first** - verify ignored patterns work
+4. **Clean up imports after rope** - Replace long qualified names with proper `from module import` statements  
+5. **Test after refactoring** - run tests to verify all references updated
+6. **Commit frequently** - rope changes can be extensive
 
-## Example: Moving Constants (Complete Workflow)
+## Example: Moving Constants (What Actually Worked)
 
+**Step 1**: Fix bad code patterns first
 ```python
-import rope.base.project
-from rope.refactor.move import create_move
-from rope.refactor.rename import Rename
-
-# Single project instance for all operations
-proj = rope.base.project.Project('.')
-
-# 1. Move classes from test to proper module
-source_file = proj.get_file('tests/python/test_file.py')
-target_file = proj.get_file('src/proper_module.py')
-
-for class_name in ['ObsIndex', 'SelfObsIndex', 'CompassIndex']:
-    source_mod = proj.get_pymodule(source_file)
-    class_obj = source_mod.get_attribute(class_name)
-    mover = create_move(proj, class_obj)
-    changes = mover.get_changes(target_file)
-    proj.do(changes)
-
-# 2. Rename constants to semantic names
-renames = [
-    ('COMPASS_0', 'FIRST'),
-    ('COMPASS_64', 'NORTH'),
-    ('COMPASS_127', 'LAST'),
-    ('BEAM_0', 'LEFTMOST'),
-    ('BEAM_64', 'CENTER'),
-    ('BEAM_127', 'RIGHTMOST')
-]
-
-for old_name, new_name in renames:
-    content = target_file.read()
-    offset = content.find(old_name)
-    if offset != -1:
-        renamer = Rename(proj, target_file, offset)
-        changes = renamer.get_changes(new_name)
-        proj.do(changes)
-        # Refresh file content for next iteration
-        target_file = proj.get_file(target_file.path)
+# BEFORE (in test file) - This will break rope refactoring
+class SimInterface:
+    ObsIndex = ObsIndex          # BAD - will cause NameError
+    SelfObsIndex = SelfObsIndex  # BAD - will cause NameError
 ```
+
+**Step 2**: Use simple rope CLI commands (MUCH easier than library interface)
+```bash
+# These commands worked perfectly
+uv run rope move tests/python/test_sim_interface_adapter.py::ObsIndex train_src/madrona_escape_room_learn/sim_interface_adapter.py
+uv run rope move tests/python/test_sim_interface_adapter.py::SelfObsIndex train_src/madrona_escape_room_learn/sim_interface_adapter.py  
+uv run rope move tests/python/test_sim_interface_adapter.py::CompassIndex train_src/madrona_escape_room_learn/sim_interface_adapter.py
+uv run rope move tests/python/test_sim_interface_adapter.py::DepthIndex train_src/madrona_escape_room_learn/sim_interface_adapter.py
+```
+
+**Step 3**: Clean up the imports rope created
+```python
+# AFTER - Rope creates long imports, clean them up
+# Replace this:
+import madrona_escape_room_learn.sim_interface_adapter  
+result = madrona_escape_room_learn.sim_interface_adapter.SelfObsIndex.PROGRESS
+
+# With this:
+from madrona_escape_room_learn.sim_interface_adapter import SelfObsIndex
+result = SelfObsIndex.PROGRESS
+```
+
+**Total Time**: ~5 minutes with CLI vs hours debugging library interface
 
 ## Troubleshooting
 
