@@ -74,9 +74,9 @@ def test_data_pointer_stability(env):
     }
 
     for name, initial_ptr in initial_pointers.items():
-        assert initial_ptr == final_pointers[name], (
-            f"{name} tensor data pointer changed: {initial_ptr} -> {final_pointers[name]}"
-        )
+        assert (
+            initial_ptr == final_pointers[name]
+        ), f"{name} tensor data pointer changed: {initial_ptr} -> {final_pointers[name]}"
 
     env.close()
 
@@ -98,17 +98,17 @@ def test_view_operations_zero_copy(env):
     original_self_obs = env._self_obs_tensor
 
     # Views share the same storage
-    assert self_obs_view.data_ptr() == original_self_obs.data_ptr(), (
-        "self_obs view doesn't share storage with original tensor"
-    )
+    assert (
+        self_obs_view.data_ptr() == original_self_obs.data_ptr()
+    ), "self_obs view doesn't share storage with original tensor"
 
     # Modifying the view should affect the original
     if self_obs_view.numel() > 0:
         original_value = original_self_obs.view(-1)[0].item()
         self_obs_view.view(-1)[0] += 1.0
-        assert original_self_obs.view(-1)[0].item() == original_value + 1.0, (
-            "Modification to view didn't affect original tensor"
-        )
+        assert (
+            original_self_obs.view(-1)[0].item() == original_value + 1.0
+        ), "Modification to view didn't affect original tensor"
         # Restore original value
         self_obs_view.view(-1)[0] -= 1.0
 
@@ -135,17 +135,17 @@ def test_bidirectional_updates_actions(sim_manager):
 
     # Get the tensor again and verify changes are visible
     action_torch_2 = sim_manager.action_tensor().to_torch()
-    assert torch.allclose(action_torch_2, test_values), (
-        "Action modifications not visible when re-accessing tensor"
-    )
+    assert torch.allclose(
+        action_torch_2, test_values
+    ), "Action modifications not visible when re-accessing tensor"
 
     # Step the simulation
     sim_manager.step()
 
     # Verify tensor still has our values (not reset by step)
-    assert torch.allclose(action_torch, test_values), (
-        "Action tensor unexpectedly modified after step"
-    )
+    assert torch.allclose(
+        action_torch, test_values
+    ), "Action tensor unexpectedly modified after step"
 
     # Restore original values
     action_torch[:] = original_values
@@ -314,9 +314,9 @@ def test_memory_sharing_sim_to_env(sim_manager):
     env_sim_action = env_sim.action_tensor().to_torch()
 
     # These should definitely share memory
-    assert env_action.data_ptr() == env_sim_action.data_ptr(), (
-        "Environment wrapper tensor doesn't share memory with its simulator"
-    )
+    assert (
+        env_action.data_ptr() == env_sim_action.data_ptr()
+    ), "Environment wrapper tensor doesn't share memory with its simulator"
 
     env.close()
 
@@ -350,9 +350,9 @@ def test_gpu_zero_copy(gpu_env):
 
     # Test view operations on GPU
     obs_view = env._self_obs_tensor.view(-1)
-    assert obs_view.data_ptr() == env._self_obs_tensor.data_ptr(), (
-        "GPU tensor view doesn't share storage"
-    )
+    assert (
+        obs_view.data_ptr() == env._self_obs_tensor.data_ptr()
+    ), "GPU tensor view doesn't share storage"
 
 
 if __name__ == "__main__":

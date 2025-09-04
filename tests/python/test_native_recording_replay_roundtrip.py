@@ -242,17 +242,17 @@ def test_trajectory_file_verification_detects_differences(cpu_manager):
             trace2_content = f.read().strip()
 
         # They should be different (proving our test would catch differences)
-        assert trace1_content != trace2_content, (
-            "Different actions should produce different trajectory traces"
-        )
+        assert (
+            trace1_content != trace2_content
+        ), "Different actions should produce different trajectory traces"
 
         trace1_lines = trace1_content.split("\n")
         trace2_lines = trace2_content.split("\n")
 
         # They should have same number of lines (same number of steps)
-        assert len(trace1_lines) == len(trace2_lines), (
-            "Same number of steps should produce same number of trace lines"
-        )
+        assert len(trace1_lines) == len(
+            trace2_lines
+        ), "Same number of steps should produce same number of trace lines"
 
         # But the actual positions should differ
         differences_found = 0
@@ -640,9 +640,9 @@ def test_file_structure_integrity_validation(cpu_manager):
 
             # Verify file has sufficient size
             min_expected_size = metadata_end + expected_action_bytes
-            assert file_size >= min_expected_size, (
-                f"File too small: {file_size} < {min_expected_size}"
-            )
+            assert (
+                file_size >= min_expected_size
+            ), f"File too small: {file_size} < {min_expected_size}"
 
             # Find actual action data by working backwards from file end
             estimated_action_start = file_size - expected_action_bytes

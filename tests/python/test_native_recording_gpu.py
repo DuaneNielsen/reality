@@ -131,9 +131,9 @@ def test_gpu_recording_replay_roundtrip(gpu_manager):
             current_actions = mgr.action_tensor().to_torch()
 
             # Should match what we recorded
-            assert torch.equal(recorded_actions[step], current_actions), (
-                f"Action mismatch at step {step}"
-            )
+            assert torch.equal(
+                recorded_actions[step], current_actions
+            ), f"Action mismatch at step {step}"
 
             if step < 2:
                 assert not finished

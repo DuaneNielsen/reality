@@ -34,9 +34,9 @@ def test_compass_tensor_basic(cpu_manager):
         # Should have exactly one 1.0 and 127 zeros
         assert num_ones == 1, f"World {world_idx}: Expected exactly 1 one, got {num_ones}"
         assert num_zeros == 127, f"World {world_idx}: Expected exactly 127 zeros, got {num_zeros}"
-        assert abs(np.sum(world_agent_0) - 1.0) < 1e-6, (
-            f"World {world_idx}: Sum should be 1.0, got {np.sum(world_agent_0):.6f}"
-        )
+        assert (
+            abs(np.sum(world_agent_0) - 1.0) < 1e-6
+        ), f"World {world_idx}: Sum should be 1.0, got {np.sum(world_agent_0):.6f}"
 
         # Find which bucket is active
         active_bucket = np.argmax(world_agent_0)
@@ -65,14 +65,14 @@ def test_compass_tensor_updates_after_step(cpu_manager):
         for world_idx in range(num_worlds):
             world_agent_updated = compass_updated_np[world_idx, 0, :]
             num_ones_updated = np.sum(world_agent_updated == 1.0)
-            assert num_ones_updated == 1, (
-                f"Step {i}, World {world_idx}: Expected 1 one, got {num_ones_updated}"
-            )
+            assert (
+                num_ones_updated == 1
+            ), f"Step {i}, World {world_idx}: Expected 1 one, got {num_ones_updated}"
 
             # Check sum is still 1.0
-            assert abs(np.sum(world_agent_updated) - 1.0) < 1e-6, (
-                f"Step {i}, World {world_idx}: Sum should be 1.0"
-            )
+            assert (
+                abs(np.sum(world_agent_updated) - 1.0) < 1e-6
+            ), f"Step {i}, World {world_idx}: Sum should be 1.0"
 
             current_active_bucket = np.argmax(world_agent_updated)
             if world_idx == 0:  # Only print for first world to avoid spam

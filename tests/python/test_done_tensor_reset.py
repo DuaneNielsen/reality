@@ -44,9 +44,9 @@ def test_done_tensor_resets_to_zero(cpu_manager):
             break
 
     # Ensure at least one episode is done
-    assert done_tensor.any(), (
-        f"Expected at least one episode to be done after {consts.episodeLen} steps"
-    )
+    assert (
+        done_tensor.any()
+    ), f"Expected at least one episode to be done after {consts.episodeLen} steps"
 
     # Store which world is done for testing
     done_world_idx = torch.nonzero(done_tensor.squeeze(), as_tuple=False)[0].item()
@@ -64,9 +64,9 @@ def test_done_tensor_resets_to_zero(cpu_manager):
     )
 
     # Steps taken should be back to 0 for the reset world
-    assert steps_taken[done_world_idx, 0, 0] == 0, (
-        f"Expected 0 steps taken after reset, got {steps_taken[done_world_idx, 0, 0]}"
-    )
+    assert (
+        steps_taken[done_world_idx, 0, 0] == 0
+    ), f"Expected 0 steps taken after reset, got {steps_taken[done_world_idx, 0, 0]}"
 
 
 def test_done_tensor_after_episode_length(cpu_manager):
@@ -98,9 +98,9 @@ def test_done_tensor_after_episode_length(cpu_manager):
 
         # Check that done is still 0 during the episode
         if step < consts.episodeLen - 1:
-            assert not done_tensor.any(), (
-                f"Done tensor should be 0 during episode at step {step}, got {done_tensor}"
-            )
+            assert (
+                not done_tensor.any()
+            ), f"Done tensor should be 0 during episode at step {step}, got {done_tensor}"
 
     # After exactly episodeLen steps, done should be 1
     # Note: The episode might end due to step limit, so check if any episodes are done
@@ -110,9 +110,9 @@ def test_done_tensor_after_episode_length(cpu_manager):
     # If steps taken equals episode length, then done should be 1
     for world_idx in range(4):
         if steps_after[world_idx, 0, 0] == consts.episodeLen:
-            assert done_tensor[world_idx, 0, 0] == 1, (
-                f"World {world_idx} should be done when steps taken equals {consts.episodeLen}"
-            )
+            assert (
+                done_tensor[world_idx, 0, 0] == 1
+            ), f"World {world_idx} should be done when steps taken equals {consts.episodeLen}"
 
 
 def test_done_tensor_stays_zero_before_episode_end(cpu_manager):
@@ -141,16 +141,16 @@ def test_done_tensor_stays_zero_before_episode_end(cpu_manager):
         mgr.step()
 
         # Done should remain 0 throughout
-        assert not done_tensor.any(), (
-            f"Done tensor should be 0 at step {step}/{half_episode}, got {done_tensor}"
-        )
+        assert (
+            not done_tensor.any()
+        ), f"Done tensor should be 0 at step {step}/{half_episode}, got {done_tensor}"
 
         # Steps taken should increase
         current_steps = steps_taken[0, 0, 0].item()
         expected_steps = step + 1
-        assert current_steps == expected_steps, (
-            f"Expected {expected_steps} steps taken at step {step}, got {current_steps}"
-        )
+        assert (
+            current_steps == expected_steps
+        ), f"Expected {expected_steps} steps taken at step {step}, got {current_steps}"
 
 
 def test_done_tensor_collision_termination(cpu_manager):

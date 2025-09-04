@@ -197,18 +197,18 @@ class TestWorldBoundaries:
             tile_y = compiled.tile_y[i]
 
             # The tile center should be within the boundaries minus the extent
-            assert tile_x >= min_x + wall_half_extent - 0.01, (
-                f"Tile {i} X position {tile_x} extends beyond min boundary {min_x}"
-            )
-            assert tile_x <= max_x - wall_half_extent + 0.01, (
-                f"Tile {i} X position {tile_x} extends beyond max boundary {max_x}"
-            )
-            assert tile_y >= min_y + wall_half_extent - 0.01, (
-                f"Tile {i} Y position {tile_y} extends beyond min boundary {min_y}"
-            )
-            assert tile_y <= max_y - wall_half_extent + 0.01, (
-                f"Tile {i} Y position {tile_y} extends beyond max boundary {max_y}"
-            )
+            assert (
+                tile_x >= min_x + wall_half_extent - 0.01
+            ), f"Tile {i} X position {tile_x} extends beyond min boundary {min_x}"
+            assert (
+                tile_x <= max_x - wall_half_extent + 0.01
+            ), f"Tile {i} X position {tile_x} extends beyond max boundary {max_x}"
+            assert (
+                tile_y >= min_y + wall_half_extent - 0.01
+            ), f"Tile {i} Y position {tile_y} extends beyond min boundary {min_y}"
+            assert (
+                tile_y <= max_y - wall_half_extent + 0.01
+            ), f"Tile {i} Y position {tile_y} extends beyond max boundary {max_y}"
 
     def test_boundary_fields_exist(self):
         """Ensure all boundary fields are present in compiled output"""
@@ -231,9 +231,9 @@ class TestWorldBoundaries:
         for field in required_fields:
             assert hasattr(compiled, field), f"Missing boundary field: {field}"
             field_value = getattr(compiled, field)
-            assert isinstance(field_value, float), (
-                f"Boundary field {field} should be float, got {type(field_value)}"
-            )
+            assert isinstance(
+                field_value, float
+            ), f"Boundary field {field} should be float, got {type(field_value)}"
 
     def test_compiled_level_boundary_attributes(self):
         """Test that boundary values are correctly set as CompiledLevel attributes"""

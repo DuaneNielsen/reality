@@ -236,9 +236,9 @@ def test_progress_tensor(cpu_manager):
 
     # Check shape
     expected_shape = (4, 1, 1)  # 4 worlds, 1 agent, 1 value
-    assert progress.shape == expected_shape, (
-        f"Expected shape {expected_shape}, got {progress.shape}"
-    )
+    assert (
+        progress.shape == expected_shape
+    ), f"Expected shape {expected_shape}, got {progress.shape}"
 
     # Check initial values are reasonable (should be near spawn position)
     # Progress tracks maxY, so it starts at spawn Y (which can be negative)
@@ -315,12 +315,12 @@ def test_random_actions_comprehensive(cpu_manager):
     # After running for 250 steps, we expect the step counter to show around 250
     # (with count-up system, steps continue incrementing past episode length)
     expected_final_steps = 250
-    assert (final_steps >= expected_final_steps - 10).all(), (
-        "Final steps should be around expected value"
-    )
-    assert (final_steps <= expected_final_steps + 10).all(), (
-        "Final steps should be around expected value"
-    )
+    assert (
+        final_steps >= expected_final_steps - 10
+    ).all(), "Final steps should be around expected value"
+    assert (
+        final_steps <= expected_final_steps + 10
+    ).all(), "Final steps should be around expected value"
 
 
 def test_deterministic_actions(cpu_manager):
@@ -391,12 +391,12 @@ def test_trajectory_logging_methods(cpu_manager):
     mgr = cpu_manager
 
     # Test that methods exist and are callable
-    assert hasattr(mgr, "enable_trajectory_logging"), (
-        "SimManager should have enable_trajectory_logging method"
-    )
-    assert hasattr(mgr, "disable_trajectory_logging"), (
-        "SimManager should have disable_trajectory_logging method"
-    )
+    assert hasattr(
+        mgr, "enable_trajectory_logging"
+    ), "SimManager should have enable_trajectory_logging method"
+    assert hasattr(
+        mgr, "disable_trajectory_logging"
+    ), "SimManager should have disable_trajectory_logging method"
 
     # Test enabling trajectory logging with keyword arguments
     # This should not raise an exception

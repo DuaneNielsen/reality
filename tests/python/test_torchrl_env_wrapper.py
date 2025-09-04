@@ -247,9 +247,9 @@ def test_stateful_behavior():
     info1 = td1.get("info", None)
     info2 = td2["next"]["info"]
     if info1 is not None:
-        assert info2["steps_remaining"][0, 0, 0] < info1["steps_remaining"][0, 0, 0], (
-            "Steps remaining didn't decrease"
-        )
+        assert (
+            info2["steps_remaining"][0, 0, 0] < info1["steps_remaining"][0, 0, 0]
+        ), "Steps remaining didn't decrease"
 
     env.close()
 

@@ -169,12 +169,12 @@ def test_multiple_spawn_locations(cpu_manager):
     print(f"Expected spawn 0: X={expected_x0:.2f}, Y={expected_y0:.2f}")
 
     # First agent should use first spawn point
-    assert abs(pos0_x - expected_x0) < 0.1, (
-        f"Agent 0 X position {pos0_x} should be near {expected_x0}"
-    )
-    assert abs(pos0_y - expected_y0) < 0.1, (
-        f"Agent 0 Y position {pos0_y} should be near {expected_y0}"
-    )
+    assert (
+        abs(pos0_x - expected_x0) < 0.1
+    ), f"Agent 0 X position {pos0_x} should be near {expected_x0}"
+    assert (
+        abs(pos0_y - expected_y0) < 0.1
+    ), f"Agent 0 Y position {pos0_y} should be near {expected_y0}"
 
     # NOTE: When 2 agents per world are supported, the second agent would use
     # the second spawn at (8, 5)

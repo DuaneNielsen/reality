@@ -311,9 +311,9 @@ def test_rotation_in_place(cpu_manager):
     # Rotation should have changed
     theta_delta = final_theta - initial_theta
     print(f"Rotation delta: {theta_delta:.3f}")
-    assert abs(theta_delta) > 0.05, (
-        f"Agent should have rotated, but theta only changed by {theta_delta:.3f}"
-    )
+    assert (
+        abs(theta_delta) > 0.05
+    ), f"Agent should have rotated, but theta only changed by {theta_delta:.3f}"
 
 
 @pytest.mark.ascii_level(LARGE_OPEN_LEVEL["ascii"])

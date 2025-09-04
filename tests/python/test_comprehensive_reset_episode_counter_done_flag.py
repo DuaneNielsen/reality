@@ -80,9 +80,9 @@ class TestHelpers:
         # State consistency: if done=0, steps taken should be < episodeLen
         for world_idx in range(steps.shape[0]):
             if done[world_idx, 0, 0].item() == 0:
-                assert steps[world_idx, 0, 0].item() < consts.episodeLen, (
-                    f"World {world_idx}: done=0 but steps_taken={steps[world_idx, 0, 0].item()}"
-                )
+                assert (
+                    steps[world_idx, 0, 0].item() < consts.episodeLen
+                ), f"World {world_idx}: done=0 but steps_taken={steps[world_idx, 0, 0].item()}"
 
 
 # =============================================================================
@@ -120,9 +120,9 @@ class TestBasicResetTiming:
         # Verify mid-episode state
         assert not done_tensor.any(), "Should still be mid-episode"
         expected_steps_taken = 50
-        assert (steps_taken[:, 0, 0] == expected_steps_taken).all(), (
-            f"Expected {expected_steps_taken} steps taken"
-        )
+        assert (
+            steps_taken[:, 0, 0] == expected_steps_taken
+        ).all(), f"Expected {expected_steps_taken} steps taken"
 
         # Test manual reset mid-episode
         reset_tensor[0] = 1  # Reset world 0 only
@@ -135,9 +135,9 @@ class TestBasicResetTiming:
         # Other worlds should continue unaffected
         for world_idx in range(1, 4):
             expected_steps_taken = 51  # One more step taken
-            assert steps_taken[world_idx, 0, 0] == expected_steps_taken, (
-                f"World {world_idx} should continue with {expected_steps_taken} steps taken"
-            )
+            assert (
+                steps_taken[world_idx, 0, 0] == expected_steps_taken
+            ), f"World {world_idx} should continue with {expected_steps_taken} steps taken"
 
     def test_RT_002_manual_reset_when_done_one(self, cpu_manager):
         """RT-002: Manual reset when done=1 should clear done to 0"""
@@ -210,14 +210,14 @@ class TestBasicResetTiming:
                 mgr.step()
 
             # Done flag should persist (no auto-reset)
-            assert done_tensor[done_world, 0, 0] == 1, (
-                "Done flag should persist with auto_reset=False"
-            )
+            assert (
+                done_tensor[done_world, 0, 0] == 1
+            ), "Done flag should persist with auto_reset=False"
             # Note: steps_taken can exceed episodeLen when episode is done but no reset occurs
             # This is expected behavior - the counter continues incrementing
-            assert steps_taken[done_world, 0, 0] >= consts.episodeLen, (
-                "Steps taken should be >= episodeLen"
-            )
+            assert (
+                steps_taken[done_world, 0, 0] >= consts.episodeLen
+            ), "Steps taken should be >= episodeLen"
 
     def test_RT_004_auto_reset_on_done_one(self, cpu_manager):
         """RT-004: With auto_reset=True, done=1 should trigger automatic reset"""
@@ -295,16 +295,16 @@ class TestStepCounterPrecision:
             # During episode: done=0, steps decreasing
             if step < consts.episodeLen - 1:
                 assert not done_tensor.any(), f"Done should be 0 at step {step + 1}"
-                assert (steps_taken[:, 0, 0] == expected_taken).all(), (
-                    f"Step {step + 1}: expected {expected_taken} steps taken"
-                )
+                assert (
+                    steps_taken[:, 0, 0] == expected_taken
+                ).all(), f"Step {step + 1}: expected {expected_taken} steps taken"
             else:
                 # At exactly episodeLen steps: done=1, steps_taken=episodeLen
                 for world_idx in range(4):
                     if steps_taken[world_idx, 0, 0] == consts.episodeLen:
-                        assert done_tensor[world_idx, 0, 0] == 1, (
-                            f"World {world_idx} should be done when steps_taken=episodeLen"
-                        )
+                        assert (
+                            done_tensor[world_idx, 0, 0] == 1
+                        ), f"World {world_idx} should be done when steps_taken=episodeLen"
 
     def test_SC_002_reset_at_step_199(self, cpu_manager):
         """SC-002: Reset at step 199 should give fresh episode with steps=200"""
@@ -329,9 +329,9 @@ class TestStepCounterPrecision:
             mgr.step()
 
         # Should be at step 199: steps_taken=1, done=0
-        assert (steps_taken[:, 0, 0] == consts.episodeLen - 1).all(), (
-            "Should have taken episodeLen-1 steps"
-        )
+        assert (
+            steps_taken[:, 0, 0] == consts.episodeLen - 1
+        ).all(), "Should have taken episodeLen-1 steps"
         assert not done_tensor.any(), "Should not be done yet"
 
         # Manual reset world 0
@@ -345,11 +345,9 @@ class TestStepCounterPrecision:
 
         # Other worlds should have completed their episode (steps=0, done=1)
         for world_idx in range(1, 4):
-            assert steps_taken[world_idx, 0, 0] == consts.episodeLen, (
-                f"World {world_idx} should have 0 steps".replace(
-                    "0 steps", "episodeLen steps taken"
-                )
-            )
+            assert (
+                steps_taken[world_idx, 0, 0] == consts.episodeLen
+            ), f"World {world_idx} should have 0 steps".replace("0 steps", "episodeLen steps taken")
             assert done_tensor[world_idx, 0, 0] == 1, f"World {world_idx} should be done"
 
     def test_SC_003_reset_at_step_200_done_one(self, cpu_manager):
@@ -381,9 +379,9 @@ class TestStepCounterPrecision:
 
             # Verify it's actually done
             assert done_tensor[done_world, 0, 0] == 1, "World should be done"
-            assert steps_taken[done_world, 0, 0] == consts.episodeLen, (
-                "World should have 0 steps".replace("0 steps", "episodeLen steps taken")
-            )
+            assert (
+                steps_taken[done_world, 0, 0] == consts.episodeLen
+            ), "World should have 0 steps".replace("0 steps", "episodeLen steps taken")
 
             # Reset the done world
             reset_tensor[:] = 0
@@ -425,9 +423,9 @@ class TestStepCounterPrecision:
             reset_tensor[0] = 0
 
             # Verify fresh episode each time
-            assert steps_taken[0, 0, 0] == 0, (
-                f"Reset {reset_num + 1}: World 0 should be reset to 0 steps taken"
-            )
+            assert (
+                steps_taken[0, 0, 0] == 0
+            ), f"Reset {reset_num + 1}: World 0 should be reset to 0 steps taken"
             assert done_tensor[0, 0, 0] == 0, f"Reset {reset_num + 1}: World 0 should not be done"
 
 
@@ -474,9 +472,9 @@ class TestCollisionVsStepTermination:
 
                     # Early termination: done=1 with steps remaining > 0 (until reset)
                     assert done_tensor[world_idx, 0, 0] == 1, f"World {world_idx} should be done"
-                    assert remaining_steps < consts.episodeLen, (
-                        f"World {world_idx} terminated early with {remaining_steps} steps remaining"
-                    )
+                    assert (
+                        remaining_steps < consts.episodeLen
+                    ), f"World {world_idx} terminated early with {remaining_steps} steps remaining"
 
                     print(
                         f"Collision detected at step {step + 1} for world {world_idx}, "
@@ -603,9 +601,9 @@ class TestCollisionVsStepTermination:
         # Should have natural step-based termination
         for world_idx in range(4):
             if steps_taken[world_idx, 0, 0] == consts.episodeLen:
-                assert done_tensor[world_idx, 0, 0] == 1, (
-                    f"World {world_idx} should be done from step limit"
-                )
+                assert (
+                    done_tensor[world_idx, 0, 0] == 1
+                ), f"World {world_idx} should be done from step limit"
 
         print("✓ Pure step counter termination confirmed (no collision)")
 
@@ -642,9 +640,9 @@ class TestMultiWorldSynchronization:
 
         # Verify all worlds at same state
         expected_steps_taken = 100
-        assert (steps_taken[:, 0, 0] == expected_steps_taken).all(), (
-            "All worlds should be synchronized"
-        )
+        assert (
+            steps_taken[:, 0, 0] == expected_steps_taken
+        ).all(), "All worlds should be synchronized"
 
         # Reset only world 0
         reset_tensor[0] = 1
@@ -658,9 +656,9 @@ class TestMultiWorldSynchronization:
         # Other worlds should continue with their previous state
         expected_steps_taken = 101  # One more step
         for world_idx in range(1, 4):
-            assert steps_taken[world_idx, 0, 0] == expected_steps_taken, (
-                f"World {world_idx} should continue with {expected_steps_taken} steps taken"
-            )
+            assert (
+                steps_taken[world_idx, 0, 0] == expected_steps_taken
+            ), f"World {world_idx} should continue with {expected_steps_taken} steps taken"
 
     def test_MW_002_multiple_worlds_done_simultaneously(self, cpu_manager):
         """MW-002: Multiple worlds reaching done=1 should be handled independently"""
@@ -696,19 +694,19 @@ class TestMultiWorldSynchronization:
             # Reset worlds should have fresh episodes
             for world_idx in done_worlds[:2]:
                 world_idx = world_idx.item()
-                assert steps_taken[world_idx, 0, 0] == 0, (
-                    f"Reset world {world_idx} should be reset to 0 steps taken"
-                )
-                assert done_tensor[world_idx, 0, 0] == 0, (
-                    f"Reset world {world_idx} should not be done"
-                )
+                assert (
+                    steps_taken[world_idx, 0, 0] == 0
+                ), f"Reset world {world_idx} should be reset to 0 steps taken"
+                assert (
+                    done_tensor[world_idx, 0, 0] == 0
+                ), f"Reset world {world_idx} should not be done"
 
             # Non-reset done worlds should remain done
             for world_idx in done_worlds[2:]:
                 world_idx = world_idx.item()
-                assert done_tensor[world_idx, 0, 0] == 1, (
-                    f"Non-reset world {world_idx} should remain done"
-                )
+                assert (
+                    done_tensor[world_idx, 0, 0] == 1
+                ), f"Non-reset world {world_idx} should remain done"
 
     def test_MW_003_auto_reset_with_mixed_done_states(self, cpu_manager):
         """MW-003: Test behavior with mixed done states (some worlds done, others not)"""
@@ -742,9 +740,9 @@ class TestMultiWorldSynchronization:
 
         expected_others = 51  # 51 steps taken
         for world_idx in range(1, 4):
-            assert abs(steps_taken[world_idx, 0, 0].item() - expected_others) <= 1, (
-                f"World {world_idx} should have ~{expected_others} steps taken"
-            )
+            assert (
+                abs(steps_taken[world_idx, 0, 0].item() - expected_others) <= 1
+            ), f"World {world_idx} should have ~{expected_others} steps taken"
 
         # Continue until some worlds are done but not others
         # Need to run enough steps so other worlds finish (they need ~149 more steps)
@@ -758,9 +756,9 @@ class TestMultiWorldSynchronization:
         # Other worlds should be done
         for world_idx in range(1, 4):
             if steps_taken[world_idx, 0, 0] == consts.episodeLen:
-                assert done_tensor[world_idx, 0, 0] == 1, (
-                    f"World {world_idx} should be done when steps_taken=episodeLen"
-                )
+                assert (
+                    done_tensor[world_idx, 0, 0] == 1
+                ), f"World {world_idx} should be done when steps_taken=episodeLen"
 
     def test_MW_004_manual_reset_during_mixed_states(self, cpu_manager):
         """MW-004: Manual reset should work correctly with mixed world states"""
@@ -804,9 +802,9 @@ class TestMultiWorldSynchronization:
 
         # All worlds should have valid states
         for world_idx in range(4):
-            assert 0 <= step_counts[world_idx] <= consts.episodeLen, (
-                f"World {world_idx} has invalid step count: {step_counts[world_idx]}"
-            )
+            assert (
+                0 <= step_counts[world_idx] <= consts.episodeLen
+            ), f"World {world_idx} has invalid step count: {step_counts[world_idx]}"
             assert done_tensor[world_idx, 0, 0] in [
                 0,
                 1,
@@ -844,9 +842,9 @@ class TestOrderOfOperations:
             mgr.step()
 
         # At this point: steps_taken=1, done=0
-        assert (steps_taken[:, 0, 0] == consts.episodeLen - 1).all(), (
-            "Should have taken episodeLen-1 steps"
-        )
+        assert (
+            steps_taken[:, 0, 0] == consts.episodeLen - 1
+        ).all(), "Should have taken episodeLen-1 steps"
         assert not done_tensor.any(), "Should not be done yet"
 
         # Set manual reset for world 0 at the same step it would naturally terminate
@@ -862,9 +860,9 @@ class TestOrderOfOperations:
         # Other worlds should follow natural progression (done=1, steps=0)
         for world_idx in range(1, 4):
             if steps_taken[world_idx, 0, 0] == consts.episodeLen:
-                assert done_tensor[world_idx, 0, 0] == 1, (
-                    f"World {world_idx} should be done naturally"
-                )
+                assert (
+                    done_tensor[world_idx, 0, 0] == 1
+                ), f"World {world_idx} should be done naturally"
 
     def test_OO_002_reward_calculation_during_reset(self, cpu_manager):
         """OO-002: Verify rewards calculated before reset occurs"""
@@ -906,9 +904,9 @@ class TestOrderOfOperations:
 
                 # Allow for early termination due to collision
                 if done_tensor[world_idx, 0, 0] == 0:  # Not done yet
-                    assert current_steps == expected_steps, (
-                        f"World {world_idx} step {step}: expected {expected_steps}, got {current_steps}"
-                    )
+                    assert (
+                        current_steps == expected_steps
+                    ), f"World {world_idx} step {step}: expected {expected_steps}, got {current_steps}"
 
     @pytest.mark.ascii_level("""
 ########################################
@@ -985,9 +983,9 @@ class TestOrderOfOperations:
 
         # Position should be close to spawn (within reasonable tolerance)
         distance_to_spawn = torch.norm(pos_after - spawn_pos).item()
-        assert distance_to_spawn < 1.0, (
-            f"Reset position should be close to spawn, distance: {distance_to_spawn}"
-        )
+        assert (
+            distance_to_spawn < 1.0
+        ), f"Reset position should be close to spawn, distance: {distance_to_spawn}"
 
         # Note: steps_taken was already verified above to be episodeLen-1 (199)
         # due to execution order. The done flag should still be properly reset.
@@ -1070,19 +1068,19 @@ class TestOrderOfOperations:
         for world_idx in [0, 2, 3]:
             # Steps should increase by 1
             expected_steps = steps_before[world_idx, 0, 0] + 1
-            assert steps_taken[world_idx, 0, 0] == expected_steps, (
-                f"World {world_idx} should have {expected_steps} steps taken"
-            )
+            assert (
+                steps_taken[world_idx, 0, 0] == expected_steps
+            ), f"World {world_idx} should have {expected_steps} steps taken"
 
             # Done state should be consistent with steps
             if expected_steps >= consts.episodeLen:
-                assert done_tensor[world_idx, 0, 0] == 1, (
-                    f"World {world_idx} should be done with {expected_steps} steps taken"
-                )
+                assert (
+                    done_tensor[world_idx, 0, 0] == 1
+                ), f"World {world_idx} should be done with {expected_steps} steps taken"
             else:
-                assert done_tensor[world_idx, 0, 0] == done_before[world_idx, 0, 0], (
-                    f"World {world_idx} done state should be unchanged"
-                )
+                assert (
+                    done_tensor[world_idx, 0, 0] == done_before[world_idx, 0, 0]
+                ), f"World {world_idx} done state should be unchanged"
 
 
 # =============================================================================
@@ -1122,9 +1120,9 @@ class TestStatePersistence:
 
         # Verify pre-reset state: done=1, steps=0
         assert done_tensor[done_world, 0, 0] == 1, "World should be done before reset"
-        assert steps_taken[done_world, 0, 0] == consts.episodeLen, (
-            "World should have 0 steps before reset".replace("0 steps", "episodeLen steps taken")
-        )
+        assert (
+            steps_taken[done_world, 0, 0] == consts.episodeLen
+        ), "World should have 0 steps before reset".replace("0 steps", "episodeLen steps taken")
 
         # Reset the done world
         reset_tensor[:] = 0
@@ -1168,9 +1166,9 @@ class TestStatePersistence:
 
             # Verify we're at expected step count
             expected_taken = test_step
-            assert steps_taken[0, 0, 0] == expected_taken, (
-                f"Should have {expected_taken} steps taken at test point {test_step}"
-            )
+            assert (
+                steps_taken[0, 0, 0] == expected_taken
+            ), f"Should have {expected_taken} steps taken at test point {test_step}"
 
             # Reset world 0
             reset_tensor[0] = 1
@@ -1178,9 +1176,9 @@ class TestStatePersistence:
             reset_tensor[0] = 0
 
             # Verify restoration to fresh episode
-            assert steps_taken[0, 0, 0] == 0, (
-                f"After reset from step {test_step}, should have 0 steps taken"
-            )
+            assert (
+                steps_taken[0, 0, 0] == 0
+            ), f"After reset from step {test_step}, should have 0 steps taken"
 
     def test_SP_003_position_rotation_reset(self, cpu_manager):
         """SP-003: Agent should return to spawn position/rotation after reset"""
@@ -1213,9 +1211,9 @@ class TestStatePersistence:
 
         # Verify agent moved away from spawn
         current_pos = obs_tensor[0, 0, :3]
-        assert not torch.allclose(spawn_pos, current_pos, atol=0.1), (
-            "Agent should have moved away from spawn position"
-        )
+        assert not torch.allclose(
+            spawn_pos, current_pos, atol=0.1
+        ), "Agent should have moved away from spawn position"
 
         # Reset world 0
         reset_tensor[0] = 1
@@ -1225,14 +1223,14 @@ class TestStatePersistence:
         reset_pos = obs_tensor[0, 0, :3]
         reset_rot = obs_tensor[0, 0, 3:7]
 
-        assert torch.allclose(spawn_pos, reset_pos, atol=0.1), (
-            f"Agent should return to spawn position: spawn={spawn_pos}, reset={reset_pos}"
-        )
+        assert torch.allclose(
+            spawn_pos, reset_pos, atol=0.1
+        ), f"Agent should return to spawn position: spawn={spawn_pos}, reset={reset_pos}"
 
         # Rotation should also be reset (less strict tolerance due to quaternion representation)
-        assert torch.allclose(spawn_rot, reset_rot, atol=0.2), (
-            f"Agent rotation should be reset: spawn={spawn_rot}, reset={reset_rot}"
-        )
+        assert torch.allclose(
+            spawn_rot, reset_rot, atol=0.2
+        ), f"Agent rotation should be reset: spawn={spawn_rot}, reset={reset_rot}"
 
     def test_SP_004_progress_reward_reset(self, cpu_manager):
         """SP-004: Progress metrics should reset appropriately"""
@@ -1277,9 +1275,9 @@ class TestStatePersistence:
         reset_pos = obs_tensor[0, 0, :3]
 
         # Position should be back to spawn (similar to initial)
-        assert torch.allclose(initial_pos, reset_pos, atol=0.1), (
-            "After reset, agent should be back to initial position"
-        )
+        assert torch.allclose(
+            initial_pos, reset_pos, atol=0.1
+        ), "After reset, agent should be back to initial position"
 
         # Episode state should be fresh
         assert steps_taken[0, 0, 0] == 0, "Should have 0 steps taken in fresh episode"

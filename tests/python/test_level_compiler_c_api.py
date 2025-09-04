@@ -36,9 +36,9 @@ class TestCAPIIntegration:
         """Test that MAX_TILES_C_API matches direct C API call."""
         direct_call = limits.maxTiles
         module_constant = MAX_TILES_C_API
-        assert direct_call == module_constant, (
-            f"Direct C API call ({direct_call}) != module constant ({module_constant})"
-        )
+        assert (
+            direct_call == module_constant
+        ), f"Direct C API call ({direct_call}) != module constant ({module_constant})"
 
 
 class TestLevelSizeValidation:

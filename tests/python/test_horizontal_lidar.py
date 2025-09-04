@@ -334,9 +334,9 @@ class TestHorizontalLidar:
                 f"Some finite readings too close to zero: "
                 f"{finite_readings[finite_readings <= 0.001]}"
             )
-            assert np.all(finite_readings < 100.0), (
-                f"Some finite readings unreasonably far: {finite_readings[finite_readings >= 100.0]}"
-            )
+            assert np.all(
+                finite_readings < 100.0
+            ), f"Some finite readings unreasonably far: {finite_readings[finite_readings >= 100.0]}"
 
         # 3. Coverage expectations - 100% coverage required for success
         required_coverage = 100.0 / 100  # 100% coverage required - no compromise!
@@ -547,9 +547,9 @@ class TestHorizontalLidar:
                     depth_array = depth_tensor.to_numpy()
 
                 expected_shape = (1, 1, height, width, 1)
-                assert depth_array.shape == expected_shape, (
-                    f"Shape mismatch: expected {expected_shape}, got {depth_array.shape}"
-                )
+                assert (
+                    depth_array.shape == expected_shape
+                ), f"Shape mismatch: expected {expected_shape}, got {depth_array.shape}"
 
                 # Extract middle row for analysis
                 middle_row = height // 2
