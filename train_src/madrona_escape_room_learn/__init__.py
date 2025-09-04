@@ -12,7 +12,8 @@ from madrona_escape_room_learn.actor_critic import (
     RecurrentBackboneEncoder,
 )
 from madrona_escape_room_learn.cfg import PPOConfig, SimInterface, TrainConfig
-from madrona_escape_room_learn.env_wrapper import MadronaEscapeRoomEnv
+
+# from madrona_escape_room_learn.env_wrapper import MadronaEscapeRoomEnv  # Removed
 from madrona_escape_room_learn.learning_state import LearningState
 from madrona_escape_room_learn.profile import profile
 from madrona_escape_room_learn.train import train
@@ -34,5 +35,5 @@ __all__ = [
     "Backbone",
     "BackboneShared",
     "BackboneSeparate",
-    "MadronaEscapeRoomEnv",
+    # "MadronaEscapeRoomEnv",  # Removed
 ]
