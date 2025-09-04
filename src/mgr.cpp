@@ -907,6 +907,7 @@ void Manager::logCurrentTrajectoryState()
     
     // Get tensor data
     auto self_obs = selfObservationTensor();
+    auto compass = compassTensor();
     auto progress = progressTensor();
     auto done = doneTensor();
     auto steps_taken = stepsTakenTensor();
@@ -916,6 +917,7 @@ void Manager::logCurrentTrajectoryState()
     
     // Get data pointers based on execution mode
     const SelfObservation* obs_data;
+    const float* compass_data;
     const float* progress_data;
     const int32_t* done_data;
     const uint32_t* steps_taken_data;
@@ -924,6 +926,7 @@ void Manager::logCurrentTrajectoryState()
 #ifdef MADRONA_CUDA_SUPPORT
         // For CUDA, we need to copy data to host
         static SelfObservation host_obs;
+        static float host_compass[128];
         static float host_progress;
         static int32_t host_done;
         static uint32_t host_steps_taken;
@@ -931,6 +934,10 @@ void Manager::logCurrentTrajectoryState()
         cudaMemcpy(&host_obs, 
                   ((const SelfObservation*)self_obs.devicePtr()) + idx,
                   sizeof(SelfObservation), 
+                  cudaMemcpyDeviceToHost);
+        cudaMemcpy(host_compass,
+                  ((const float*)compass.devicePtr()) + (idx * 128),
+                  128 * sizeof(float),
                   cudaMemcpyDeviceToHost);
         cudaMemcpy(&host_progress,
                   ((const float*)progress.devicePtr()) + idx,
@@ -946,6 +953,7 @@ void Manager::logCurrentTrajectoryState()
                   cudaMemcpyDeviceToHost);
         
         obs_data = &host_obs;
+        compass_data = host_compass;
         progress_data = &host_progress;
         done_data = &host_done;
         steps_taken_data = &host_steps_taken;
@@ -953,16 +961,26 @@ void Manager::logCurrentTrajectoryState()
     } else {
         // For CPU, direct access
         obs_data = ((const SelfObservation*)self_obs.devicePtr()) + idx;
+        compass_data = ((const float*)compass.devicePtr()) + (idx * 128);
         progress_data = ((const float*)progress.devicePtr()) + idx;
         done_data = ((const int32_t*)done.devicePtr()) + idx;
         steps_taken_data = ((const uint32_t*)steps_taken.devicePtr()) + idx;
+    }
+    
+    // Find the active compass index (one-hot encoding)
+    int compass_index = -1;
+    for (int i = 0; i < 128; i++) {
+        if (compass_data[i] > 0.5f) {
+            compass_index = i;
+            break;
+        }
     }
     
     // Log trajectory to file or stdout  
     FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
     uint32_t remaining_display = (*steps_taken_data >= madEscape::consts::episodeLen) ? 0 : (madEscape::consts::episodeLen - *steps_taken_data);
     
-    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° progress=%.2f done=%d\n",
+    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f done=%d\n",
             *steps_taken_data,
             remaining_display,
             impl_->trackWorldIdx,
@@ -971,6 +989,7 @@ void Manager::logCurrentTrajectoryState()
             obs_data->globalY,
             obs_data->globalZ,
             obs_data->theta * madEscape::consts::math::degreesInHalfCircle / M_PI,
+            compass_index,
             *progress_data,
             *done_data);
     fflush(output);

@@ -390,6 +390,44 @@ bool ViewerCore::isTrackingTrajectory(int world_idx) const {
     return track_trajectory_ && track_world_idx_ == world_idx;
 }
 
+void ViewerCore::printCompassTensor(int world_idx) const {
+    // Validate world index
+    if (world_idx < 0 || world_idx >= (int)config_.num_worlds) {
+        printf("ERROR: Invalid world_idx: %d. Must be between 0 and %u\n", 
+               world_idx, config_.num_worlds - 1);
+        return;
+    }
+    
+    // Get compass tensor from manager
+    auto compass = mgr_->compassTensor();
+    
+    // Calculate agent index (assuming agent 0)
+    int32_t idx = world_idx * madEscape::consts::numAgents + 0;
+    
+    // Get compass data pointer
+    const float* compass_data = (const float*)compass.devicePtr();
+    if (!compass_data) {
+        printf("ERROR: Could not access compass tensor data\n");
+        return;
+    }
+    
+    // Find the index of the one-hot value
+    int active_index = -1;
+    for (int i = 0; i < 128; i++) {
+        float value = compass_data[idx * 128 + i];
+        if (value > 0.5f) {  // Should be 1.0 in one-hot encoding
+            active_index = i;
+            break;
+        }
+    }
+    
+    if (active_index >= 0) {
+        printf("Compass [world %d]: index %d\n", world_idx, active_index);
+    } else {
+        printf("Compass [world %d]: no active index found\n", world_idx);
+    }
+}
+
 void ViewerCore::resetInputState(int world_idx) {
     if (world_idx >= MAX_WORLDS) return;
     

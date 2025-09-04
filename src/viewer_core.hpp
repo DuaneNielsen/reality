@@ -109,6 +109,9 @@ public:
     void toggleTrajectoryTracking(int world_idx);
     bool isTrackingTrajectory(int world_idx) const;
     
+    // Compass tensor display
+    void printCompassTensor(int world_idx) const;
+    
     // For testing - access internal state
     const RecordReplayStateMachine& getStateMachine() const { return state_machine_; }
     const FrameActionManager& getActionManager() const { return action_manager_; }
