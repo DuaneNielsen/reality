@@ -204,6 +204,7 @@ quick_build() {
     else
         echo "Build successful"
     fi
+    echo "Build log: build_output.log"
 }
 
 full_build() {
@@ -248,7 +249,10 @@ full_build() {
     if [ "${VERBOSE:-false}" = true ]; then
         uv pip install -e . || log_warning "Could not install Python package"
     else
-        uv pip install -e . >/dev/null 2>&1 || log_warning "Could not install Python package"
+        uv pip install -e . 2>&1 | tee -a build_output.log | grep -E "(Installing|Uninstalling|Built|error|Error|ERROR|FAILED)" || true
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            log_warning "Could not install Python package"
+        fi
     fi
     
     run_tests_if_requested "$run_tests"
@@ -258,6 +262,7 @@ full_build() {
     else
         echo "Build successful"
     fi
+    echo "Build log: build_output.log"
 }
 
 # Parse command line arguments
