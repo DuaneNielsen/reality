@@ -781,6 +781,18 @@ Tensor Manager::selfObservationTensor() const
                                });
 }
 
+//[GAME SPECIFIC]
+Tensor Manager::compassTensor() const
+{
+    return impl_->exportTensor(ExportID::CompassObservation,
+                               TensorElementType::Float32,
+                               {
+                                   impl_->cfg.numWorlds,
+                                   madEscape::consts::numAgents,
+                                   CompassObservationFloatCount,
+                               });
+}
+
 
 // Removed roomEntityObservationsTensor - no longer tracking room entities
 

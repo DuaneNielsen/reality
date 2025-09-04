@@ -24,10 +24,10 @@ def ensure_libraries_present():
         "libmadrona_std_mem.so",  # Madrona memory management
         "_madrona_escape_room_dlpack.cpython-312-x86_64-linux-gnu.so",  # DLPack extension
     ]
-    
+
     build_dir = Path("build")
     package_dir = Path("madrona_escape_room")
-    
+
     missing_libs = []
     for lib_name in required_libs:
         dest_path = package_dir / lib_name
@@ -39,12 +39,11 @@ def ensure_libraries_present():
                 shutil.copy2(src_path, dest_path)
             else:
                 missing_libs.append(lib_name)
-    
+
     if missing_libs:
         print(f"Warning: Missing libraries: {missing_libs}")
         print("Run 'make' in build directory first")
     return len(missing_libs) == 0
-
 
 
 class BuildPyWithLibrary(build_py):
@@ -53,10 +52,10 @@ class BuildPyWithLibrary(build_py):
     def run(self):
         # First ensure libraries are in source directory
         ensure_libraries_present()
-        
+
         # Run normal build_py
         super().run()
-        
+
         # For regular installs, also copy to build_lib
         if self.build_lib:
             required_libs = [
@@ -67,11 +66,11 @@ class BuildPyWithLibrary(build_py):
                 "libmadrona_std_mem.so",
                 "_madrona_escape_room_dlpack.cpython-312-x86_64-linux-gnu.so",
             ]
-            
+
             src_dir = Path("madrona_escape_room")
             dest_dir = Path(self.build_lib) / "madrona_escape_room"
             dest_dir.mkdir(parents=True, exist_ok=True)
-            
+
             for lib_name in required_libs:
                 src_path = src_dir / lib_name
                 if src_path.exists():
@@ -82,7 +81,7 @@ class BuildPyWithLibrary(build_py):
 
 class DevelopWithLibrary(develop):
     """Custom develop command for editable installs"""
-    
+
     def run(self):
         ensure_libraries_present()
         super().run()

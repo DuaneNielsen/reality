@@ -88,9 +88,9 @@ def test_depth_and_rgb_together(cpu_manager):
         pytest.skip("DLPack extension not available")
 
     # Check shapes match in spatial dimensions
-    assert (
-        depth_np.shape[:4] == rgb_np.shape[:4]
-    ), "Depth and RGB should have matching spatial dimensions"
+    assert depth_np.shape[:4] == rgb_np.shape[:4], (
+        "Depth and RGB should have matching spatial dimensions"
+    )
     assert depth_np.shape == (4, 1, 64, 64, 1), "Depth shape"
     assert rgb_np.shape == (4, 1, 64, 64, 4), "RGB shape (RGBA)"
 

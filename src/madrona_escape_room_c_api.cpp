@@ -273,6 +273,18 @@ MER_Result mer_get_self_observation_tensor(MER_ManagerHandle handle, MER_Tensor*
     return MER_SUCCESS;
 }
 
+MER_Result mer_get_compass_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor) {
+    if (!handle || !out_tensor) {
+        return MER_ERROR_NULL_POINTER;
+    }
+    
+    Manager* mgr = reinterpret_cast<Manager*>(handle);
+    madrona::py::Tensor tensor = mgr->compassTensor();
+    convertTensor(tensor, out_tensor);
+    
+    return MER_SUCCESS;
+}
+
 MER_Result mer_get_steps_taken_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor) {
     if (!handle || !out_tensor) {
         return MER_ERROR_NULL_POINTER;

@@ -26,6 +26,7 @@ enum class ExportID : uint32_t {
     Reward,
     Done,
     SelfObservation,
+    CompassObservation,
     StepsTaken,
     Progress,
     NumExports,

@@ -143,9 +143,9 @@ def test_reward_normalization(cpu_manager):
 
     # With the gap in the wall at row 4, the agent can pass through and reach
     # nearly the end of the level (about 90% progress)
-    assert (
-        0.85 < final_reward < 0.95
-    ), "Reward should reflect nearly complete progress through the gap"
+    assert 0.85 < final_reward < 0.95, (
+        "Reward should reflect nearly complete progress through the gap"
+    )
 
 
 # NOTE: Removed test_recorded_actions_reward - replaced by comprehensive native recording tests

@@ -83,18 +83,18 @@ class TestTilesetFunctionality:
         cube_found = False
         for i in range(compiled.num_tiles):
             if compiled.object_ids[i] == cube_id:
-                assert (
-                    compiled.tile_rand_x[i] == 1.0
-                ), f"Expected rand_x=1.0, got {compiled.tile_rand_x[i]}"
-                assert (
-                    compiled.tile_rand_y[i] == 0.5
-                ), f"Expected rand_y=0.5, got {compiled.tile_rand_y[i]}"
-                assert (
-                    compiled.tile_rand_z[i] == 0.25
-                ), f"Expected rand_z=0.25, got {compiled.tile_rand_z[i]}"
-                assert (
-                    abs(compiled.tile_rand_rot_z[i] - 3.14159) < 0.001
-                ), f"Expected rand_rot_z≈π, got {compiled.tile_rand_rot_z[i]}"
+                assert compiled.tile_rand_x[i] == 1.0, (
+                    f"Expected rand_x=1.0, got {compiled.tile_rand_x[i]}"
+                )
+                assert compiled.tile_rand_y[i] == 0.5, (
+                    f"Expected rand_y=0.5, got {compiled.tile_rand_y[i]}"
+                )
+                assert compiled.tile_rand_z[i] == 0.25, (
+                    f"Expected rand_z=0.25, got {compiled.tile_rand_z[i]}"
+                )
+                assert abs(compiled.tile_rand_rot_z[i] - 3.14159) < 0.001, (
+                    f"Expected rand_rot_z≈π, got {compiled.tile_rand_rot_z[i]}"
+                )
                 cube_found = True
                 break
 
@@ -104,18 +104,18 @@ class TestTilesetFunctionality:
         wall_id = _get_asset_object_id("wall")
         for i in range(compiled.num_tiles):
             if compiled.object_ids[i] == wall_id:
-                assert (
-                    compiled.tile_rand_x[i] == 0.0
-                ), f"Wall should have rand_x=0, got {compiled.tile_rand_x[i]}"
-                assert (
-                    compiled.tile_rand_y[i] == 0.0
-                ), f"Wall should have rand_y=0, got {compiled.tile_rand_y[i]}"
-                assert (
-                    compiled.tile_rand_z[i] == 0.0
-                ), f"Wall should have rand_z=0, got {compiled.tile_rand_z[i]}"
-                assert (
-                    compiled.tile_rand_rot_z[i] == 0.0
-                ), f"Wall should have rand_rot_z=0, got {compiled.tile_rand_rot_z[i]}"
+                assert compiled.tile_rand_x[i] == 0.0, (
+                    f"Wall should have rand_x=0, got {compiled.tile_rand_x[i]}"
+                )
+                assert compiled.tile_rand_y[i] == 0.0, (
+                    f"Wall should have rand_y=0, got {compiled.tile_rand_y[i]}"
+                )
+                assert compiled.tile_rand_z[i] == 0.0, (
+                    f"Wall should have rand_z=0, got {compiled.tile_rand_z[i]}"
+                )
+                assert compiled.tile_rand_rot_z[i] == 0.0, (
+                    f"Wall should have rand_rot_z=0, got {compiled.tile_rand_rot_z[i]}"
+                )
                 break  # Check just one wall
 
     def test_json_level_with_randomization(self):
@@ -143,33 +143,33 @@ class TestTilesetFunctionality:
         cube_id = _get_asset_object_id("cube")
         for i in range(compiled.num_tiles):
             if compiled.object_ids[i] == cube_id:
-                assert (
-                    compiled.tile_rand_x[i] == 2.0
-                ), f"Cube rand_x should be 2.0, got {compiled.tile_rand_x[i]}"
-                assert (
-                    compiled.tile_rand_y[i] == 0.0
-                ), f"Cube rand_y should be 0.0, got {compiled.tile_rand_y[i]}"
-                assert (
-                    abs(compiled.tile_rand_rot_z[i] - 1.57) < 0.01
-                ), f"Cube rand_rot_z should be ~1.57, got {compiled.tile_rand_rot_z[i]}"
+                assert compiled.tile_rand_x[i] == 2.0, (
+                    f"Cube rand_x should be 2.0, got {compiled.tile_rand_x[i]}"
+                )
+                assert compiled.tile_rand_y[i] == 0.0, (
+                    f"Cube rand_y should be 0.0, got {compiled.tile_rand_y[i]}"
+                )
+                assert abs(compiled.tile_rand_rot_z[i] - 1.57) < 0.01, (
+                    f"Cube rand_rot_z should be ~1.57, got {compiled.tile_rand_rot_z[i]}"
+                )
                 break
 
         # Verify cylinder randomization
         cylinder_id = _get_asset_object_id("cylinder")
         for i in range(compiled.num_tiles):
             if compiled.object_ids[i] == cylinder_id:
-                assert (
-                    compiled.tile_rand_x[i] == 0.0
-                ), f"Cylinder rand_x should be 0.0, got {compiled.tile_rand_x[i]}"
-                assert (
-                    compiled.tile_rand_y[i] == 0.3
-                ), f"Cylinder rand_y should be 0.3, got {compiled.tile_rand_y[i]}"
-                assert (
-                    compiled.tile_rand_z[i] == 0.0
-                ), f"Cylinder rand_z should be 0.0, got {compiled.tile_rand_z[i]}"
-                assert (
-                    compiled.tile_rand_rot_z[i] == 0.0
-                ), f"Cylinder rand_rot_z should be 0.0, got {compiled.tile_rand_rot_z[i]}"
+                assert compiled.tile_rand_x[i] == 0.0, (
+                    f"Cylinder rand_x should be 0.0, got {compiled.tile_rand_x[i]}"
+                )
+                assert compiled.tile_rand_y[i] == 0.3, (
+                    f"Cylinder rand_y should be 0.3, got {compiled.tile_rand_y[i]}"
+                )
+                assert compiled.tile_rand_z[i] == 0.0, (
+                    f"Cylinder rand_z should be 0.0, got {compiled.tile_rand_z[i]}"
+                )
+                assert compiled.tile_rand_rot_z[i] == 0.0, (
+                    f"Cylinder rand_rot_z should be 0.0, got {compiled.tile_rand_rot_z[i]}"
+                )
                 break
 
     def test_validate_tileset_with_invalid_randomization(self):

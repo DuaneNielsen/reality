@@ -274,15 +274,15 @@ def test_recording_file_format(cpu_manager):
                 # Verify all 14 fields (comprehensive validation)
                 assert magic == 0x4D455352, f"Expected magic 0x4D455352, got 0x{magic:08x}"
                 assert version == 2, f"Expected version 2 (current format), got {version}"
-                assert (
-                    sim_name == "madrona_escape_room"
-                ), f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
-                assert (
-                    level_name
-                ), f"Level name should not be empty in version 2, got '{level_name}'"
-                assert (
-                    num_worlds_meta == num_worlds
-                ), f"Expected {num_worlds} worlds, got {num_worlds_meta}"
+                assert sim_name == "madrona_escape_room", (
+                    f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
+                )
+                assert level_name, (
+                    f"Level name should not be empty in version 2, got '{level_name}'"
+                )
+                assert num_worlds_meta == num_worlds, (
+                    f"Expected {num_worlds} worlds, got {num_worlds_meta}"
+                )
                 assert num_agents >= 1, f"Expected at least 1 agent per world, got {num_agents}"
                 assert num_steps_meta == 3, f"Expected 3 steps, got {num_steps_meta}"
                 assert actions_per_step == 3, f"Expected 3 actions per step, got {actions_per_step}"
@@ -315,9 +315,9 @@ def test_recording_file_format(cpu_manager):
                 print(f"Expected action data size: {expected_action_bytes} bytes")
 
                 # Validate action data presence and size bounds
-                assert (
-                    len(action_data) >= expected_action_bytes
-                ), f"Insufficient action data: {len(action_data)} < {expected_action_bytes}"
+                assert len(action_data) >= expected_action_bytes, (
+                    f"Insufficient action data: {len(action_data)} < {expected_action_bytes}"
+                )
 
                 print("✓ Enhanced action data validation completed")
                 print("✓ Current format (version 2) comprehensive validation PASSED")
@@ -423,12 +423,12 @@ def test_current_format_specification_compliance(cpu_manager):
             assert version == 2, f"Expected current version 2, got {version}"
 
             # Validate string field layout
-            assert (
-                len(sim_name_bytes) == 64
-            ), f"sim_name field should be 64 bytes, got {len(sim_name_bytes)}"
-            assert (
-                len(level_name_bytes) == 64
-            ), f"level_name field should be 64 bytes, got {len(level_name_bytes)}"
+            assert len(sim_name_bytes) == 64, (
+                f"sim_name field should be 64 bytes, got {len(sim_name_bytes)}"
+            )
+            assert len(level_name_bytes) == 64, (
+                f"level_name field should be 64 bytes, got {len(level_name_bytes)}"
+            )
 
             # Check string null-termination
             sim_name = sim_name_bytes.decode("ascii").rstrip("\x00")
@@ -455,9 +455,9 @@ def test_current_format_specification_compliance(cpu_manager):
 
             # Ensure proper padding - check remaining fields
             remaining_fields = f.read(56)  # 4+4+4+4+8+4+28 = 56 bytes remaining in metadata
-            assert (
-                len(remaining_fields) == 56
-            ), f"Expected 56 bytes for remaining fields, got {len(remaining_fields)}"
+            assert len(remaining_fields) == 56, (
+                f"Expected 56 bytes for remaining fields, got {len(remaining_fields)}"
+            )
 
             print("✓ Magic number and version validation passed")
             print("✓ String field layout and null-termination validated")
@@ -568,9 +568,9 @@ def test_field_alignment_and_padding(cpu_manager):
 
             # Read complete metadata and verify field boundaries
             complete_metadata = f.read(192)
-            assert (
-                len(complete_metadata) == 192
-            ), f"Expected 192 bytes, got {len(complete_metadata)}"
+            assert len(complete_metadata) == 192, (
+                f"Expected 192 bytes, got {len(complete_metadata)}"
+            )
 
             # Parse each field at correct offset
             offset = 0

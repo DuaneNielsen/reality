@@ -131,7 +131,7 @@ class TestHorizontalLidar:
             center_pixel = center_region[h // 2, w // 2]
             corner_pixel = center_region[0, 0]
 
-            print(f"Center pixel [{h//2},{w//2}]: {center_pixel:.3f}")
+            print(f"Center pixel [{h // 2},{w // 2}]: {center_pixel:.3f}")
             print(f"Corner pixel [0,0]: {corner_pixel:.3f}")
 
             # Count different value types
@@ -142,10 +142,10 @@ class TestHorizontalLidar:
             total_pixels = center_region.size
 
             print(f"Total pixels: {total_pixels}")
-            print(f"Finite values: {finite_count} ({finite_count/total_pixels:.1%})")
-            print(f"Infinity values: {inf_count} ({inf_count/total_pixels:.1%})")
-            print(f"NaN values: {nan_count} ({nan_count/total_pixels:.1%})")
-            print(f"Zero values: {zero_count} ({zero_count/total_pixels:.1%})")
+            print(f"Finite values: {finite_count} ({finite_count / total_pixels:.1%})")
+            print(f"Infinity values: {inf_count} ({inf_count / total_pixels:.1%})")
+            print(f"NaN values: {nan_count} ({nan_count / total_pixels:.1%})")
+            print(f"Zero values: {zero_count} ({zero_count / total_pixels:.1%})")
 
             # Look for our debug markers
             marker_123456 = np.sum(center_region == 123456.0)
@@ -285,9 +285,9 @@ class TestHorizontalLidar:
 
         print("\n=== BEAM ANALYSIS RESULTS ===")
         print(f"Total beams: {total_beams}")
-        print(f"Finite readings: {finite_count} ({finite_count/total_beams:.1%})")
-        print(f"Infinity readings: {infinite_count} ({infinite_count/total_beams:.1%})")
-        print(f"Zero readings: {zero_count} ({zero_count/total_beams:.1%})")
+        print(f"Finite readings: {finite_count} ({finite_count / total_beams:.1%})")
+        print(f"Infinity readings: {infinite_count} ({infinite_count / total_beams:.1%})")
+        print(f"Zero readings: {zero_count} ({zero_count / total_beams:.1%})")
 
         # Find beams with finite readings for detailed analysis
         if finite_count > 0:
@@ -334,9 +334,9 @@ class TestHorizontalLidar:
                 f"Some finite readings too close to zero: "
                 f"{finite_readings[finite_readings <= 0.001]}"
             )
-            assert np.all(
-                finite_readings < 100.0
-            ), f"Some finite readings unreasonably far: {finite_readings[finite_readings >= 100.0]}"
+            assert np.all(finite_readings < 100.0), (
+                f"Some finite readings unreasonably far: {finite_readings[finite_readings >= 100.0]}"
+            )
 
         # 3. Coverage expectations - 100% coverage required for success
         required_coverage = 100.0 / 100  # 100% coverage required - no compromise!
@@ -547,9 +547,9 @@ class TestHorizontalLidar:
                     depth_array = depth_tensor.to_numpy()
 
                 expected_shape = (1, 1, height, width, 1)
-                assert (
-                    depth_array.shape == expected_shape
-                ), f"Shape mismatch: expected {expected_shape}, got {depth_array.shape}"
+                assert depth_array.shape == expected_shape, (
+                    f"Shape mismatch: expected {expected_shape}, got {depth_array.shape}"
+                )
 
                 # Extract middle row for analysis
                 middle_row = height // 2
@@ -600,9 +600,9 @@ class TestHorizontalLidar:
                 results.append((config_name, width, height, fov, expected_success, False, False))
 
         # Summary analysis
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("CONFIGURATION ANALYSIS SUMMARY")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         working_configs = []
         failing_configs = []

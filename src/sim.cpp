@@ -47,6 +47,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     
     // [GAME_SPECIFIC] Escape room specific components
     registry.registerComponent<SelfObservation>();
+    registry.registerComponent<CompassObservation>();
     registry.registerComponent<Progress>();
     registry.registerComponent<StepsTaken>();
     registry.registerComponent<EntityType>();
@@ -81,6 +82,8 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Export escape room observations
     registry.exportColumn<Agent, SelfObservation>(
         (uint32_t)ExportID::SelfObservation);
+    registry.exportColumn<Agent, CompassObservation>(
+        (uint32_t)ExportID::CompassObservation);
     registry.exportColumn<Agent, StepsTaken>(
         (uint32_t)ExportID::StepsTaken);
     registry.exportColumn<Agent, Progress>(
@@ -269,6 +272,37 @@ inline void collectObservationsSystem(Engine &ctx,
     self_obs.theta = angleObs(computeZAngle(rot));
 }
 
+// [GAME_SPECIFIC] Computes compass one-hot encoding from agent rotation
+// Updates the CompassObservation with a one-hot encoding of the agent's facing direction
+inline void compassSystem(Engine &,
+                          Rotation rot,
+                          CompassObservation &compass_obs)
+{
+    // Get world theta angle in radians
+    float theta_radians = computeZAngle(rot);
+    
+    // Apply compass equation: (64 - int(theta_in_radians / (2*pi))) % 128
+    // This maps [-pi, pi] to compass buckets 0-127
+    constexpr float two_pi = 2.0f * math::pi;
+    
+    // Normalize theta to [0, 2*pi) range first
+    while (theta_radians < 0) theta_radians += two_pi;
+    while (theta_radians >= two_pi) theta_radians -= two_pi;
+    
+    // Apply the compass formula
+    int compass_bucket = (64 - (int)(theta_radians / two_pi * 128)) % 128;
+    
+    // Ensure bucket is in valid range [0, 127]
+    if (compass_bucket < 0) compass_bucket += 128;
+    
+    // Zero out all compass values
+    for (int i = 0; i < 128; i++) {
+        compass_obs.compass[i] = 0.0f;
+    }
+    
+    // Set the computed bucket to 1.0
+    compass_obs.compass[compass_bucket] = 1.0f;
+}
 
 // [REQUIRED_INTERFACE] Computes reward for each agent - every environment needs a reward system
 // [GAME_SPECIFIC] Tracks max Y position reached, but only gives reward at episode end
@@ -540,6 +574,13 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             SelfObservation
         >>({post_reset_broadphase});
 
+    // [GAME_SPECIFIC] Update compass observations
+    auto compass_sys = builder.addToGraph<ParallelForNode<Engine,
+        compassSystem,
+            Rotation,
+            CompassObservation
+        >>({collect_obs});
+
 
     // [BOILERPLATE] Set up rendering tasks if enabled
     if (cfg.renderBridge) {
@@ -551,12 +592,12 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     // BVH build above.
     // [GAME_SPECIFIC] The specific entity types to sort are game-specific
     auto sort_agents = queueSortByWorld<Agent>(
-        builder, {collect_obs});
+        builder, {compass_sys});
     auto sort_phys_objects = queueSortByWorld<PhysicsEntity>(
         builder, {sort_agents});
     (void)sort_phys_objects;
 #else
-    (void)collect_obs;
+    (void)compass_sys;
 #endif
 }
 

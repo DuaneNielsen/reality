@@ -86,9 +86,9 @@ class TestCollisionTermination:
             mgr.step()
 
             # Episode should continue running even after collision
-            assert not observer.get_done_flag(
-                0
-            ), f"Episode should continue after east wall collision at step {step}"
+            assert not observer.get_done_flag(0), (
+                f"Episode should continue after east wall collision at step {step}"
+            )
 
         # SUCCESS - episode continued running after collision with non-terminating wall
 
@@ -138,9 +138,9 @@ class TestCollisionTermination:
             mgr.step()
 
             # Episode should continue running even after collision
-            assert not observer.get_done_flag(
-                0
-            ), f"Episode should continue after south wall collision at step {step}"
+            assert not observer.get_done_flag(0), (
+                f"Episode should continue after south wall collision at step {step}"
+            )
 
         # SUCCESS - episode continued running after collision with non-terminating wall
 

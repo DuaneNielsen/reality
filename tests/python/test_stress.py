@@ -188,7 +188,7 @@ def test_extended_stress_simulation(cpu_manager):
             avg_step_time = np.mean(step_times[-200:])
             fps = worlds / avg_step_time
             logger.info(
-                f"    Iteration {i + 1}: avg step time {avg_step_time*1000:.2f}ms, FPS {fps:.0f}"
+                f"    Iteration {i + 1}: avg step time {avg_step_time * 1000:.2f}ms, FPS {fps:.0f}"
             )
 
     total_time = time.time() - start_time
@@ -202,9 +202,11 @@ def test_extended_stress_simulation(cpu_manager):
 
     logger.info("  ✅ Extended stress test completed!")
     logger.info(f"  Average FPS: {avg_fps:.0f}")
-    logger.info(f"  Step time - avg: {avg_step_time*1000:.2f}ms")
-    logger.info(f"  Step time - min: {min_step_time*1000:.2f}ms, max: {max_step_time*1000:.2f}ms")
+    logger.info(f"  Step time - avg: {avg_step_time * 1000:.2f}ms")
+    logger.info(
+        f"  Step time - min: {min_step_time * 1000:.2f}ms, max: {max_step_time * 1000:.2f}ms"
+    )
 
     # Assert performance is stable
     assert avg_fps >= 500, f"Extended test performance too slow: {avg_fps:.0f} FPS"
-    assert max_step_time < 0.1, f"Some steps too slow: max {max_step_time*1000:.0f}ms"
+    assert max_step_time < 0.1, f"Some steps too slow: max {max_step_time * 1000:.0f}ms"

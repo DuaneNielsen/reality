@@ -153,6 +153,7 @@ public:
     madrona::py::Tensor rewardTensor() const;
     madrona::py::Tensor doneTensor() const;
     madrona::py::Tensor selfObservationTensor() const;
+    madrona::py::Tensor compassTensor() const;
     madrona::py::Tensor stepsTakenTensor() const;
     madrona::py::Tensor progressTensor() const;
     madrona::py::Tensor rgbTensor() const;

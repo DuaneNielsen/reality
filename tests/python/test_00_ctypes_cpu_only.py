@@ -123,12 +123,12 @@ def test_default_level_spawn_position():
         agent_y = obs[world_idx, 0, 1]  # world, agent, y coordinate (normalized)
 
         # Allow small tolerance for floating point
-        assert (
-            abs(agent_x - expected_x_norm) < 0.01
-        ), f"World {world_idx}: Expected normalized X={expected_x_norm}, got {agent_x}"
-        assert (
-            abs(agent_y - expected_y_norm) < 0.01
-        ), f"World {world_idx}: Expected normalized Y={expected_y_norm}, got {agent_y}"
+        assert abs(agent_x - expected_x_norm) < 0.01, (
+            f"World {world_idx}: Expected normalized X={expected_x_norm}, got {agent_x}"
+        )
+        assert abs(agent_y - expected_y_norm) < 0.01, (
+            f"World {world_idx}: Expected normalized Y={expected_y_norm}, got {agent_y}"
+        )
 
     # Now move the agents to different positions
     from madrona_escape_room import action
@@ -149,9 +149,9 @@ def test_default_level_spawn_position():
     for world_idx in range(2):
         new_y = obs_after_move[world_idx, 0, 1]
         # Agent should have moved forward (more positive Y, larger normalized value)
-        assert (
-            new_y > expected_y_norm
-        ), f"World {world_idx}: Agent moved from Y={expected_y_norm}, now at {new_y}"
+        assert new_y > expected_y_norm, (
+            f"World {world_idx}: Agent moved from Y={expected_y_norm}, now at {new_y}"
+        )
 
     # Trigger reset to reload the level
     reset_tensor = mgr.reset_tensor().to_torch()
@@ -165,12 +165,12 @@ def test_default_level_spawn_position():
         reset_x = obs_after_reset[world_idx, 0, 0]
         reset_y = obs_after_reset[world_idx, 0, 1]
 
-        assert (
-            abs(reset_x - expected_x_norm) < 0.01
-        ), f"World {world_idx}: After reset, expected normalized X={expected_x_norm}, got {reset_x}"
-        assert (
-            abs(reset_y - expected_y_norm) < 0.01
-        ), f"World {world_idx}: After reset, expected normalized Y={expected_y_norm}, got {reset_y}"
+        assert abs(reset_x - expected_x_norm) < 0.01, (
+            f"World {world_idx}: After reset, expected normalized X={expected_x_norm}, got {reset_x}"
+        )
+        assert abs(reset_y - expected_y_norm) < 0.01, (
+            f"World {world_idx}: After reset, expected normalized Y={expected_y_norm}, got {reset_y}"
+        )
 
 
 def test_dataclass_level_structure():

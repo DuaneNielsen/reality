@@ -87,6 +87,14 @@ namespace madEscape {
     inline constexpr size_t SelfObservationFloatCount = sizeof(SelfObservation) / sizeof(float);
 
     // [GAME_SPECIFIC]
+    // Compass observation - one-hot encoded agent facing direction in world frame
+    // 128 buckets covering 360 degrees (2.8125 degrees per bucket)
+    struct CompassObservation {
+        float compass[128];  // One-hot encoded compass direction
+    };
+    inline constexpr size_t CompassObservationFloatCount = 128;
+
+    // [GAME_SPECIFIC]
     // The state of the world is passed to each agent in terms of egocentric
     // polar coordinates. theta is degrees off agent forward.
     struct PolarObservation {
@@ -265,7 +273,7 @@ namespace madEscape {
                   Action,
 
                   // Observations
-                  SelfObservation, StepsTaken,
+                  SelfObservation, CompassObservation, StepsTaken,
 
                   // Reward, episode termination
                   Reward, Done,

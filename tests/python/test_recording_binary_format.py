@@ -77,16 +77,16 @@ def test_replay_metadata_complete_structure(cpu_manager):
             # Validate all 14 fields (vs existing test's 9 fields)
             assert magic == 0x4D455352, f"Expected magic 0x4D455352, got 0x{magic:08x}"
             assert version == 2, f"Expected version 2, got {version}"
-            assert (
-                sim_name == "madrona_escape_room"
-            ), f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
+            assert sim_name == "madrona_escape_room", (
+                f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
+            )
             assert level_name, f"Level name should not be empty, got '{level_name}'"
-            assert (
-                num_worlds_meta == num_worlds
-            ), f"Expected {num_worlds} worlds, got {num_worlds_meta}"
-            assert (
-                num_agents_meta >= 1
-            ), f"Expected at least 1 agent per world, got {num_agents_meta}"
+            assert num_worlds_meta == num_worlds, (
+                f"Expected {num_worlds} worlds, got {num_worlds_meta}"
+            )
+            assert num_agents_meta >= 1, (
+                f"Expected at least 1 agent per world, got {num_agents_meta}"
+            )
             assert num_steps_meta == 5, f"Expected 5 steps, got {num_steps_meta}"
             assert actions_per_step == 3, f"Expected 3 actions per step, got {actions_per_step}"
             assert timestamp > 0, f"Expected positive timestamp, got {timestamp}"
@@ -142,26 +142,26 @@ def test_compiled_level_structure_validation(cpu_manager):
         level_read = CompiledLevel.from_ctype(c_level_read)
 
         # Verify key fields match
-        assert (
-            level_read.num_tiles == level_write.num_tiles
-        ), f"num_tiles mismatch: {level_read.num_tiles} != {level_write.num_tiles}"
-        assert (
-            level_read.width == level_write.width
-        ), f"width mismatch: {level_read.width} != {level_write.width}"
-        assert (
-            level_read.height == level_write.height
-        ), f"height mismatch: {level_read.height} != {level_write.height}"
-        assert (
-            abs(level_read.world_scale - level_write.world_scale) < 0.001
-        ), f"scale mismatch: {level_read.world_scale} != {level_write.world_scale}"
-        assert (
-            level_read.num_spawns == level_write.num_spawns
-        ), f"num_spawns mismatch: {level_read.num_spawns} != {level_write.num_spawns}"
+        assert level_read.num_tiles == level_write.num_tiles, (
+            f"num_tiles mismatch: {level_read.num_tiles} != {level_write.num_tiles}"
+        )
+        assert level_read.width == level_write.width, (
+            f"width mismatch: {level_read.width} != {level_write.width}"
+        )
+        assert level_read.height == level_write.height, (
+            f"height mismatch: {level_read.height} != {level_write.height}"
+        )
+        assert abs(level_read.world_scale - level_write.world_scale) < 0.001, (
+            f"scale mismatch: {level_read.world_scale} != {level_write.world_scale}"
+        )
+        assert level_read.num_spawns == level_write.num_spawns, (
+            f"num_spawns mismatch: {level_read.num_spawns} != {level_write.num_spawns}"
+        )
 
         # Verify level name (already strings in dataclasses)
-        assert (
-            level_read.level_name == level_write.level_name
-        ), f"level_name mismatch: '{level_read.level_name}' != '{level_write.level_name}'"
+        assert level_read.level_name == level_write.level_name, (
+            f"level_name mismatch: '{level_read.level_name}' != '{level_write.level_name}'"
+        )
 
         # Verify world boundaries
         assert abs(level_read.world_min_x - level_write.world_min_x) < 0.001
@@ -171,24 +171,24 @@ def test_compiled_level_structure_validation(cpu_manager):
 
         # Verify spawn positions match
         for i in range(level_read.num_spawns):
-            assert (
-                abs(level_read.spawn_x[i] - level_write.spawn_x[i]) < 0.001
-            ), f"spawn_x[{i}] mismatch"
-            assert (
-                abs(level_read.spawn_y[i] - level_write.spawn_y[i]) < 0.001
-            ), f"spawn_y[{i}] mismatch"
+            assert abs(level_read.spawn_x[i] - level_write.spawn_x[i]) < 0.001, (
+                f"spawn_x[{i}] mismatch"
+            )
+            assert abs(level_read.spawn_y[i] - level_write.spawn_y[i]) < 0.001, (
+                f"spawn_y[{i}] mismatch"
+            )
 
         # Verify some tile data (just check first few active tiles)
         for i in range(min(10, level_read.num_tiles)):
-            assert (
-                level_read.object_ids[i] == level_write.object_ids[i]
-            ), f"object_ids[{i}] mismatch"
-            assert (
-                abs(level_read.tile_x[i] - level_write.tile_x[i]) < 0.001
-            ), f"tile_x[{i}] mismatch"
-            assert (
-                abs(level_read.tile_y[i] - level_write.tile_y[i]) < 0.001
-            ), f"tile_y[{i}] mismatch"
+            assert level_read.object_ids[i] == level_write.object_ids[i], (
+                f"object_ids[{i}] mismatch"
+            )
+            assert abs(level_read.tile_x[i] - level_write.tile_x[i]) < 0.001, (
+                f"tile_x[{i}] mismatch"
+            )
+            assert abs(level_read.tile_y[i] - level_write.tile_y[i]) < 0.001, (
+                f"tile_y[{i}] mismatch"
+            )
 
         print("✓ CompiledLevel binary round-trip validation passed")
         print(f"  Successfully wrote and read back level '{level_read.level_name}'")
@@ -265,9 +265,9 @@ def test_action_data_verification_step_by_step(cpu_manager):
             print(f"Possible steps: {possible_steps}")
 
             # Validate we can read expected number of steps
-            assert possible_steps >= len(
-                test_actions
-            ), f"Expected at least {len(test_actions)} steps, can only read {possible_steps}"
+            assert possible_steps >= len(test_actions), (
+                f"Expected at least {len(test_actions)} steps, can only read {possible_steps}"
+            )
 
             # Read and validate each step
             for step_idx, expected_actions in enumerate(test_actions):
@@ -328,9 +328,9 @@ def test_format_specification_compliance(cpu_manager):
 
             # Validate minimum file size
             min_expected_size = 192  # ReplayMetadata for version 2
-            assert (
-                len(file_data) >= min_expected_size
-            ), f"File too small: {len(file_data)} < {min_expected_size}"
+            assert len(file_data) >= min_expected_size, (
+                f"File too small: {len(file_data)} < {min_expected_size}"
+            )
 
             # Validate magic number and version
             magic = struct.unpack("<I", file_data[0:4])[0]
@@ -516,9 +516,9 @@ def test_file_boundary_validation(cpu_manager):
 
             print(f"Expected file size range: {min_expected_size} - {max_expected_size} bytes")
 
-            assert (
-                file_size >= min_expected_size
-            ), f"File too small: {file_size} < {min_expected_size}"
+            assert file_size >= min_expected_size, (
+                f"File too small: {file_size} < {min_expected_size}"
+            )
             # Note: Not asserting max size due to potential padding and unknown
             # CompiledLevel exact size
 

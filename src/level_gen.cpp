@@ -147,6 +147,12 @@ static void resetAgentPhysics(Engine &ctx) {
 
         ctx.get<StepsTaken>(agent_entity).t = 0;  // Reset to 0 for new episode
         ctx.get<Done>(agent_entity).v = 0;  // Reset done flag for new episode
+        
+        // Initialize compass observation to all zeros (will be updated by compassSystem)
+        CompassObservation &compass_obs = ctx.get<CompassObservation>(agent_entity);
+        for (int j = 0; j < 128; j++) {
+            compass_obs.compass[j] = 0.0f;
+        }
     }
 }
 

@@ -139,7 +139,8 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
         compiled_levels: None, single CompiledLevel (dataclass), or list of CompiledLevel
 
     Returns:
-        Tuple of (result_code, c_config, levels_array) where c_config and levels_array must be kept alive
+        Tuple of (result_code, c_config, levels_array) where c_config and
+        levels_array must be kept alive
     """
     # Convert config dataclass to ctypes
     c_config = config.to_ctype()
@@ -227,6 +228,9 @@ lib.mer_get_done_tensor.restype = c_int
 
 lib.mer_get_self_observation_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_self_observation_tensor.restype = c_int
+
+lib.mer_get_compass_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
+lib.mer_get_compass_tensor.restype = c_int
 
 lib.mer_get_steps_taken_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_steps_taken_tensor.restype = c_int
