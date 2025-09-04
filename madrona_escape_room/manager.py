@@ -429,6 +429,108 @@ class TrajectoryLogging:
         self.manager.disable_trajectory_logging()
 
 
+def create_sim_manager(
+    exec_mode,
+    sensor_config=None,
+    level_data=None,
+    gpu_id=0,
+    num_worlds=4,
+    rand_seed=42,
+    auto_reset=False,
+    batch_render_width=64,
+    batch_render_height=64,
+    custom_vertical_fov=0.0,
+    render_mode=None,
+    enable_batch_renderer=None,
+):
+    """Factory function to create SimManager with flexible configuration
+    
+    Args:
+        exec_mode: ExecMode.CPU or ExecMode.CUDA
+        sensor_config: Optional SensorConfig object for sensor settings
+        level_data: Optional level data (ASCII string, JSON string, or CompiledLevel object)
+        gpu_id: GPU device ID (ignored for CPU mode)
+        num_worlds: Number of simulation worlds
+        rand_seed: Random seed for simulation
+        auto_reset: Whether to enable automatic episode resets
+        batch_render_width: Custom render view width (default 64)
+        batch_render_height: Custom render view height (default 64)
+        custom_vertical_fov: Custom vertical FOV in degrees (0 = use default)
+        render_mode: RenderMode enum value (None = use default RGBD)
+        enable_batch_renderer: Force enable/disable renderer (None = auto-detect from sensor_config)
+    
+    Returns:
+        SimManager: Configured simulation manager
+        
+    Examples:
+        # Simple CPU manager with defaults
+        mgr = create_sim_manager(ExecMode.CPU)
+        
+        # With custom sensor configuration
+        sensor = SensorConfig.lidar_horizontal_128()
+        mgr = create_sim_manager(ExecMode.CPU, sensor_config=sensor)
+        
+        # With custom ASCII level
+        level = "###\\n#@#\\n###"
+        mgr = create_sim_manager(ExecMode.CPU, level_data=level)
+    """
+    from .generated_constants import ExecMode, RenderMode
+    
+    # Handle level data
+    compiled_level = None
+    if level_data is None:
+        # Use default level
+        from .default_level import create_default_level
+        compiled_level = create_default_level()
+    elif isinstance(level_data, str):
+        # Check if it's JSON or ASCII
+        level_str = level_data.strip()
+        if level_str.startswith('{') or level_str.startswith('['):
+            # JSON level string
+            from .level_compiler import compile_level
+            compiled_level = compile_level(level_str)
+        else:
+            # ASCII level
+            from .level_compiler import compile_ascii_level
+            compiled_level = compile_ascii_level(level_str, level_name="custom_level")
+    else:
+        # Assume it's already a CompiledLevel object
+        compiled_level = level_data
+    
+    # Handle sensor configuration
+    if sensor_config is not None:
+        # Apply sensor config settings
+        enable_renderer = True
+        batch_render_width = sensor_config.width
+        batch_render_height = sensor_config.height
+        custom_vertical_fov = sensor_config.vertical_fov
+        render_mode = sensor_config.render_mode
+    else:
+        # Use provided parameters or defaults
+        if enable_batch_renderer is None:
+            enable_renderer = False  # Default to no renderer if no sensor config provided
+        else:
+            enable_renderer = enable_batch_renderer
+            
+        # Use default RGBD render mode if not specified
+        if render_mode is None:
+            render_mode = RenderMode.RGBD
+    
+    return SimManager(
+        exec_mode=exec_mode,
+        gpu_id=gpu_id,
+        num_worlds=num_worlds,
+        rand_seed=rand_seed,
+        enable_batch_renderer=enable_renderer,
+        auto_reset=auto_reset,
+        compiled_levels=compiled_level,
+        batch_render_view_width=batch_render_width,
+        batch_render_view_height=batch_render_height,
+        custom_vertical_fov=custom_vertical_fov,
+        render_mode=render_mode,
+    )
+
+
 class DebugSession:
     """Master context manager that handles both recording and trajectory logging"""
 

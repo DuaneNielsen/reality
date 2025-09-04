@@ -117,9 +117,9 @@ def test_sim_interface_adapter_creation(cpu_manager):
     print(f"Rewards shape: {sim_interface.rewards.shape}")
     print(f"Dones shape: {sim_interface.dones.shape}")
 
-    self_obs = sim_interface.obs[sim_interface.ObsIndex.SELF_OBS]
-    compass = sim_interface.obs[sim_interface.ObsIndex.COMPASS]
-    depth = sim_interface.obs[sim_interface.ObsIndex.DEPTH]
+    self_obs = sim_interface.obs[ObsIndex.SELF_OBS]
+    compass = sim_interface.obs[ObsIndex.COMPASS]
+    depth = sim_interface.obs[ObsIndex.DEPTH]
     print(f"Self obs shape: {self_obs.shape}")
     print(f"Compass shape: {compass.shape}")
     print(f"Depth shape: {depth.shape}")
@@ -132,13 +132,13 @@ def test_sim_interface_adapter_creation(cpu_manager):
     assert compass.shape == (
         4,
         1,
-        sim_interface.CompassIndex.bucket_count(),
+        CompassIndex.bucket_count(),
     )  # [worlds, agents, 128] - one-hot compass
     assert depth.shape == (
         4,
         1,
         1,
-        sim_interface.DepthIndex.beam_count(),
+        DepthIndex.beam_count(),
         1,
     )  # [worlds, agents, height, width, channels] - horizontal lidar
 
@@ -206,7 +206,7 @@ def test_sim_interface_step_integration(cpu_manager):
     sim_interface = create_sim_interface_adapter(manager, enable_depth=True)
 
     # Get initial observations using constants
-    initial_self_obs = sim_interface.obs[sim_interface.ObsIndex.SELF_OBS].clone()
+    initial_self_obs = sim_interface.obs[ObsIndex.SELF_OBS].clone()
 
     # Set some actions - move forward at medium speed
     # Check action tensor shape first and set accordingly
@@ -226,21 +226,21 @@ def test_sim_interface_step_integration(cpu_manager):
     sim_interface.step()
 
     # Check that observations changed using constants
-    new_self_obs = sim_interface.obs[sim_interface.ObsIndex.SELF_OBS]
+    new_self_obs = sim_interface.obs[ObsIndex.SELF_OBS]
 
     # Position should have changed (agents moved forward)
     initial_position = initial_self_obs[
-        :, :, sim_interface.SelfObsIndex.X : sim_interface.SelfObsIndex.Z + 1
+        :, :, SelfObsIndex.X : SelfObsIndex.Z + 1
     ]
     new_position = new_self_obs[
-        :, :, sim_interface.SelfObsIndex.X : sim_interface.SelfObsIndex.Z + 1
+        :, :, SelfObsIndex.X : SelfObsIndex.Z + 1
     ]
     position_changed = not torch.allclose(initial_position, new_position)
     assert position_changed, "Agent positions should have changed after forward movement"
 
     # Progress (maxY) should have increased or stayed the same
-    initial_progress = initial_self_obs[:, :, sim_interface.SelfObsIndex.PROGRESS]
-    new_progress = new_self_obs[:, :, sim_interface.SelfObsIndex.PROGRESS]
+    initial_progress = initial_self_obs[:, :, SelfObsIndex.PROGRESS]
+    new_progress = new_self_obs[:, :, SelfObsIndex.PROGRESS]
     progress_increased = torch.all(new_progress >= initial_progress)
     assert progress_increased, "Progress should not decrease"
 
@@ -254,10 +254,10 @@ def test_compass_tensor_properties(cpu_manager):
     # Create the interface adapter directly from the manager
     sim_interface = create_sim_interface_adapter(manager, enable_depth=True)
 
-    compass_tensor = sim_interface.obs[sim_interface.ObsIndex.COMPASS]  # compass tensor
+    compass_tensor = sim_interface.obs[ObsIndex.COMPASS]  # compass tensor
 
     # Check shape - cpu_manager fixture uses 4 worlds
-    assert compass_tensor.shape == (4, 1, sim_interface.CompassIndex.bucket_count())
+    assert compass_tensor.shape == (4, 1, CompassIndex.bucket_count())
 
     # Check one-hot property for each world
     compass_np = compass_tensor.numpy()
@@ -324,15 +324,15 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
         sim_interface.dones.data_ptr() == original_done_tensor.data_ptr()
     ), "Done tensor should be zero-copy reference to original"
     assert (
-        sim_interface.obs[sim_interface.ObsIndex.SELF_OBS].data_ptr()
+        sim_interface.obs[ObsIndex.SELF_OBS].data_ptr()
         == original_self_obs_tensor.data_ptr()
     ), "Self observation tensor should be zero-copy reference to original"
     assert (
-        sim_interface.obs[sim_interface.ObsIndex.COMPASS].data_ptr()
+        sim_interface.obs[ObsIndex.COMPASS].data_ptr()
         == original_compass_tensor.data_ptr()
     ), "Compass tensor should be zero-copy reference to original"
     assert (
-        sim_interface.obs[sim_interface.ObsIndex.DEPTH].data_ptr()
+        sim_interface.obs[ObsIndex.DEPTH].data_ptr()
         == original_depth_tensor.data_ptr()
     ), "Depth tensor should be zero-copy reference to original"
 
@@ -400,28 +400,28 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
     # === VERIFY INTERFACE REFLECTS SAME CHANGES ===
     # The interface tensors should show the exact same values as original tensors
     assert torch.allclose(
-        sim_interface.obs[sim_interface.ObsIndex.SELF_OBS][
+        sim_interface.obs[ObsIndex.SELF_OBS][
             0, 0, SelfObsIndex.X : SelfObsIndex.Z + 1
         ],
         new_position,
     ), "Interface should show same position as original tensor"
     assert torch.allclose(
-        sim_interface.obs[sim_interface.ObsIndex.SELF_OBS][
-            0, 0, sim_interface.SelfObsIndex.PROGRESS
+        sim_interface.obs[ObsIndex.SELF_OBS][
+            0, 0, SelfObsIndex.PROGRESS
         ],
         new_progress,
     ), "Interface should show same progress as original tensor"
     assert torch.allclose(
-        sim_interface.obs[sim_interface.ObsIndex.SELF_OBS][
-            0, 0, sim_interface.SelfObsIndex.ROTATION
+        sim_interface.obs[ObsIndex.SELF_OBS][
+            0, 0, SelfObsIndex.ROTATION
         ],
         new_rotation,
     ), "Interface should show same rotation as original tensor"
     assert torch.allclose(
-        sim_interface.obs[sim_interface.ObsIndex.COMPASS][0, 0, :], new_compass
+        sim_interface.obs[ObsIndex.COMPASS][0, 0, :], new_compass
     ), "Interface should show same compass as original tensor"
     assert torch.allclose(
-        sim_interface.obs[sim_interface.ObsIndex.DEPTH][0, 0, 0, :, 0], new_depth
+        sim_interface.obs[ObsIndex.DEPTH][0, 0, 0, :, 0], new_depth
     ), "Interface should show same depth as original tensor"
 
     print("✅ Interface consistency verified - shows same values as original tensors")

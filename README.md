@@ -114,16 +114,35 @@ python scripts/train.py --num-worlds 1024 --num-updates 100 --ckpt-dir build/ckp
 
 ### Python Integration
 
-The environment uses **ctypes-based bindings** for Python integration, providing zero-copy tensor access:
+The environment uses **ctypes-based bindings** for Python integration, providing zero-copy tensor access. Use the convenient factory function for easy setup:
 
 ```python
-import madrona_escape_room
+from madrona_escape_room import create_sim_manager, ExecMode, SensorConfig
 
-# Create simulation manager
-mgr = madrona_escape_room.SimManager(
-    exec_mode=madrona_escape_room.madrona.ExecMode.CPU,  # or CUDA
-    num_worlds=1024,
-    auto_reset=True
+# 1. Basic usage - just specify execution mode
+mgr = create_sim_manager(ExecMode.CPU)
+
+# 2. With sensor configuration for vision/lidar
+depth_sensor = SensorConfig.depth_default()
+mgr = create_sim_manager(ExecMode.CPU, sensor_config=depth_sensor)
+
+# 3. With custom level layout
+custom_level = """#######
+#.....#
+#..S..#  
+#.....#
+#######"""
+mgr = create_sim_manager(ExecMode.CPU, level_data=custom_level)
+
+# 4. Advanced configuration
+lidar_sensor = SensorConfig.lidar_horizontal_128()
+mgr = create_sim_manager(
+    ExecMode.CUDA,                    # GPU execution
+    sensor_config=lidar_sensor,       # 128-beam lidar
+    level_data=custom_level,          # Custom ASCII level
+    num_worlds=1024,                  # Batch size
+    rand_seed=42,                     # Reproducibility
+    auto_reset=True                   # Auto-reset episodes
 )
 
 # Get tensor references (zero-copy views)
@@ -137,6 +156,13 @@ for step in range(1000):
     mgr.step()                # Step simulation
     # Process rewards and observations
 ```
+
+**Available Sensor Configurations:**
+- `SensorConfig.rgb_default()` - 64x64 RGB camera
+- `SensorConfig.depth_default()` - 64x64 depth sensor  
+- `SensorConfig.lidar_horizontal_128()` - 128-beam horizontal lidar
+- `SensorConfig.rgbd_default()` - Combined RGB+depth sensor
+- `SensorConfig.custom(width, height, fov, mode)` - Custom configuration
 
 For complete API documentation, see [ENVIRONMENT.md](ENVIRONMENT.md).
 

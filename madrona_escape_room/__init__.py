@@ -12,8 +12,8 @@ from . import sensor_config
 from .default_level import create_default_level
 from .generated_constants import ExecMode, RenderMode, Result, TensorElementType, action, consts
 
-# Import SimManager from manager module
-from .manager import SimManager
+# Import SimManager and factory function from manager module
+from .manager import SimManager, create_sim_manager
 
 # Import SensorConfig class
 from .sensor_config import SensorConfig
@@ -27,7 +27,8 @@ __all__ = [
     "SimManager",
     "Tensor",
     "SensorConfig",
-    # Level creation
+    # Factory functions
+    "create_sim_manager",
     "create_default_level",
     # Sensor config namespace
     "sensor_config",

@@ -59,6 +59,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "sensor.lidar_256: Use 256-beam high-res lidar (120° FOV)")
     config.addinivalue_line("markers", "sensor.rgbd_default: Use default 64x64 RGBD sensor")
     config.addinivalue_line("markers", "json_level: mark test to use custom JSON level definition")
+    config.addinivalue_line("markers", "slow: mark test as slow running (e.g., GPU compilation tests)")
 
 
 def pytest_runtest_setup(item):
@@ -89,7 +90,10 @@ def _create_sim_manager(
     custom_vertical_fov=0.0,
     render_mode=None,
 ):
-    """Helper function to create SimManager with reduced boilerplate
+    """Helper function to create SimManager with pytest marker support
+    
+    This is a pytest-specific wrapper around create_sim_manager that handles
+    pytest markers for level and sensor configuration.
 
     Args:
         request: pytest request object
@@ -101,15 +105,25 @@ def _create_sim_manager(
         custom_vertical_fov: Custom vertical FOV in degrees (0 = use default)
         render_mode: RenderMode enum value (None = use default RGBD)
     """
-    import madrona_escape_room
-    from madrona_escape_room import ExecMode, SimManager, create_default_level
-    from madrona_escape_room.level_compiler import compile_ascii_level
+    from madrona_escape_room import create_sim_manager
     from madrona_escape_room.sensor_config import SensorConfig
 
     # Check for level markers
     ascii_marker = request.node.get_closest_marker("ascii_level")
     json_marker = request.node.get_closest_marker("json_level")
     depth_marker = request.node.get_closest_marker("depth_sensor")
+
+    # Determine level data from markers
+    level_data = None
+    if ascii_marker:
+        level_data = ascii_marker.args[0]
+        logger.info(f"Using ASCII level:\n{level_data}")
+    elif json_marker:
+        json_dict = json_marker.args[0]
+        # Convert dictionary to JSON string for proper processing
+        import json
+        level_data = json.dumps(json_dict)
+        logger.info(f"Using JSON level:\n{level_data}")
 
     # Check for named sensor configuration markers
     sensor_config = None
@@ -133,74 +147,51 @@ def _create_sim_manager(
             logger.info(f"Using sensor config: {sensor_config}")
             break
 
-    if ascii_marker:
-        ascii_str = ascii_marker.args[0]
-        logger.info(f"Using ASCII level:\n{ascii_str}")
-        compiled_level = compile_ascii_level(ascii_str, level_name="test_level")
-    elif json_marker:
-        json_str = json_marker.args[0]
-        logger.info(f"Using JSON level:\n{json_str}")
-        from madrona_escape_room.level_compiler import compile_level
-
-        compiled_level = compile_level(json_str)
-    else:
-        compiled_level = create_default_level()
-
-    # Use sensor config if available, otherwise fall back to old marker system
-    if sensor_config:
-        # Sensor config takes precedence - apply its settings
-        enable_renderer = True
-        batch_render_width = sensor_config.width
-        batch_render_height = sensor_config.height
-        custom_vertical_fov = sensor_config.vertical_fov
-        render_mode = sensor_config.render_mode
-
-        exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
-        logger.info(
-            f"Using {sensor_config.name} for {exec_mode_name} manager: "
-            f"{batch_render_width}x{batch_render_height}, V-FOV={custom_vertical_fov:.1f}°"
-        )
-    else:
-        # Fall back to old depth_sensor marker system
-        if enable_depth_override is not None:
-            enable_renderer = enable_depth_override
-        else:
-            enable_renderer = depth_marker is not None
-
-        # Override render parameters from depth_sensor marker
+    # Handle legacy depth_sensor marker if no modern sensor config is used
+    if sensor_config is None and (depth_marker is not None or enable_depth_override is not None):
+        # Create a sensor config from legacy depth marker
+        width = batch_render_width
+        height = batch_render_height
+        fov = custom_vertical_fov if custom_vertical_fov > 0 else 100.0
+        
+        # Override with depth_sensor marker parameters
         if depth_marker:
-            # depth_sensor marker with optional parameters: (width, height, fov)
             if len(depth_marker.args) >= 2:
-                batch_render_width = depth_marker.args[0]
-                batch_render_height = depth_marker.args[1]
+                width = depth_marker.args[0]
+                height = depth_marker.args[1]
             if len(depth_marker.args) >= 3:
-                custom_vertical_fov = depth_marker.args[2]
-
-        # Determine render mode from markers
-        if render_mode is None:  # Only set from marker if not explicitly passed
-            if depth_marker is not None:
-                from madrona_escape_room import RenderMode
-
-                render_mode = RenderMode.Depth
-            # Otherwise use default (RGBD)
-
-        if enable_renderer:
-            exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
-            logger.info(
-                f"Depth sensor enabled for {exec_mode_name} manager: "
-                f"{batch_render_width}x{batch_render_height}, FOV={custom_vertical_fov}"
+                fov = depth_marker.args[2]
+        
+        # Determine if depth should be enabled
+        enable_depth = (enable_depth_override 
+                       if enable_depth_override is not None 
+                       else depth_marker is not None)
+        
+        if enable_depth:
+            from madrona_escape_room import RenderMode
+            mode = render_mode if render_mode is not None else RenderMode.Depth
+            sensor_config = SensorConfig.custom(
+                width=width,
+                height=height,
+                vertical_fov=fov,
+                render_mode=mode,
+                name=f"Legacy Depth {width}x{height}"
             )
+            
+            exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
+            logger.info(f"Legacy depth sensor for {exec_mode_name}: {sensor_config}")
 
-    return SimManager(
+    # Use the factory function
+    return create_sim_manager(
         exec_mode=exec_mode,
+        sensor_config=sensor_config,
+        level_data=level_data,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,
-        enable_batch_renderer=enable_renderer,
         auto_reset=auto_reset,
-        compiled_levels=compiled_level,
-        batch_render_view_width=batch_render_width,
-        batch_render_view_height=batch_render_height,
+        batch_render_width=batch_render_width,
+        batch_render_height=batch_render_height,
         custom_vertical_fov=custom_vertical_fov,
         render_mode=render_mode,
     )
