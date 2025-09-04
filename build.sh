@@ -20,35 +20,45 @@ print_usage() {
     echo ""
     echo "COMMANDS:"
     echo "  clean     Clean all build artifacts from project and submodules"
-    echo "  build     Build the project (default if no command given)"
-    echo "  rebuild   Clean then build"
+    echo "  build     Quick incremental build (default if no command given)"
+    echo "  fullbuild Full build with CMake reconfiguration and codegen"
+    echo "  rebuild   Clean then full build"
     echo "  help      Show this help message"
     echo ""
     echo "OPTIONS:"
     echo "  --test    Run tests after building"
     echo "  --jobs N  Use N parallel jobs for building (default: 16)"
+    echo "  --verbose Show detailed output (default: errors only)"
     echo ""
     echo "Examples:"
-    echo "  $0              # Build the project"
+    echo "  $0              # Quick incremental build"
+    echo "  $0 build        # Quick incremental build" 
+    echo "  $0 fullbuild    # Full build with CMake + codegen"
     echo "  $0 clean        # Clean all build artifacts"
-    echo "  $0 rebuild      # Clean then build"
-    echo "  $0 build --test # Build and run tests"
+    echo "  $0 rebuild      # Clean then full build"
+    echo "  $0 build --test # Quick build and run tests"
 }
 
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    # Suppress info messages - only show on verbose mode
+    if [ "${VERBOSE:-false}" = true ]; then
+        echo -e "${BLUE}[INFO]${NC} $1"
+    fi
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    # Suppress success messages - only show on verbose mode  
+    if [ "${VERBOSE:-false}" = true ]; then
+        echo -e "${GREEN}[SUCCESS]${NC} $1"
+    fi
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1" >&2
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 clean_build_artifacts() {
@@ -112,14 +122,7 @@ clean_build_artifacts() {
     log_success "Clean completed successfully"
 }
 
-build_project() {
-    local jobs=${1:-16}
-    local run_tests=${2:-false}
-    
-    log_info "Building project with $jobs parallel jobs..."
-    
-    cd "$PROJECT_ROOT"
-    
+check_prerequisites() {
     # Check prerequisites
     if ! command -v cmake &> /dev/null; then
         log_error "CMake not found. Please install CMake."
@@ -130,31 +133,17 @@ build_project() {
         log_error "Make not found. Please install build-essential."
         exit 1
     fi
-    
+}
+
+check_uv_prerequisite() {
     if ! command -v uv &> /dev/null; then
         log_error "uv not found. Please install uv for Python package management."
         exit 1
     fi
-    
-    # Configure with CMake (creates build directory automatically)
-    log_info "Configuring with CMake..."
-    cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-    
-    # Build with make
-    log_info "Building with make (using $jobs jobs)..."
-    make -C build -j"$jobs" -s
-    
-    # Generate Python constants if the script exists
-    if [ -f "$PROJECT_ROOT/codegen/generate_python_constants.py" ]; then
-        log_info "Generating Python constants..."
-        cd "$PROJECT_ROOT"
-        uv run python codegen/generate_python_constants.py || log_warning "Could not generate Python constants"
-    fi
-    
-    # Install Python package in development mode
-    log_info "Installing Python package in development mode..."
-    cd "$PROJECT_ROOT"
-    uv pip install -e . || log_warning "Could not install Python package"
+}
+
+run_tests_if_requested() {
+    local run_tests=${1:-false}
     
     # Run tests if requested
     if [ "$run_tests" = true ]; then
@@ -174,18 +163,117 @@ build_project() {
             uv run --group dev pytest tests/python/ -v || log_warning "Some Python tests failed"
         fi
     fi
+}
+
+quick_build() {
+    local jobs=${1:-16}
+    local run_tests=${2:-false}
     
-    log_success "Build completed successfully"
+    log_info "Quick incremental build with $jobs parallel jobs..."
+    
+    cd "$PROJECT_ROOT"
+    check_prerequisites
+    
+    # Quick build - only run make if build directory exists
+    if [ ! -d "$PROJECT_ROOT/build" ]; then
+        log_warning "Build directory doesn't exist. Running full build instead..."
+        full_build "$jobs" "$run_tests"
+        return
+    fi
+    
+    # Build with make (incremental)
+    log_info "Building with make (incremental, using $jobs jobs)..."
+    if [ "${VERBOSE:-false}" = true ]; then
+        make -C build -j"$jobs"
+    else
+        make -C build -j"$jobs" -s > /tmp/build_output.log 2>&1
+        if [ $? -ne 0 ]; then
+            # Show errors if build failed
+            grep -E "(error|Error|ERROR|FAILED)" /tmp/build_output.log || cat /tmp/build_output.log
+            return 1
+        fi
+        rm -f /tmp/build_output.log
+    fi
+    
+    run_tests_if_requested "$run_tests"
+    
+    if [ "${VERBOSE:-false}" = true ]; then
+        log_success "Quick build completed successfully"
+    else
+        echo "Build successful"
+    fi
+}
+
+full_build() {
+    local jobs=${1:-16}
+    local run_tests=${2:-false}
+    
+    log_info "Full build with CMake reconfiguration and $jobs parallel jobs..."
+    
+    cd "$PROJECT_ROOT"
+    check_prerequisites
+    check_uv_prerequisite
+    
+    # Configure with CMake (creates build directory automatically)
+    log_info "Configuring with CMake..."
+    if [ "${VERBOSE:-false}" = true ]; then
+        cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    else
+        cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo 2>&1 | grep -E "(error|Error|ERROR|FATAL)" || true
+    fi
+    
+    # Build with make
+    log_info "Building with make (using $jobs jobs)..."
+    if [ "${VERBOSE:-false}" = true ]; then
+        make -C build -j"$jobs"
+    else
+        make -C build -j"$jobs" -s > /tmp/build_output.log 2>&1
+        if [ $? -ne 0 ]; then
+            # Show errors if build failed
+            grep -E "(error|Error|ERROR|FAILED)" /tmp/build_output.log || cat /tmp/build_output.log
+            return 1
+        fi
+        rm -f /tmp/build_output.log
+    fi
+    
+    # Generate Python constants if the script exists
+    if [ -f "$PROJECT_ROOT/codegen/generate_python_constants.py" ]; then
+        log_info "Generating Python constants..."
+        cd "$PROJECT_ROOT"
+        if [ "${VERBOSE:-false}" = true ]; then
+            uv run python codegen/generate_python_constants.py || log_warning "Could not generate Python constants"
+        else
+            uv run python codegen/generate_python_constants.py >/dev/null 2>&1 || log_warning "Could not generate Python constants"
+        fi
+    fi
+    
+    # Install Python package in development mode
+    log_info "Installing Python package in development mode..."
+    cd "$PROJECT_ROOT"
+    if [ "${VERBOSE:-false}" = true ]; then
+        uv pip install -e . || log_warning "Could not install Python package"
+    else
+        uv pip install -e . >/dev/null 2>&1 || log_warning "Could not install Python package"
+    fi
+    
+    run_tests_if_requested "$run_tests"
+    
+    if [ "${VERBOSE:-false}" = true ]; then
+        log_success "Full build completed successfully"
+    else
+        echo "Build successful"
+    fi
 }
 
 # Parse command line arguments
 COMMAND="build"
 RUN_TESTS=false
 JOBS=16
+VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        clean|build|rebuild|help)
+        clean|build|fullbuild|rebuild|help)
             COMMAND=$1
             shift
             ;;
@@ -196,6 +284,10 @@ while [[ $# -gt 0 ]]; do
         --jobs)
             JOBS=$2
             shift 2
+            ;;
+        --verbose)
+            VERBOSE=true
+            shift
             ;;
         *)
             log_error "Unknown option: $1"
@@ -211,11 +303,14 @@ case $COMMAND in
         clean_build_artifacts
         ;;
     build)
-        build_project "$JOBS" "$RUN_TESTS"
+        quick_build "$JOBS" "$RUN_TESTS"
+        ;;
+    fullbuild)
+        full_build "$JOBS" "$RUN_TESTS"
         ;;
     rebuild)
         clean_build_artifacts
-        build_project "$JOBS" "$RUN_TESTS"
+        full_build "$JOBS" "$RUN_TESTS"
         ;;
     help)
         print_usage
@@ -227,4 +322,7 @@ case $COMMAND in
         ;;
 esac
 
-log_success "Script completed successfully"
+# Only show completion message in verbose mode
+if [ "${VERBOSE:-false}" = true ]; then
+    log_success "Script completed successfully"
+fi

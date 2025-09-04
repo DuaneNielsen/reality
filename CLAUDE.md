@@ -35,7 +35,6 @@ This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement 
 
 - C++ (core simulation using Entity Component System pattern)
 - Python (PyTorch-based PPO training)
-- CMake build system
 
 # Headless Mode Quick Reference
 
@@ -51,11 +50,32 @@ Headless mode runs simulation without graphics for benchmarking, testing, or ser
 
 ### Building the project
 
-use the project-builder subagent to build the project
+Use the project-builder subagent to build the project, or use the build.sh script directly:
 
-Manual build command (fast, parallel, quiet):
+**Quick build (recommended):**
 ```bash
-make -C build -j16 -s
+./build.sh                    # Quiet build - shows only "Build successful" or errors
+./build.sh build              # Same as above (explicit)
+./build.sh --verbose          # Show detailed build output for debugging
+```
+
+**Full build with reconfiguration:**
+```bash
+./build.sh fullbuild          # Full build with reconfiguration + code generation (quiet)
+./build.sh fullbuild --verbose # Full build with detailed output
+```
+
+**Other build options:**
+```bash
+./build.sh clean              # Clean all build artifacts
+./build.sh rebuild            # Clean then full build
+./build.sh build --test       # Build and run tests
+./build.sh --jobs 8           # Use 8 parallel jobs instead of default 16
+```
+
+**Legacy manual build command (if build.sh unavailable):**
+```bash
+make -C build -j16 -s         # Fast, parallel, quiet incremental build
 ```
 
 ### Running the Simulation
@@ -167,7 +187,7 @@ uv run --group dev pytest tests/python/test_spawn_locations.py::test_single_spaw
 
 ### Rules when fixing CPP tests
 
-**IMPORTANT**:  After you make c++ code changes, **you must call the build agent**to build the project!
+**IMPORTANT**:  After you make C++ code changes, **you must rebuild the project** using `./build.sh` or the project-builder subagent!
 
 ### Debugging using GDB
 
@@ -235,7 +255,7 @@ If you need to make modifications to the ECS system, read the documentation in [
 
 ## Core Source Files (./src/)
 
-- **CMakeLists.txt**: Build configuration for libraries, executables, and linking dependencies
+- **CMakeLists.txt**: Build configuration for libraries, executables, and dependencies
 - **consts.hpp**: Game constants and action value definitions for discrete agent controls
 - **dlpack_extension.cpp**: DLPack tensor format support for Python tensor interoperability
 - **headless.cpp**: Command-line headless simulation runner with recording/replay capabilities
