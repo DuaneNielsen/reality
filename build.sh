@@ -186,13 +186,15 @@ quick_build() {
     if [ "${VERBOSE:-false}" = true ]; then
         make -C build -j"$jobs"
     else
-        make -C build -j"$jobs" -s > /tmp/build_output.log 2>&1
-        if [ $? -ne 0 ]; then
+        # Show build progress while logging full output
+        make -C build -j"$jobs" 2>&1 | tee build_output.log | grep -E "(Built target|Linking.*executable|Linking.*library|Generating.*\.py)"
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
             # Show errors if build failed
-            grep -E "(error|Error|ERROR|FAILED)" /tmp/build_output.log || cat /tmp/build_output.log
+            echo "Build failed. Full log available in build_output.log"
+            grep -E "(error|Error|ERROR|FAILED)" build_output.log || tail -20 build_output.log
             return 1
         fi
-        rm -f /tmp/build_output.log
+        log_info "Build log saved to build_output.log"
     fi
     
     run_tests_if_requested "$run_tests"
@@ -227,25 +229,18 @@ full_build() {
     if [ "${VERBOSE:-false}" = true ]; then
         make -C build -j"$jobs"
     else
-        make -C build -j"$jobs" -s > /tmp/build_output.log 2>&1
-        if [ $? -ne 0 ]; then
+        # Show build progress while logging full output
+        make -C build -j"$jobs" 2>&1 | tee build_output.log | grep -E "(Built target|Linking.*executable|Linking.*library|Generating.*\.py)"
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
             # Show errors if build failed
-            grep -E "(error|Error|ERROR|FAILED)" /tmp/build_output.log || cat /tmp/build_output.log
+            echo "Build failed. Full log available in build_output.log"
+            grep -E "(error|Error|ERROR|FAILED)" build_output.log || tail -20 build_output.log
             return 1
         fi
-        rm -f /tmp/build_output.log
+        log_info "Build log saved to build_output.log"
     fi
     
-    # Generate Python constants if the script exists
-    if [ -f "$PROJECT_ROOT/codegen/generate_python_constants.py" ]; then
-        log_info "Generating Python constants..."
-        cd "$PROJECT_ROOT"
-        if [ "${VERBOSE:-false}" = true ]; then
-            uv run python codegen/generate_python_constants.py || log_warning "Could not generate Python constants"
-        else
-            uv run python codegen/generate_python_constants.py >/dev/null 2>&1 || log_warning "Could not generate Python constants"
-        fi
-    fi
+    # Python constants are now generated automatically during CMake build
     
     # Install Python package in development mode
     log_info "Installing Python package in development mode..."
