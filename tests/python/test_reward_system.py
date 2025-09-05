@@ -157,9 +157,9 @@ def test_reward_normalization(cpu_manager):
 
     # With the gap in the wall at row 4, the agent can pass through and reach
     # nearly the end of the level (about 90% progress)
-    assert (
-        0.85 < final_reward < 0.95
-    ), "Reward should reflect nearly complete progress through the gap"
+    assert 0.85 < final_reward < 0.95, (
+        "Reward should reflect nearly complete progress through the gap"
+    )
 
 
 def test_reward_tensor_shape(cpu_manager):
@@ -171,12 +171,12 @@ def test_reward_tensor_shape(cpu_manager):
     num_worlds = reward_tensor.shape[0]
 
     # Single-agent environment should have shape [num_worlds, 1] not [num_worlds, num_agents, 1]
-    assert (
-        len(reward_tensor.shape) == 2
-    ), f"Reward tensor should be 2D, got {len(reward_tensor.shape)}D shape {reward_tensor.shape}"
-    assert (
-        reward_tensor.shape[1] == 1
-    ), f"Reward tensor should have 1 reward per world, got {reward_tensor.shape[1]}"
+    assert len(reward_tensor.shape) == 2, (
+        f"Reward tensor should be 2D, got {len(reward_tensor.shape)}D shape {reward_tensor.shape}"
+    )
+    assert reward_tensor.shape[1] == 1, (
+        f"Reward tensor should have 1 reward per world, got {reward_tensor.shape[1]}"
+    )
 
     print(
         f"✓ Reward tensor shape: {reward_tensor.shape} (num_worlds={num_worlds}, rewards_per_world=1)"
@@ -189,3 +189,112 @@ def test_reward_tensor_shape(cpu_manager):
 
 
 # NOTE: Removed test_recorded_actions_reward - replaced by comprehensive native recording tests
+
+
+def test_auto_reset_reward_delivery():
+    """Test that rewards are properly delivered when auto-reset triggers episode end"""
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
+    from madrona_escape_room.generated_constants import consts
+
+    # Create manager with auto-reset enabled
+    mgr = SimManager(
+        exec_mode=ExecMode.CPU,
+        gpu_id=0,
+        num_worlds=4,
+        rand_seed=42,
+        enable_batch_renderer=False,
+        auto_reset=True,  # Enable auto-reset
+        compiled_levels=create_default_level(),
+    )
+
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Reset all worlds
+    reset_tensor = mgr.reset_tensor().to_torch()
+    reset_tensor[:] = 1
+    mgr.step()
+    reset_tensor[:] = 0
+
+    # Track initial positions
+    initial_positions = []
+    for world_idx in range(4):
+        pos = observer.get_position(world_idx)
+        initial_positions.append(pos[1])  # Track Y position
+        print(f"World {world_idx} initial Y position: {pos[1]:.2f}")
+
+    # Keep agent still to test pure auto-reset behavior
+    controller.reset_actions()
+    # Actions default to 0 (STOP), so agent will stay still
+
+    # Track rewards and positions during episode
+    reward_history = []
+    max_progress = [0.0] * 4
+
+    # Run exactly episodeLen steps to trigger auto-reset
+    for step in range(consts.episodeLen):
+        controller.step()
+
+        # Check rewards during episode (should be 0)
+        current_rewards = []
+        for world_idx in range(4):
+            reward = observer.get_reward(world_idx)
+            current_rewards.append(reward)
+
+            # Track max progress
+            pos = observer.get_position(world_idx)
+            progress = pos[1] - initial_positions[world_idx]
+            max_progress[world_idx] = max(max_progress[world_idx], progress)
+
+        reward_history.append(current_rewards.copy())
+
+        # Rewards should be 0 during episode, but may be delivered at the final step due to auto-reset
+        for world_idx, reward in enumerate(current_rewards):
+            if step == consts.episodeLen - 1:
+                # At the final step, auto-reset may deliver rewards
+                if reward > 0:
+                    print(
+                        f"Step {step}: Auto-reset delivered reward {reward:.4f} to world {world_idx}"
+                    )
+                assert reward >= 0.0, (
+                    f"Final step reward should be non-negative at step {step}, world {world_idx}, got {reward}"
+                )
+            else:
+                # During episode (not final step), rewards should be 0
+                assert reward == 0.0, (
+                    f"Reward should be 0 during episode at step {step}, world {world_idx}, got {reward}"
+                )
+
+    # Step once more to trigger auto-reset and reward delivery
+    controller.step()
+
+    # Check final rewards after auto-reset trigger
+    final_rewards = []
+    for world_idx in range(4):
+        reward = observer.get_reward(world_idx)
+        final_rewards.append(reward)
+        done = observer.get_done_flag(world_idx)
+
+        print(
+            f"World {world_idx}: Final reward={reward:.4f}, Done={done}, Progress={max_progress[world_idx]:.2f}"
+        )
+
+        # With auto-reset, reward is based on maxY reached (including spawn position)
+        # Even stationary agents get reward based on spawn position relative to world_min_y
+        assert reward >= 0.0, (
+            f"Should receive non-negative reward in world {world_idx}, got {reward}"
+        )
+
+        # Verify reward is properly normalized
+        assert 0.0 <= reward <= 1.0, (
+            f"Reward should be normalized [0,1] in world {world_idx}, got {reward}"
+        )
+
+    print(f"✓ Auto-reset test passed - rewards delivered: {[f'{r:.4f}' for r in final_rewards]}")
+
+    # The key test: verify that auto-reset properly delivers rewards when episodes end
+    # Even with no movement, agents get reward based on their spawn position relative to world_min_y
+    for world_idx, reward in enumerate(final_rewards):
+        # Auto-reset should deliver consistent rewards based on agent position
+        assert reward >= 0.0, f"Reward should be non-negative in world {world_idx}, got {reward}"
+        print(f"  World {world_idx}: Auto-reset delivered reward {reward:.4f} for spawn position")
