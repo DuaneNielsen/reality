@@ -24,18 +24,18 @@ TEST_F(DirectCppTest, CreateManagerDirectly) {
     // Action tensor is flattened: [numWorlds * numAgents, actionDims]
     EXPECT_EQ(actionTensor.numDims(), 2);
     EXPECT_EQ(selfObsTensor.numDims(), 3);
-    EXPECT_EQ(rewardTensor.numDims(), 3);
-    EXPECT_EQ(doneTensor.numDims(), 3);
+    EXPECT_EQ(rewardTensor.numDims(), 2);
+    EXPECT_EQ(doneTensor.numDims(), 2);
     
     // Validate shapes with 1 agent per world
     // Action tensor is flattened: [numWorlds * numAgents, actionDims]
     // Actions: moveAmount, moveAngle, rotate (3 dimensions)
     EXPECT_TRUE(ValidateTensorShape(actionTensor, {4, 3}));  // 4 worlds * 1 agent, 3 action dims
     
-    // Other tensors: [numWorlds, numAgents, features]
+    // Other tensors: selfObs is [numWorlds, numAgents, features], reward/done are [numWorlds, 1]
     EXPECT_TRUE(ValidateTensorShape(selfObsTensor, {4, 1, 5}));  // pos(3) + maxY(1) + theta(1)
-    EXPECT_TRUE(ValidateTensorShape(rewardTensor, {4, 1, 1}));   // 1 reward per agent
-    EXPECT_TRUE(ValidateTensorShape(doneTensor, {4, 1, 1}));      // 1 done flag per agent
+    EXPECT_TRUE(ValidateTensorShape(rewardTensor, {4, 1}));      // 1 reward per world
+    EXPECT_TRUE(ValidateTensorShape(doneTensor, {4, 1}));        // 1 done flag per world
 }
 
 TEST_F(DirectCppTest, StepSimulation) {
