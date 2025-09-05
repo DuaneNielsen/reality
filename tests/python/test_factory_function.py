@@ -107,59 +107,207 @@ class TestFactoryFunction:
 
     @pytest.mark.slow
     def test_gpu_creation(self):
-        """Test GPU manager creation with CUDA"""
+        """Test GPU manager creation with CUDA - run in subprocess to avoid conflicts"""
+        import subprocess
+        import sys
+
         import torch
 
         if not torch.cuda.is_available():
             pytest.skip("CUDA not available")
 
-        mgr = create_sim_manager(ExecMode.CUDA, gpu_id=0)
-        assert mgr is not None
+        # Run the actual test in a subprocess to avoid SimManager conflicts
+        test_code = """
+import sys
+sys.path.insert(0, "/home/duane/madrona_escape_room")
 
-        # Test that it works
-        mgr.step()
-        obs_tensor = mgr.self_observation_tensor()
+print("Starting subprocess test", flush=True)
 
-        # GPU tensors need to be converted via PyTorch
-        if obs_tensor.isOnGPU():
-            obs = obs_tensor.to_torch().cpu().numpy()
+try:
+    print("Importing torch...", flush=True)
+    import torch
+    print(f"CUDA available: {torch.cuda.is_available()}", flush=True)
+
+    if not torch.cuda.is_available():
+        print("CUDA not available, exiting", flush=True)
+        sys.exit(1)
+
+    print("Importing madrona_escape_room...", flush=True)
+    from madrona_escape_room import ExecMode, create_sim_manager
+    print("Imports successful", flush=True)
+
+    print("Creating CUDA manager...", flush=True)
+    mgr = create_sim_manager(ExecMode.CUDA, gpu_id=0)
+    print("Manager created successfully", flush=True)
+    assert mgr is not None
+
+    print("Stepping simulation...", flush=True)
+    mgr.step()
+    print("Step completed", flush=True)
+
+    obs_tensor = mgr.self_observation_tensor()
+    print("Got observation tensor", flush=True)
+
+    # GPU tensors need to be converted via PyTorch
+    if obs_tensor.isOnGPU():
+        obs = obs_tensor.to_torch().cpu().numpy()
+    else:
+        obs = obs_tensor.to_numpy()
+
+    assert obs.shape == (4, 1, 5)
+    print(f"GPU manager created successfully, observation shape: {obs.shape}")
+
+    # Cleanup
+    del mgr
+    torch.cuda.synchronize()
+    torch.cuda.empty_cache()
+    print("Cleanup completed", flush=True)
+    sys.exit(0)
+except Exception as e:
+    print(f"Test failed: {e}", flush=True)
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+"""
+
+        # Copy environment without forcing CUDA libraries - let PyTorch use its own consistent set
+        import os
+
+        env = os.environ.copy()
+
+        # Add PyTorch's CUDA library paths so cusparse can find matching nvJitLink
+        pytorch_cuda_base = (
+            "/home/duane/madrona_escape_room/.venv/lib/python3.12/site-packages/nvidia"
+        )
+        pytorch_cuda_paths = (
+            f"{pytorch_cuda_base}/nvjitlink/lib:"
+            f"{pytorch_cuda_base}/cusparse/lib:"
+            f"{pytorch_cuda_base}/cuda_runtime/lib"
+        )
+        if "LD_LIBRARY_PATH" in env:
+            env["LD_LIBRARY_PATH"] = f"{pytorch_cuda_paths}:{env['LD_LIBRARY_PATH']}"
         else:
-            obs = obs_tensor.to_numpy()
+            env["LD_LIBRARY_PATH"] = pytorch_cuda_paths
 
-        assert obs.shape == (4, 1, 5)
-        print(f"GPU manager created successfully, observation shape: {obs.shape}")
+        result = subprocess.run(
+            [sys.executable, "-c", test_code], capture_output=True, text=True, timeout=60, env=env
+        )
+
+        if result.returncode != 0:
+            print(f"Subprocess stdout: {result.stdout}")
+            print(f"Subprocess stderr: {result.stderr}")
+            pytest.fail(f"GPU factory test failed in subprocess: {result.stderr}")
+
+        print(f"✓ Subprocess test passed: {result.stdout.strip()}")
 
     @pytest.mark.slow
     def test_gpu_with_sensor_config(self):
-        """Test GPU manager with sensor configuration"""
+        """Test GPU manager with sensor configuration - run in subprocess to avoid conflicts"""
+        import subprocess
+        import sys
+
         import torch
 
         if not torch.cuda.is_available():
             pytest.skip("CUDA not available")
 
-        sensor = SensorConfig.depth_default()
-        mgr = create_sim_manager(ExecMode.CUDA, sensor_config=sensor, gpu_id=0)
-        assert mgr is not None
+        # Run the actual test in a subprocess to avoid SimManager conflicts
+        test_code = """
+import sys
+sys.path.insert(0, "/home/duane/madrona_escape_room")
 
-        # Test functionality
-        mgr.step()
-        obs_tensor = mgr.self_observation_tensor()
-        depth_tensor = mgr.depth_tensor()
+print("Starting sensor config subprocess test", flush=True)
 
-        # Convert GPU tensors
-        if obs_tensor.isOnGPU():
-            obs = obs_tensor.to_torch().cpu().numpy()
+try:
+    print("Importing torch...", flush=True)
+    import torch
+    print(f"CUDA available: {torch.cuda.is_available()}", flush=True)
+
+    if not torch.cuda.is_available():
+        print("CUDA not available, exiting", flush=True)
+        sys.exit(1)
+
+    print("Importing madrona_escape_room...", flush=True)
+    from madrona_escape_room import ExecMode, SensorConfig, create_sim_manager
+    print("Imports successful", flush=True)
+
+    print("Creating depth sensor config...", flush=True)
+    sensor = SensorConfig.depth_default()
+    print("Sensor config created", flush=True)
+
+    print("Creating CUDA manager with sensor...", flush=True)
+    mgr = create_sim_manager(ExecMode.CUDA, sensor_config=sensor, gpu_id=0)
+    print("Manager created successfully", flush=True)
+    assert mgr is not None
+
+    print("Stepping simulation...", flush=True)
+    mgr.step()
+    print("Step completed", flush=True)
+
+    print("Getting observation tensor...", flush=True)
+    obs_tensor = mgr.self_observation_tensor()
+    print("Getting depth tensor...", flush=True)
+    depth_tensor = mgr.depth_tensor()
+    print("Got both tensors", flush=True)
+
+    # Convert GPU tensors
+    if obs_tensor.isOnGPU():
+        obs = obs_tensor.to_torch().cpu().numpy()
+    else:
+        obs = obs_tensor.to_numpy()
+
+    if depth_tensor.isOnGPU():
+        depth = depth_tensor.to_torch().cpu().numpy()
+    else:
+        depth = depth_tensor.to_numpy()
+
+    assert obs.shape == (4, 1, 5)
+    assert depth.shape == (4, 1, 64, 64, 1)  # 4 worlds, 1 agent, 64x64x1 depth
+    print(f"GPU manager with depth sensor: obs {obs.shape}, depth {depth.shape}")
+
+    # Cleanup
+    del mgr
+    torch.cuda.synchronize()
+    torch.cuda.empty_cache()
+    print("Cleanup completed", flush=True)
+    sys.exit(0)
+except Exception as e:
+    print(f"Test failed: {e}", flush=True)
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+"""
+
+        # Copy environment without forcing CUDA libraries - let PyTorch use its own consistent set
+        import os
+
+        env = os.environ.copy()
+        # Remove CUDA library forcing to avoid mixing 12.5 system libs with PyTorch's 12.8 libs
+
+        # Add PyTorch's CUDA library paths so cusparse can find matching nvJitLink
+        pytorch_cuda_base = (
+            "/home/duane/madrona_escape_room/.venv/lib/python3.12/site-packages/nvidia"
+        )
+        pytorch_cuda_paths = (
+            f"{pytorch_cuda_base}/nvjitlink/lib:"
+            f"{pytorch_cuda_base}/cusparse/lib:"
+            f"{pytorch_cuda_base}/cuda_runtime/lib"
+        )
+        if "LD_LIBRARY_PATH" in env:
+            env["LD_LIBRARY_PATH"] = f"{pytorch_cuda_paths}:{env['LD_LIBRARY_PATH']}"
         else:
-            obs = obs_tensor.to_numpy()
+            env["LD_LIBRARY_PATH"] = pytorch_cuda_paths
 
-        if depth_tensor.isOnGPU():
-            depth = depth_tensor.to_torch().cpu().numpy()
-        else:
-            depth = depth_tensor.to_numpy()
+        result = subprocess.run(
+            [sys.executable, "-c", test_code], capture_output=True, text=True, timeout=60, env=env
+        )
 
-        assert obs.shape == (4, 1, 5)
-        assert depth.shape == (4, 1, 64, 64, 1)  # 4 worlds, 1 agent, 64x64x1 depth
-        print(f"GPU manager with depth sensor: obs {obs.shape}, depth {depth.shape}")
+        if result.returncode != 0:
+            print(f"Subprocess stdout: {result.stdout}")
+            print(f"Subprocess stderr: {result.stderr}")
+            pytest.fail(f"GPU factory sensor test failed in subprocess: {result.stderr}")
+
+        print(f"✓ Subprocess sensor test passed: {result.stdout.strip()}")
 
     def test_backward_compatibility_with_conftest(self, cpu_manager):
         """Test that old conftest fixtures still work"""
