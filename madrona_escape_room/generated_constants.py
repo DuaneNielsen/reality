@@ -427,6 +427,7 @@ class AssetIDs:
     CYLINDER = 8
     DYNAMIC_START = 32
     INVALID = 0
+    LIDAR_RAY = 9
     MAX_ASSETS = 256
     PLANE = 4
     WALL = 2
