@@ -17,43 +17,60 @@ from madrona_escape_room_learn.rnn import LSTM
 
 
 def setup_obs(obs_list):
-    """Setup observations from [progress, compass, depth] tensor list."""
-    progress_tensor, compass_tensor, depth_tensor = obs_list
+    """Setup observations from tensor list. Supports minimal [progress, compass] and full setups."""
+    if len(obs_list) == 2:
+        # Minimal setup: [progress, compass]
+        progress_tensor, compass_tensor = obs_list
 
-    N, A = progress_tensor.shape[0:2]
-    batch_size = N * A
+        N, A = progress_tensor.shape[0:2]
+        batch_size = N * A
 
-    # Reshape all tensors to batch format
-    obs_tensors = [
-        progress_tensor.view(batch_size, *progress_tensor.shape[2:]),  # [batch, 1]
-        compass_tensor.view(batch_size, *compass_tensor.shape[2:]),  # [batch, 128]
-        depth_tensor.view(batch_size, *depth_tensor.shape[2:]),  # [batch, 128, 1]
-    ]
+        # Reshape tensors to batch format
+        obs_tensors = [
+            progress_tensor.view(batch_size, *progress_tensor.shape[2:]),  # [batch, 1]
+            compass_tensor.view(batch_size, *compass_tensor.shape[2:]),  # [batch, 128]
+        ]
 
-    # Calculate total features: 1 (progress) + 128 (compass) + 128 (depth flattened)
-    num_obs_features = 1 + 128 + 128  # = 257
+        # Calculate total features: 1 (progress) + 128 (compass)
+        num_obs_features = 1 + 128  # = 129
 
-    return obs_tensors, num_obs_features
+        return obs_tensors, num_obs_features
+
+    elif len(obs_list) == 3:
+        # Full setup: [progress, compass, depth]
+        progress_tensor, compass_tensor, depth_tensor = obs_list
+
+        N, A = progress_tensor.shape[0:2]
+        batch_size = N * A
+
+        # Reshape all tensors to batch format
+        obs_tensors = [
+            progress_tensor.view(batch_size, *progress_tensor.shape[2:]),  # [batch, 1]
+            compass_tensor.view(batch_size, *compass_tensor.shape[2:]),  # [batch, 128]
+            depth_tensor.view(batch_size, *depth_tensor.shape[2:]),  # [batch, 128, 1]
+        ]
+
+        # Calculate total features: 1 (progress) + 128 (compass) + 128 (depth flattened)
+        num_obs_features = 1 + 128 + 128  # = 257
+
+        return obs_tensors, num_obs_features
+
+    else:
+        raise ValueError(f"Expected 2 or 3 observation tensors, got {len(obs_list)}")
 
 
-def process_obs(progress, compass, depth):
-    assert not torch.isnan(progress).any()
-    assert not torch.isinf(progress).any()
+def process_obs(*obs_tensors):
+    """Process observation tensors. Handles both minimal and full observation setups."""
 
-    assert not torch.isnan(compass).any()
-    assert not torch.isinf(compass).any()
+    # Validate all tensors
+    for tensor in obs_tensors:
+        assert not torch.isnan(tensor).any()
+        assert not torch.isinf(tensor).any()
 
-    assert not torch.isnan(depth).any()
-    assert not torch.isinf(depth).any()
+    # Flatten and concatenate all tensors
+    flattened_tensors = [tensor.view(tensor.shape[0], -1) for tensor in obs_tensors]
 
-    return torch.cat(
-        [
-            progress.view(progress.shape[0], -1),  # [batch, 1]
-            compass.view(compass.shape[0], -1),  # [batch, 128]
-            depth.view(depth.shape[0], -1),  # [batch, 128]
-        ],
-        dim=1,
-    )
+    return torch.cat(flattened_tensors, dim=1)
 
 
 def make_policy(num_obs_features, num_channels, separate_value):

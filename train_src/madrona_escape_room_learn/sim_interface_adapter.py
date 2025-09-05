@@ -144,3 +144,68 @@ def setup_training_environment(
     return create_training_sim(
         num_worlds=num_worlds, exec_mode=exec_mode, gpu_id=gpu_id, rand_seed=rand_seed
     )
+
+
+def create_minimal_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterface:
+    """Create SimInterface with only compass and progress - no depth sensors."""
+
+    # Get the full self observation tensor
+    self_obs_full = manager.self_observation_tensor().to_torch()  # [worlds, agents, 5]
+
+    # Extract just the progress indicator (maxY reached)
+    progress_tensor = self_obs_full[
+        :, :, SelfObsIndex.PROGRESS : SelfObsIndex.PROGRESS + 1
+    ]  # [worlds, agents, 1]
+
+    return SimInterface(
+        step=manager.step,
+        obs=[
+            progress_tensor,  # [worlds, agents, 1] - just progress
+            manager.compass_tensor().to_torch(),  # [worlds, agents, 128]
+            # No depth tensor - removed for minimal setup
+        ],
+        actions=manager.action_tensor().to_torch(),  # [worlds, 3]
+        dones=manager.done_tensor().to_torch(),  # [worlds, agents, 1]
+        rewards=manager.reward_tensor().to_torch(),  # [worlds, agents, 1]
+    )
+
+
+def setup_minimal_training_environment(
+    num_worlds: int, exec_mode, gpu_id: int = -1, rand_seed: int = 42
+) -> SimInterface:
+    """
+    Setup minimal training environment with no depth sensors - only compass and progress.
+
+    Args:
+        num_worlds: Number of parallel simulation worlds
+        exec_mode: madrona.ExecMode.CPU or madrona.ExecMode.CUDA
+        gpu_id: GPU device ID (ignored for CPU mode)
+        rand_seed: Random seed for reproducible training
+
+    Returns:
+        SimInterface with only compass and progress observations
+
+    Example:
+        import madrona
+        from madrona_escape_room_learn.sim_interface_adapter import (
+            setup_minimal_training_environment,
+        )
+
+        sim = setup_minimal_training_environment(
+            num_worlds=4096,
+            exec_mode=madrona.ExecMode.CUDA,
+            gpu_id=0
+        )
+    """
+    # Create manager without any sensor config (no visual sensors)
+    manager = madrona_escape_room.create_sim_manager(
+        exec_mode=exec_mode,
+        gpu_id=gpu_id,
+        num_worlds=num_worlds,
+        rand_seed=rand_seed,
+        auto_reset=True,
+        # sensor_config=None,  # Default - no visual sensors
+        # enable_batch_renderer=None,  # Default - disabled
+    )
+
+    return create_minimal_sim_interface(manager)
