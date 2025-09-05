@@ -58,7 +58,7 @@ namespace ArgChecker {
 }
 
 enum OptionIndex { 
-    UNKNOWN, HELP, CUDA, NUM_WORLDS, LOAD, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED, HIDE_MENU, PAUSE
+    UNKNOWN, HELP, CUDA, NUM_WORLDS, LOAD, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED, HIDE_MENU, PAUSE, AUTO_RESET
 };
 
 const option::Descriptor usage[] = {
@@ -79,6 +79,7 @@ const option::Descriptor usage[] = {
     {SEED,    0, "s", "seed", ArgChecker::Numeric, "  --seed <value>, -s <value>  \tSet random seed (default: 5)"},
     {HIDE_MENU, 0, "", "hide-menu", option::Arg::None, "  --hide-menu  \tHide ImGui menu (useful for clean screenshots)"},
     {PAUSE,   0, "p", "pause", ArgChecker::OptionalNumeric, "  --pause [delay], -p [delay]  \tStart paused, optionally auto-resume after delay seconds"},
+    {AUTO_RESET, 0, "", "auto-reset", option::Arg::None, "  --auto-reset  \tAutomatically reset episodes when agents complete them"},
     {0, 0, 0, 0, 0, 0}
 };
 
@@ -132,6 +133,7 @@ int main(int argc, char *argv[])
         std::cout << "  viewer -n 2 --replay demo.bin              # Replay demo.bin with 2 worlds\n";
         std::cout << "  viewer -n 4 --seed 42                      # 4 worlds with seed 42\n";
         std::cout << "  viewer --track --track-file trajectory.csv  # Track and save to file\n";
+        std::cout << "  viewer --auto-reset                          # Enable automatic episode reset\n";
         delete[] options;
         delete[] buffer;
         return 0;
@@ -151,6 +153,7 @@ int main(int argc, char *argv[])
     std::string track_file;
     bool start_paused = false;
     float pause_delay_seconds = 0.0f;
+    bool auto_reset = false;
 
     // Process options
     if (options[CUDA]) {
@@ -209,6 +212,11 @@ int main(int argc, char *argv[])
         } else {
             printf("Starting paused (press SPACE to resume)\n");
         }
+    }
+    
+    if (options[AUTO_RESET]) {
+        auto_reset = true;
+        printf("Auto-reset enabled: episodes will restart automatically when agents complete them\n");
     }
 
     // Check for any remaining non-option arguments
@@ -368,7 +376,7 @@ int main(int argc, char *argv[])
         .gpuID = 0,
         .numWorlds = num_worlds,
         .randSeed = sim_seed,
-        .autoReset = has_replay || !record_path.empty(),
+        .autoReset = auto_reset || has_replay || !record_path.empty(),
         .enableBatchRenderer = enable_batch_renderer,
         .extRenderAPI = wm.gpuAPIManager().backend(),
         .extRenderDev = render_gpu.device(),
@@ -379,7 +387,7 @@ int main(int argc, char *argv[])
     ViewerCore::Config core_config {
         .num_worlds = num_worlds,
         .rand_seed = rand_seed,
-        .auto_reset = has_replay || !record_path.empty(),
+        .auto_reset = auto_reset || has_replay || !record_path.empty(),
         .load_path = load_path,
         .record_path = record_path,
         .replay_path = replay_path,
