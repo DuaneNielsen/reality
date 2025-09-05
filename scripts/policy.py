@@ -16,48 +16,41 @@ from madrona_escape_room_learn.models import (
 from madrona_escape_room_learn.rnn import LSTM
 
 
-def setup_obs(sim):
-    self_obs_tensor = sim.self_observation_tensor().to_torch()
-    steps_remaining_tensor = sim.steps_remaining_tensor().to_torch()
+def setup_obs(obs_list):
+    """Setup observations from [progress, compass, depth] tensor list."""
+    progress_tensor, compass_tensor, depth_tensor = obs_list
 
-    N, A = self_obs_tensor.shape[0:2]
+    N, A = progress_tensor.shape[0:2]
     batch_size = N * A
 
-    # Add in an agent ID tensor
-    id_tensor = torch.arange(A).float()
-    if A > 1:
-        id_tensor = id_tensor / (A - 1)
-    else:
-        id_tensor = torch.zeros_like(id_tensor)  # Single agent gets ID 0
-
-    id_tensor = id_tensor.to(device=self_obs_tensor.device)
-    id_tensor = id_tensor.view(1, A).expand(N, A).reshape(batch_size, 1)
-
+    # Reshape all tensors to batch format
     obs_tensors = [
-        self_obs_tensor.view(batch_size, *self_obs_tensor.shape[2:]),
-        steps_remaining_tensor.view(batch_size, *steps_remaining_tensor.shape[2:]),
-        id_tensor,
+        progress_tensor.view(batch_size, *progress_tensor.shape[2:]),  # [batch, 1]
+        compass_tensor.view(batch_size, *compass_tensor.shape[2:]),  # [batch, 128]
+        depth_tensor.view(batch_size, *depth_tensor.shape[2:]),  # [batch, 128, 1]
     ]
 
-    num_obs_features = 0
-    for tensor in obs_tensors:
-        num_obs_features += math.prod(tensor.shape[1:])
+    # Calculate total features: 1 (progress) + 128 (compass) + 128 (depth flattened)
+    num_obs_features = 1 + 128 + 128  # = 257
 
     return obs_tensors, num_obs_features
 
 
-def process_obs(self_obs, steps_remaining, ids):
-    assert not torch.isnan(self_obs).any()
-    assert not torch.isinf(self_obs).any()
+def process_obs(progress, compass, depth):
+    assert not torch.isnan(progress).any()
+    assert not torch.isinf(progress).any()
 
-    assert not torch.isnan(steps_remaining).any()
-    assert not torch.isinf(steps_remaining).any()
+    assert not torch.isnan(compass).any()
+    assert not torch.isinf(compass).any()
+
+    assert not torch.isnan(depth).any()
+    assert not torch.isinf(depth).any()
 
     return torch.cat(
         [
-            self_obs.view(self_obs.shape[0], -1),
-            steps_remaining.float() / 200,
-            ids,
+            progress.view(progress.shape[0], -1),  # [batch, 1]
+            compass.view(compass.shape[0], -1),  # [batch, 128]
+            depth.view(depth.shape[0], -1),  # [batch, 128]
         ],
         dim=1,
     )

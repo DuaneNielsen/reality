@@ -9,9 +9,11 @@ from madrona_escape_room_learn import (
     profile,
     train,
 )
+from madrona_escape_room_learn.sim_interface_adapter import setup_training_environment
 from policy import make_policy, setup_obs
 
 import madrona_escape_room
+from madrona_escape_room.generated_constants import ExecMode
 
 torch.manual_seed(0)
 
@@ -119,14 +121,11 @@ arg_parser.add_argument("--profile-report", action="store_true")
 
 args = arg_parser.parse_args()
 
-sim = madrona_escape_room.SimManager(
-    exec_mode=madrona_escape_room.madrona.ExecMode.CUDA
-    if args.gpu_sim
-    else madrona_escape_room.madrona.ExecMode.CPU,
-    gpu_id=args.gpu_id,
-    num_worlds=args.num_worlds,
-    rand_seed=5,
-    auto_reset=True,
+# Setup training environment with 128x1 depth sensor
+exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
+
+sim_interface = setup_training_environment(
+    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=5
 )
 
 ckpt_dir = Path(args.ckpt_dir)
@@ -140,32 +139,19 @@ else:
 
 ckpt_dir.mkdir(exist_ok=True, parents=True)
 
-obs, num_obs_features = setup_obs(sim)
+# Setup observations from [progress, compass, depth] tensor list
+obs, num_obs_features = setup_obs(sim_interface.obs)
 policy = make_policy(num_obs_features, args.num_channels, args.separate_value)
-
-actions = sim.action_tensor().to_torch()
-dones = sim.done_tensor().to_torch()
-rewards = sim.reward_tensor().to_torch()
-
-# Flatten N, A, ... tensors to N * A, ... for rewards and dones (still per-agent)
-# Actions are now per-world, so no flattening needed
-dones = dones.view(-1, *dones.shape[2:])
-rewards = rewards.view(-1, *rewards.shape[2:])
 
 if args.restore:
     restore_ckpt = ckpt_dir / f"{args.restore}.pth"
 else:
     restore_ckpt = None
 
+# Use the sim_interface directly - it already has everything configured!
 train(
     dev,
-    SimInterface(
-        step=lambda: sim.step(),
-        obs=obs,
-        actions=actions,
-        dones=dones,
-        rewards=rewards,
-    ),
+    sim_interface,
     TrainConfig(
         num_updates=args.num_updates,
         steps_per_update=args.steps_per_update,

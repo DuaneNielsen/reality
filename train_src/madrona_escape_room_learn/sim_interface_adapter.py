@@ -60,10 +60,18 @@ class ObsIndex:
 def create_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterface:
     """Create SimInterface from SimManager with live tensor references."""
 
+    # Get the full self observation tensor
+    self_obs_full = manager.self_observation_tensor().to_torch()  # [worlds, agents, 5]
+
+    # Extract just the progress indicator (maxY reached)
+    progress_tensor = self_obs_full[
+        :, :, SelfObsIndex.PROGRESS : SelfObsIndex.PROGRESS + 1
+    ]  # [worlds, agents, 1]
+
     return SimInterface(
         step=manager.step,
         obs=[
-            manager.self_observation_tensor().to_torch(),  # [worlds, agents, 5]
+            progress_tensor,  # [worlds, agents, 1] - just progress
             manager.compass_tensor().to_torch(),  # [worlds, agents, 128]
             manager.depth_tensor().to_torch(),  # [worlds, agents, 128, 1]
         ],
@@ -73,18 +81,66 @@ def create_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterfac
     )
 
 
-def create_training_sim(num_worlds: int, exec_mode, gpu_id: int = -1) -> SimInterface:
+def create_training_sim(
+    num_worlds: int, exec_mode, gpu_id: int = -1, rand_seed: int = 42
+) -> SimInterface:
     """Create simulator for training with 128x1 horizontal lidar depth."""
-    # Use the 128x1 horizontal lidar depth sensor
+    # Use the factory function with 128x1 horizontal lidar depth sensor
     depth_config = madrona_escape_room.sensor_config.SensorConfig.lidar_horizontal_128()
 
-    manager = madrona_escape_room.SimManager(
+    manager = madrona_escape_room.create_sim_manager(
         exec_mode=exec_mode,
+        sensor_config=depth_config,
         gpu_id=gpu_id,
         num_worlds=num_worlds,
-        rand_seed=42,
+        rand_seed=rand_seed,
         auto_reset=True,
-        **depth_config.to_manager_kwargs(),
     )
 
     return create_sim_interface(manager)
+
+
+def create_training_sim_with_config(
+    num_worlds: int, exec_mode, sensor_config, gpu_id: int = -1, rand_seed: int = 42
+) -> SimInterface:
+    """Create simulator for training with explicit sensor configuration."""
+    manager = madrona_escape_room.create_sim_manager(
+        exec_mode=exec_mode,
+        sensor_config=sensor_config,
+        gpu_id=gpu_id,
+        num_worlds=num_worlds,
+        rand_seed=rand_seed,
+        auto_reset=True,
+    )
+
+    return create_sim_interface(manager)
+
+
+def setup_training_environment(
+    num_worlds: int, exec_mode, gpu_id: int = -1, rand_seed: int = 42
+) -> SimInterface:
+    """
+    Setup training environment with 128x1 depth sensor configuration.
+
+    Args:
+        num_worlds: Number of parallel simulation worlds
+        exec_mode: madrona.ExecMode.CPU or madrona.ExecMode.CUDA
+        gpu_id: GPU device ID (ignored for CPU mode)
+        rand_seed: Random seed for reproducible training
+
+    Returns:
+        SimInterface configured for training with 128x1 horizontal lidar
+
+    Example:
+        import madrona
+        from madrona_escape_room_learn.sim_interface_adapter import setup_training_environment
+
+        sim = setup_training_environment(
+            num_worlds=4096,
+            exec_mode=madrona.ExecMode.CUDA,
+            gpu_id=0
+        )
+    """
+    return create_training_sim(
+        num_worlds=num_worlds, exec_mode=exec_mode, gpu_id=gpu_id, rand_seed=rand_seed
+    )

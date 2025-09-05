@@ -157,9 +157,9 @@ def test_reward_normalization(cpu_manager):
 
     # With the gap in the wall at row 4, the agent can pass through and reach
     # nearly the end of the level (about 90% progress)
-    assert 0.85 < final_reward < 0.95, (
-        "Reward should reflect nearly complete progress through the gap"
-    )
+    assert (
+        0.85 < final_reward < 0.95
+    ), "Reward should reflect nearly complete progress through the gap"
 
 
 def test_reward_tensor_shape(cpu_manager):
@@ -171,15 +171,16 @@ def test_reward_tensor_shape(cpu_manager):
     num_worlds = reward_tensor.shape[0]
 
     # Single-agent environment should have shape [num_worlds, 1] not [num_worlds, num_agents, 1]
-    assert len(reward_tensor.shape) == 2, (
-        f"Reward tensor should be 2D, got {len(reward_tensor.shape)}D shape {reward_tensor.shape}"
-    )
-    assert reward_tensor.shape[1] == 1, (
-        f"Reward tensor should have 1 reward per world, got {reward_tensor.shape[1]}"
-    )
+    assert (
+        len(reward_tensor.shape) == 2
+    ), f"Reward tensor should be 2D, got {len(reward_tensor.shape)}D shape {reward_tensor.shape}"
+    assert (
+        reward_tensor.shape[1] == 1
+    ), f"Reward tensor should have 1 reward per world, got {reward_tensor.shape[1]}"
 
     print(
-        f"✓ Reward tensor shape: {reward_tensor.shape} (num_worlds={num_worlds}, rewards_per_world=1)"
+        f"✓ Reward tensor shape: {reward_tensor.shape} "
+        f"(num_worlds={num_worlds}, rewards_per_world=1)"
     )
 
     # Verify we can access rewards correctly
@@ -248,21 +249,25 @@ def test_auto_reset_reward_delivery():
 
         reward_history.append(current_rewards.copy())
 
-        # Rewards should be 0 during episode, but may be delivered at the final step due to auto-reset
+        # Rewards should be 0 during episode, but may be delivered at the final step
+        # due to auto-reset
         for world_idx, reward in enumerate(current_rewards):
             if step == consts.episodeLen - 1:
                 # At the final step, auto-reset may deliver rewards
                 if reward > 0:
                     print(
-                        f"Step {step}: Auto-reset delivered reward {reward:.4f} to world {world_idx}"
+                        f"Step {step}: Auto-reset delivered reward {reward:.4f} "
+                        f"to world {world_idx}"
                     )
                 assert reward >= 0.0, (
-                    f"Final step reward should be non-negative at step {step}, world {world_idx}, got {reward}"
+                    f"Final step reward should be non-negative at step {step}, "
+                    f"world {world_idx}, got {reward}"
                 )
             else:
                 # During episode (not final step), rewards should be 0
                 assert reward == 0.0, (
-                    f"Reward should be 0 during episode at step {step}, world {world_idx}, got {reward}"
+                    f"Reward should be 0 during episode at step {step}, "
+                    f"world {world_idx}, got {reward}"
                 )
 
     # Step once more to trigger auto-reset and reward delivery
@@ -276,19 +281,20 @@ def test_auto_reset_reward_delivery():
         done = observer.get_done_flag(world_idx)
 
         print(
-            f"World {world_idx}: Final reward={reward:.4f}, Done={done}, Progress={max_progress[world_idx]:.2f}"
+            f"World {world_idx}: Final reward={reward:.4f}, Done={done}, "
+            f"Progress={max_progress[world_idx]:.2f}"
         )
 
         # With auto-reset, reward is based on maxY reached (including spawn position)
         # Even stationary agents get reward based on spawn position relative to world_min_y
-        assert reward >= 0.0, (
-            f"Should receive non-negative reward in world {world_idx}, got {reward}"
-        )
+        assert (
+            reward >= 0.0
+        ), f"Should receive non-negative reward in world {world_idx}, got {reward}"
 
         # Verify reward is properly normalized
-        assert 0.0 <= reward <= 1.0, (
-            f"Reward should be normalized [0,1] in world {world_idx}, got {reward}"
-        )
+        assert (
+            0.0 <= reward <= 1.0
+        ), f"Reward should be normalized [0,1] in world {world_idx}, got {reward}"
 
     print(f"✓ Auto-reset test passed - rewards delivered: {[f'{r:.4f}' for r in final_rewards]}")
 
