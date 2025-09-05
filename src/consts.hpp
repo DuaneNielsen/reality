@@ -40,6 +40,10 @@ inline constexpr madrona::CountT numActionComponents = 3;
 // Number of lidar samples, arranged in 120-degree forward arc
 inline constexpr madrona::CountT numLidarSamples = 128;
 
+// Lidar sensor configuration
+inline constexpr float lidarMaxRange = 200.f;        // Maximum ray tracing distance in world units
+inline constexpr float lidarHeightOffset = 0.5f;     // Ray origin height above agent position
+
 // Action bucket max values (for random generation)
 inline constexpr int32_t maxMoveAmountValue = numMoveAmountBuckets - 1;  // 3
 inline constexpr int32_t maxMoveAngleValue = numMoveAngleBuckets - 1;    // 7

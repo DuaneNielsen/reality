@@ -228,8 +228,8 @@ static inline float angleObs(float v)
 static inline float distObs(float v)
 {
     // Normalize distance to [0, 1] range
-    // Using 200.f as max distance (same as lidar ray max distance)
-    return fminf(v / 200.f, 1.f);
+    // Using lidar max range for consistency
+    return fminf(v / consts::lidarMaxRange, 1.f);
 }
 
 // [GAME_SPECIFIC] Encode entity type for lidar observation
@@ -352,13 +352,13 @@ inline void lidarSystem(Engine &ctx,
         float sin_theta = sinf(theta);
         
         Vector3 ray_dir = (cos_theta * agent_fwd + sin_theta * right).normalize();
-        Vector3 ray_origin = pos + 0.5f * math::up;
+        Vector3 ray_origin = pos + consts::lidarHeightOffset * math::up;
 
         float hit_t;
         Vector3 hit_normal;
         Entity hit_entity =
             bvh.traceRay(ray_origin, ray_dir, &hit_t,
-                         &hit_normal, 200.f);
+                         &hit_normal, consts::lidarMaxRange);
 
         if (hit_entity == Entity::none()) {
             lidar.samples[idx] = {
