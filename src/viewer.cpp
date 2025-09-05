@@ -452,12 +452,16 @@ int main(int argc, char *argv[])
 
     // Printers for debugging (kept from original)
     auto self_printer = mgr.selfObservationTensor().makePrinter();
+    auto lidar_printer = mgr.lidarTensor().makePrinter();
     auto steps_taken_printer = mgr.stepsTakenTensor().makePrinter();
     auto reward_printer = mgr.rewardTensor().makePrinter();
 
     auto printObs = [&]() {
         printf("Self\n");
         self_printer.print();
+
+        printf("Lidar\n");
+        lidar_printer.print();
 
         printf("Steps Taken\n");
         steps_taken_printer.print();
@@ -467,11 +471,10 @@ int main(int argc, char *argv[])
 
         printf("\n");
     };
-    (void)printObs;
 
     // Main loop for the viewer
     viewer.loop(
-    [&viewer_core](CountT world_idx, const Viewer::UserInput &input)
+    [&viewer_core, &printObs](CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
         
@@ -498,6 +501,11 @@ int main(int argc, char *argv[])
                 ViewerCore::InputEvent::Space
             };
             viewer_core.handleInput(world_idx, event);
+        }
+        
+        // Print observations when 'O' is pressed
+        if (input.keyHit(Key::O)) {
+            printObs();
         }
     },
     [&viewer_core](CountT world_idx, CountT,

@@ -114,6 +114,18 @@ namespace madEscape {
     };
     inline constexpr size_t StepsTakenCount = 1;  // Single value
 
+    // [GAME_SPECIFIC]
+    struct LidarSample {
+        float depth;
+        float encodedType;
+    };
+
+    // [GAME_SPECIFIC]
+    // Linear depth values and entity type in a circle around the agent
+    struct Lidar {
+        LidarSample samples[consts::numLidarSamples];
+    };
+
     //[GAME_SPECIFIC]
     // Tracks progress the agent has made through the challenge, used to add
     // reward when more progress has been made
@@ -273,7 +285,7 @@ namespace madEscape {
                   Action,
 
                   // Observations
-                  SelfObservation, CompassObservation, StepsTaken,
+                  SelfObservation, CompassObservation, Lidar, StepsTaken,
 
                   // Reward, episode termination
                   Reward, Done,

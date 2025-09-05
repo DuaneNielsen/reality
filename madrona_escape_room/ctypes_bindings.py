@@ -232,6 +232,9 @@ lib.mer_get_self_observation_tensor.restype = c_int
 lib.mer_get_compass_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_compass_tensor.restype = c_int
 
+lib.mer_get_lidar_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
+lib.mer_get_lidar_tensor.restype = c_int
+
 lib.mer_get_steps_taken_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_steps_taken_tensor.restype = c_int
 

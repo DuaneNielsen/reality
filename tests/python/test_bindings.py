@@ -64,6 +64,10 @@ def test_tensor_shapes(cpu_manager):
     self_obs = mgr.self_observation_tensor().to_torch()
     assert len(self_obs.shape) == 3  # [worlds, agents, features]
 
+    # Test lidar tensor shape
+    lidar = mgr.lidar_tensor().to_torch()
+    assert lidar.shape == (4, 1, 30, 2)  # 30 lidar samples, 2 values each
+
     # Room entity observations removed - no longer tracking room entities
 
     # Note: door_observation_tensor is not available in the current bindings
@@ -206,6 +210,11 @@ def test_observation_values(cpu_manager):
     steps = mgr.steps_taken_tensor().to_torch()
     assert steps.min() >= 0, "Steps taken should be non-negative"
     assert steps.max() < 200, "Steps taken should be less than episode length"
+
+    # Lidar should have normalized values
+    lidar = mgr.lidar_tensor().to_torch()
+    assert lidar.min() >= 0, "Lidar values should be non-negative"
+    assert lidar.max() <= 1, "Lidar values should be normalized"
 
 
 # Additional test to verify state persistence across tests

@@ -285,6 +285,18 @@ MER_Result mer_get_compass_tensor(MER_ManagerHandle handle, MER_Tensor* out_tens
     return MER_SUCCESS;
 }
 
+MER_Result mer_get_lidar_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor) {
+    if (!handle || !out_tensor) {
+        return MER_ERROR_NULL_POINTER;
+    }
+    
+    Manager* mgr = reinterpret_cast<Manager*>(handle);
+    madrona::py::Tensor tensor = mgr->lidarTensor();
+    convertTensor(tensor, out_tensor);
+    
+    return MER_SUCCESS;
+}
+
 MER_Result mer_get_steps_taken_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor) {
     if (!handle || !out_tensor) {
         return MER_ERROR_NULL_POINTER;

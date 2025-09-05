@@ -134,6 +134,9 @@ class SimManager:
     def compass_tensor(self):
         return self._get_tensor(lib.mer_get_compass_tensor)
 
+    def lidar_tensor(self):
+        return self._get_tensor(lib.mer_get_lidar_tensor)
+
     def steps_taken_tensor(self):
         return self._get_tensor(lib.mer_get_steps_taken_tensor)
 

@@ -48,6 +48,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Escape room specific components
     registry.registerComponent<SelfObservation>();
     registry.registerComponent<CompassObservation>();
+    registry.registerComponent<Lidar>();
     registry.registerComponent<Progress>();
     registry.registerComponent<StepsTaken>();
     registry.registerComponent<EntityType>();
@@ -84,6 +85,8 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         (uint32_t)ExportID::SelfObservation);
     registry.exportColumn<Agent, CompassObservation>(
         (uint32_t)ExportID::CompassObservation);
+    registry.exportColumn<Agent, Lidar>(
+        (uint32_t)ExportID::Lidar);
     registry.exportColumn<Agent, StepsTaken>(
         (uint32_t)ExportID::StepsTaken);
     registry.exportColumn<Agent, Progress>(
@@ -220,6 +223,21 @@ static inline float angleObs(float v)
     return v / math::pi;
 }
 
+// [GAME_SPECIFIC] Normalize distance for observation
+static inline float distObs(float v)
+{
+    // Normalize distance to [0, 1] range
+    // Using 200.f as max distance (same as lidar ray max distance)
+    return fminf(v / 200.f, 1.f);
+}
+
+// [GAME_SPECIFIC] Encode entity type for lidar observation
+static inline float encodeType(EntityType type)
+{
+    // Simple encoding: normalize entity type to [0, 1] range
+    return (float)type / (float)EntityType::NumTypes;
+}
+
 // [GAME_SPECIFIC] Translate xy delta to polar observations for learning.
 // static inline PolarObservation xyToPolar(Vector3 v)
 // {
@@ -302,6 +320,67 @@ inline void compassSystem(Engine &,
     
     // Set the computed bucket to 1.0
     compass_obs.compass[compass_bucket] = 1.0f;
+}
+
+// [GAME_SPECIFIC] Launches consts::numLidarSamples per agent.
+// This system is specially optimized in the GPU version:
+// a warp of threads is dispatched for each invocation of the system
+// and each thread in the warp traces one lidar ray for the agent.
+inline void lidarSystem(Engine &ctx,
+                        Entity e,
+                        Lidar &lidar)
+{
+    Vector3 pos = ctx.get<Position>(e);
+    Quat rot = ctx.get<Rotation>(e);
+    auto &bvh = ctx.singleton<broadphase::BVH>();
+
+    Vector3 agent_fwd = rot.rotateVec(math::fwd);
+    Vector3 right = rot.rotateVec(math::right);
+
+    auto traceRay = [&](int32_t idx) {
+        float theta = 2.f * math::pi * (
+            float(idx) / float(consts::numLidarSamples)) + math::pi / 2.f;
+        float x = cosf(theta);
+        float y = sinf(theta);
+
+        Vector3 ray_dir = (x * right + y * agent_fwd).normalize();
+
+        float hit_t;
+        Vector3 hit_normal;
+        Entity hit_entity =
+            bvh.traceRay(pos + 0.5f * math::up, ray_dir, &hit_t,
+                         &hit_normal, 200.f);
+
+        if (hit_entity == Entity::none()) {
+            lidar.samples[idx] = {
+                .depth = 0.f,
+                .encodedType = encodeType(EntityType::NoEntity),
+            };
+        } else {
+            EntityType entity_type = ctx.get<EntityType>(hit_entity);
+
+            lidar.samples[idx] = {
+                .depth = distObs(hit_t),
+                .encodedType = encodeType(entity_type),
+            };
+        }
+    };
+
+
+    // MADRONA_GPU_MODE guards GPU specific logic
+#ifdef MADRONA_GPU_MODE
+    // Can use standard cuda variables like threadIdx for 
+    // warp level programming
+    int32_t idx = threadIdx.x % 32;
+
+    if (idx < consts::numLidarSamples) {
+        traceRay(idx);
+    }
+#else
+    for (CountT i = 0; i < consts::numLidarSamples; i++) {
+        traceRay(i);
+    }
+#endif
 }
 
 // [REQUIRED_INTERFACE] Computes reward for each agent - every environment needs a reward system
@@ -581,6 +660,21 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             CompassObservation
         >>({collect_obs});
 
+    // [GAME_SPECIFIC] The lidar system
+#ifdef MADRONA_GPU_MODE
+    // [BOILERPLATE] Note the use of CustomParallelForNode to create a taskgraph node
+    // that launches a warp of threads (32) for each invocation (1).
+    // The 32, 1 parameters could be changed to 32, 32 to create a system
+    // that cooperatively processes 32 entities within a warp.
+    auto lidar = builder.addToGraph<CustomParallelForNode<Engine,
+        lidarSystem, 32, 1,
+#else
+    auto lidar = builder.addToGraph<ParallelForNode<Engine,
+        lidarSystem,
+#endif
+            Entity,
+            Lidar
+        >>({post_reset_broadphase});
 
     // [BOILERPLATE] Set up rendering tasks if enabled
     if (cfg.renderBridge) {
@@ -592,12 +686,13 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     // BVH build above.
     // [GAME_SPECIFIC] The specific entity types to sort are game-specific
     auto sort_agents = queueSortByWorld<Agent>(
-        builder, {compass_sys});
+        builder, {compass_sys, lidar});
     auto sort_phys_objects = queueSortByWorld<PhysicsEntity>(
         builder, {sort_agents});
     (void)sort_phys_objects;
 #else
     (void)compass_sys;
+    (void)lidar;
 #endif
 }
 
