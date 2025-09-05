@@ -71,25 +71,28 @@ def test_gpu_replay_basic(gpu_manager):
 
         mgr.stop_recording()
 
-        # Now test replay
-        assert not mgr.has_replay()
+        # Now test replay using a new manager created from the recording
+        from madrona_escape_room import ExecMode, SimManager
 
-        mgr.load_replay(recording_path)
-        assert mgr.has_replay()
+        replay_mgr = SimManager.from_replay(recording_path, ExecMode.CUDA, gpu_id=0)
+        assert replay_mgr.has_replay()
 
-        current, total = mgr.get_replay_step_count()
+        current, total = replay_mgr.get_replay_step_count()
         assert current == 0
         assert total == 2
 
         # Step through replay
-        finished1 = mgr.replay_step()
+        finished1 = replay_mgr.replay_step()
         assert not finished1
-        mgr.step()
+        replay_mgr.step()
 
-        finished2 = mgr.replay_step()
+        finished2 = replay_mgr.replay_step()
         assert finished2  # Should finish after 2 steps
 
         print(f"✓ GPU replay successful: {total} steps replayed")
+
+        # Clean up the replay manager
+        del replay_mgr
 
     finally:
         if os.path.exists(recording_path):
@@ -121,14 +124,16 @@ def test_gpu_recording_replay_roundtrip(gpu_manager):
 
         mgr.stop_recording()
 
-        # Load replay and verify actions match
-        mgr.load_replay(recording_path)
+        # Load replay using a new manager created from the recording
+        from madrona_escape_room import ExecMode, SimManager
+
+        replay_mgr = SimManager.from_replay(recording_path, ExecMode.CUDA, gpu_id=0)
 
         for step in range(3):
-            finished = mgr.replay_step()
+            finished = replay_mgr.replay_step()
 
             # Get current action tensor after replay step
-            current_actions = mgr.action_tensor().to_torch()
+            current_actions = replay_mgr.action_tensor().to_torch()
 
             # Should match what we recorded
             assert torch.equal(
@@ -140,9 +145,12 @@ def test_gpu_recording_replay_roundtrip(gpu_manager):
             else:
                 assert finished
 
-            mgr.step()
+            replay_mgr.step()
 
         print("✓ GPU round-trip test successful: actions match exactly")
+
+        # Clean up the replay manager
+        del replay_mgr
 
     finally:
         if os.path.exists(recording_path):

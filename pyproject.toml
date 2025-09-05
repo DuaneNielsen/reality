@@ -28,6 +28,9 @@ markers = [
     "json_level: mark test to use a JSON level string",
     "stress: mark test as a stress test with high resource usage",
     "slow: mark test as slow-running (can be skipped in regular runs)",
+    "depth_default: mark test to use default depth sensor configuration",
+    "rgbd_default: mark test to use default RGB+depth sensor configuration",
+    "lidar_128: mark test to use 128-beam horizontal lidar configuration",
 ]
 
 # Logging configuration
