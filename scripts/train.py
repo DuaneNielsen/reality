@@ -9,7 +9,7 @@ from madrona_escape_room_learn import (
     profile,
     train,
 )
-from madrona_escape_room_learn.sim_interface_adapter import setup_minimal_training_environment
+from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
 
 import madrona_escape_room
@@ -121,10 +121,10 @@ arg_parser.add_argument("--profile-report", action="store_true")
 
 args = arg_parser.parse_args()
 
-# Setup minimal training environment with no depth sensors - only compass and progress
+# Setup training environment with 128-beam lidar sensor
 exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
 
-sim_interface = setup_minimal_training_environment(
+sim_interface = setup_lidar_training_environment(
     num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=5
 )
 
@@ -139,7 +139,7 @@ else:
 
 ckpt_dir.mkdir(exist_ok=True, parents=True)
 
-# Setup observations from [progress, compass] tensor list (no depth)
+# Setup observations from [progress, compass, lidar] tensor list
 obs, num_obs_features = setup_obs(sim_interface.obs)
 policy = make_policy(num_obs_features, args.num_channels, args.separate_value)
 

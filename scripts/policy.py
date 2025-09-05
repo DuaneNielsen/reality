@@ -17,7 +17,7 @@ from madrona_escape_room_learn.rnn import LSTM
 
 
 def setup_obs(obs_list):
-    """Setup observations from tensor list. Supports minimal [progress, compass] and full setups."""
+    """Setup observations from tensor list. Supports minimal and lidar setups."""
     if len(obs_list) == 2:
         # Minimal setup: [progress, compass]
         progress_tensor, compass_tensor = obs_list
@@ -37,21 +37,26 @@ def setup_obs(obs_list):
         return obs_tensors, num_obs_features
 
     elif len(obs_list) == 3:
-        # Full setup: [progress, compass, depth]
-        progress_tensor, compass_tensor, depth_tensor = obs_list
+        # Full setup: [progress, compass, lidar/depth]
+        progress_tensor, compass_tensor, sensor_tensor = obs_list
 
         N, A = progress_tensor.shape[0:2]
         batch_size = N * A
+
+        # Sensor tensor is either lidar depth [worlds, agents, 128, 1] or depth image
+        # Both need to be flattened to [batch, features]
+        sensor_reshaped = sensor_tensor.view(batch_size, -1)
+        sensor_features = sensor_reshaped.shape[-1]
 
         # Reshape all tensors to batch format
         obs_tensors = [
             progress_tensor.view(batch_size, *progress_tensor.shape[2:]),  # [batch, 1]
             compass_tensor.view(batch_size, *compass_tensor.shape[2:]),  # [batch, 128]
-            depth_tensor.view(batch_size, *depth_tensor.shape[2:]),  # [batch, 128, 1]
+            sensor_reshaped,  # [batch, sensor_features]
         ]
 
-        # Calculate total features: 1 (progress) + 128 (compass) + 128 (depth flattened)
-        num_obs_features = 1 + 128 + 128  # = 257
+        # Calculate total features
+        num_obs_features = 1 + 128 + sensor_features
 
         return obs_tensors, num_obs_features
 

@@ -37,8 +37,8 @@ inline constexpr madrona::CountT numTurnBuckets = 5;
 // Number of action components per agent
 inline constexpr madrona::CountT numActionComponents = 3;
 
-// Number of lidar samples, arranged in circle around agent
-inline constexpr madrona::CountT numLidarSamples = 30;
+// Number of lidar samples, arranged in 120-degree forward arc
+inline constexpr madrona::CountT numLidarSamples = 128;
 
 // Action bucket max values (for random generation)
 inline constexpr int32_t maxMoveAmountValue = numMoveAmountBuckets - 1;  // 3

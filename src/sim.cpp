@@ -338,12 +338,15 @@ inline void lidarSystem(Engine &ctx,
     Vector3 right = rot.rotateVec(math::right);
 
     auto traceRay = [&](int32_t idx) {
-        float theta = 2.f * math::pi * (
-            float(idx) / float(consts::numLidarSamples)) + math::pi / 2.f;
-        float x = cosf(theta);
-        float y = sinf(theta);
-
-        Vector3 ray_dir = (x * right + y * agent_fwd).normalize();
+        // 120-degree arc in front of agent (-60 to +60 degrees)
+        float angle_range = 2.f * math::pi / 3.f; // 120 degrees in radians
+        float theta = -angle_range / 2.f + (angle_range * float(idx) / float(consts::numLidarSamples - 1));
+        
+        // Rotate relative to agent's forward direction
+        float cos_theta = cosf(theta);
+        float sin_theta = sinf(theta);
+        
+        Vector3 ray_dir = (cos_theta * agent_fwd + sin_theta * right).normalize();
 
         float hit_t;
         Vector3 hit_normal;
@@ -370,8 +373,8 @@ inline void lidarSystem(Engine &ctx,
     // MADRONA_GPU_MODE guards GPU specific logic
 #ifdef MADRONA_GPU_MODE
     // Can use standard cuda variables like threadIdx for 
-    // warp level programming
-    int32_t idx = threadIdx.x % 32;
+    // block level programming (128 threads = 4 warps)
+    int32_t idx = threadIdx.x % 128;
 
     if (idx < consts::numLidarSamples) {
         traceRay(idx);
@@ -663,11 +666,10 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     // [GAME_SPECIFIC] The lidar system
 #ifdef MADRONA_GPU_MODE
     // [BOILERPLATE] Note the use of CustomParallelForNode to create a taskgraph node
-    // that launches a warp of threads (32) for each invocation (1).
-    // The 32, 1 parameters could be changed to 32, 32 to create a system
-    // that cooperatively processes 32 entities within a warp.
+    // that launches 128 threads (4 warps) for each invocation (1).
+    // This allows all 128 lidar rays to be traced in parallel.
     auto lidar = builder.addToGraph<CustomParallelForNode<Engine,
-        lidarSystem, 32, 1,
+        lidarSystem, 128, 1,
 #else
     auto lidar = builder.addToGraph<ParallelForNode<Engine,
         lidarSystem,

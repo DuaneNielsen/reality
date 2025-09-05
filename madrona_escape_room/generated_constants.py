@@ -161,7 +161,7 @@ class consts:
     # maxTurnValue = numTurnBuckets-1  # TODO: Resolve expression
     numActionComponents = 3
     numAgents = 1
-    numLidarSamples = 30
+    numLidarSamples = 128
     numMoveAmountBuckets = 4
     numMoveAngleBuckets = 8
     numPhysicsSubsteps = 4.0
