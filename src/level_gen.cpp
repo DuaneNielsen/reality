@@ -235,6 +235,28 @@ static void createOriginMarkerGizmo(Engine &ctx)
 }
 
 /**
+ * Helper function to create lidar ray visualization entities.
+ * Creates 128 ray entities for each agent to visualize lidar sensor data.
+ * Entities are initially hidden and will be positioned/scaled by the lidar system.
+ */
+static void createLidarRayEntities(Engine &ctx)
+{
+    // Create lidar ray entities for visualization
+    for (int32_t agent_idx = 0; agent_idx < consts::numAgents; agent_idx++) {
+        for (int32_t ray_idx = 0; ray_idx < consts::numLidarSamples; ray_idx++) {
+            Entity ray = ctx.makeRenderableEntity<LidarRayEntity>();
+            ctx.data().lidarRays[agent_idx][ray_idx] = ray;
+            
+            // Initially hidden (scale to zero)
+            ctx.get<Position>(ray) = Vector3{0, 0, -1000};  // Off-screen
+            ctx.get<Rotation>(ray) = Quat{1, 0, 0, 0};
+            ctx.get<Scale>(ray) = Diag3x3{0, 0, 0};  // Hidden
+            ctx.get<ObjectID>(ray) = ObjectID{(int32_t)AssetIDs::LIDAR_RAY};
+        }
+    }
+}
+
+/**
  * Entry point #1: Called ONCE at simulation startup from Sim constructor.
  * Creates all entities that persist for the entire simulation lifetime.
  */
@@ -248,6 +270,9 @@ void createPersistentEntities(Engine &ctx)
 
     // Create origin marker gizmo
     createOriginMarkerGizmo(ctx);
+
+    // Create lidar ray visualization entities
+    createLidarRayEntities(ctx);
 
     // Phase 1.1: Old border walls removed
 

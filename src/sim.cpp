@@ -67,6 +67,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerArchetype<Agent>();
     registry.registerArchetype<PhysicsEntity>();
     registry.registerArchetype<RenderOnlyEntity>();
+    registry.registerArchetype<LidarRayEntity>();
 
     // [REQUIRED_INTERFACE] Export reset control
     registry.exportSingleton<WorldReset>(
@@ -336,6 +337,10 @@ inline void lidarSystem(Engine &ctx,
 
     Vector3 agent_fwd = rot.rotateVec(math::fwd);
     Vector3 right = rot.rotateVec(math::right);
+    
+    // Get agent index for ray entity lookup (assuming single agent per world for now)
+    int32_t agent_idx = 0;
+    bool visualize = ctx.data().showLidarRays && ctx.data().enableRender;
 
     auto traceRay = [&](int32_t idx) {
         // 120-degree arc in front of agent (-60 to +60 degrees)
@@ -347,11 +352,12 @@ inline void lidarSystem(Engine &ctx,
         float sin_theta = sinf(theta);
         
         Vector3 ray_dir = (cos_theta * agent_fwd + sin_theta * right).normalize();
+        Vector3 ray_origin = pos + 0.5f * math::up;
 
         float hit_t;
         Vector3 hit_normal;
         Entity hit_entity =
-            bvh.traceRay(pos + 0.5f * math::up, ray_dir, &hit_t,
+            bvh.traceRay(ray_origin, ray_dir, &hit_t,
                          &hit_normal, 200.f);
 
         if (hit_entity == Entity::none()) {
@@ -359,6 +365,12 @@ inline void lidarSystem(Engine &ctx,
                 .depth = 0.f,
                 .encodedType = encodeType(EntityType::NoEntity),
             };
+            
+            // Hide ray if no hit and visualization is enabled
+            if (visualize) {
+                Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
+                ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};  // Hide
+            }
         } else {
             EntityType entity_type = ctx.get<EntityType>(hit_entity);
 
@@ -366,6 +378,47 @@ inline void lidarSystem(Engine &ctx,
                 .depth = distObs(hit_t),
                 .encodedType = encodeType(entity_type),
             };
+            
+            // Update visualization entity if enabled
+            if (visualize && (idx % 8 == 0)) {  // Show every 8th ray (16 rays total)
+                Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
+                
+                // Position ray halfway between origin and hit point
+                Vector3 ray_midpoint = ray_origin + (ray_dir * hit_t * 0.5f);
+                ctx.get<Position>(ray_entity) = ray_midpoint;
+                
+                // Simple approach: align cylinder along ray direction
+                // The cylinder mesh is oriented along Y axis by default
+                Vector3 y_axis = Vector3{0, 1, 0};
+                Quat rotation;
+                
+                // Calculate rotation from Y axis to ray direction
+                Vector3 cross = y_axis.cross(ray_dir);
+                float dot = y_axis.dot(ray_dir);
+                
+                if (cross.length2() > 0.001f) {
+                    // Normal case: create rotation
+                    float angle = acosf(dot);
+                    Vector3 axis = cross.normalize();
+                    rotation = Quat::angleAxis(angle, axis);
+                } else if (dot < 0) {
+                    // Ray pointing exactly opposite to Y
+                    rotation = Quat::angleAxis(math::pi, Vector3{1, 0, 0});
+                } else {
+                    // Ray already aligned with Y
+                    rotation = Quat{1, 0, 0, 0};
+                }
+                
+                ctx.get<Rotation>(ray_entity) = rotation;
+                
+                // Scale: length = hit distance, width/height = thin
+                float ray_length = hit_t;
+                ctx.get<Scale>(ray_entity) = Diag3x3{0.01f, ray_length, 0.01f};
+            } else if (visualize) {
+                // Hide rays we're not displaying
+                Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
+                ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};  // Hide
+            }
         }
     };
 

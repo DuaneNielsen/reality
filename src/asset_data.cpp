@@ -32,6 +32,7 @@ namespace AssetMaterials {
         { "axis_y", {0.0f, 1.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },  // Green
         { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Blue
         { "cylinder", {0.0f, 1.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Cyan
+        { "lidar_ray", {0.0f, 1.0f, 0.0f, 0.5f}, -1, 0.8f, 0.2f },  // Semi-transparent green
     };
 }
 
@@ -46,6 +47,7 @@ static constexpr uint32_t AXIS_X_MATERIALS[] = { 5 };
 static constexpr uint32_t AXIS_Y_MATERIALS[] = { 7 };
 static constexpr uint32_t AXIS_Z_MATERIALS[] = { 8 };
 static constexpr uint32_t CYLINDER_MATERIALS[] = { 9 };
+static constexpr uint32_t LIDAR_RAY_MATERIALS[] = { 10 };
 
 // Physics property constants
 namespace PhysicsProps {
@@ -199,6 +201,23 @@ const AssetInfo ASSET_TABLE[AssetIDs::MAX_ASSETS] = {
         .constrainRotationXY = false,
         .meshPath = "cylinder_render.obj",
         .materialIndices = CYLINDER_MATERIALS,
+        .numMaterialIndices = 1,
+        .numMeshes = 1,
+    },
+    
+    // [9] = LIDAR_RAY (thin cylinder for visualization)
+    {
+        .name = "lidar_ray",
+        .id = AssetIDs::LIDAR_RAY,
+        .hasPhysics = false,
+        .hasRender = true,
+        .assetType = AssetInfo::FILE_MESH,
+        .filepath = nullptr,
+        .inverseMass = 0.f,
+        .friction = { 0.f, 0.f },
+        .constrainRotationXY = false,
+        .meshPath = "cylinder_render.obj",  // Reuse cylinder mesh, will scale it thin
+        .materialIndices = LIDAR_RAY_MATERIALS,
         .numMaterialIndices = 1,
         .numMeshes = 1,
     },

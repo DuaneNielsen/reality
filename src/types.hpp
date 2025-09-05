@@ -159,6 +159,13 @@ namespace madEscape {
         madrona::render::Renderable
     > {};
 
+    // [GAME_SPECIFIC]
+    // Archetype for lidar ray visualization
+    struct LidarRayEntity : public madrona::Archetype<
+        Position, Rotation, Scale, ObjectID,
+        madrona::render::Renderable
+    > {};
+
 
     // [GAME_SPECIFIC] Phase 2: Test-Driven Level System
     // Tile types removed - now using object_ids with AssetIDs

@@ -507,6 +507,23 @@ int main(int argc, char *argv[])
         if (input.keyHit(Key::O)) {
             printObs();
         }
+        
+        // Toggle lidar visualization with 'L' key
+        if (input.keyHit(Key::L)) {
+            // Use a static variable to track the state since we can't directly access sim data
+            static bool lidar_viz_enabled = false;
+            lidar_viz_enabled = !lidar_viz_enabled;
+            
+            if (lidar_viz_enabled) {
+                printf("Lidar visualization: ON (feature toggle - requires simulation support)\n");
+            } else {
+                printf("Lidar visualization: OFF\n");
+            }
+            
+            // Note: The actual visualization toggle would need to be implemented
+            // through the simulation's update loop or through a custom action
+            // since we can't directly modify sim data from the viewer
+        }
     },
     [&viewer_core](CountT world_idx, CountT,
            const Viewer::UserInput &input)

@@ -109,6 +109,10 @@ struct Sim : public madrona::WorldBase {
     // Red = X axis, Green = Y axis, Blue = Z axis
     Entity originMarkerBoxes[consts::rendering::numOriginMarkerBoxes];
     
+    // Lidar ray visualization entities
+    Entity lidarRays[consts::numAgents][consts::numLidarSamples];
+    bool showLidarRays = true;  // Toggle for visualization (defaulting to true for testing)
+    
     // Persistent level entities that survive across episodes
     static constexpr CountT MAX_PERSISTENT_TILES = 256;  // Reasonable limit for persistent entities
     Entity persistentLevelEntities[MAX_PERSISTENT_TILES];
