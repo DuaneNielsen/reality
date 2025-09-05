@@ -383,18 +383,19 @@ inline void lidarSystem(Engine &ctx,
             if (visualize && (idx % 8 == 0)) {  // Show every 8th ray (16 rays total)
                 Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
                 
-                // Position ray halfway between origin and hit point
+                // Position ray to start at origin and extend to hit point
+                // Since cylinder extends ±0.5 * scale.z from center, position at midpoint
                 Vector3 ray_midpoint = ray_origin + (ray_dir * hit_t * 0.5f);
                 ctx.get<Position>(ray_entity) = ray_midpoint;
                 
-                // Simple approach: align cylinder along ray direction
-                // The cylinder mesh is oriented along Y axis by default
-                Vector3 y_axis = Vector3{0, 1, 0};
+                // Align cylinder along ray direction
+                // The cylinder mesh is oriented along Z axis by default (-1.5 to +1.5)
+                Vector3 z_axis = Vector3{0, 0, 1};
                 Quat rotation;
                 
-                // Calculate rotation from Y axis to ray direction
-                Vector3 cross = y_axis.cross(ray_dir);
-                float dot = y_axis.dot(ray_dir);
+                // Calculate rotation from Z axis to ray direction
+                Vector3 cross = z_axis.cross(ray_dir);
+                float dot = z_axis.dot(ray_dir);
                 
                 if (cross.length2() > 0.001f) {
                     // Normal case: create rotation
@@ -402,18 +403,19 @@ inline void lidarSystem(Engine &ctx,
                     Vector3 axis = cross.normalize();
                     rotation = Quat::angleAxis(angle, axis);
                 } else if (dot < 0) {
-                    // Ray pointing exactly opposite to Y
+                    // Ray pointing exactly opposite to Z
                     rotation = Quat::angleAxis(math::pi, Vector3{1, 0, 0});
                 } else {
-                    // Ray already aligned with Y
+                    // Ray already aligned with Z
                     rotation = Quat{1, 0, 0, 0};
                 }
                 
                 ctx.get<Rotation>(ray_entity) = rotation;
                 
-                // Scale: length = hit distance, width/height = thin
-                float ray_length = hit_t;
-                ctx.get<Scale>(ray_entity) = Diag3x3{0.01f, ray_length, 0.01f};
+                // Scale: Z = length (hit distance / 3.0 since mesh is 3 units long)
+                // X, Y = thin width
+                float ray_length = hit_t / 3.0f;  // Cylinder mesh is 3 units long
+                ctx.get<Scale>(ray_entity) = Diag3x3{0.01f, 0.01f, ray_length};
             } else if (visualize) {
                 // Hide rays we're not displaying
                 Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
