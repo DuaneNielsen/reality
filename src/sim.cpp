@@ -232,12 +232,6 @@ static inline float distObs(float v)
     return fminf(v / consts::lidarMaxRange, 1.f);
 }
 
-// [GAME_SPECIFIC] Encode entity type for lidar observation
-static inline float encodeType(EntityType type)
-{
-    // Simple encoding: normalize entity type to [0, 1] range
-    return (float)type / (float)EntityType::NumTypes;
-}
 
 // [GAME_SPECIFIC] Translate xy delta to polar observations for learning.
 // static inline PolarObservation xyToPolar(Vector3 v)
@@ -363,7 +357,6 @@ inline void lidarSystem(Engine &ctx,
         if (hit_entity == Entity::none()) {
             lidar.samples[idx] = {
                 .depth = 0.f,
-                .encodedType = encodeType(EntityType::NoEntity),
             };
             
             // Hide ray if no hit and visualization is enabled
@@ -372,11 +365,8 @@ inline void lidarSystem(Engine &ctx,
                 ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};  // Hide
             }
         } else {
-            EntityType entity_type = ctx.get<EntityType>(hit_entity);
-
             lidar.samples[idx] = {
                 .depth = distObs(hit_t),
-                .encodedType = encodeType(entity_type),
             };
             
             // Update visualization entity if enabled

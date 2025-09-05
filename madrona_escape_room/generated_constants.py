@@ -156,6 +156,8 @@ class consts:
     agentRadius = 1.0
     deltaT = 0.04
     episodeLen = 200
+    lidarHeightOffset = 0.5
+    lidarMaxRange = 200.0
     # maxMoveAmountValue = numMoveAmountBuckets-1  # TODO: Resolve expression
     # maxMoveAngleValue = numMoveAngleBuckets-1  # TODO: Resolve expression
     # maxTurnValue = numTurnBuckets-1  # TODO: Resolve expression

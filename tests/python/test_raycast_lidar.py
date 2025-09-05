@@ -1,8 +1,8 @@
 """
 Test 128-beam raycast lidar with 120° FOV using pytest framework
 
-Tests the new raycast-based lidar implementation that directly traces rays through
-the BVH structure instead of using the depth camera perspective projection.
+Tests the raycast-based lidar implementation that directly traces rays through
+the BVH structure. Now returns depth-only data (no entity type encodings).
 """
 
 import math
@@ -117,7 +117,7 @@ def model_full_raycast_sweep(
 
 
 class TestRaycastLidar:
-    """Test raycast-based lidar functionality"""
+    """Test raycast-based lidar functionality (depth-only)"""
 
     def test_lidar_tensor_shape_and_access(self, cpu_manager):
         """Test basic lidar tensor access and shape validation"""
@@ -134,7 +134,7 @@ class TestRaycastLidar:
             lidar_array = lidar_tensor.to_numpy()
 
         # Validate tensor shape: [worlds, agents, samples, values]
-        expected_shape = (4, 1, 128, 2)  # 4 worlds, 1 agent, 128 samples, 2 values
+        expected_shape = (4, 1, 128, 1)  # 4 worlds, 1 agent, 128 samples, depth only
         assert (
             lidar_array.shape == expected_shape
         ), f"Lidar tensor shape mismatch. Expected {expected_shape}, got {lidar_array.shape}"
@@ -142,16 +142,14 @@ class TestRaycastLidar:
         # Validate data types
         assert lidar_array.dtype == np.float32, f"Expected float32, got {lidar_array.dtype}"
 
-        # Extract depth and entity type data
+        # Extract depth data
         depth_data = lidar_array[0, 0, :, 0]  # First world, depths
-        type_data = lidar_array[0, 0, :, 1]  # First world, entity types
 
         print(f"✅ Tensor shape: {lidar_array.shape}")
         print(f"✅ Depth range: [{depth_data.min():.3f}, {depth_data.max():.3f}]")
-        print(f"✅ Type encoding range: [{type_data.min():.3f}, {type_data.max():.3f}]")
 
-    def test_entity_type_encoding(self, cpu_manager):
-        """Test entity type encoding in lidar data"""
+    def test_depth_value_distribution(self, cpu_manager):
+        """Test depth value distribution and quality"""
         mgr = cpu_manager
         mgr.step()
 
@@ -161,40 +159,35 @@ class TestRaycastLidar:
         else:
             lidar_array = lidar_tensor.to_numpy()
 
-        # Extract entity type encodings
-        type_data = lidar_array[0, 0, :, 1]  # First world, entity types
-        unique_types = np.unique(type_data)
+        # Extract depth data
+        depth_data = lidar_array[0, 0, :, 0]  # First world, depths
 
-        print("\n=== ENTITY TYPE ANALYSIS ===")
-        print(f"Unique entity type encodings: {unique_types}")
+        print("\n=== DEPTH ANALYSIS ===")
+        print(f"Depth range: [{depth_data.min():.3f}, {depth_data.max():.3f}]")
 
-        # Expected encodings based on EntityType enum and encodeType function:
-        # NoEntity (0) → 0.0 / 4 = 0.0
-        # Cube (1) → 1.0 / 4 = 0.25
-        # Wall (2) → 2.0 / 4 = 0.5
-        # Agent (3) → 3.0 / 4 = 0.75
-        expected_encodings = {0.0: "NoEntity", 0.25: "Cube", 0.5: "Wall", 0.75: "Agent"}
+        # Analyze depth distribution
+        finite_depths = depth_data[np.isfinite(depth_data) & (depth_data > 0)]
+        zero_depths = np.sum(depth_data == 0.0)
 
-        # Check which encodings are present
-        for encoding in unique_types:
-            entity_name = expected_encodings.get(round(encoding, 2), f"Unknown({encoding:.3f})")
-            count = np.sum(type_data == encoding)
-            print(f"  {encoding:.3f} → {entity_name}: {count} beams")
+        print(f"Valid depth readings: {len(finite_depths)}/128")
+        print(f"Zero/miss readings: {zero_depths}/128")
 
-        # Validation: should have valid encodings in range [0, 1]
-        assert np.all(
-            type_data >= 0.0
-        ), f"Negative type encodings found: {type_data[type_data < 0]}"
-        assert np.all(type_data <= 1.0), f"Type encodings > 1.0 found: {type_data[type_data > 1]}"
+        if len(finite_depths) > 0:
+            print(
+                f"Valid depth stats: mean={finite_depths.mean():.3f}, std={finite_depths.std():.3f}"
+            )
 
-        print("✅ Entity type encodings are valid")
+        # Validation: depths should be normalized [0, 1]
+        assert np.all(depth_data >= 0.0), "All depths should be non-negative"
+        assert np.all(depth_data <= 1.0), "All depths should be normalized [0,1]"
+
+        print("✅ Depth values are valid")
 
     def test_128_beam_raycast_lidar_validation(self, cpu_manager):
         """
         Test 128-beam raycast lidar with 120° FOV using geometric ray tracing model.
 
-        This test validates the new direct raycast implementation against a
-        geometric model that matches the actual ray tracing algorithm.
+        This test validates the raycast implementation with depth-only data.
         """
         mgr = cpu_manager
 
@@ -230,9 +223,8 @@ class TestRaycastLidar:
         else:
             lidar_array = lidar_tensor.to_numpy()
 
-        # Extract depth and type data for first world
+        # Extract depth data for first world
         depth_readings = lidar_array[0, 0, :, 0]  # 128 depth values
-        type_readings = lidar_array[0, 0, :, 1]  # 128 type values
 
         print("\n=== LIDAR READINGS SUMMARY ===")
         print(f"Depth range: [{depth_readings.min():.3f}, {depth_readings.max():.3f}]")
@@ -341,22 +333,18 @@ class TestRaycastLidar:
                 finite_depths > 0.0
             ), f"Invalid zero depths in finite readings: {np.sum(finite_depths == 0)} occurrences"
 
-        # 4. Entity type consistency: wall detections should have wall encoding (0.5)
-        wall_detections = np.sum(type_readings == 0.5)  # Wall encoding
-        no_entity_detections = np.sum(type_readings == 0.0)  # NoEntity encoding
-
-        print(f"Wall detections: {wall_detections}/128 ({wall_detections/128:.1%})")
-        print(f"No-entity detections: {no_entity_detections}/128 ({no_entity_detections/128:.1%})")
-
-        # Should have some wall detections in a walled environment
-        assert (
-            wall_detections > 0
-        ), "No wall detections found in walled environment. Check entity type encoding."
+        # 4. Depth consistency: should have reasonable variation
+        if len(finite_depths) > 1:
+            depth_std = np.std(finite_depths)
+            print(f"Depth variation: std={depth_std:.3f}")
+            assert (
+                depth_std > 0.001
+            ), "Depth readings should show some variation in realistic environment"
 
         # Success indicators
         print("\n=== TEST RESULTS ===")
         print(f"✅ Functionality: {finite_count}/128 beams active ({detection_rate:.1%})")
-        print(f"✅ Wall detection: {wall_detections}/128 beams detected walls")
+        print(f"✅ Depth quality: {len(finite_depths)}/128 beams have valid distances")
         print(f"✅ Coverage: 120° forward arc with {len(depth_readings)} beams")
         print("✅ Raycast lidar validation completed successfully!")
 
@@ -424,9 +412,8 @@ class TestRaycastLidar:
         else:
             lidar_array = lidar_tensor.to_numpy()
 
-        # Test all worlds
+        # Test all worlds - depth only now
         all_depths = lidar_array[:, :, :, 0].flatten()
-        all_types = lidar_array[:, :, :, 1].flatten()
 
         print("\n=== NORMALIZATION VALIDATION ===")
 
@@ -445,20 +432,17 @@ class TestRaycastLidar:
                 # Should have some variation in a realistic environment
                 assert depth_std > 0.001, "Depth readings should show some variation"
 
-        # Entity type validation
-        finite_types = all_types[np.isfinite(all_types)]
-        unique_types = np.unique(finite_types)
+        # Additional depth validation across all worlds
+        total_valid_readings = np.sum((all_depths > 0.0) & (all_depths <= 1.0))
+        total_readings = len(all_depths)
 
-        print(f"Entity type range: min={finite_types.min():.3f}, max={finite_types.max():.3f}")
-        print(f"Unique entity types: {len(unique_types)} ({unique_types})")
+        print(f"Total valid readings across all worlds: {total_valid_readings}/{total_readings}")
+        print(f"Overall depth range: [{all_depths.min():.3f}, {all_depths.max():.3f}]")
 
-        assert np.all(finite_types >= 0.0), "All entity types should be non-negative"
-        assert np.all(finite_types <= 1.0), "All entity types should be ≤ 1.0 (normalized)"
-
-        # Should have valid entity type encodings (0.0=NoEntity, 0.25=Cube, 0.5=Wall, 0.75=Agent)
-        valid_encodings = {0.0, 0.25, 0.5, 0.75}
-        invalid_types = [t for t in unique_types if round(t, 2) not in valid_encodings]
-        assert len(invalid_types) == 0, f"Found invalid entity type encodings: {invalid_types}"
+        # Should have reasonable detection rate across all worlds
+        assert (
+            total_valid_readings > total_readings * 0.1
+        ), "Should have at least 10% valid depth readings"
 
         print("✅ All values are properly normalized")
         print("✅ Normalization validation completed!")

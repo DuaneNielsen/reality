@@ -117,7 +117,6 @@ namespace madEscape {
     // [GAME_SPECIFIC]
     struct LidarSample {
         float depth;
-        float encodedType;
     };
 
     // [GAME_SPECIFIC]
