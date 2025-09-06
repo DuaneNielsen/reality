@@ -51,3 +51,4 @@ class SimInterface:
     actions: torch.Tensor
     dones: torch.Tensor
     rewards: torch.Tensor
+    manager: object

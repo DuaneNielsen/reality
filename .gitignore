@@ -103,3 +103,6 @@ core.*
 
 # Benchmark profile outputs
 /tmp/sim_bench_profile_*.html
+
+# Weights & Biases logs
+wandb/

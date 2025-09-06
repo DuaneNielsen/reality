@@ -17,6 +17,8 @@ arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("--gpu-id", type=int, default=0)
 arg_parser.add_argument("--ckpt-path", type=str, required=True)
 arg_parser.add_argument("--action-dump-path", type=str)
+arg_parser.add_argument("--recording-path", type=str, help="Path to save recording file")
+arg_parser.add_argument("--recording-seed", type=int, default=5, help="Seed for recording")
 
 arg_parser.add_argument("--num-worlds", type=int, required=True)
 arg_parser.add_argument("--num-steps", type=int, required=True)
@@ -68,6 +70,15 @@ if args.action_dump_path:
 else:
     action_log = None
 
+# Start recording if recording path is provided
+if args.recording_path:
+    try:
+        sim_interface.manager.start_recording(args.recording_path, args.recording_seed)
+        print(f"Recording started: {args.recording_path}")
+    except Exception as e:
+        print(f"Failed to start recording: {e}")
+        args.recording_path = None  # Disable recording
+
 for i in range(args.num_steps):
     with torch.no_grad():
         action_dists, values, cur_rnn_states = policy(cur_rnn_states, *obs)
@@ -101,6 +112,14 @@ for i in range(args.num_steps):
     print("Values:\n", values.cpu().numpy())
     sim_interface.step()
     print("Rewards:\n", rewards)
+
+# Stop recording if it was started
+if args.recording_path:
+    try:
+        sim_interface.manager.stop_recording()
+        print(f"Recording completed: {args.recording_path}")
+    except Exception as e:
+        print(f"Failed to stop recording: {e}")
 
 if action_log:
     action_log.close()

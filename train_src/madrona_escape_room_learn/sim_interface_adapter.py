@@ -76,6 +76,7 @@ def create_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterfac
         actions=manager.action_tensor().to_torch(),  # [worlds, 3]
         dones=manager.done_tensor().to_torch(),  # [worlds, agents, 1]
         rewards=manager.reward_tensor().to_torch(),  # [worlds, agents, 1]
+        manager=manager,
     )
 
 
@@ -163,6 +164,7 @@ def create_minimal_sim_interface(manager: madrona_escape_room.SimManager) -> Sim
         actions=manager.action_tensor().to_torch(),  # [worlds, 3]
         dones=manager.done_tensor().to_torch(),  # [worlds, agents, 1]
         rewards=manager.reward_tensor().to_torch(),  # [worlds, agents, 1]
+        manager=manager,
     )
 
 
@@ -190,6 +192,7 @@ def create_lidar_sim_interface(manager: madrona_escape_room.SimManager) -> SimIn
         actions=manager.action_tensor().to_torch(),  # [worlds, 3]
         dones=manager.done_tensor().to_torch(),  # [worlds, agents, 1]
         rewards=manager.reward_tensor().to_torch(),  # [worlds, agents, 1]
+        manager=manager,
     )
 
 
