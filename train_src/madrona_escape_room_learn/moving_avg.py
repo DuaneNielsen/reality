@@ -2,6 +2,46 @@ import torch
 import torch.nn as nn
 
 
+# Simple Exponential Moving Average tracker for scalar metrics
+class EMATracker(nn.Module):
+    def __init__(self, decay, disable=False):
+        super().__init__()
+
+        self.disable = disable
+        if disable:
+            return
+
+        self.register_buffer("decay", torch.tensor(decay, dtype=torch.float32))
+        self.register_buffer("one_minus_decay", 1 - self.decay)
+        self.register_buffer("ema", torch.zeros([], dtype=torch.float32))
+        self.register_buffer("N", torch.zeros([], dtype=torch.int64))
+
+    def update(self, value):
+        """Update EMA with a new value"""
+        if self.disable:
+            return
+
+        self.N.add_(1)
+        if self.N == 1:
+            # First value initializes EMA
+            self.ema.copy_(torch.tensor(float(value), dtype=torch.float32))
+        else:
+            # Standard EMA update: ema = decay * ema + (1 - decay) * value
+            self.ema.mul_(self.decay).add_(float(value) * self.one_minus_decay)
+
+    def get_ema(self):
+        """Get current EMA value"""
+        if self.disable or self.N == 0:
+            return 0.0
+        return self.ema.item()
+
+    def get_count(self):
+        """Get number of updates"""
+        if self.disable:
+            return 0
+        return self.N.item()
+
+
 # Exponential Moving Average mean and variance estimator for
 # values and observations
 class EMANormalizer(nn.Module):

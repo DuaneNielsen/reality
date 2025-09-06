@@ -6,7 +6,7 @@ import torch
 from .actor_critic import ActorCritic, RecurrentStateConfig
 from .amp import AMPState
 from .cfg import SimInterface
-from .moving_avg import EMANormalizer
+from .moving_avg import EMANormalizer, EMATracker
 from .profile import profile
 
 
@@ -31,6 +31,7 @@ class RolloutManager:
         num_bptt_chunks: int,
         amp: AMPState,
         recurrent_cfg: RecurrentStateConfig,
+        episode_length_ema_decay: float = 0.95,
     ):
         self.dev = dev
         self.steps_per_update = steps_per_update
@@ -120,6 +121,9 @@ class RolloutManager:
         self.rnn_alt_states = tuple(self.rnn_alt_states)
         self.rnn_start_states = tuple(self.rnn_start_states)
 
+        # Episode length EMA tracking
+        self.episode_length_ema = EMATracker(episode_length_ema_decay).to(dev)
+
     def collect(
         self,
         amp: AMPState,
@@ -181,6 +185,27 @@ class RolloutManager:
 
                     cur_dones_store = self.dones[bptt_chunk, slot]
                     cur_dones_store.copy_(sim.dones, non_blocking=True)
+
+                    # Track episode lengths when episodes complete
+                    done_mask = cur_dones_store.bool()
+                    if done_mask.any():
+                        # Get current steps taken for worlds that just completed
+                        steps_taken = (
+                            sim.manager.steps_taken_tensor()
+                            .to_torch()
+                            .to(self.dev, non_blocking=True)
+                        )
+
+                        # Vectorized update: get episode lengths for all completed episodes
+                        completed_episodes = done_mask[:, 0]  # Shape: [num_worlds]
+                        if completed_episodes.any():
+                            episode_lengths = steps_taken[
+                                completed_episodes, 0, 0
+                            ]  # Get lengths for completed episodes
+
+                            # Update EMA for each completed episode length
+                            for episode_length in episode_lengths:
+                                self.episode_length_ema.update(episode_length.item())
 
                     # TRACE: Monitor episode terminations during rollout
                     if bptt_chunk == 0 and slot % 10 == 0:  # Every 10 steps in first chunk
