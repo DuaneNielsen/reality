@@ -1,0 +1,46 @@
+program: scripts/train.py
+method: bayes
+metric:
+  name: rewards/mean
+  goal: maximize
+early_terminate:
+  type: hyperband
+  min_iter: 50
+parameters:
+  # Core training parameters (fixed for efficiency)
+  num-worlds:
+    value: 2048
+  num-updates:
+    value: 2000
+  steps-per-update:
+    value: 40
+  num-bptt-chunks:
+    value: 8
+  
+  # Key hyperparameters to optimize
+  lr:
+    distribution: log_uniform
+    min: 1e-4
+    max: 1e-3
+  gamma:
+    values: [0.995, 0.998]
+  
+  # PPO tuning (most impactful)
+  entropy-loss-coef:
+    values: [0.005, 0.01, 0.02]
+  
+  # Fixed parameters
+  value-loss-coef:
+    value: 0.5
+  clip-value-loss:
+    value: true
+  num-channels:
+    value: 256
+  separate-value:
+    value: false
+  fp16:
+    value: true
+  gpu-sim:
+    value: true
+  gpu-id:
+    value: 0

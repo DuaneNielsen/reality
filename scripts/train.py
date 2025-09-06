@@ -32,25 +32,34 @@ class LearningCallback:
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
 
-        # Initialize wandb if available
-        self.use_wandb = WANDB_AVAILABLE
-        if self.use_wandb:
+        # Initialize wandb
+        self.use_wandb = False
+        if WANDB_AVAILABLE:
             try:
-                # Initialize wandb with hardcoded project name
                 wandb.init(
                     project="madrona-escape-room",
                     config=training_config or {},
                     tags=["lidar-training", "default_16x16_room"],
                 )
-                # Update checkpoint directory to use wandb run directory
-                self.ckpt_dir = Path(wandb.run.dir) / "checkpoints"
-                self.ckpt_dir.mkdir(parents=True, exist_ok=True)
-                print(f"✓ wandb initialized - checkpoints will be saved to: {self.ckpt_dir}")
+                self.use_wandb = True
+                print("✓ wandb initialized")
             except Exception as e:
                 print(f"Warning: wandb initialization failed: {e}")
-                self.use_wandb = False
         else:
             print("Warning: wandb not available - metrics will only be printed to console")
+
+        # Set checkpoint directory
+        if ckpt_dir is not None:
+            self.ckpt_dir = ckpt_dir
+            print(f"Using provided checkpoint directory: {self.ckpt_dir}")
+        elif self.use_wandb:
+            self.ckpt_dir = Path(wandb.run.dir) / "checkpoints"
+            print(f"Using wandb checkpoint directory: {self.ckpt_dir}")
+        else:
+            self.ckpt_dir = Path("./checkpoints")
+            print(f"Using default checkpoint directory: {self.ckpt_dir}")
+
+        self.ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, update_idx, update_time, update_results, learning_state):
         update_id = update_idx + 1
@@ -196,7 +205,7 @@ class LearningCallback:
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("--gpu-id", type=int, default=0)
-arg_parser.add_argument("--ckpt-dir", type=str, required=True)
+arg_parser.add_argument("--ckpt-dir", type=str, default=None)
 arg_parser.add_argument("--restore", type=int)
 
 arg_parser.add_argument("--num-worlds", type=int, required=True)
@@ -226,7 +235,7 @@ sim_interface = setup_lidar_training_environment(
     num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=5
 )
 
-ckpt_dir = Path(args.ckpt_dir)
+ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None
 
 # Prepare training configuration for wandb logging
 training_config = {
@@ -256,7 +265,6 @@ if torch.cuda.is_available():
 else:
     dev = torch.device("cpu")
 
-ckpt_dir.mkdir(exist_ok=True, parents=True)
 
 # Setup observations from [progress, compass, lidar] tensor list
 obs, num_obs_features = setup_obs(sim_interface.obs)
