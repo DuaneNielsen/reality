@@ -110,6 +110,15 @@ class LearningCallback:
             bootstrap_value_min = update_results.bootstrap_values.min().cpu().item()
             bootstrap_value_max = update_results.bootstrap_values.max().cpu().item()
 
+            # Use entropy from PPO stats (entropy_loss is negative entropy scaled by coef)
+            # Convert back to actual entropy by dividing by negative entropy coefficient
+            actual_entropy = (
+                -ppo.entropy_loss / args.entropy_loss_coef if args.entropy_loss_coef != 0 else 0.0
+            )
+            action_entropy_mean = actual_entropy
+            action_entropy_min = actual_entropy  # Single aggregate value
+            action_entropy_max = actual_entropy  # Single aggregate value
+
             vnorm_mu = learning_state.value_normalizer.mu.cpu().item()
             vnorm_sigma = learning_state.value_normalizer.sigma.cpu().item()
 
@@ -138,6 +147,10 @@ class LearningCallback:
                     "bootstrap_values/mean": bootstrap_value_mean,
                     "bootstrap_values/min": bootstrap_value_min,
                     "bootstrap_values/max": bootstrap_value_max,
+                    # Action entropy (exploration measure)
+                    "action_entropy/mean": action_entropy_mean,
+                    "action_entropy/min": action_entropy_min,
+                    "action_entropy/max": action_entropy_max,
                     # Returns
                     "returns/mean": ppo.returns_mean,
                     "returns/stddev": ppo.returns_stddev,
@@ -162,23 +175,27 @@ class LearningCallback:
         )
         print()
         print(
-            f"    Rewards          => Avg: {reward_mean: .3e}, "
-            f"Min: {reward_min: .3e}, Max: {reward_max: .3e}"
+            f"    Rewards          => Avg: {reward_mean:.3f}, "
+            f"Min: {reward_min:.3f}, Max: {reward_max:.3f}"
         )
         print(
-            f"    Values           => Avg: {value_mean: .3e}, "
-            f"Min: {value_min: .3e}, Max: {value_max: .3e}"
+            f"    Values           => Avg: {value_mean:.3f}, "
+            f"Min: {value_min:.3f}, Max: {value_max:.3f}"
         )
         print(
-            f"    Advantages       => Avg: {advantage_mean: .3e}, "
-            f"Min: {advantage_min: .3e}, Max: {advantage_max: .3e}"
+            f"    Advantages       => Avg: {advantage_mean:.3f}, "
+            f"Min: {advantage_min:.3f}, Max: {advantage_max:.3f}"
         )
         print(
-            f"    Bootstrap Values => Avg: {bootstrap_value_mean: .3e}, "
-            f"Min: {bootstrap_value_min: .3e}, Max: {bootstrap_value_max: .3e}"
+            f"    Bootstrap Values => Avg: {bootstrap_value_mean:.3f}, "
+            f"Min: {bootstrap_value_min:.3f}, Max: {bootstrap_value_max:.3f}"
         )
-        print(f"    Returns          => Avg: {ppo.returns_mean}, σ: {ppo.returns_stddev}")
-        print(f"    Value Normalizer => Mean: {vnorm_mu: .3e}, σ: {vnorm_sigma:.3e}")
+        print(
+            f"    Action Entropy   => Avg: {action_entropy_mean:.3f}, "
+            f"Min: {action_entropy_min:.3f}, Max: {action_entropy_max:.3f}"
+        )
+        print(f"    Returns          => Avg: {ppo.returns_mean:.3f}, σ: {ppo.returns_stddev:.3f}")
+        print(f"    Value Normalizer => Mean: {vnorm_mu:.3f}, σ: {vnorm_sigma:.3f}")
 
         if self.profile_report:
             print()
