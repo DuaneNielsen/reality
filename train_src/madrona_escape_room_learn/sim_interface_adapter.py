@@ -10,18 +10,13 @@ from .cfg import SimInterface
 class LidarIndex:
     """Lidar tensor indices for 128-beam forward arc"""
 
-    # For tensor shape [worlds, agents, samples, values]
+    # For tensor shape [worlds, agents, samples] - single distance value per beam
     SAMPLES_DIM = 2  # Samples dimension index (128 beams)
-    VALUES_DIM = 3  # Values dimension index (depth, encodedType)
 
-    # Beam indices for 128-beam lidar in 120-degree arc
-    LEFTMOST = 0  # First lidar beam (60° left)
-    CENTER = 64  # Middle lidar beam (straight ahead)
-    RIGHTMOST = 127  # Last lidar beam (60° right)
-
-    # Value indices
-    DEPTH = 0  # Depth value index
-    ENTITY_TYPE = 1  # Encoded entity type index
+    # Beam indices for 128-beam lidar in 360-degree circle
+    LEFTMOST = 0  # First lidar beam
+    CENTER = 64  # Middle lidar beam
+    RIGHTMOST = 127  # Last lidar beam
 
     @staticmethod
     def beam_count():
@@ -57,7 +52,7 @@ class ObsIndex:
 
     SELF_OBS = 0  # Self observation tensor [worlds, agents, 5]
     COMPASS = 1  # Compass tensor [worlds, agents, 128]
-    LIDAR = 2  # Lidar tensor [worlds, agents, 128, 2]
+    LIDAR = 2  # Lidar tensor [worlds, agents, 128] - distance values only
 
 
 def create_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterface:
@@ -76,7 +71,7 @@ def create_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterfac
         obs=[
             progress_tensor,  # [worlds, agents, 1] - just progress
             manager.compass_tensor().to_torch(),  # [worlds, agents, 128]
-            manager.lidar_tensor().to_torch(),  # [worlds, agents, 128, 2]
+            manager.lidar_tensor().to_torch(),  # [worlds, agents, 128] - distance only
         ],
         actions=manager.action_tensor().to_torch(),  # [worlds, 3]
         dones=manager.done_tensor().to_torch(),  # [worlds, agents, 1]
@@ -87,7 +82,7 @@ def create_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterfac
 def create_training_sim(
     num_worlds: int, exec_mode, gpu_id: int = -1, rand_seed: int = 42
 ) -> SimInterface:
-    """Create simulator for training with native 128-beam lidar (no visual sensors)."""
+    """Create simulator for training with native 128-beam lidar (distance values only)."""
     # Don't use any visual sensor config - just use native lidar system
     manager = madrona_escape_room.SimManager(
         exec_mode=exec_mode,
@@ -130,7 +125,7 @@ def setup_training_environment(
         rand_seed: Random seed for reproducible training
 
     Returns:
-        SimInterface configured for training with 128-beam lidar in 120° arc
+        SimInterface configured for training with 128-beam lidar (distance values only)
 
     Example:
         import madrona
@@ -182,16 +177,15 @@ def create_lidar_sim_interface(manager: madrona_escape_room.SimManager) -> SimIn
         :, :, SelfObsIndex.PROGRESS : SelfObsIndex.PROGRESS + 1
     ]  # [worlds, agents, 1]
 
-    # Get lidar tensor and extract just depth values
-    lidar_full = manager.lidar_tensor().to_torch()  # [worlds, agents, 128, 2]
-    lidar_depth = lidar_full[..., 0:1]  # [worlds, agents, 128, 1] - just depth channel
+    # Get lidar tensor - now single-channel distance values only
+    lidar_tensor = manager.lidar_tensor().to_torch()  # [worlds, agents, 128] - distance only
 
     return SimInterface(
         step=manager.step,
         obs=[
             progress_tensor,  # [worlds, agents, 1] - just progress
             manager.compass_tensor().to_torch(),  # [worlds, agents, 128]
-            lidar_depth,  # [worlds, agents, 128, 1] - lidar depth only
+            lidar_tensor,  # [worlds, agents, 128] - lidar distance only
         ],
         actions=manager.action_tensor().to_torch(),  # [worlds, 3]
         dones=manager.done_tensor().to_torch(),  # [worlds, agents, 1]

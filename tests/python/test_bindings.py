@@ -66,7 +66,7 @@ def test_tensor_shapes(cpu_manager):
 
     # Test lidar tensor shape
     lidar = mgr.lidar_tensor().to_torch()
-    assert lidar.shape == (4, 1, 128, 1)  # 128 lidar samples in 120-degree arc, depth only
+    assert lidar.shape == (4, 1, 128)  # 128 lidar samples in 360-degree circle, distance only
 
     # Room entity observations removed - no longer tracking room entities
 

@@ -10,7 +10,7 @@ import pytest
 import torch
 from madrona_escape_room_learn.sim_interface_adapter import (
     CompassIndex,
-    DepthIndex,
+    LidarIndex,
     ObsIndex,
     SelfObsIndex,
 )
@@ -30,33 +30,30 @@ class SimInterface:
 
 
 def process_observations(
-    self_obs: torch.Tensor, compass: torch.Tensor, depth: torch.Tensor
+    self_obs: torch.Tensor, compass: torch.Tensor, lidar: torch.Tensor
 ) -> torch.Tensor:
     """
-    Extract only progress (maxY) from self_obs and combine with compass and depth.
+    Extract only progress (maxY) from self_obs and combine with compass and lidar.
 
     Args:
         self_obs: [batch, agents, 5] where 5 = [x, y, z, maxY, rotation]
         compass: [batch, agents, 128] one-hot compass encoding
-        depth: [batch, agents, height, width] depth image
+        lidar: [batch, agents, 128] lidar distance values
 
     Returns:
         Combined observation tensor [batch, agents, obs_dim] where:
-        obs_dim = 1 (progress) + 128 (compass) + height*width (flattened depth)
+        obs_dim = 1 (progress) + 128 (compass) + 128 (lidar)
     """
-    batch_size = self_obs.shape[0]
-    num_agents = self_obs.shape[1]
-
     # Extract progress (maxY) from self_obs using constants
     progress = self_obs[
         :, :, SelfObsIndex.PROGRESS : SelfObsIndex.PROGRESS + 1
     ]  # Shape: [batch, agents, 1]
 
-    # Flatten depth image for each agent
-    depth_flat = depth.view(batch_size, num_agents, -1)  # Shape: [batch, agents, height*width]
+    # Lidar is already flat - no need to reshape
+    # Shape: [batch, agents, 128]
 
-    # Concatenate: progress + compass + flattened depth
-    combined_obs = torch.cat([progress, compass, depth_flat], dim=-1)
+    # Concatenate: progress + compass + lidar
+    combined_obs = torch.cat([progress, compass, lidar], dim=-1)
 
     return combined_obs
 
@@ -82,8 +79,8 @@ def create_sim_interface_adapter(
     compass_tensor = manager.compass_tensor().to_torch()
 
     if enable_depth:
-        depth_tensor = manager.depth_tensor().to_torch()
-        obs_tensors = [self_obs_tensor, compass_tensor, depth_tensor]
+        lidar_tensor = manager.lidar_tensor().to_torch()
+        obs_tensors = [self_obs_tensor, compass_tensor, lidar_tensor]
     else:
         obs_tensors = [self_obs_tensor, compass_tensor]
 
@@ -119,13 +116,13 @@ def test_sim_interface_adapter_creation(cpu_manager):
 
     self_obs = sim_interface.obs[ObsIndex.SELF_OBS]
     compass = sim_interface.obs[ObsIndex.COMPASS]
-    depth = sim_interface.obs[ObsIndex.DEPTH]
+    lidar = sim_interface.obs[ObsIndex.LIDAR]
     print(f"Self obs shape: {self_obs.shape}")
     print(f"Compass shape: {compass.shape}")
-    print(f"Depth shape: {depth.shape}")
+    print(f"Lidar shape: {lidar.shape}")
 
     # Update assertions based on actual shapes from fixture
-    assert len(sim_interface.obs) == 3  # self_obs, compass, depth
+    assert len(sim_interface.obs) == 3  # self_obs, compass, lidar
 
     # Check observation tensor shapes using constants
     assert self_obs.shape == (4, 1, 5)  # [worlds, agents, 5] - position + progress + rotation
@@ -134,13 +131,11 @@ def test_sim_interface_adapter_creation(cpu_manager):
         1,
         CompassIndex.bucket_count(),
     )  # [worlds, agents, 128] - one-hot compass
-    assert depth.shape == (
+    assert lidar.shape == (
         4,
         1,
-        1,
-        DepthIndex.beam_count(),
-        1,
-    )  # [worlds, agents, height, width, channels] - horizontal lidar
+        LidarIndex.beam_count(),
+    )  # [worlds, agents, 128] - lidar distance values
 
     # Action tensor could be [worlds, action_dim] or [worlds, agents, action_dim]
     assert len(sim_interface.actions.shape) in [
@@ -170,14 +165,13 @@ def test_process_observations():
     compass[0, 0, CompassIndex.CENTER] = 1.0  # One-hot at center for first batch
     compass[1, 0, 32] = 1.0  # One-hot at index 32 for second batch
 
-    depth_height, depth_width = 64, 64
-    depth = torch.randn(batch_size, num_agents, depth_height, depth_width)
+    lidar = torch.randn(batch_size, num_agents, LidarIndex.beam_count())
 
     # Process observations
-    processed = process_observations(self_obs, compass, depth)
+    processed = process_observations(self_obs, compass, lidar)
 
-    # Check shape: 1 (progress) + 128 (compass) + 64*64 (depth) = 4225
-    expected_dim = 1 + CompassIndex.bucket_count() + (depth_height * depth_width)
+    # Check shape: 1 (progress) + 128 (compass) + 128 (lidar) = 257
+    expected_dim = 1 + CompassIndex.bucket_count() + LidarIndex.beam_count()
     assert processed.shape == (batch_size, num_agents, expected_dim)
 
     # Check that progress values are preserved
@@ -190,10 +184,11 @@ def test_process_observations():
     assert torch.allclose(processed[0, 0, compass_start_idx:compass_end_idx], compass[0, 0])
     assert torch.allclose(processed[1, 0, compass_start_idx:compass_end_idx], compass[1, 0])
 
-    # Check that depth values are flattened correctly
-    depth_flat = depth.view(batch_size, num_agents, -1)
-    depth_start_idx = compass_end_idx
-    assert torch.allclose(processed[:, :, depth_start_idx:], depth_flat)
+    # Check that lidar values are preserved correctly
+    lidar_start_idx = compass_end_idx
+    lidar_end_idx = lidar_start_idx + LidarIndex.beam_count()
+    assert torch.allclose(processed[0, 0, lidar_start_idx:lidar_end_idx], lidar[0, 0])
+    assert torch.allclose(processed[1, 0, lidar_start_idx:lidar_end_idx], lidar[1, 0])
 
 
 @pytest.mark.lidar_128  # Use 128-beam horizontal lidar preset
@@ -290,7 +285,7 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
     original_done_tensor = manager.done_tensor().to_torch()
     original_self_obs_tensor = manager.self_observation_tensor().to_torch()
     original_compass_tensor = manager.compass_tensor().to_torch()
-    original_depth_tensor = manager.depth_tensor().to_torch()
+    original_lidar_tensor = manager.lidar_tensor().to_torch()
 
     # Record initial state from original tensors using constants
     initial_position = original_self_obs_tensor[
@@ -303,7 +298,7 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
         0, 0, SelfObsIndex.ROTATION
     ].clone()  # World 0, Agent 0, rotation
     initial_compass = original_compass_tensor[0, 0, :].clone()  # World 0, Agent 0, compass
-    initial_depth = original_depth_tensor[0, 0, 0, :, 0].clone()  # World 0, Agent 0, depth readings
+    initial_lidar = original_lidar_tensor[0, 0, :].clone()  # World 0, Agent 0, lidar readings
 
     # Create interface adapter
     sim_interface = create_sim_interface_adapter(manager, enable_depth=True)
@@ -326,8 +321,8 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
         sim_interface.obs[ObsIndex.COMPASS].data_ptr() == original_compass_tensor.data_ptr()
     ), "Compass tensor should be zero-copy reference to original"
     assert (
-        sim_interface.obs[ObsIndex.DEPTH].data_ptr() == original_depth_tensor.data_ptr()
-    ), "Depth tensor should be zero-copy reference to original"
+        sim_interface.obs[ObsIndex.LIDAR].data_ptr() == original_lidar_tensor.data_ptr()
+    ), "Lidar tensor should be zero-copy reference to original"
 
     print("✅ Zero-copy verification passed - all tensors share memory with originals")
 
@@ -379,16 +374,16 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
     assert compass_changed, "Compass should have changed due to rotation"
 
     # 5. Depth measurements should have changed (position/rotation change affects what agent sees)
-    new_depth = original_depth_tensor[0, 0, 0, :, 0]
-    depth_changed = not torch.allclose(initial_depth, new_depth, atol=1e-6)
-    assert depth_changed, "Depth measurements should have changed due to movement/rotation"
+    new_lidar = original_lidar_tensor[0, 0, :]
+    lidar_changed = not torch.allclose(initial_lidar, new_lidar, atol=1e-6)
+    assert lidar_changed, "Lidar measurements should have changed due to movement/rotation"
 
     print("✅ Simulation state changes verified:")
     print(f"  Position changed: {torch.norm(new_position - initial_position):.4f} units")
     print(f"  Progress increased: {new_progress - initial_progress:.4f}")
     print(f"  Rotation changed: {new_rotation - initial_rotation:.4f} radians")
     print(f"  Compass changed: {torch.sum(torch.abs(new_compass - initial_compass)):.4f}")
-    print(f"  Depth changed: {torch.sum(torch.abs(new_depth - initial_depth)):.4f}")
+    print(f"  Lidar changed: {torch.sum(torch.abs(new_lidar - initial_lidar)):.4f}")
 
     # === VERIFY INTERFACE REFLECTS SAME CHANGES ===
     # The interface tensors should show the exact same values as original tensors
@@ -408,8 +403,8 @@ def test_zero_copy_and_simulation_state_changes(cpu_manager):
         sim_interface.obs[ObsIndex.COMPASS][0, 0, :], new_compass
     ), "Interface should show same compass as original tensor"
     assert torch.allclose(
-        sim_interface.obs[ObsIndex.DEPTH][0, 0, 0, :, 0], new_depth
-    ), "Interface should show same depth as original tensor"
+        sim_interface.obs[ObsIndex.LIDAR][0, 0, :], new_lidar
+    ), "Interface should show same lidar as original tensor"
 
     print("✅ Interface consistency verified - shows same values as original tensors")
     print("✅ Zero-copy and simulation state test PASSED")

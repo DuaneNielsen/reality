@@ -799,7 +799,6 @@ Tensor Manager::lidarTensor() const
                                    impl_->cfg.numWorlds,
                                    consts::numAgents,
                                    consts::numLidarSamples,
-                                   1,
                                });
 }
 

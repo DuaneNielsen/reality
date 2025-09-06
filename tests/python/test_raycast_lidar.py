@@ -133,8 +133,8 @@ class TestRaycastLidar:
         else:
             lidar_array = lidar_tensor.to_numpy()
 
-        # Validate tensor shape: [worlds, agents, samples, values]
-        expected_shape = (4, 1, 128, 1)  # 4 worlds, 1 agent, 128 samples, depth only
+        # Validate tensor shape: [worlds, agents, samples]
+        expected_shape = (4, 1, 128)  # 4 worlds, 1 agent, 128 samples (distance only)
         assert (
             lidar_array.shape == expected_shape
         ), f"Lidar tensor shape mismatch. Expected {expected_shape}, got {lidar_array.shape}"
@@ -142,11 +142,11 @@ class TestRaycastLidar:
         # Validate data types
         assert lidar_array.dtype == np.float32, f"Expected float32, got {lidar_array.dtype}"
 
-        # Extract depth data
-        depth_data = lidar_array[0, 0, :, 0]  # First world, depths
+        # Extract distance data
+        distance_data = lidar_array[0, 0, :]  # First world, distances
 
         print(f"✅ Tensor shape: {lidar_array.shape}")
-        print(f"✅ Depth range: [{depth_data.min():.3f}, {depth_data.max():.3f}]")
+        print(f"✅ Distance range: [{distance_data.min():.3f}, {distance_data.max():.3f}]")
 
     def test_depth_value_distribution(self, cpu_manager):
         """Test depth value distribution and quality"""
@@ -159,8 +159,8 @@ class TestRaycastLidar:
         else:
             lidar_array = lidar_tensor.to_numpy()
 
-        # Extract depth data
-        depth_data = lidar_array[0, 0, :, 0]  # First world, depths
+        # Extract distance data
+        depth_data = lidar_array[0, 0, :]  # First world, distances
 
         print("\n=== DEPTH ANALYSIS ===")
         print(f"Depth range: [{depth_data.min():.3f}, {depth_data.max():.3f}]")
@@ -223,8 +223,8 @@ class TestRaycastLidar:
         else:
             lidar_array = lidar_tensor.to_numpy()
 
-        # Extract depth data for first world
-        depth_readings = lidar_array[0, 0, :, 0]  # 128 depth values
+        # Extract distance data for first world
+        depth_readings = lidar_array[0, 0, :]  # 128 distance values
 
         print("\n=== LIDAR READINGS SUMMARY ===")
         print(f"Depth range: [{depth_readings.min():.3f}, {depth_readings.max():.3f}]")
@@ -363,7 +363,7 @@ class TestRaycastLidar:
         else:
             lidar_array = lidar_tensor.to_numpy()
 
-        depth_readings = lidar_array[0, 0, :, 0]
+        depth_readings = lidar_array[0, 0, :]
 
         print("\n=== ANGULAR COVERAGE ANALYSIS ===")
 
@@ -412,8 +412,8 @@ class TestRaycastLidar:
         else:
             lidar_array = lidar_tensor.to_numpy()
 
-        # Test all worlds - depth only now
-        all_depths = lidar_array[:, :, :, 0].flatten()
+        # Test all worlds - distance values only now
+        all_depths = lidar_array.flatten()
 
         print("\n=== NORMALIZATION VALIDATION ===")
 

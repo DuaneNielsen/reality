@@ -121,7 +121,7 @@ arg_parser.add_argument("--profile-report", action="store_true")
 
 args = arg_parser.parse_args()
 
-# Setup training environment with 128-beam lidar sensor
+# Setup training environment with 128-beam lidar sensor (distance values only)
 exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
 
 sim_interface = setup_lidar_training_environment(
