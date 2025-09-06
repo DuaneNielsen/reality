@@ -29,6 +29,7 @@ class TrainConfig:
     normalize_values: bool = True
     value_normalizer_decay: float = 0.99999
     episode_length_ema_decay: float = 0.95
+    episode_reward_ema_decay: float = 0.95
     mixed_precision: bool = False
 
     def __repr__(self):

@@ -161,6 +161,7 @@ class LearningCallback:
                 "returns/stddev": ppo.returns_stddev,
                 # Episode tracking
                 "episodes/length_ema": update_results.episode_length_ema,
+                "episodes/reward_ema": update_results.episode_reward_ema,
                 # Performance metrics
                 "performance/fps": fps,
                 "performance/avg_fps": self.mean_fps,
@@ -205,6 +206,7 @@ class LearningCallback:
         )
         print(f"    Returns          => Avg: {ppo.returns_mean:.3f}, σ: {ppo.returns_stddev:.3f}")
         print(f"    Episode Length   => EMA: {update_results.episode_length_ema:.1f} steps")
+        print(f"    Episode Reward   => EMA: {update_results.episode_reward_ema:.3f}")
 
         # Only show value normalizer stats if normalization is enabled
         value_normalization_enabled = self.training_config.get("value_normalization_enabled", True)

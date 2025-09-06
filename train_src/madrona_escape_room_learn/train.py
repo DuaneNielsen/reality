@@ -47,6 +47,7 @@ class UpdateResult:
     bootstrap_values: torch.Tensor
     ppo_stats: PPOStats
     episode_length_ema: float
+    episode_reward_ema: float
 
 
 def _mb_slice(tensor, inds):
@@ -294,6 +295,7 @@ def _update_iter(
         bootstrap_values=rollouts.bootstrap_values,
         ppo_stats=aggregate_stats,
         episode_length_ema=rollout_mgr.episode_length_ema.get_ema(),
+        episode_reward_ema=rollout_mgr.episode_reward_ema.get_ema(),
     )
 
 
@@ -378,6 +380,7 @@ def train(dev, sim, cfg, actor_critic, update_cb, restore_ckpt=None):
         amp,
         actor_critic.recurrent_cfg,
         cfg.episode_length_ema_decay,
+        cfg.episode_reward_ema_decay,
     )
 
     if dev.type == "cuda":
