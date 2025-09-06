@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import torch
 from madrona_escape_room_learn import LearningState
+from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
 
 import madrona_escape_room
@@ -28,25 +29,21 @@ arg_parser.add_argument("--gpu-sim", action="store_true")
 
 args = arg_parser.parse_args()
 
-sim = madrona_escape_room.SimManager(
-    exec_mode=madrona_escape_room.madrona.ExecMode.CUDA
-    if args.gpu_sim
-    else madrona_escape_room.madrona.ExecMode.CPU,
-    gpu_id=args.gpu_id,
-    num_worlds=args.num_worlds,
-    rand_seed=5,
-    auto_reset=True,
+exec_mode = madrona_escape_room.ExecMode.CUDA if args.gpu_sim else madrona_escape_room.ExecMode.CPU
+
+sim_interface = setup_lidar_training_environment(
+    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=5
 )
 
-obs, num_obs_features = setup_obs(sim)
+obs, num_obs_features = setup_obs(sim_interface.obs)
 policy = make_policy(num_obs_features, args.num_channels, args.separate_value)
 
 weights = LearningState.load_policy_weights(args.ckpt_path)
 policy.load_state_dict(weights)
 
-actions = sim.action_tensor().to_torch()
-dones = sim.done_tensor().to_torch()
-rewards = sim.reward_tensor().to_torch()
+actions = sim_interface.actions
+dones = sim_interface.dones
+rewards = sim_interface.rewards
 
 # Flatten N, A, ... tensors to N * A, ... for rewards and dones (still per-agent)
 # Actions are now per-world, so no flattening needed
@@ -82,10 +79,9 @@ for i in range(args.num_steps):
         actions.numpy().tofile(action_log)
 
     print()
-    print("Self:", obs[0])
-    print("Partners:", obs[1])
-    print("Room Entities:", obs[2])
-    print("Lidar:", obs[3])
+    print("Progress:", obs[0])
+    print("Compass:", obs[1])
+    print("Lidar:", obs[2])
 
     print("Move Amount Probs")
     print(" ", np.array_str(probs[0][0].cpu().numpy(), precision=2, suppress_small=True))
@@ -103,7 +99,7 @@ for i in range(args.num_steps):
 
     print("Actions:\n", actions.cpu().numpy())
     print("Values:\n", values.cpu().numpy())
-    sim.step()
+    sim_interface.step()
     print("Rewards:\n", rewards)
 
 if action_log:
