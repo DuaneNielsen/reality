@@ -118,29 +118,12 @@ def _compute_advantages(
     next_advantage = 0.0
     next_values = rollouts.bootstrap_values
 
-    # TRACE: Initial bootstrap values analysis
-    print(
-        f"TRACE: Bootstrap values - Min: {next_values.min().item():.3f}, "
-        f"Max: {next_values.max().item():.3f}, Mean: {next_values.mean().item():.3f}"
-    )
-
     for i in reversed(range(cfg.steps_per_update)):
         cur_dones = seq_dones[i].to(dtype=amp.compute_dtype)
         cur_rewards = seq_rewards[i].to(dtype=amp.compute_dtype)
         cur_values = seq_values[i].to(dtype=amp.compute_dtype)
 
         next_valid = 1.0 - cur_dones
-
-        # TRACE: Every 10 steps, show terminal state info
-        if i % 10 == 0:
-            num_terminals = cur_dones.sum().item()
-            total_episodes = cur_dones.numel()
-            print(
-                f"TRACE: Step {i:2d} - Terminals: {num_terminals:3.0f}/{total_episodes} "
-                f"({num_terminals/total_episodes*100:5.1f}%), "
-                + f"Rewards: {cur_rewards.min().item():.3f}→{cur_rewards.max().item():.3f}, "
-                + f"Values: {cur_values.min().item():.3f}→{cur_values.max().item():.3f}"
-            )
 
         # delta_t = r_t + gamma * V(s_{t+1}) - V(s_t)
         td_err = cur_rewards + cfg.gamma * next_valid * next_values - cur_values
