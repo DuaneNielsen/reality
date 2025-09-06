@@ -15,21 +15,71 @@ from policy import make_policy, setup_obs
 import madrona_escape_room
 from madrona_escape_room.generated_constants import ExecMode
 
+# Optional wandb import
+try:
+    import wandb
+
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
+
 torch.manual_seed(0)
 
 
 class LearningCallback:
-    def __init__(self, ckpt_dir, profile_report):
+    def __init__(self, ckpt_dir, profile_report, training_config=None):
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
+
+        # Initialize wandb if available
+        self.use_wandb = WANDB_AVAILABLE
+        if self.use_wandb:
+            try:
+                # Initialize wandb with hardcoded project name
+                wandb.init(
+                    project="madrona-escape-room",
+                    config=training_config or {},
+                    tags=["lidar-training", "default_16x16_room"],
+                )
+                # Update checkpoint directory to use wandb run directory
+                self.ckpt_dir = Path(wandb.run.dir) / "checkpoints"
+                self.ckpt_dir.mkdir(parents=True, exist_ok=True)
+                print(f"✓ wandb initialized - checkpoints will be saved to: {self.ckpt_dir}")
+            except Exception as e:
+                print(f"Warning: wandb initialization failed: {e}")
+                self.use_wandb = False
+        else:
+            print("Warning: wandb not available - metrics will only be printed to console")
 
     def __call__(self, update_idx, update_time, update_results, learning_state):
         update_id = update_idx + 1
         fps = args.num_worlds * args.steps_per_update / update_time
         self.mean_fps += (fps - self.mean_fps) / update_id
 
+        # Always calculate performance metrics for wandb
+        reserved_gb = (
+            torch.cuda.memory_reserved() / 1024 / 1024 / 1024 if torch.cuda.is_available() else 0
+        )
+        current_gb = (
+            torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024
+            if torch.cuda.is_available()
+            else 0
+        )
+
         if update_id != 1 and update_id % 10 != 0:
+            # Log performance metrics to wandb even when not printing
+            if self.use_wandb:
+                wandb.log(
+                    {
+                        "performance/fps": fps,
+                        "performance/avg_fps": self.mean_fps,
+                        "performance/update_time": update_time,
+                        "performance/memory_reserved_gb": reserved_gb,
+                        "performance/memory_current_gb": current_gb,
+                    },
+                    step=update_id,
+                )
             return
 
         ppo = update_results.ppo_stats
@@ -54,6 +104,48 @@ class LearningCallback:
             vnorm_mu = learning_state.value_normalizer.mu.cpu().item()
             vnorm_sigma = learning_state.value_normalizer.sigma.cpu().item()
 
+        # Log to wandb
+        if self.use_wandb:
+            wandb.log(
+                {
+                    # PPO losses
+                    "losses/total_loss": ppo.loss,
+                    "losses/action_loss": ppo.action_loss,
+                    "losses/value_loss": ppo.value_loss,
+                    "losses/entropy_loss": ppo.entropy_loss,
+                    # Rewards
+                    "rewards/mean": reward_mean,
+                    "rewards/min": reward_min,
+                    "rewards/max": reward_max,
+                    # Values
+                    "values/mean": value_mean,
+                    "values/min": value_min,
+                    "values/max": value_max,
+                    # Advantages
+                    "advantages/mean": advantage_mean,
+                    "advantages/min": advantage_min,
+                    "advantages/max": advantage_max,
+                    # Bootstrap values
+                    "bootstrap_values/mean": bootstrap_value_mean,
+                    "bootstrap_values/min": bootstrap_value_min,
+                    "bootstrap_values/max": bootstrap_value_max,
+                    # Returns
+                    "returns/mean": ppo.returns_mean,
+                    "returns/stddev": ppo.returns_stddev,
+                    # Value normalizer
+                    "value_normalizer/mu": vnorm_mu,
+                    "value_normalizer/sigma": vnorm_sigma,
+                    # Performance metrics
+                    "performance/fps": fps,
+                    "performance/avg_fps": self.mean_fps,
+                    "performance/update_time": update_time,
+                    "performance/memory_reserved_gb": reserved_gb,
+                    "performance/memory_current_gb": current_gb,
+                },
+                step=update_id,
+            )
+
+        # Keep original console output
         print(f"\nUpdate: {update_id}")
         print(
             f"    Loss: {ppo.loss: .3e}, A: {ppo.action_loss: .3e}, "
@@ -84,8 +176,6 @@ class LearningCallback:
             print(
                 f"    FPS: {fps:.0f}, Update Time: {update_time:.2f}, Avg FPS: {self.mean_fps:.0f}"
             )
-            reserved_gb = torch.cuda.memory_reserved() / 1024 / 1024 / 1024
-            current_gb = torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024
             print(
                 f"    PyTorch Memory Usage: {reserved_gb:.3f}GB (Reserved), "
                 f"{current_gb:.3f}GB (Current)"
@@ -94,6 +184,14 @@ class LearningCallback:
 
         if update_id % 100 == 0:
             learning_state.save(update_idx, self.ckpt_dir / f"{update_id}.pth")
+
+    def finish(self):
+        """Clean up wandb if it was initialized"""
+        if self.use_wandb:
+            try:
+                wandb.finish()
+            except Exception as e:
+                print(f"Warning: wandb cleanup failed: {e}")
 
 
 arg_parser = argparse.ArgumentParser()
@@ -130,7 +228,28 @@ sim_interface = setup_lidar_training_environment(
 
 ckpt_dir = Path(args.ckpt_dir)
 
-learning_cb = LearningCallback(ckpt_dir, args.profile_report)
+# Prepare training configuration for wandb logging
+training_config = {
+    "num_worlds": args.num_worlds,
+    "num_updates": args.num_updates,
+    "steps_per_update": args.steps_per_update,
+    "num_bptt_chunks": args.num_bptt_chunks,
+    "learning_rate": args.lr,
+    "gamma": args.gamma,
+    "entropy_loss_coef": args.entropy_loss_coef,
+    "value_loss_coef": args.value_loss_coef,
+    "clip_value_loss": args.clip_value_loss,
+    "num_channels": args.num_channels,
+    "separate_value": args.separate_value,
+    "fp16": args.fp16,
+    "gpu_sim": args.gpu_sim,
+    "exec_mode": "CUDA" if args.gpu_sim else "CPU",
+    "level_name": "default_16x16_room",  # Known level name
+    "sensor_type": "lidar_128_beam",
+    "random_seed": 5,  # From sim_interface setup
+}
+
+learning_cb = LearningCallback(ckpt_dir, args.profile_report, training_config)
 
 if torch.cuda.is_available():
     dev = torch.device(f"cuda:{args.gpu_id}")
@@ -149,29 +268,33 @@ else:
     restore_ckpt = None
 
 # Use the sim_interface directly - it already has everything configured!
-train(
-    dev,
-    sim_interface,
-    TrainConfig(
-        num_updates=args.num_updates,
-        steps_per_update=args.steps_per_update,
-        num_bptt_chunks=args.num_bptt_chunks,
-        lr=args.lr,
-        gamma=args.gamma,
-        gae_lambda=0.95,
-        ppo=PPOConfig(
-            num_mini_batches=1,
-            clip_coef=0.2,
-            value_loss_coef=args.value_loss_coef,
-            entropy_coef=args.entropy_loss_coef,
-            max_grad_norm=0.5,
-            num_epochs=2,
-            clip_value_loss=args.clip_value_loss,
+try:
+    train(
+        dev,
+        sim_interface,
+        TrainConfig(
+            num_updates=args.num_updates,
+            steps_per_update=args.steps_per_update,
+            num_bptt_chunks=args.num_bptt_chunks,
+            lr=args.lr,
+            gamma=args.gamma,
+            gae_lambda=0.95,
+            ppo=PPOConfig(
+                num_mini_batches=1,
+                clip_coef=0.2,
+                value_loss_coef=args.value_loss_coef,
+                entropy_coef=args.entropy_loss_coef,
+                max_grad_norm=0.5,
+                num_epochs=2,
+                clip_value_loss=args.clip_value_loss,
+            ),
+            value_normalizer_decay=0.999,
+            mixed_precision=args.fp16,
         ),
-        value_normalizer_decay=0.999,
-        mixed_precision=args.fp16,
-    ),
-    policy,
-    learning_cb,
-    restore_ckpt,
-)
+        policy,
+        learning_cb,
+        restore_ckpt,
+    )
+finally:
+    # Clean up wandb
+    learning_cb.finish()
