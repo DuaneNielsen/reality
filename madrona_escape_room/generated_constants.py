@@ -169,8 +169,6 @@ class consts:
     numPhysicsSubsteps = 4.0
     numRooms = 1
     numTurnBuckets = 5
-    rewardPerDist = 0.05
-    slackReward = -0.005
     wallWidth = 1.0
     worldLength = 40.0
     worldWidth = 20.0

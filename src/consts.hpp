@@ -20,11 +20,6 @@ inline constexpr float worldWidth = 20.f;
 inline constexpr float wallWidth = 1.f;
 inline constexpr float agentRadius = 1.f;
 
-// Each unit of distance forward (+ y axis) rewards the agents by this amount
-inline constexpr float rewardPerDist = 0.05f;
-// Each step that the agents don't make additional progress they get a small
-// penalty reward
-inline constexpr float slackReward = -0.005f;
 
 // Steps per episode
 inline constexpr int32_t episodeLen = 200;

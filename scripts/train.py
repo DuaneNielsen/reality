@@ -31,6 +31,7 @@ class LearningCallback:
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
+        self.training_config = training_config or {}
 
         # Initialize wandb
         self.use_wandb = False
@@ -119,53 +120,59 @@ class LearningCallback:
             action_entropy_min = actual_entropy  # Single aggregate value
             action_entropy_max = actual_entropy  # Single aggregate value
 
-            vnorm_mu = learning_state.value_normalizer.mu.cpu().item()
-            vnorm_sigma = learning_state.value_normalizer.sigma.cpu().item()
+            # Only extract normalizer stats if normalization is enabled
+            value_normalization_enabled = self.training_config.get(
+                "value_normalization_enabled", True
+            )
+            if value_normalization_enabled:
+                vnorm_mu = learning_state.value_normalizer.mu.cpu().item()
+                vnorm_sigma = learning_state.value_normalizer.sigma.cpu().item()
 
         # Log to wandb
         if self.use_wandb:
-            wandb.log(
-                {
-                    # PPO losses
-                    "losses/total_loss": ppo.loss,
-                    "losses/action_loss": ppo.action_loss,
-                    "losses/value_loss": ppo.value_loss,
-                    "losses/entropy_loss": ppo.entropy_loss,
-                    # Rewards
-                    "rewards/mean": reward_mean,
-                    "rewards/min": reward_min,
-                    "rewards/max": reward_max,
-                    # Values
-                    "values/mean": value_mean,
-                    "values/min": value_min,
-                    "values/max": value_max,
-                    # Advantages
-                    "advantages/mean": advantage_mean,
-                    "advantages/min": advantage_min,
-                    "advantages/max": advantage_max,
-                    # Bootstrap values
-                    "bootstrap_values/mean": bootstrap_value_mean,
-                    "bootstrap_values/min": bootstrap_value_min,
-                    "bootstrap_values/max": bootstrap_value_max,
-                    # Action entropy (exploration measure)
-                    "action_entropy/mean": action_entropy_mean,
-                    "action_entropy/min": action_entropy_min,
-                    "action_entropy/max": action_entropy_max,
-                    # Returns
-                    "returns/mean": ppo.returns_mean,
-                    "returns/stddev": ppo.returns_stddev,
-                    # Value normalizer
-                    "value_normalizer/mu": vnorm_mu,
-                    "value_normalizer/sigma": vnorm_sigma,
-                    # Performance metrics
-                    "performance/fps": fps,
-                    "performance/avg_fps": self.mean_fps,
-                    "performance/update_time": update_time,
-                    "performance/memory_reserved_gb": reserved_gb,
-                    "performance/memory_current_gb": current_gb,
-                },
-                step=update_id,
-            )
+            wandb_data = {
+                # PPO losses
+                "losses/total_loss": ppo.loss,
+                "losses/action_loss": ppo.action_loss,
+                "losses/value_loss": ppo.value_loss,
+                "losses/entropy_loss": ppo.entropy_loss,
+                # Rewards
+                "rewards/mean": reward_mean,
+                "rewards/min": reward_min,
+                "rewards/max": reward_max,
+                # Values
+                "values/mean": value_mean,
+                "values/min": value_min,
+                "values/max": value_max,
+                # Advantages
+                "advantages/mean": advantage_mean,
+                "advantages/min": advantage_min,
+                "advantages/max": advantage_max,
+                # Bootstrap values
+                "bootstrap_values/mean": bootstrap_value_mean,
+                "bootstrap_values/min": bootstrap_value_min,
+                "bootstrap_values/max": bootstrap_value_max,
+                # Action entropy (exploration measure)
+                "action_entropy/mean": action_entropy_mean,
+                "action_entropy/min": action_entropy_min,
+                "action_entropy/max": action_entropy_max,
+                # Returns
+                "returns/mean": ppo.returns_mean,
+                "returns/stddev": ppo.returns_stddev,
+                # Performance metrics
+                "performance/fps": fps,
+                "performance/avg_fps": self.mean_fps,
+                "performance/update_time": update_time,
+                "performance/memory_reserved_gb": reserved_gb,
+                "performance/memory_current_gb": current_gb,
+            }
+
+            # Only log value normalizer stats if normalization is enabled
+            if value_normalization_enabled:
+                wandb_data["value_normalizer/mu"] = vnorm_mu
+                wandb_data["value_normalizer/sigma"] = vnorm_sigma
+
+            wandb.log(wandb_data, step=update_id)
 
         # Keep original console output
         print(f"\nUpdate: {update_id}")
@@ -195,7 +202,13 @@ class LearningCallback:
             f"Min: {action_entropy_min:.3f}, Max: {action_entropy_max:.3f}"
         )
         print(f"    Returns          => Avg: {ppo.returns_mean:.3f}, σ: {ppo.returns_stddev:.3f}")
-        print(f"    Value Normalizer => Mean: {vnorm_mu:.3f}, σ: {vnorm_sigma:.3f}")
+
+        # Only show value normalizer stats if normalization is enabled
+        value_normalization_enabled = self.training_config.get("value_normalization_enabled", True)
+        if value_normalization_enabled:
+            print(f"    Value Normalizer => Mean: {vnorm_mu:.3f}, σ: {vnorm_sigma:.3f}")
+        else:
+            print("    Value Normalizer => DISABLED")
 
         if self.profile_report:
             print()
@@ -242,6 +255,11 @@ arg_parser.add_argument("--fp16", action="store_true")
 
 arg_parser.add_argument("--gpu-sim", action="store_true")
 arg_parser.add_argument("--profile-report", action="store_true")
+arg_parser.add_argument(
+    "--disable-value-normalization",
+    action="store_true",
+    help="Disable value normalization during training",
+)
 
 args = arg_parser.parse_args()
 
@@ -269,6 +287,7 @@ training_config = {
     "separate_value": args.separate_value,
     "fp16": args.fp16,
     "gpu_sim": args.gpu_sim,
+    "value_normalization_enabled": not args.disable_value_normalization,
     "exec_mode": "CUDA" if args.gpu_sim else "CPU",
     "level_name": "default_16x16_room",  # Known level name
     "sensor_type": "lidar_128_beam",
@@ -313,6 +332,7 @@ try:
                 num_epochs=2,
                 clip_value_loss=args.clip_value_loss,
             ),
+            normalize_values=not args.disable_value_normalization,
             value_normalizer_decay=0.999,
             mixed_precision=args.fp16,
         ),

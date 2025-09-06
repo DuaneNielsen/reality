@@ -182,6 +182,16 @@ class RolloutManager:
                     cur_dones_store = self.dones[bptt_chunk, slot]
                     cur_dones_store.copy_(sim.dones, non_blocking=True)
 
+                    # TRACE: Monitor episode terminations during rollout
+                    if bptt_chunk == 0 and slot % 10 == 0:  # Every 10 steps in first chunk
+                        num_done = cur_dones_store.sum().item()
+                        total_worlds = cur_dones_store.numel()
+                        if num_done > 0:
+                            print(
+                                f"TRACE: Rollout step {slot:2d} - "
+                                f"{num_done}/{total_worlds} episodes terminated"
+                            )
+
                     for rnn_states in rnn_states_cur_in:
                         rnn_states.masked_fill_(cur_dones_store, 0)
 
@@ -202,6 +212,17 @@ class RolloutManager:
         with amp.enable(), profile("Bootstrap Values"):
             actor_critic.fwd_critic(self.bootstrap_values, None, self.rnn_end_states, *final_obs)
             self.bootstrap_values = value_normalizer.invert(amp, self.bootstrap_values)
+
+            # TRACE: Check final done states when computing bootstrap values
+            final_dones = self.dones[-1, -1]  # Last chunk, last step
+            num_final_terminals = final_dones.sum().item()
+            total_final = final_dones.numel()
+            print(
+                f"TRACE: Bootstrap - Final step terminals: {num_final_terminals}/{total_final} "
+                + f"({num_final_terminals/total_final*100:5.1f}%), Bootstrap vals: "
+                + f"{self.bootstrap_values.min().item():.3f}→"
+                + f"{self.bootstrap_values.max().item():.3f}"
+            )
 
         # Right now this just returns the rollout manager's pointers,
         # but in the future could return only one set of buffers from a
