@@ -153,12 +153,16 @@ static inline void initWorld(Engine &ctx)
 inline void resetSystem(Engine &ctx, WorldReset &reset)
 {
     int32_t should_reset = reset.reset;
-    if (ctx.data().autoReset) {
+    if (ctx.data().autoReset && should_reset == 0) {
+        // Check if any agent is done and schedule reset for next step
         for (CountT i = 0; i < consts::numAgents; i++) {
             Entity agent = ctx.data().agents[i];
             Done done = ctx.get<Done>(agent);
             if (done.v) {
-                should_reset = 1;
+                // Set reset flag for next step instead of immediate reset
+                // This allows Python to observe the done=1 state and rewards
+                reset.reset = 1;
+                return;  // Don't reset this step, let it be processed next step
             }
         }
     }
