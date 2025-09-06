@@ -20,6 +20,7 @@ struct TrajectoryPoint {
     float rotation;  // in degrees
     int32_t compass;  // compass bucket index (0-127)
     float progress;
+    float reward;
     
     bool operator==(const TrajectoryPoint& other) const {
         const float epsilon = 0.001f;
@@ -31,7 +32,8 @@ struct TrajectoryPoint {
                std::abs(z - other.z) < epsilon &&
                std::abs(rotation - other.rotation) < epsilon &&
                compass == other.compass &&
-               std::abs(progress - other.progress) < epsilon;
+               std::abs(progress - other.progress) < epsilon &&
+               std::abs(reward - other.reward) < epsilon;
     }
 };
 
@@ -51,12 +53,21 @@ public:
             uint32_t remaining = 0;
             int32_t done = 0;
             
-            // Try new format with compass first
+            // Try newest format with compass and reward first
             if (sscanf(line.c_str(), 
+                      "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° compass=%d progress=%f reward=%f done=%d",
+                      &point.step, &remaining, &point.world, &point.agent,
+                      &point.x, &point.y, &point.z,
+                      &point.rotation, &point.compass, &point.progress, &point.reward, &done) == 12) {
+                points.push_back(point);
+            }
+            // Try format with compass but no reward (backwards compatibility)
+            else if (sscanf(line.c_str(), 
                       "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° compass=%d progress=%f done=%d",
                       &point.step, &remaining, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.compass, &point.progress, &done) == 11) {
+                point.reward = 0.0f;  // Default reward value for old format
                 points.push_back(point);
             }
             // Try format without compass
@@ -66,6 +77,7 @@ public:
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.progress, &done) == 10) {
                 point.compass = -1;  // Default compass value for old format
+                point.reward = 0.0f;  // Default reward value for old format
                 points.push_back(point);
             }
             // Then try old format
@@ -75,6 +87,7 @@ public:
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.progress) == 8) {
                 point.compass = -1;  // Default compass value for old format
+                point.reward = 0.0f;  // Default reward value for old format
                 points.push_back(point);
             }
         }

@@ -965,6 +965,7 @@ void Manager::logCurrentTrajectoryState()
     auto self_obs = selfObservationTensor();
     auto compass = compassTensor();
     auto progress = progressTensor();
+    auto reward = rewardTensor();
     auto done = doneTensor();
     auto steps_taken = stepsTakenTensor();
     
@@ -975,6 +976,7 @@ void Manager::logCurrentTrajectoryState()
     const SelfObservation* obs_data;
     const float* compass_data;
     const float* progress_data;
+    const float* reward_data;
     const int32_t* done_data;
     const uint32_t* steps_taken_data;
     
@@ -984,6 +986,7 @@ void Manager::logCurrentTrajectoryState()
         static SelfObservation host_obs;
         static float host_compass[128];
         static float host_progress;
+        static float host_reward;
         static int32_t host_done;
         static uint32_t host_steps_taken;
         
@@ -999,6 +1002,10 @@ void Manager::logCurrentTrajectoryState()
                   ((const float*)progress.devicePtr()) + idx,
                   sizeof(float),
                   cudaMemcpyDeviceToHost);
+        cudaMemcpy(&host_reward,
+                  ((const float*)reward.devicePtr()) + idx,
+                  sizeof(float),
+                  cudaMemcpyDeviceToHost);
         cudaMemcpy(&host_done,
                   ((const int32_t*)done.devicePtr()) + idx,
                   sizeof(int32_t),
@@ -1011,6 +1018,7 @@ void Manager::logCurrentTrajectoryState()
         obs_data = &host_obs;
         compass_data = host_compass;
         progress_data = &host_progress;
+        reward_data = &host_reward;
         done_data = &host_done;
         steps_taken_data = &host_steps_taken;
 #endif
@@ -1019,6 +1027,7 @@ void Manager::logCurrentTrajectoryState()
         obs_data = ((const SelfObservation*)self_obs.devicePtr()) + idx;
         compass_data = ((const float*)compass.devicePtr()) + (idx * 128);
         progress_data = ((const float*)progress.devicePtr()) + idx;
+        reward_data = ((const float*)reward.devicePtr()) + idx;
         done_data = ((const int32_t*)done.devicePtr()) + idx;
         steps_taken_data = ((const uint32_t*)steps_taken.devicePtr()) + idx;
     }
@@ -1036,7 +1045,7 @@ void Manager::logCurrentTrajectoryState()
     FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
     uint32_t remaining_display = (*steps_taken_data >= madEscape::consts::episodeLen) ? 0 : (madEscape::consts::episodeLen - *steps_taken_data);
     
-    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f done=%d\n",
+    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f reward=%.3f done=%d\n",
             *steps_taken_data,
             remaining_display,
             impl_->trackWorldIdx,
@@ -1047,6 +1056,7 @@ void Manager::logCurrentTrajectoryState()
             obs_data->theta * madEscape::consts::math::degreesInHalfCircle / M_PI,
             compass_index,
             *progress_data,
+            *reward_data,
             *done_data);
     fflush(output);
 }
