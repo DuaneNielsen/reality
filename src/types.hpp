@@ -37,6 +37,13 @@ namespace madEscape {
     };
 
     // [GAME_SPECIFIC]
+    // LidarVisControl is a per-world singleton component that controls
+    // whether lidar ray visualization is enabled
+    struct LidarVisControl {
+        int32_t enabled;  // 0=disabled, 1=enabled
+    };
+
+    // [GAME_SPECIFIC]
     // Discrete action component for agent movement.
     // Movement is EGOCENTRIC - all directions are relative to agent's current facing.
     // This implements standard WASD+QE game controls.

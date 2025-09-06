@@ -115,8 +115,9 @@ static inline Optional<render::RenderManager> initRenderManager(
 struct Manager::Impl {
     Config cfg;
     PhysicsLoader physicsLoader;
-    WorldReset *worldResetBuffer;    // [REQUIRED_INTERFACE] Reset control buffer
-    Action *agentActionsBuffer;      // [REQUIRED_INTERFACE] Agent action buffer
+    WorldReset *worldResetBuffer;        // [REQUIRED_INTERFACE] Reset control buffer
+    LidarVisControl *lidarVisBuffer;     // [GAME_SPECIFIC] Lidar visualization control buffer
+    Action *agentActionsBuffer;          // [REQUIRED_INTERFACE] Agent action buffer
     Optional<RenderGPUState> renderGPUState;
     Optional<render::RenderManager> renderMgr;
     
@@ -139,12 +140,14 @@ struct Manager::Impl {
     inline Impl(const Manager::Config &mgr_cfg,
                 PhysicsLoader &&phys_loader,
                 WorldReset *reset_buffer,
+                LidarVisControl *lidar_vis_buffer,
                 Action *action_buffer,
                 Optional<RenderGPUState> &&render_gpu_state,
                 Optional<render::RenderManager> &&render_mgr)
         : cfg(mgr_cfg),
           physicsLoader(std::move(phys_loader)),
           worldResetBuffer(reset_buffer),
+          lidarVisBuffer(lidar_vis_buffer),
           agentActionsBuffer(action_buffer),
           renderGPUState(std::move(render_gpu_state)),
           renderMgr(std::move(render_mgr))
@@ -171,12 +174,13 @@ struct Manager::CPUImpl final : Manager::Impl {
     inline CPUImpl(const Manager::Config &mgr_cfg,
                    PhysicsLoader &&phys_loader,
                    WorldReset *reset_buffer,
+                   LidarVisControl *lidar_vis_buffer,
                    Action *action_buffer,
                    Optional<RenderGPUState> &&render_gpu_state,
                    Optional<render::RenderManager> &&render_mgr,
                    TaskGraphT &&cpu_exec)
         : Impl(mgr_cfg, std::move(phys_loader),
-               reset_buffer, action_buffer,
+               reset_buffer, lidar_vis_buffer, action_buffer,
                std::move(render_gpu_state), std::move(render_mgr)),
           cpuExec(std::move(cpu_exec))
     {}
@@ -206,12 +210,13 @@ struct Manager::CUDAImpl final : Manager::Impl {
     inline CUDAImpl(const Manager::Config &mgr_cfg,
                    PhysicsLoader &&phys_loader,
                    WorldReset *reset_buffer,
+                   LidarVisControl *lidar_vis_buffer,
                    Action *action_buffer,
                    Optional<RenderGPUState> &&render_gpu_state,
                    Optional<render::RenderManager> &&render_mgr,
                    MWCudaExecutor &&gpu_exec)
         : Impl(mgr_cfg, std::move(phys_loader),
-               reset_buffer, action_buffer,
+               reset_buffer, lidar_vis_buffer, action_buffer,
                std::move(render_gpu_state), std::move(render_mgr)),
           gpuExec(std::move(gpu_exec)),
           stepGraph(gpuExec.buildLaunchGraphAllTaskGraphs())
@@ -554,6 +559,9 @@ Manager::Impl * Manager::Impl::init(
         WorldReset *world_reset_buffer = 
             (WorldReset *)gpu_exec.getExported((uint32_t)ExportID::Reset);
 
+        LidarVisControl *lidar_vis_buffer = 
+            (LidarVisControl *)gpu_exec.getExported((uint32_t)ExportID::LidarVisControl);
+
         Action *agent_actions_buffer = 
             (Action *)gpu_exec.getExported((uint32_t)ExportID::Action);
 
@@ -561,6 +569,7 @@ Manager::Impl * Manager::Impl::init(
             mgr_cfg,
             std::move(phys_loader),
             world_reset_buffer,
+            lidar_vis_buffer,
             agent_actions_buffer,
             std::move(render_gpu_state),
             std::move(render_mgr),
@@ -621,6 +630,9 @@ Manager::Impl * Manager::Impl::init(
         WorldReset *world_reset_buffer = 
             (WorldReset *)cpu_exec.getExported((uint32_t)ExportID::Reset);
 
+        LidarVisControl *lidar_vis_buffer = 
+            (LidarVisControl *)cpu_exec.getExported((uint32_t)ExportID::LidarVisControl);
+
         Action *agent_actions_buffer = 
             (Action *)cpu_exec.getExported((uint32_t)ExportID::Action);
 
@@ -628,6 +640,7 @@ Manager::Impl * Manager::Impl::init(
             mgr_cfg,
             std::move(phys_loader),
             world_reset_buffer,
+            lidar_vis_buffer,
             agent_actions_buffer,
             std::move(render_gpu_state),
             std::move(render_mgr),
@@ -902,6 +915,41 @@ void Manager::setAction(int32_t world_idx,
     } else {
         *action_ptr = action;
     }
+}
+
+// [GAME_SPECIFIC] Toggle lidar visualization for a specific world
+void Manager::toggleLidarVisualization(uint32_t world_idx)
+{
+    // Get current state from the buffer
+    auto *lidar_vis_ptr = impl_->lidarVisBuffer + world_idx;
+    
+    int32_t current_state;
+    if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+        cudaMemcpy(&current_state, lidar_vis_ptr, sizeof(LidarVisControl),
+                   cudaMemcpyDeviceToHost);
+#endif
+    } else {
+        current_state = lidar_vis_ptr->enabled;
+    }
+    
+    // Toggle the state
+    LidarVisControl new_control;
+    new_control.enabled = (current_state == 0) ? 1 : 0;
+    
+    // Write back to buffer
+    if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+        cudaMemcpy(lidar_vis_ptr, &new_control, sizeof(LidarVisControl),
+                   cudaMemcpyHostToDevice);
+#endif
+    } else {
+        *lidar_vis_ptr = new_control;
+    }
+    
+    // Print status message
+    printf("Lidar visualization %s for World %u\n", 
+           (new_control.enabled ? "enabled" : "disabled"), world_idx);
 }
 
 // Helper function to log current trajectory state

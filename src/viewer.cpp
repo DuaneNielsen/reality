@@ -120,6 +120,7 @@ int main(int argc, char *argv[])
         std::cout << "\nKeyboard Controls:\n";
         std::cout << "  R          Reset current world\n";
         std::cout << "  T          Toggle trajectory tracking for current world\n";
+        std::cout << "  L          Toggle lidar ray visualization\n";
         std::cout << "  SPACE      Pause/Resume simulation\n";
         std::cout << "  WASD       Move agent (when in agent view)\n";
         std::cout << "  Q/E        Rotate agent left/right\n";
@@ -421,6 +422,7 @@ int main(int argc, char *argv[])
     std::cout << "\nViewer Controls:\n";
     std::cout << "  R: Reset current world\n";
     std::cout << "  T: Toggle trajectory tracking for current world\n";
+    std::cout << "  L: Toggle lidar ray visualization\n";
     std::cout << "\n";
 
     float camera_move_speed = consts::display::defaultCameraDist;
@@ -474,7 +476,7 @@ int main(int argc, char *argv[])
 
     // Main loop for the viewer
     viewer.loop(
-    [&viewer_core, &printObs](CountT world_idx, const Viewer::UserInput &input)
+    [&viewer_core, &printObs, &mgr](CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
         
@@ -510,19 +512,8 @@ int main(int argc, char *argv[])
         
         // Toggle lidar visualization with 'L' key
         if (input.keyHit(Key::L)) {
-            // Use a static variable to track the state since we can't directly access sim data
-            static bool lidar_viz_enabled = false;
-            lidar_viz_enabled = !lidar_viz_enabled;
-            
-            if (lidar_viz_enabled) {
-                printf("Lidar visualization: ON (feature toggle - requires simulation support)\n");
-            } else {
-                printf("Lidar visualization: OFF\n");
-            }
-            
-            // Note: The actual visualization toggle would need to be implemented
-            // through the simulation's update loop or through a custom action
-            // since we can't directly modify sim data from the viewer
+            // Call the actual toggle method on the manager
+            mgr.toggleLidarVisualization(world_idx);
         }
     },
     [&viewer_core](CountT world_idx, CountT,

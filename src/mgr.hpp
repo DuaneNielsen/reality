@@ -167,6 +167,7 @@ public:
                    int32_t move_amount,
                    int32_t move_angle,
                    int32_t rotate);
+    void toggleLidarVisualization(uint32_t world_idx = 0);
     
     // Trajectory logging for debugging
     void enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std::optional<const char*> filename = std::nullopt);

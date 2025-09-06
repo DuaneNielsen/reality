@@ -57,6 +57,9 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [REQUIRED_INTERFACE] Reset singleton - every episodic env needs this
     registry.registerSingleton<WorldReset>();
     
+    // [GAME_SPECIFIC] Lidar visualization control singleton
+    registry.registerSingleton<LidarVisControl>();
+    
     // [GAME_SPECIFIC] Level management singleton
     registry.registerSingleton<LevelState>();
     
@@ -72,6 +75,10 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [REQUIRED_INTERFACE] Export reset control
     registry.exportSingleton<WorldReset>(
         (uint32_t)ExportID::Reset);
+    
+    // [GAME_SPECIFIC] Export lidar visualization control
+    registry.exportSingleton<LidarVisControl>(
+        (uint32_t)ExportID::LidarVisControl);
     
     // [BOILERPLATE] Export core RL components
     registry.exportColumn<Agent, Action>(
@@ -334,7 +341,8 @@ inline void lidarSystem(Engine &ctx,
     
     // Get agent index for ray entity lookup (assuming single agent per world for now)
     int32_t agent_idx = 0;
-    bool visualize = ctx.data().showLidarRays && ctx.data().enableRender;
+    const LidarVisControl &lidar_vis_control = ctx.singleton<LidarVisControl>();
+    bool visualize = (lidar_vis_control.enabled != 0) && ctx.data().enableRender;
 
     auto traceRay = [&](int32_t idx) {
         // 120-degree arc in front of agent (-60 to +60 degrees)
@@ -358,21 +366,21 @@ inline void lidarSystem(Engine &ctx,
             lidar.samples[idx] = {
                 .depth = 0.f,
             };
-            
-            // Hide ray if no hit and visualization is enabled
-            if (visualize) {
-                Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
-                ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};  // Hide
-            }
         } else {
             lidar.samples[idx] = {
                 .depth = distObs(hit_t),
             };
+        }
+        
+        // Handle ray visualization - always update ray entity if rendering is enabled
+        if (ctx.data().enableRender) {
+            Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
             
-            // Update visualization entity if enabled
-            if (visualize && (idx % 8 == 0)) {  // Show every 8th ray (16 rays total)
-                Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
-                
+            if (!visualize) {
+                // Hide all rays when visualization is disabled
+                ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};
+            } else if (hit_entity != Entity::none() && (idx % 8 == 0)) {
+                // Show every 8th ray (16 rays total) when visualization is enabled
                 // Position ray to start at origin and extend to hit point
                 // Since cylinder extends ±0.5 * scale.z from center, position at midpoint
                 Vector3 ray_midpoint = ray_origin + (ray_dir * hit_t * 0.5f);
@@ -406,10 +414,9 @@ inline void lidarSystem(Engine &ctx,
                 // X, Y = thin width
                 float ray_length = hit_t / 3.0f;  // Cylinder mesh is 3 units long
                 ctx.get<Scale>(ray_entity) = Diag3x3{0.01f, 0.01f, ray_length};
-            } else if (visualize) {
-                // Hide rays we're not displaying
-                Entity ray_entity = ctx.data().lidarRays[agent_idx][idx];
-                ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};  // Hide
+            } else {
+                // Hide rays we're not displaying (no hit or not every 8th)
+                ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};
             }
         }
     };
@@ -754,6 +761,10 @@ Sim::Sim(Engine &ctx,
     
     // Use per-world compiled level (highest priority), fallback to shared level
     compiled_level = world_init.compiledLevel;
+    
+    // Initialize LidarVisControl singleton (default disabled for performance)
+    LidarVisControl &lidar_vis_control = ctx.singleton<LidarVisControl>();
+    lidar_vis_control.enabled = 0;  // Default to disabled
     
     
     CountT max_total_entities = compiled_level.max_entities;
