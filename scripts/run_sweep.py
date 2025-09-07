@@ -8,8 +8,12 @@ import sys
 def run_sweep():
     # Create the sweep
     print("Creating sweep...")
+    import os
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    sweep_config_path = os.path.join(script_dir, "sweep_config.yaml")
     result = subprocess.run(
-        ["uv", "run", "wandb", "sweep", "sweep_config.yaml"], capture_output=True, text=True
+        ["uv", "run", "wandb", "sweep", sweep_config_path], capture_output=True, text=True
     )
 
     # Combine stdout and stderr for parsing
