@@ -26,8 +26,8 @@ def create_test_recording(mgr, num_steps=5, seed=42):
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
         recording_path = f.name
 
-    # Create recording
-    mgr.start_recording(recording_path, seed=seed)
+    # Create recording (seed parameter removed - uses manager's seed)
+    mgr.start_recording(recording_path)
 
     action_tensor = mgr.action_tensor().to_torch()
 
@@ -190,9 +190,21 @@ def test_replay_multiple_loads(cpu_manager):
     """Test loading multiple replay files"""
     mgr = cpu_manager
 
-    # Create two different recordings
-    recording1 = create_test_recording(mgr, num_steps=3, seed=123)
-    recording2 = create_test_recording(mgr, num_steps=7, seed=456)
+    # Create two different recordings using separate fresh managers
+    # (since recording requires fresh simulation state)
+    import madrona_escape_room as mer
+
+    # Create first recording with a fresh manager
+    temp_mgr1 = mer.SimManager(
+        exec_mode=mer.ExecMode.CPU, gpu_id=0, num_worlds=4, rand_seed=123, auto_reset=True
+    )
+    recording1 = create_test_recording(temp_mgr1, num_steps=3, seed=123)
+
+    # Create second recording with another fresh manager
+    temp_mgr2 = mer.SimManager(
+        exec_mode=mer.ExecMode.CPU, gpu_id=0, num_worlds=4, rand_seed=456, auto_reset=True
+    )
+    recording2 = create_test_recording(temp_mgr2, num_steps=7, seed=456)
 
     try:
         # Load first replay

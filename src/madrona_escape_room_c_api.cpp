@@ -407,17 +407,16 @@ MER_Result mer_disable_trajectory_logging(MER_ManagerHandle handle) {
 
 MER_Result mer_start_recording(
     MER_ManagerHandle handle,
-    const char* filepath,
-    uint32_t seed
+    const char* filepath
 ) {
     if (!handle || !filepath) {
         return MER_ERROR_NULL_POINTER;
     }
     
     Manager* mgr = reinterpret_cast<Manager*>(handle);
-    mgr->startRecording(filepath, seed);
+    Result result = mgr->startRecording(filepath);
     
-    return MER_SUCCESS;
+    return static_cast<MER_Result>(result);
 }
 
 MER_Result mer_stop_recording(MER_ManagerHandle handle) {
@@ -557,6 +556,10 @@ const char* mer_result_to_string(MER_Result result) {
             return "Invalid file";
         case Result::ErrorFileIO:
             return "File I/O error";
+        case Result::ErrorRecordingAlreadyActive:
+            return "Recording already in progress";
+        case Result::ErrorRecordingNotAtStepZero:
+            return "Recording can only be started from step zero of a fresh simulation";
         default:
             return "Unknown error";
     }

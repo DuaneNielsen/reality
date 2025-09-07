@@ -1,0 +1,42 @@
+{
+  "tests": 2,
+  "failures": 0,
+  "disabled": 0,
+  "errors": 0,
+  "timestamp": "2025-09-07T13:35:20Z",
+  "time": "0.013s",
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "ManagerIntegrationTest",
+      "tests": 2,
+      "failures": 0,
+      "disabled": 0,
+      "errors": 0,
+      "timestamp": "2025-09-07T13:35:20Z",
+      "time": "0.013s",
+      "testsuite": [
+        {
+          "name": "ManagerReplayAPI",
+          "file": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/integration\/test_viewer_integration.cpp",
+          "line": 95,
+          "status": "RUN",
+          "result": "COMPLETED",
+          "timestamp": "2025-09-07T13:35:20Z",
+          "time": "0.007s",
+          "classname": "ManagerIntegrationTest"
+        },
+        {
+          "name": "ManagerEmbeddedLevelRecording",
+          "file": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/integration\/test_viewer_integration.cpp",
+          "line": 398,
+          "status": "RUN",
+          "result": "COMPLETED",
+          "timestamp": "2025-09-07T13:35:20Z",
+          "time": "0.006s",
+          "classname": "ManagerIntegrationTest"
+        }
+      ]
+    }
+  ]
+}

@@ -18,7 +18,6 @@ arg_parser.add_argument("--gpu-id", type=int, default=0)
 arg_parser.add_argument("--ckpt-path", type=str, required=True)
 arg_parser.add_argument("--action-dump-path", type=str)
 arg_parser.add_argument("--recording-path", type=str, help="Path to save recording file")
-arg_parser.add_argument("--recording-seed", type=int, default=5, help="Seed for recording")
 
 arg_parser.add_argument("--num-worlds", type=int, required=True)
 arg_parser.add_argument("--num-steps", type=int, required=True)
@@ -34,7 +33,7 @@ args = arg_parser.parse_args()
 exec_mode = madrona_escape_room.ExecMode.CUDA if args.gpu_sim else madrona_escape_room.ExecMode.CPU
 
 sim_interface = setup_lidar_training_environment(
-    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=5
+    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=0
 )
 
 obs, num_obs_features = setup_obs(sim_interface.obs)
@@ -73,7 +72,7 @@ else:
 # Start recording if recording path is provided
 if args.recording_path:
     try:
-        sim_interface.manager.start_recording(args.recording_path, args.recording_seed)
+        sim_interface.manager.start_recording(args.recording_path)
         print(f"Recording started: {args.recording_path}")
     except Exception as e:
         print(f"Failed to start recording: {e}")

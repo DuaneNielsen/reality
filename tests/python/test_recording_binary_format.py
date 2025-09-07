@@ -18,7 +18,7 @@ def test_replay_metadata_complete_structure(cpu_manager):
 
     try:
         # Create recording with known seed and run steps
-        mgr.start_recording(recording_path, seed=12345)
+        mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
         num_worlds = action_tensor.shape[0]
@@ -90,7 +90,7 @@ def test_replay_metadata_complete_structure(cpu_manager):
             assert num_steps_meta == 5, f"Expected 5 steps, got {num_steps_meta}"
             assert actions_per_step == 3, f"Expected 3 actions per step, got {actions_per_step}"
             assert timestamp > 0, f"Expected positive timestamp, got {timestamp}"
-            assert seed == 12345, f"Expected seed 12345, got {seed}"
+            assert seed == 42, f"Expected seed 42, got {seed}"
             assert len(reserved) == 28, f"Expected 28 reserved bytes, got {len(reserved)}"
 
             print("✓ All 14 ReplayMetadata fields validated successfully")
@@ -211,7 +211,7 @@ def test_action_data_verification_step_by_step(cpu_manager):
 
     try:
         # Create recording with known action sequence
-        mgr.start_recording(recording_path, seed=555)
+        mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
         num_worlds = action_tensor.shape[0]
@@ -316,7 +316,7 @@ def test_format_specification_compliance(cpu_manager):
 
     try:
         # Create minimal recording
-        mgr.start_recording(recording_path, seed=42)
+        mgr.start_recording(recording_path)
         mgr.stop_recording()
 
         # Validate format specification compliance
@@ -429,7 +429,7 @@ def test_error_condition_handling(cpu_manager):
 
     try:
         # Create a full recording
-        mgr.start_recording(full_path, seed=42)
+        mgr.start_recording(full_path)
         action_tensor = mgr.action_tensor().to_torch()
         action_tensor.fill_(0)
         mgr.step()
@@ -468,7 +468,7 @@ def test_file_boundary_validation(cpu_manager):
 
     try:
         # Create recording with multiple steps
-        mgr.start_recording(recording_path, seed=777)
+        mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
         num_worlds = action_tensor.shape[0]

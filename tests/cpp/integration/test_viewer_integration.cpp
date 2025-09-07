@@ -68,7 +68,7 @@ TEST_F(ManagerIntegrationTest, ManagerRecordingAPI) {
     TestManagerWrapper mgr(handle);
     
     // Start recording
-    mgr.startRecording("test.rec", 123);
+    mgr.startRecording("test.rec");
     EXPECT_TRUE(mgr.isRecording());
     
     // Simulate some actions
@@ -107,7 +107,7 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
         ASSERT_TRUE(CreateManager(&level, 1));
         
         TestManagerWrapper mgr(handle);
-        mgr.startRecording("test.rec", 456);
+        mgr.startRecording("test.rec");
         
         // Record specific actions
         mgr.setAction(0, move_amount::MEDIUM, move_angle::RIGHT, rotate::SLOW_RIGHT);
@@ -130,7 +130,7 @@ TEST_F(ManagerIntegrationTest, ManagerReplayAPI) {
         MER_ReplayMetadata metadata;
         ASSERT_EQ(mer_read_replay_metadata("test.rec", &metadata), MER_SUCCESS);
         EXPECT_EQ(metadata.num_worlds, 2);
-        EXPECT_EQ(metadata.seed, 456);
+        EXPECT_EQ(metadata.seed, 42);
         
         // Skip the actual replay part for now to isolate the metadata reading test
         std::cout << "Successfully read metadata: " << metadata.num_worlds 
@@ -407,7 +407,7 @@ TEST_F(ManagerIntegrationTest, ManagerEmbeddedLevelRecording) {
     TestManagerWrapper mgr(handle);
     
     // Record with embedded level
-    mgr.startRecording("embedded.rec", 789);
+    mgr.startRecording("embedded.rec");
     
     for (int i = 0; i < 5; i++) {
         mgr.setAction(0, move_amount::SLOW, i % 8, rotate::NONE);
@@ -424,6 +424,6 @@ TEST_F(ManagerIntegrationTest, ManagerEmbeddedLevelRecording) {
     // Read metadata to verify
     MER_ReplayMetadata metadata;
     ASSERT_EQ(mer_read_replay_metadata("embedded.rec", &metadata), MER_SUCCESS);
-    EXPECT_EQ(metadata.seed, 789);
+    EXPECT_EQ(metadata.seed, 42);
     EXPECT_EQ(metadata.num_worlds, 1);
 }

@@ -3,6 +3,7 @@
 #include "consts.hpp"
 #include <cassert>
 #include <chrono>
+#include <iostream>
 
 namespace madEscape {
 
@@ -348,7 +349,12 @@ ViewerCore::FrameState ViewerCore::getFrameState() const {
 }
 
 void ViewerCore::startRecording(const std::string& path) {
-    mgr_->startRecording(path, config_.rand_seed);
+    Result result = mgr_->startRecording(path);
+    if (result != Result::Success) {
+        // Handle recording failure - could log error or notify user
+        std::cerr << "Failed to start recording to: " << path << std::endl;
+        return;
+    }
     state_machine_.startRecording();
 }
 

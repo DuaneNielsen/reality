@@ -262,6 +262,8 @@ namespace madEscape {
         ErrorFileNotFound = -6,
         ErrorInvalidFile = -7,
         ErrorFileIO = -8,
+        ErrorRecordingAlreadyActive = -9,
+        ErrorRecordingNotAtStepZero = -10,
     };
 
 

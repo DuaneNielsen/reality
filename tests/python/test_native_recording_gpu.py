@@ -22,7 +22,7 @@ def test_gpu_recording_basic(gpu_manager):
         # Test recording lifecycle
         assert not mgr.is_recording()
 
-        mgr.start_recording(recording_path, seed=999)
+        mgr.start_recording(recording_path)
         assert mgr.is_recording()
 
         # Run a few steps with actions
@@ -59,7 +59,7 @@ def test_gpu_replay_basic(gpu_manager):
 
     try:
         # Record some actions
-        mgr.start_recording(recording_path, seed=456)
+        mgr.start_recording(recording_path)
         action_tensor = mgr.action_tensor().to_torch()
 
         for step in range(2):
@@ -109,7 +109,7 @@ def test_gpu_recording_replay_roundtrip(gpu_manager):
 
     try:
         # Record actions and capture action values
-        mgr.start_recording(recording_path, seed=123)
+        mgr.start_recording(recording_path)
         action_tensor = mgr.action_tensor().to_torch()
 
         recorded_actions = []
