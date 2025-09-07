@@ -11,13 +11,13 @@ import madrona_escape_room
 
 warnings.filterwarnings("error")
 
-torch.manual_seed(0)
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("--gpu-id", type=int, default=0)
 arg_parser.add_argument("--ckpt-path", type=str, required=True)
 arg_parser.add_argument("--action-dump-path", type=str)
 arg_parser.add_argument("--recording-path", type=str, help="Path to save recording file")
+arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
 arg_parser.add_argument("--recording-seed", type=int, default=5, help="Seed for recording")
 
 arg_parser.add_argument("--num-worlds", type=int, required=True)
@@ -31,10 +31,12 @@ arg_parser.add_argument("--gpu-sim", action="store_true")
 
 args = arg_parser.parse_args()
 
+torch.manual_seed(args.seed)
+
 exec_mode = madrona_escape_room.ExecMode.CUDA if args.gpu_sim else madrona_escape_room.ExecMode.CPU
 
 sim_interface = setup_lidar_training_environment(
-    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=5
+    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=args.seed
 )
 
 obs, num_obs_features = setup_obs(sim_interface.obs)

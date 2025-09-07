@@ -134,11 +134,18 @@ This prevents NameError disasters during refactoring and keeps code clean.
 
 # Testing
 
-### Unit tests
+### Running Tests
 
+**Quick Test Command:**
+```bash
+uv run python tests/test_tracker.py --dry-run
+```
+This runs both C++ and Python tests in the standard test suite. Use this for quick verification after changes.
+
+**Manual Test Commands:**
 This project uses pytest for python tests and GoogleTest for C++ tests
-The pytests are documented in [TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)
-c++ unit tests are documented in [CPP_TESTING_GUIDE.md](tests/cpp/README.md)
+All testing procedures are documented in [tests/README.md](tests/README.md) - the single source of truth for testing
+C++ unit tests are also documented in [CPP_TESTING_GUIDE.md](tests/cpp/README.md)
 
 IMPORTANT:  Whenever tests fail, ALWAYS report it using the standardized format below.  We may decide to take no action, but we should ALWAYS ALWAYS mention the failure in the correct format first.
 
