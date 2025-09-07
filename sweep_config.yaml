@@ -13,7 +13,7 @@ command:
   - ${args}
 method: bayes
 metric:
-  name: rewards/mean
+  name: episodes/reward_ema
   goal: maximize
 early_terminate:
   type: hyperband
