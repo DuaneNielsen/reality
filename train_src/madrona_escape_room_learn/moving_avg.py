@@ -22,24 +22,7 @@ class EMATracker(nn.Module):
             return
 
         self.N.add_(1)
-        if self.N == 1:
-            # First value initializes EMA
-            self.ema.copy_(torch.tensor(float(value), dtype=torch.float32))
-        else:
-            # Standard EMA update: ema = decay * ema + (1 - decay) * value
-            self.ema.mul_(self.decay).add_(float(value) * self.one_minus_decay)
-
-    def get_ema(self):
-        """Get current EMA value"""
-        if self.disable or self.N == 0:
-            return 0.0
-        return self.ema.item()
-
-    def get_count(self):
-        """Get number of updates"""
-        if self.disable:
-            return 0
-        return self.N.item()
+        self.ema.mul_(self.decay).add_(value * self.one_minus_decay)
 
 
 # Exponential Moving Average mean and variance estimator for

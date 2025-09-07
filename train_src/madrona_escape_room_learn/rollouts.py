@@ -209,12 +209,12 @@ class RolloutManager:
                             # Get final episode rewards (reward given when done=True)
                             episode_rewards = cur_rewards_store[completed_episodes, 0]
 
-                            # Update EMAs for each completed episode
-                            for episode_length, episode_reward in zip(
-                                episode_lengths, episode_rewards
-                            ):
-                                self.episode_length_ema.update(episode_length.item())
-                                self.episode_reward_ema.update(episode_reward.item())
+                            # Update EMAs with mean of completed episodes (vectorized, no CPU sync)
+                            if len(episode_lengths) > 0:
+                                mean_episode_length = episode_lengths.float().mean()
+                                mean_episode_reward = episode_rewards.float().mean()
+                                self.episode_length_ema.update(mean_episode_length)
+                                self.episode_reward_ema.update(mean_episode_reward)
 
                     for rnn_states in rnn_states_cur_in:
                         rnn_states.masked_fill_(cur_dones_store, 0)
@@ -251,11 +251,3 @@ class RolloutManager:
             bootstrap_values=self.bootstrap_values,
             rnn_start_states=self.rnn_start_states,
         )
-
-    def get_episode_reward_ema(self):
-        """Get the current episode reward EMA value"""
-        return self.episode_reward_ema.get_ema()
-
-    def get_episode_reward_ema_count(self):
-        """Get the number of episodes used to compute reward EMA"""
-        return self.episode_reward_ema.get_count()

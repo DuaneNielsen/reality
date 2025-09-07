@@ -294,8 +294,8 @@ def _update_iter(
         advantages=advantages.view(-1, *advantages.shape[2:]),
         bootstrap_values=rollouts.bootstrap_values,
         ppo_stats=aggregate_stats,
-        episode_length_ema=rollout_mgr.episode_length_ema.get_ema(),
-        episode_reward_ema=rollout_mgr.episode_reward_ema.get_ema(),
+        episode_length_ema=rollout_mgr.episode_length_ema.ema.item(),
+        episode_reward_ema=rollout_mgr.episode_reward_ema.ema.item(),
     )
 
 

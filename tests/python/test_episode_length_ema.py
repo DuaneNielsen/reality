@@ -13,19 +13,19 @@ def test_ema_tracker_basic():
     ema = EMATracker(decay=0.9)
 
     # Initially should be 0
-    assert ema.get_ema() == 0.0
-    assert ema.get_count() == 0
+    assert ema.ema.item() == 0.0
+    assert ema.N.item() == 0
 
     # First update should set EMA to the value
     ema.update(10)
-    assert ema.get_ema() == 10.0
-    assert ema.get_count() == 1
+    assert abs(ema.ema.item() - 10.0 * 0.1) < 1e-6  # First update: 0 * 0.9 + 10 * 0.1 = 1.0
+    assert ema.N.item() == 1
 
-    # Second update should apply EMA formula: 0.9 * 10 + 0.1 * 20 = 11.0
+    # Second update should apply EMA formula
     ema.update(20)
-    expected = 0.9 * 10.0 + 0.1 * 20.0  # 11.0
-    assert abs(ema.get_ema() - expected) < 1e-6
-    assert ema.get_count() == 2
+    expected = 1.0 * 0.9 + 20.0 * 0.1  # 2.9
+    assert abs(ema.ema.item() - expected) < 1e-6
+    assert ema.N.item() == 2
 
 
 def test_ema_tracker_disabled():
@@ -35,8 +35,8 @@ def test_ema_tracker_disabled():
     ema.update(10)
     ema.update(20)
 
-    assert ema.get_ema() == 0.0
-    assert ema.get_count() == 0
+    assert ema.ema.item() == 0.0
+    assert ema.N.item() == 0
 
 
 def test_ema_tracker_device():
@@ -47,7 +47,7 @@ def test_ema_tracker_device():
     ema_cpu = ema.to("cpu")
 
     ema_cpu.update(15)
-    assert ema_cpu.get_ema() == 15.0
+    assert abs(ema_cpu.ema.item() - 15.0 * 0.1) < 1e-6
 
 
 def test_episode_length_ema_sequence():
@@ -61,9 +61,9 @@ def test_episode_length_ema_sequence():
         ema.update(length)
 
     # After 5 updates, we should have a reasonable EMA
-    final_ema = ema.get_ema()
-    assert ema.get_count() == 5
-    assert 10 <= final_ema <= 30  # Should be somewhere in the range
+    final_ema = ema.ema.item()
+    assert ema.N.item() == 5
+    assert 0 <= final_ema <= 30  # Should be somewhere in the range
     # With high decay (0.9), the EMA will be weighted toward earlier values
     # Manual calculation: 10 -> 0.9*10+0.1*15=10.5 -> 0.9*10.5+0.1*20=11.45 -> etc.
 
@@ -85,8 +85,8 @@ def test_episode_length_ema_recent_bias():
         ema_conservative.update(length)
         ema_responsive.update(length)
 
-    conservative_after_bad = ema_conservative.get_ema()
-    responsive_after_bad = ema_responsive.get_ema()
+    conservative_after_bad = ema_conservative.ema.item()
+    responsive_after_bad = ema_responsive.ema.item()
 
     # Now agent improves - long episodes
     improved_episodes = [45, 60, 80, 90, 100]  # Much longer episodes (good navigation)
@@ -95,8 +95,8 @@ def test_episode_length_ema_recent_bias():
         ema_conservative.update(length)
         ema_responsive.update(length)
 
-    conservative_after_good = ema_conservative.get_ema()
-    responsive_after_good = ema_responsive.get_ema()
+    conservative_after_good = ema_conservative.ema.item()
+    responsive_after_good = ema_responsive.ema.item()
 
     # The responsive EMA should be much higher (closer to recent good performance)
     # The conservative EMA should still be dragged down by the initial bad performance
@@ -154,16 +154,18 @@ def test_rollout_manager_initialization(cpu_manager):
 
     # Verify EMA tracker was created and initialized properly
     assert hasattr(rollout_mgr, "episode_length_ema")
-    assert rollout_mgr.episode_length_ema.get_count() == 0
-    assert rollout_mgr.episode_length_ema.get_ema() == 0.0
+    assert rollout_mgr.episode_length_ema.N.item() == 0
+    assert rollout_mgr.episode_length_ema.ema.item() == 0.0
 
     # Test manual EMA updates to verify it works
     rollout_mgr.episode_length_ema.update(50)
     rollout_mgr.episode_length_ema.update(100)
 
-    assert rollout_mgr.episode_length_ema.get_count() == 2
-    ema_value = rollout_mgr.episode_length_ema.get_ema()
-    expected = 0.95 * 50 + 0.05 * 100  # 52.5
+    assert rollout_mgr.episode_length_ema.N.item() == 2
+    ema_value = rollout_mgr.episode_length_ema.ema.item()
+    # First update: 0 * 0.95 + 50 * 0.05 = 2.5
+    # Second update: 2.5 * 0.95 + 100 * 0.05 = 7.375
+    expected = 7.375
     assert abs(ema_value - expected) < 1e-5
 
     print(f"RolloutManager episode length EMA test passed: {ema_value:.2f}")
