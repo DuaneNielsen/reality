@@ -1,4 +1,16 @@
 program: scripts/train.py
+project: madrona-escape-room
+command:
+  - uv
+  - run
+  - python
+  - ${program}
+  - "--clip-value-loss"
+  - "--fp16"
+  - "--gpu-sim"
+  - "--gpu-id"
+  - "0"
+  - ${args}
 method: bayes
 metric:
   name: rewards/mean
@@ -19,9 +31,9 @@ parameters:
   
   # Key hyperparameters to optimize
   lr:
-    distribution: log_uniform
-    min: 1e-4
-    max: 1e-3
+    distribution: log_uniform_values
+    min: 0.0001
+    max: 0.001
   gamma:
     values: [0.995, 0.998]
   
@@ -32,17 +44,5 @@ parameters:
   # Fixed parameters
   value-loss-coef:
     value: 0.5
-  clip-value-loss:
-    value: true
   num-channels:
     value: 256
-  separate-value:
-    value: false
-  fp16:
-    value: true
-  gpu-sim:
-    value: true
-  gpu-id:
-    value: 0
-  enable-value-normalization:
-    value: false
