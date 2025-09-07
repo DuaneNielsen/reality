@@ -21,9 +21,9 @@ early_terminate:
 parameters:
   # Core training parameters (fixed for efficiency)
   num-worlds:
-    value: 2048
+    value: 4096
   num-updates:
-    value: 2000
+    value: 600
   steps-per-update:
     value: 40
   num-bptt-chunks:

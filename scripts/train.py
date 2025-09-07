@@ -23,8 +23,6 @@ try:
 except ImportError:
     WANDB_AVAILABLE = False
 
-torch.manual_seed(0)
-
 
 class LearningCallback:
     def __init__(self, ckpt_dir, profile_report, training_config=None):
@@ -265,14 +263,17 @@ arg_parser.add_argument(
     action="store_true",
     help="Enable value normalization during training",
 )
+arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
 
 args = arg_parser.parse_args()
+
+torch.manual_seed(args.seed)
 
 # Setup training environment with 128-beam lidar sensor (distance values only)
 exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
 
 sim_interface = setup_lidar_training_environment(
-    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=5
+    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=args.seed
 )
 
 ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None
@@ -296,7 +297,7 @@ training_config = {
     "exec_mode": "CUDA" if args.gpu_sim else "CPU",
     "level_name": "default_16x16_room",  # Known level name
     "sensor_type": "lidar_128_beam",
-    "random_seed": 5,  # From sim_interface setup
+    "random_seed": args.seed,
 }
 
 learning_cb = LearningCallback(ckpt_dir, args.profile_report, training_config)
