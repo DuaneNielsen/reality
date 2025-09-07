@@ -83,7 +83,7 @@ def test_roundtrip_trajectory_file_verification(cpu_manager):
 
     try:
         # Phase 1: Record session with trajectory logging to file
-        mgr.start_recording(recording_path, seed=42)
+        mgr.start_recording(recording_path)
         mgr.enable_trajectory_logging(world_idx=0, agent_idx=0, filename=record_trace_path)
 
         action_tensor = mgr.action_tensor().to_torch()
@@ -305,7 +305,7 @@ def test_roundtrip_edge_cases(cpu_manager):
         short_path = f.name
 
     try:
-        mgr.start_recording(short_path, seed=999)
+        mgr.start_recording(short_path)
 
         action_tensor = mgr.action_tensor().to_torch()
         action_tensor.fill_(0)
@@ -334,14 +334,20 @@ def test_roundtrip_edge_cases(cpu_manager):
         if os.path.exists(short_path):
             os.unlink(short_path)
 
-    # Test empty recording (0 steps)
+    # Test empty recording (0 steps) using fresh manager
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
         empty_path = f.name
 
     try:
-        mgr.start_recording(empty_path, seed=0)
+        # Need fresh manager for second recording
+        import madrona_escape_room as mer
+
+        fresh_mgr = mer.SimManager(
+            exec_mode=mer.ExecMode.CPU, gpu_id=0, num_worlds=4, rand_seed=42, auto_reset=True
+        )
+        fresh_mgr.start_recording(empty_path)
         # Don't step, just stop
-        mgr.stop_recording()
+        fresh_mgr.stop_recording()
 
         # Should still be loadable using new interface
         import madrona_escape_room as mer
@@ -395,7 +401,7 @@ def test_action_sequence_detailed_validation(cpu_manager):
 
     try:
         # Create recording with specific action sequence
-        mgr.start_recording(recording_path, seed=1337)
+        mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
         num_worlds = action_tensor.shape[0]
@@ -491,7 +497,7 @@ def test_action_data_corruption_detection(cpu_manager):
 
     try:
         # Create a clean recording
-        mgr.start_recording(recording_path, seed=999)
+        mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
 
@@ -594,7 +600,7 @@ def test_file_structure_integrity_validation(cpu_manager):
 
     try:
         # Create recording with known parameters
-        mgr.start_recording(recording_path, seed=444)
+        mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
         num_worlds = action_tensor.shape[0]
@@ -698,7 +704,7 @@ def test_partial_file_replay_handling(cpu_manager):
 
     try:
         # Create a full recording
-        mgr.start_recording(full_path, seed=123)
+        mgr.start_recording(full_path)
 
         action_tensor = mgr.action_tensor().to_torch()
 

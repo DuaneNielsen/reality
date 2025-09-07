@@ -143,7 +143,7 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerRecordingSession) {
     // 3. Start recording (paused initially)
     bool is_paused = true;
     bool is_recording = true;
-    mgr.startRecording("session.rec", config.rand_seed);
+    mgr.startRecording("session.rec");
     
     // 4. Unpause and play
     input.hitKey(MockViewer::KeyboardKey::Space);
@@ -215,7 +215,7 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
         ASSERT_TRUE(CreateManager(&level, 1));
         
         TestManagerWrapper mgr(handle);
-        mgr.startRecording("demo.rec", config.rand_seed);
+        mgr.startRecording("demo.rec");
         mgr.enableTrajectoryLogging(0, 0, "trajectory_record.csv");
         
         // Record specific sequence
@@ -450,7 +450,7 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerMultiWorldRecording) {
     InputSimulator& input = viewer.getInputSimulator();
     
     // Start recording
-    mgr.startRecording("complex.rec", config.rand_seed);
+    mgr.startRecording("complex.rec");
     
     bool is_paused = false;
     bool is_recording = true;
@@ -545,7 +545,7 @@ TEST_F(SimulatedViewerWorkflowTest, MockViewerPauseDuringRecording) {
     // Start recording (paused)
     bool is_paused = true;
     bool is_recording = true;
-    mgr.startRecording("pause_test.rec", 111);
+    mgr.startRecording("pause_test.rec");
     
     int steps_while_paused = 0;
     int steps_while_running = 0;

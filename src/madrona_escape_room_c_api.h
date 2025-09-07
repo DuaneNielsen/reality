@@ -99,8 +99,7 @@ MER_EXPORT MER_Result mer_disable_trajectory_logging(MER_ManagerHandle handle);
 // Recording functionality
 MER_EXPORT MER_Result mer_start_recording(
     MER_ManagerHandle handle,
-    const char* filepath,
-    uint32_t seed
+    const char* filepath
 );
 
 MER_EXPORT MER_Result mer_stop_recording(MER_ManagerHandle handle);

@@ -121,6 +121,10 @@ struct Manager::Impl {
     Optional<RenderGPUState> renderGPUState;
     Optional<render::RenderManager> renderMgr;
     
+    // Track if recording can start (only from fresh simulation)
+    bool hasSteppedSinceInit = false;
+    bool isInitializationStep = true;  // First step is initialization
+    
     // Trajectory logging state
     bool enableTrajectoryLogging = false;
     int32_t trackWorldIdx = -1;
@@ -683,8 +687,14 @@ Manager::~Manager() {}
 // [BOILERPLATE] Execute one simulation step - standard Madrona pattern
 void Manager::step()
 {
-    // static uint32_t step_counter = 0;
-    // step_counter++;
+    // Mark that we've taken a step since initialization
+    // The first step() call happens in the constructor for initialization,
+    // so we only set this flag on subsequent calls
+    if (!impl_->isInitializationStep) {
+        impl_->hasSteppedSinceInit = true;
+    }
+    impl_->isInitializationStep = false;
+    
     // Record actions if recording is active
     if (impl_->isRecordingActive) {
         // Get current actions from the action tensor
@@ -1127,17 +1137,22 @@ render::RenderManager & Manager::getRenderManager()
 }
 
 // Recording functionality
-void Manager::startRecording(const std::string& filepath, uint32_t seed)
+Result Manager::startRecording(const std::string& filepath)
 {
     if (impl_->isRecordingActive) {
-        std::cerr << "Recording already in progress\n";
-        return;
+        std::cerr << "ERROR: Recording already in progress\n";
+        return Result::ErrorRecordingAlreadyActive;
+    }
+    
+    if (impl_->hasSteppedSinceInit) {
+        std::cerr << "ERROR: Recording can only be started from the beginning of a fresh simulation (before any steps)\n";
+        return Result::ErrorRecordingNotAtStepZero;
     }
     
     impl_->recordingFile.open(filepath, std::ios::binary);
     if (!impl_->recordingFile.is_open()) {
-        std::cerr << "Failed to open recording file: " << filepath << "\n";
-        return;
+        std::cerr << "ERROR: Failed to open recording file: " << filepath << "\n";
+        return Result::ErrorFileIO;
     }
     
     // Always embed compiled level data after metadata
@@ -1154,14 +1169,14 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
     }
     if (!foundLevel) {
         std::cerr << "ERROR: Cannot start recording - no compiled level available\n";
-        return;
+        return Result::ErrorNotInitialized;
     }
     
     // Prepare metadata
     impl_->recordingMetadata = madEscape::ReplayMetadata::createDefault();
     impl_->recordingMetadata.num_worlds = impl_->cfg.numWorlds;
     impl_->recordingMetadata.num_agents_per_world = 1; // Single agent per world
-    impl_->recordingMetadata.seed = seed;
+    impl_->recordingMetadata.seed = impl_->cfg.randSeed; // Use the Manager's original seed
     impl_->recordingMetadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
     // Copy level name from the CompiledLevel to the ReplayMetadata
     std::strncpy(impl_->recordingMetadata.level_name, levelToEmbed.level_name, sizeof(impl_->recordingMetadata.level_name) - 1);
@@ -1177,6 +1192,8 @@ void Manager::startRecording(const std::string& filepath, uint32_t seed)
     
     impl_->recordedFrames = 0;
     impl_->isRecordingActive = true;
+    
+    return Result::Success;
 }
 
 void Manager::stopRecording()

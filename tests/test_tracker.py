@@ -15,10 +15,11 @@ from typing import Dict, List, Optional, Tuple
 
 
 class TestTracker:
-    def __init__(self, base_dir: Path = None, full_tests: bool = False):
+    def __init__(self, base_dir: Path = None, full_tests: bool = False, stress_tests: bool = False):
         self.base_dir = base_dir or Path.cwd()
         self.tests_dir = self.base_dir / "tests"
         self.full_tests = full_tests
+        self.stress_tests = stress_tests
 
         # CSV file for individual test tracking (only one we need)
         self.individual_log = self.tests_dir / "individual-test-history.csv"
@@ -80,17 +81,24 @@ class TestTracker:
 
     def run_cpp_tests(self) -> Tuple[str, List[Tuple[str, str]]]:
         """Run C++ tests and return status and individual test results."""
-        test_type = "full" if self.full_tests else "standard"
+        if self.stress_tests:
+            test_type = "stress"
+        elif self.full_tests:
+            test_type = "full"
+        else:
+            test_type = "standard"
         print(f"Running C++ tests ({test_type} suite)...")
 
         # List of test executables to run
         test_executables = ["./build/mad_escape_tests"]
 
         if self.full_tests:
-            # Add GPU test executables for full test suite
-            test_executables.extend(
-                ["./build/mad_escape_gpu_tests", "./build/mad_escape_gpu_stress_tests"]
-            )
+            # Add GPU test executables for full test suite (no stress tests)
+            test_executables.append("./build/mad_escape_gpu_tests")
+
+        if self.stress_tests:
+            # Add stress test executables for stress test suite
+            test_executables.append("./build/mad_escape_gpu_stress_tests")
 
         all_individual_results = []
         overall_status = "PASS"
@@ -100,9 +108,13 @@ class TestTracker:
 
             # Set environment for GPU tests
             env = None
-            if self.full_tests and "gpu" in executable:
+            if (self.full_tests or self.stress_tests) and "gpu" in executable:
                 env = dict(subprocess.os.environ)
                 env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
+                # Enable kernel cache for faster startup (58MB cache, 20x speedup)
+                cache_path = self.base_dir / "build" / "madrona_kernels.cache"
+                env["MADRONA_MWGPU_KERNEL_CACHE"] = str(cache_path)
+                env["MADRONA_MWGPU_FORCE_DEBUG"] = "1"  # Debug mode for faster compilation
 
             try:
                 result = subprocess.run(
@@ -148,7 +160,12 @@ class TestTracker:
 
     def run_python_tests(self) -> Tuple[str, List[Tuple[str, str]], Dict[str, int]]:
         """Run Python tests and return status, individual results, and counts."""
-        test_type = "full" if self.full_tests else "standard"
+        if self.stress_tests:
+            test_type = "stress"
+        elif self.full_tests:
+            test_type = "full"
+        else:
+            test_type = "standard"
         print(f"Running Python tests ({test_type} suite)...")
 
         # Build pytest command based on test mode
@@ -168,6 +185,20 @@ class TestTracker:
             # Set environment variable for GPU tests
             env = dict(subprocess.os.environ)
             env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
+            # Enable kernel cache for faster startup (58MB cache, 20x speedup)
+            cache_path = self.base_dir / "build" / "madrona_kernels.cache"
+            env["MADRONA_MWGPU_KERNEL_CACHE"] = str(cache_path)
+            env["MADRONA_MWGPU_FORCE_DEBUG"] = "1"  # Debug mode for faster compilation
+        elif self.stress_tests:
+            # Stress tests: run only slow/stress tests
+            cmd.extend(["-m", "slow"])
+            # Set environment variable for GPU tests
+            env = dict(subprocess.os.environ)
+            env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
+            # Enable kernel cache for faster startup (58MB cache, 20x speedup)
+            cache_path = self.base_dir / "build" / "madrona_kernels.cache"
+            env["MADRONA_MWGPU_KERNEL_CACHE"] = str(cache_path)
+            env["MADRONA_MWGPU_FORCE_DEBUG"] = "1"  # Debug mode for faster compilation
         else:
             # Standard tests: exclude slow tests as before
             cmd.extend(["-m", "not slow"])
@@ -374,10 +405,19 @@ def main():
         action="store_true",
         help="Run full test suite including GPU tests and slow tests (excludes skipped tests)",
     )
+    parser.add_argument(
+        "--stress",
+        action="store_true",
+        help="Run stress test suite including GPU stress tests and slow Python tests only",
+    )
 
     args = parser.parse_args()
 
-    tracker = TestTracker(full_tests=args.full)
+    # Validate mutually exclusive options
+    if args.full and args.stress:
+        parser.error("--full and --stress are mutually exclusive")
+
+    tracker = TestTracker(full_tests=args.full, stress_tests=args.stress)
     tracker.run(dry_run=args.dry_run)
 
 

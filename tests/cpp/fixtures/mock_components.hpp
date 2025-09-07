@@ -276,10 +276,14 @@ public:
         trajectory_enabled_ = false;
     }
     
-    void startRecording(const char* filepath, uint32_t seed) {
-        mer_start_recording(handle_, filepath, seed);
-        is_recording_ = true;
-        recording_file_ = filepath;
+    bool startRecording(const char* filepath) {
+        MER_Result result = mer_start_recording(handle_, filepath);
+        if (result == MER_SUCCESS) {
+            is_recording_ = true;
+            recording_file_ = filepath;
+            return true;
+        }
+        return false;
     }
     
     void stopRecording() {

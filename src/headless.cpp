@@ -372,7 +372,11 @@ int main(int argc, char *argv[])
     // Start recording if requested
     bool is_recording = !record_path.empty();
     if (is_recording) {
-        mgr.startRecording(record_path, rand_seed);
+        Result result = mgr.startRecording(record_path);
+        if (result != Result::Success) {
+            std::cerr << "Failed to start recording\n";
+            return 1;
+        }
         printf("Recording actions to: %s\n", record_path.c_str());
     }
 

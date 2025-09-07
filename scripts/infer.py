@@ -18,7 +18,6 @@ arg_parser.add_argument("--ckpt-path", type=str, required=True)
 arg_parser.add_argument("--action-dump-path", type=str)
 arg_parser.add_argument("--recording-path", type=str, help="Path to save recording file")
 arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
-arg_parser.add_argument("--recording-seed", type=int, default=5, help="Seed for recording")
 
 arg_parser.add_argument("--num-worlds", type=int, required=True)
 arg_parser.add_argument("--num-steps", type=int, required=True)
@@ -75,7 +74,7 @@ else:
 # Start recording if recording path is provided
 if args.recording_path:
     try:
-        sim_interface.manager.start_recording(args.recording_path, args.recording_seed)
+        sim_interface.manager.start_recording(args.recording_path)
         print(f"Recording started: {args.recording_path}")
     except Exception as e:
         print(f"Failed to start recording: {e}")

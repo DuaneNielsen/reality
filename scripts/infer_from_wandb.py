@@ -97,9 +97,9 @@ def run_inference(
     # Start recording
     if recording_path:
         try:
-            # Use the same seed for recording as for inference
-            sim_interface.manager.start_recording(str(recording_path), seed)
-            print(f"Recording started: {recording_path} with seed {seed}")
+            # Start recording (no seed parameter needed - uses simulation's existing seed)
+            sim_interface.manager.start_recording(str(recording_path))
+            print(f"Recording started: {recording_path}")
         except Exception as e:
             print(f"Failed to start recording: {e}")
             recording_path = None  # Disable recording

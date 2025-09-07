@@ -183,7 +183,7 @@ public:
     };
     
     // Recording functionality
-    void startRecording(const std::string& filepath, uint32_t seed);
+    Result startRecording(const std::string& filepath);
     void stopRecording();
     bool isRecording() const;
     void recordActions(const std::vector<int32_t>& frame_actions);

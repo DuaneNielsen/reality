@@ -23,7 +23,7 @@ def test_recording_lifecycle(cpu_manager):
         assert not mgr.is_recording()
 
         # Start recording
-        mgr.start_recording(recording_path, seed=42)
+        mgr.start_recording(recording_path)
         assert mgr.is_recording()
 
         # Stop recording
@@ -40,9 +40,21 @@ def test_recording_lifecycle(cpu_manager):
 
 
 @pytest.mark.slow
-def test_gpu_recording_lifecycle(gpu_manager):
+def test_gpu_recording_lifecycle(request):
     """Test basic recording start/stop cycle on GPU"""
-    mgr = gpu_manager
+    # Create a fresh GPU manager to ensure we start at step 0
+    import torch
+
+    from madrona_escape_room import ExecMode
+
+    if request.config.getoption("--no-gpu"):
+        pytest.skip("Skipping GPU fixture due to --no-gpu flag")
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+
+    from conftest import _create_sim_manager
+
+    mgr = _create_sim_manager(request, ExecMode.CUDA)
 
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
         recording_path = f.name
@@ -52,7 +64,7 @@ def test_gpu_recording_lifecycle(gpu_manager):
         assert not mgr.is_recording()
 
         # Start recording
-        mgr.start_recording(recording_path, seed=42)
+        mgr.start_recording(recording_path)
         assert mgr.is_recording()
 
         # Run a few steps
@@ -88,7 +100,7 @@ def test_recording_with_steps(cpu_manager):
 
     try:
         # Start recording
-        mgr.start_recording(recording_path, seed=123)
+        mgr.start_recording(recording_path)
 
         # Run some simulation steps with actions
         action_tensor = mgr.action_tensor().to_torch()
@@ -131,7 +143,7 @@ def test_recording_error_handling(cpu_manager):
     # Test invalid path - C++ implementation prints error but doesn't raise exception
     # Let's test that it doesn't crash instead
     try:
-        mgr.start_recording("/invalid/path/that/does/not/exist.bin", seed=42)
+        mgr.start_recording("/invalid/path/that/does/not/exist.bin")
         # If it doesn't raise an exception, that's fine - just verify it doesn't crash
         mgr.stop_recording()  # Clean up any potential state
     except RuntimeError:
@@ -146,11 +158,12 @@ def test_recording_error_handling(cpu_manager):
         recording_path = f.name
 
     try:
-        mgr.start_recording(recording_path, seed=42)
+        mgr.start_recording(recording_path)
 
-        # Second start should not raise error in current implementation
-        # (C++ implementation handles this gracefully)
-        mgr.start_recording(recording_path, seed=43)
+        # Second start should raise error in current implementation
+        # (recording can only be started once)
+        with pytest.raises(RuntimeError, match="Recording already in progress"):
+            mgr.start_recording(recording_path)
 
         mgr.stop_recording()
 
@@ -168,7 +181,7 @@ def test_recording_file_format(cpu_manager):
 
     try:
         # Start recording and run a few steps
-        mgr.start_recording(recording_path, seed=999)
+        mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
         num_worlds = action_tensor.shape[0]
@@ -287,7 +300,7 @@ def test_recording_file_format(cpu_manager):
                 assert num_steps_meta == 3, f"Expected 3 steps, got {num_steps_meta}"
                 assert actions_per_step == 3, f"Expected 3 actions per step, got {actions_per_step}"
                 assert timestamp > 0, f"Expected positive timestamp, got {timestamp}"
-                assert seed == 999, f"Expected seed 999, got {seed}"
+                assert seed == 42, f"Expected seed 42, got {seed}"
                 assert len(reserved) == 28, f"Expected 28 reserved bytes, got {len(reserved)}"
 
                 print("✓ All 14 ReplayMetadata fields validated successfully")
@@ -341,7 +354,7 @@ def test_recording_empty_session(cpu_manager):
 
     try:
         # Start and immediately stop recording
-        mgr.start_recording(recording_path, seed=42)
+        mgr.start_recording(recording_path)
         mgr.stop_recording()
 
         # File should still exist with metadata
@@ -366,7 +379,7 @@ def test_recording_state_persistence(cpu_manager):
 
     try:
         # Start recording
-        mgr.start_recording(recording_path, seed=42)
+        mgr.start_recording(recording_path)
 
         # Should remain recording through various operations
         assert mgr.is_recording()
@@ -397,7 +410,7 @@ def test_current_format_specification_compliance(cpu_manager):
 
     try:
         # Create recording to test format compliance
-        mgr.start_recording(recording_path, seed=42)
+        mgr.start_recording(recording_path)
         mgr.stop_recording()
 
         # Test format specification compliance
@@ -559,7 +572,7 @@ def test_field_alignment_and_padding(cpu_manager):
 
     try:
         # Create recording
-        mgr.start_recording(recording_path, seed=1234)
+        mgr.start_recording(recording_path)
         mgr.stop_recording()
 
         # Test field alignment

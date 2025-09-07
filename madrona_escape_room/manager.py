@@ -166,21 +166,21 @@ class SimManager:
         _check_result(result)
 
     # Recording functionality
-    def start_recording(self, filepath, seed=None):
-        """Start recording actions to a binary file
+    def start_recording(self, filepath):
+        """Start recording actions to a binary file from the beginning of the simulation.
+
+        Recording can only be started from a fresh simulation (before any steps are taken).
+        The recording will use the Manager's original random seed.
 
         Args:
             filepath: Path where to save the recording
-            seed: Random seed to store in metadata (uses current manager seed if None)
+
+        Raises:
+            RuntimeError: If recording cannot be started (already recording or
+                simulation has started)
         """
-
-        if seed is None:
-            # Use a default seed - we don't have access to the manager's current seed
-            # so we'll use 0 as a placeholder
-            seed = 0
-
         filepath_bytes = filepath.encode("utf-8")
-        result = lib.mer_start_recording(self._handle, filepath_bytes, c_uint32(seed))
+        result = lib.mer_start_recording(self._handle, filepath_bytes)
         _check_result(result)
 
     def stop_recording(self):
@@ -408,7 +408,7 @@ class Recording:
         self.seed = seed
 
     def __enter__(self):
-        self.manager.start_recording(self.filename, self.seed)
+        self.manager.start_recording(self.filename)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -560,7 +560,7 @@ class DebugSession:
 
     def __enter__(self):
         if self.enable_recording and self.recording_path:
-            self.manager.start_recording(str(self.recording_path), self.seed)
+            self.manager.start_recording(str(self.recording_path))
 
         if self.enable_tracing and self.trajectory_path:
             self.manager.enable_trajectory_logging(0, 0, str(self.trajectory_path))
