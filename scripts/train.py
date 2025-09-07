@@ -261,9 +261,9 @@ arg_parser.add_argument("--fp16", action="store_true")
 arg_parser.add_argument("--gpu-sim", action="store_true")
 arg_parser.add_argument("--profile-report", action="store_true")
 arg_parser.add_argument(
-    "--disable-value-normalization",
+    "--enable-value-normalization",
     action="store_true",
-    help="Disable value normalization during training",
+    help="Enable value normalization during training",
 )
 
 args = arg_parser.parse_args()
@@ -292,7 +292,7 @@ training_config = {
     "separate_value": args.separate_value,
     "fp16": args.fp16,
     "gpu_sim": args.gpu_sim,
-    "value_normalization_enabled": not args.disable_value_normalization,
+    "value_normalization_enabled": args.enable_value_normalization,
     "exec_mode": "CUDA" if args.gpu_sim else "CPU",
     "level_name": "default_16x16_room",  # Known level name
     "sensor_type": "lidar_128_beam",
@@ -337,7 +337,7 @@ try:
                 num_epochs=2,
                 clip_value_loss=args.clip_value_loss,
             ),
-            normalize_values=not args.disable_value_normalization,
+            normalize_values=args.enable_value_normalization,
             value_normalizer_decay=0.999,
             mixed_precision=args.fp16,
         ),

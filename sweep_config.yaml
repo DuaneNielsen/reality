@@ -44,3 +44,5 @@ parameters:
     value: true
   gpu-id:
     value: 0
+  enable-value-normalization:
+    value: false
