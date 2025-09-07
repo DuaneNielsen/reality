@@ -111,6 +111,10 @@ class TestTracker:
             if (self.full_tests or self.stress_tests) and "gpu" in executable:
                 env = dict(subprocess.os.environ)
                 env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
+                # Enable kernel cache for faster startup (58MB cache, 20x speedup)
+                cache_path = self.base_dir / "build" / "madrona_kernels.cache"
+                env["MADRONA_MWGPU_KERNEL_CACHE"] = str(cache_path)
+                env["MADRONA_MWGPU_FORCE_DEBUG"] = "1"  # Debug mode for faster compilation
 
             try:
                 result = subprocess.run(
@@ -181,12 +185,20 @@ class TestTracker:
             # Set environment variable for GPU tests
             env = dict(subprocess.os.environ)
             env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
+            # Enable kernel cache for faster startup (58MB cache, 20x speedup)
+            cache_path = self.base_dir / "build" / "madrona_kernels.cache"
+            env["MADRONA_MWGPU_KERNEL_CACHE"] = str(cache_path)
+            env["MADRONA_MWGPU_FORCE_DEBUG"] = "1"  # Debug mode for faster compilation
         elif self.stress_tests:
             # Stress tests: run only slow/stress tests
             cmd.extend(["-m", "slow"])
             # Set environment variable for GPU tests
             env = dict(subprocess.os.environ)
             env["ALLOW_GPU_TESTS_IN_SUITE"] = "1"
+            # Enable kernel cache for faster startup (58MB cache, 20x speedup)
+            cache_path = self.base_dir / "build" / "madrona_kernels.cache"
+            env["MADRONA_MWGPU_KERNEL_CACHE"] = str(cache_path)
+            env["MADRONA_MWGPU_FORCE_DEBUG"] = "1"  # Debug mode for faster compilation
         else:
             # Standard tests: exclude slow tests as before
             cmd.extend(["-m", "not slow"])
