@@ -40,9 +40,21 @@ def test_recording_lifecycle(cpu_manager):
 
 
 @pytest.mark.slow
-def test_gpu_recording_lifecycle(gpu_manager):
+def test_gpu_recording_lifecycle(request):
     """Test basic recording start/stop cycle on GPU"""
-    mgr = gpu_manager
+    # Create a fresh GPU manager to ensure we start at step 0
+    import torch
+
+    from madrona_escape_room import ExecMode
+
+    if request.config.getoption("--no-gpu"):
+        pytest.skip("Skipping GPU fixture due to --no-gpu flag")
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+
+    from conftest import _create_sim_manager
+
+    mgr = _create_sim_manager(request, ExecMode.CUDA)
 
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
         recording_path = f.name
