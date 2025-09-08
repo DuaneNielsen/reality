@@ -1,6 +1,39 @@
 {
-    "ascii": "############\n#S.........#\n#..###.....#\n#..#.#..CC.#\n#..#.#.....#\n#..#.......#\n############",
+    "ascii": [
+        "############",
+        "#S.........#",
+        "#..###.....#",
+        "#..#.#..CC.#",
+        "#..#.#.....#",
+        "#..#.......#",
+        "############"
+    ],
     "scale": 2.5,
-    "agent_facing": [1.5708],
-    "_comment": "Maze with cube obstacles, agent starts facing east (90°) toward the maze"
+    "agent_facing": [
+        1.5708
+    ],
+    "_comment": "Maze with cube obstacles, agent starts facing east (90\u00b0) toward the maze",
+    "tileset": {
+        "#": {
+            "asset": "wall",
+            "done_on_collision": false
+        },
+        "C": {
+            "asset": "cube",
+            "done_on_collision": true
+        },
+        "O": {
+            "asset": "cylinder",
+            "done_on_collision": true
+        },
+        "S": {
+            "asset": "spawn"
+        },
+        ".": {
+            "asset": "empty"
+        },
+        " ": {
+            "asset": "empty"
+        }
+    }
 }

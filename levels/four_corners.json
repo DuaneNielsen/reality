@@ -1,6 +1,41 @@
 {
-    "ascii": "##########\n#S......S#\n#........#\n#........#\n#S......S#\n##########",
+    "ascii": [
+        "##########",
+        "#S......S#",
+        "#........#",
+        "#........#",
+        "#S......S#",
+        "##########"
+    ],
     "scale": 2.5,
-    "agent_facing": [2.356, 3.927, 0.785, 5.498],
-    "_comment": "Four agents in corners facing toward center - NW faces SE (135°), NE faces SW (225°), SW faces NE (45°), SE faces NW (315°)"
+    "agent_facing": [
+        2.356,
+        3.927,
+        0.785,
+        5.498
+    ],
+    "_comment": "Four agents in corners facing toward center - NW faces SE (135\u00b0), NE faces SW (225\u00b0), SW faces NE (45\u00b0), SE faces NW (315\u00b0)",
+    "tileset": {
+        "#": {
+            "asset": "wall",
+            "done_on_collision": false
+        },
+        "C": {
+            "asset": "cube",
+            "done_on_collision": true
+        },
+        "O": {
+            "asset": "cylinder",
+            "done_on_collision": true
+        },
+        "S": {
+            "asset": "spawn"
+        },
+        ".": {
+            "asset": "empty"
+        },
+        " ": {
+            "asset": "empty"
+        }
+    }
 }

@@ -1,7 +1,38 @@
 {
     "name": "default_room",
-    "ascii": "########\n#S.....#\n#......#\n#......#\n########",
+    "ascii": [
+        "########",
+        "#S.....#",
+        "#......#",
+        "#......#",
+        "########"
+    ],
     "scale": 2.5,
-    "agent_facing": [0.0],
-    "_comment": "Default 8x5 room for basic testing"
+    "agent_facing": [
+        0.0
+    ],
+    "_comment": "Default 8x5 room for basic testing",
+    "tileset": {
+        "#": {
+            "asset": "wall",
+            "done_on_collision": false
+        },
+        "C": {
+            "asset": "cube",
+            "done_on_collision": true
+        },
+        "O": {
+            "asset": "cylinder",
+            "done_on_collision": true
+        },
+        "S": {
+            "asset": "spawn"
+        },
+        ".": {
+            "asset": "empty"
+        },
+        " ": {
+            "asset": "empty"
+        }
+    }
 }

@@ -1,6 +1,36 @@
 {
-    "ascii": "#######################\n#....................S#\n#.....................#\n#######################",
+    "ascii": [
+        "#######################",
+        "#....................S#",
+        "#.....................#",
+        "#######################"
+    ],
     "scale": 2.5,
-    "agent_facing": [3.14159],
-    "_comment": "Long east corridor with agent facing west (π radians, looking back toward the corridor)"
+    "agent_facing": [
+        3.14159
+    ],
+    "_comment": "Long east corridor with agent facing west (\u03c0 radians, looking back toward the corridor)",
+    "tileset": {
+        "#": {
+            "asset": "wall",
+            "done_on_collision": false
+        },
+        "C": {
+            "asset": "cube",
+            "done_on_collision": true
+        },
+        "O": {
+            "asset": "cylinder",
+            "done_on_collision": true
+        },
+        "S": {
+            "asset": "spawn"
+        },
+        ".": {
+            "asset": "empty"
+        },
+        " ": {
+            "asset": "empty"
+        }
+    }
 }
