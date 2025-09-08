@@ -1,4 +1,5 @@
 import argparse
+import shutil
 from pathlib import Path
 
 import torch
@@ -26,7 +27,7 @@ except ImportError:
 
 
 class LearningCallback:
-    def __init__(self, ckpt_dir, profile_report, training_config=None):
+    def __init__(self, ckpt_dir, profile_report, training_config=None, level_file_path=None):
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
@@ -70,6 +71,17 @@ class LearningCallback:
             print(f"Using default checkpoint directory: {self.ckpt_dir}")
 
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy level file to checkpoint directory if provided
+        if level_file_path:
+            level_file_src = Path(level_file_path)
+            if level_file_src.exists():
+                level_file_dst = self.ckpt_dir / level_file_src.name
+                try:
+                    shutil.copy2(level_file_src, level_file_dst)
+                    print(f"Copied level file to checkpoint directory: {level_file_dst}")
+                except Exception as e:
+                    print(f"Warning: Failed to copy level file: {e}")
 
     def __call__(self, update_idx, update_time, update_results, learning_state):
         update_id = update_idx + 1
@@ -328,7 +340,7 @@ training_config = {
     "random_seed": args.seed,
 }
 
-learning_cb = LearningCallback(ckpt_dir, args.profile_report, training_config)
+learning_cb = LearningCallback(ckpt_dir, args.profile_report, training_config, args.level_file)
 
 if torch.cuda.is_available():
     dev = torch.device(f"cuda:{args.gpu_id}")

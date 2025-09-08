@@ -237,16 +237,27 @@ def main():
     wandb_run_path = wandb_run_dirs[0]
     print(f"Using wandb run: {wandb_run_path}")
 
-    # Load custom level if provided
+    # Load custom level if provided via --level-file, or check checkpoint directory for .lvl file
     compiled_level = None
     level_name = "default_16x16_room"
-    if args.level_file:
-        compiled_level = load_compiled_level(args.level_file)
+    level_file_to_use = args.level_file
+
+    # If no level file specified, check checkpoint directory for .lvl files
+    if not level_file_to_use:
+        checkpoints_dir = wandb_run_path / "files" / "checkpoints"
+        if checkpoints_dir.exists():
+            lvl_files = list(checkpoints_dir.glob("*.lvl"))
+            if lvl_files:
+                level_file_to_use = str(lvl_files[0])  # Use the first .lvl file found
+                print(f"Found level file in checkpoint directory: {level_file_to_use}")
+
+    if level_file_to_use:
+        compiled_level = load_compiled_level(level_file_to_use)
         # Extract level name from the compiled level
         level_name = compiled_level.level_name.decode("utf-8", errors="ignore").strip("\x00")
         if not level_name:
-            level_name = Path(args.level_file).stem
-        print(f"Loaded custom level: {level_name} from {args.level_file}")
+            level_name = Path(level_file_to_use).stem
+        print(f"Loaded custom level: {level_name} from {level_file_to_use}")
 
     try:
         latest_checkpoint = find_latest_checkpoint(wandb_run_path)
