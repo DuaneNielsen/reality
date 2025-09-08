@@ -16,6 +16,7 @@ from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training
 from policy import make_policy, setup_obs
 
 import madrona_escape_room
+import wandb
 from madrona_escape_room.level_io import load_compiled_level
 
 
@@ -49,7 +50,7 @@ def run_inference(
     gpu_id=0,
     num_channels=256,
     separate_value=False,
-    recording_seed=5,
+    sim_seed=0,
     compiled_level=None,
 ):
     """Run inference with the given parameters."""
@@ -62,7 +63,7 @@ def run_inference(
         num_worlds=num_worlds,
         exec_mode=exec_mode,
         gpu_id=gpu_id,
-        rand_seed=seed,
+        rand_seed=sim_seed,
         compiled_level=compiled_level,
     )
 
@@ -206,8 +207,18 @@ def run_inference(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run inference from wandb run hash")
-    parser.add_argument("wandb_run_hash", help="Wandb run hash (e.g., iecno14m)")
+    parser = argparse.ArgumentParser(description="Run inference from wandb run name or hash")
+    parser.add_argument(
+        "wandb_run_identifier",
+        nargs="?",
+        help="Wandb run name or hash (e.g., 'my-training-run' or 'iecno14m')",
+    )
+    parser.add_argument(
+        "--list",
+        nargs="?",
+        const="",
+        help="List available wandb runs (optionally filter with regex pattern)",
+    )
     parser.add_argument("--fp16", action="store_true", help="Use FP16")
     parser.add_argument("--gpu-sim", action="store_true", help="Use GPU simulation")
     parser.add_argument("--num-worlds", type=int, default=4, help="Number of worlds")
@@ -216,26 +227,87 @@ def main():
     parser.add_argument("--gpu-id", type=int, default=0, help="GPU ID")
     parser.add_argument("--num-channels", type=int, default=256, help="Number of channels")
     parser.add_argument("--separate-value", action="store_true", help="Use separate value network")
-    parser.add_argument("--recording-seed", type=int, default=5, help="Seed for recording")
+    parser.add_argument("--sim-seed", type=int, default=0, help="Seed for simulation")
     parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
+    parser.add_argument(
+        "--project", type=str, default="madrona-escape-room", help="Wandb project name"
+    )
 
     args = parser.parse_args()
 
-    # Find the wandb run directory
-    wandb_base = Path("wandb")
-    wandb_run_dirs = list(wandb_base.glob(f"*-{args.wandb_run_hash}"))
+    # Handle list option
+    if args.list is not None:
+        import re
 
-    if not wandb_run_dirs:
-        print(f"Error: No wandb run found with hash {args.wandb_run_hash}")
+        api = wandb.Api()
+        runs = api.runs(args.project)
+
+        # Filter runs if regex pattern provided
+        if args.list:  # Non-empty string means regex pattern provided
+            pattern = re.compile(args.list, re.IGNORECASE)
+            filtered_runs = [run for run in runs if pattern.search(run.name)]
+            print(f"Wandb runs matching '{args.list}':")
+        else:
+            filtered_runs = runs
+            print("All wandb runs:")
+
+        for i, run in enumerate(filtered_runs):
+            print(f"{i+1:3d}. {run.name} ({run.id}) - {run.state}")
+
+        print(f"Total: {len(filtered_runs)} runs")
+        if args.list and len(filtered_runs) != len(runs):
+            print(f"(Filtered from {len(runs)} total runs)")
+        return
+
+    # Require run identifier if not listing
+    if not args.wandb_run_identifier:
+        parser.error("wandb_run_identifier is required unless --list is used")
+
+    # Find the wandb run using API
+    api = wandb.Api()
+    identifier = args.wandb_run_identifier
+
+    # Get all runs from the project
+    runs = api.runs(args.project)
+
+    # Try to find run by exact name match first
+    matching_runs = [run for run in runs if run.name == identifier]
+
+    # If no exact match, try by run ID/hash
+    if not matching_runs:
+        matching_runs = [run for run in runs if run.id == identifier]
+
+    # If still no match, try partial name match
+    if not matching_runs:
+        matching_runs = [run for run in runs if identifier.lower() in run.name.lower()]
+
+    if not matching_runs:
+        print(f"Error: No wandb run found matching '{identifier}'")
+        print("Available runs:")
+        for run in runs[:10]:  # Show first 10 runs
+            print(f"  {run.name} ({run.id})")
+        if len(runs) > 10:
+            print(f"  ... and {len(runs) - 10} more runs")
         sys.exit(1)
 
-    if len(wandb_run_dirs) > 1:
-        print(f"Warning: Multiple runs found with hash {args.wandb_run_hash}, using first one:")
-        for run_dir in wandb_run_dirs:
-            print(f"  {run_dir}")
+    if len(matching_runs) > 1:
+        print(f"Warning: Multiple runs found matching '{identifier}', using first one:")
+        for run in matching_runs:
+            print(f"  {run.name} ({run.id})")
+
+    selected_run = matching_runs[0]
+    print(f"Using wandb run: {selected_run.name} ({selected_run.id})")
+
+    # Convert to local wandb directory path
+    wandb_base = Path("wandb")
+    wandb_run_dirs = list(wandb_base.glob(f"*-{selected_run.id}"))
+
+    if not wandb_run_dirs:
+        print(f"Error: Local wandb directory not found for run {selected_run.id}")
+        print("Make sure you have synced this run locally")
+        sys.exit(1)
 
     wandb_run_path = wandb_run_dirs[0]
-    print(f"Using wandb run: {wandb_run_path}")
 
     # Load custom level if provided via --level-file, or check checkpoint directory for .lvl file
     compiled_level = None
@@ -279,7 +351,7 @@ def main():
             gpu_id=args.gpu_id,
             num_channels=args.num_channels,
             separate_value=args.separate_value,
-            recording_seed=args.recording_seed,
+            sim_seed=args.sim_seed,
             compiled_level=compiled_level,
         )
 
