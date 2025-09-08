@@ -16,6 +16,7 @@ from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training
 from policy import make_policy, setup_obs
 
 import madrona_escape_room
+from madrona_escape_room.level_io import load_compiled_level
 
 
 def find_latest_checkpoint(wandb_run_path):
@@ -49,6 +50,7 @@ def run_inference(
     num_channels=256,
     separate_value=False,
     recording_seed=5,
+    compiled_level=None,
 ):
     """Run inference with the given parameters."""
 
@@ -57,7 +59,11 @@ def run_inference(
     exec_mode = madrona_escape_room.ExecMode.CUDA if gpu_sim else madrona_escape_room.ExecMode.CPU
 
     sim_interface = setup_lidar_training_environment(
-        num_worlds=num_worlds, exec_mode=exec_mode, gpu_id=gpu_id, rand_seed=seed
+        num_worlds=num_worlds,
+        exec_mode=exec_mode,
+        gpu_id=gpu_id,
+        rand_seed=seed,
+        compiled_level=compiled_level,
     )
 
     obs, num_obs_features = setup_obs(sim_interface.obs)
@@ -211,6 +217,7 @@ def main():
     parser.add_argument("--num-channels", type=int, default=256, help="Number of channels")
     parser.add_argument("--separate-value", action="store_true", help="Use separate value network")
     parser.add_argument("--recording-seed", type=int, default=5, help="Seed for recording")
+    parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
 
     args = parser.parse_args()
 
@@ -229,6 +236,17 @@ def main():
 
     wandb_run_path = wandb_run_dirs[0]
     print(f"Using wandb run: {wandb_run_path}")
+
+    # Load custom level if provided
+    compiled_level = None
+    level_name = "default_16x16_room"
+    if args.level_file:
+        compiled_level = load_compiled_level(args.level_file)
+        # Extract level name from the compiled level
+        level_name = compiled_level.level_name.decode("utf-8", errors="ignore").strip("\x00")
+        if not level_name:
+            level_name = Path(args.level_file).stem
+        print(f"Loaded custom level: {level_name} from {args.level_file}")
 
     try:
         latest_checkpoint = find_latest_checkpoint(wandb_run_path)
@@ -251,6 +269,7 @@ def main():
             num_channels=args.num_channels,
             separate_value=args.separate_value,
             recording_seed=args.recording_seed,
+            compiled_level=compiled_level,
         )
 
     except FileNotFoundError as e:
