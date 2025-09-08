@@ -6,8 +6,13 @@ set -e
 # Check if wandb run identifier provided
 if [[ $# -eq 0 ]]; then
     echo "Usage: $0 <wandb_run_identifier> [viewer_options...]"
-    echo "Example: $0 frosty-sweep-1"
-    echo "Example: $0 i0jv5zou --fps 30"
+    echo "Run identifier can be:"
+    echo "  - Human-friendly name: frosty-sweep-1, cosmic-sweep-63"
+    echo "  - Partial name: cosmic-sweep (will lookup exact run hash)"
+    echo "  - Run hash: i0jv5zou"
+    echo "Examples:"
+    echo "  $0 cosmic-sweep-63"
+    echo "  $0 i0jv5zou --fps 30"
     exit 1
 fi
 
@@ -26,10 +31,47 @@ if [[ ! -d "${WANDB_RUN_DIRS[0]}" ]]; then
         # Try partial match
         WANDB_RUN_DIRS=(wandb/*"$RUN_IDENTIFIER"*)
         if [[ ! -d "${WANDB_RUN_DIRS[0]}" ]]; then
-            echo "Error: No wandb run found matching '$RUN_IDENTIFIER'"
-            echo "Available runs:"
-            ls -1 wandb/ | grep "run-" | head -10
-            exit 1
+            # No local directory found, try to lookup the run hash using the API
+            echo "No local directory found, trying to lookup run hash..."
+            PROJECT_NAME="${WANDB_PROJECT:-madrona-escape-room-dev}"
+            
+            LOOKUP_RESULT=$(uv run python scripts/infer_from_wandb.py --lookup "$RUN_IDENTIFIER" --project "$PROJECT_NAME")
+            
+            if [[ "$LOOKUP_RESULT" == "NOT_FOUND" ]]; then
+                echo "Error: No wandb run found matching '$RUN_IDENTIFIER' in project $PROJECT_NAME"
+                echo ""
+                echo "Try one of these options:"
+                echo "1. Use a run hash directly (8 character string like 'i0jv5zou')"
+                echo "2. Set WANDB_PROJECT environment variable to the correct project"
+                echo "3. Check available local runs: ls wandb/"
+                echo "4. List remote runs: uv run python scripts/infer_from_wandb.py --list --project '$PROJECT_NAME'"
+                exit 1
+            elif [[ "$LOOKUP_RESULT" == "DUPLICATES" ]]; then
+                echo "Error: Multiple runs found matching '$RUN_IDENTIFIER' in project $PROJECT_NAME"
+                echo "Please be more specific with the run name"
+                echo "Use: uv run python scripts/infer_from_wandb.py --list '$RUN_IDENTIFIER' --project '$PROJECT_NAME'"
+                exit 1
+            elif [[ "$LOOKUP_RESULT" =~ ^[a-z0-9]{8}$ ]]; then
+                # Valid hash returned, try to find local directory with this hash
+                echo "Found run hash: $LOOKUP_RESULT"
+                WANDB_RUN_DIRS=(wandb/*-"$LOOKUP_RESULT")
+                if [[ ! -d "${WANDB_RUN_DIRS[0]}" ]]; then
+                    echo "Error: Found run '$RUN_IDENTIFIER' (hash: $LOOKUP_RESULT) but no local wandb directory"
+                    echo "Run 'wandb sync' or download the run data locally first"
+                    echo "Expected directory: wandb/run-*-$LOOKUP_RESULT"
+                    exit 1
+                fi
+            else
+                echo "Error: No wandb run found matching '$RUN_IDENTIFIER' in project $PROJECT_NAME"
+                echo "Lookup result: $LOOKUP_RESULT"
+                echo ""
+                echo "Available local runs:"
+                ls -1 wandb/ | grep "run-" | head -10
+                echo ""
+                echo "To see all runs in wandb project:"
+                echo "uv run python scripts/infer_from_wandb.py --list --project '$PROJECT_NAME'"
+                exit 1
+            fi
         fi
     fi
 fi

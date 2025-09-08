@@ -232,8 +232,38 @@ def main():
     parser.add_argument(
         "--project", type=str, default="madrona-escape-room", help="Wandb project name"
     )
+    parser.add_argument(
+        "--lookup", type=str, help="Look up run hash for given human readable name and exit"
+    )
 
     args = parser.parse_args()
+
+    # Handle lookup option
+    if args.lookup:
+        import os
+
+        # Suppress wandb verbose output
+        os.environ["WANDB_SILENT"] = "true"
+
+        api = wandb.Api()
+        runs = api.runs(args.project)
+
+        # Find run by exact name match
+        matching_runs = [run for run in runs if run.name == args.lookup]
+
+        if not matching_runs:
+            # Try partial name match
+            matching_runs = [run for run in runs if args.lookup.lower() in run.name.lower()]
+
+        if not matching_runs:
+            print("NOT_FOUND")
+            return
+
+        if len(matching_runs) == 1:
+            print(matching_runs[0].id)
+        else:
+            print("DUPLICATES")
+        return
 
     # Handle list option
     if args.list is not None:
