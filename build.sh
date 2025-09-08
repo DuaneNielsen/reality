@@ -64,6 +64,12 @@ log_error() {
 clean_build_artifacts() {
     log_info "Cleaning build artifacts..."
     
+    # Clean CUDA kernel cache if it exists (before removing build directory)
+    if [ -f "$PROJECT_ROOT/build/madrona_kernels.cache" ]; then
+        log_info "Removing CUDA kernel cache: $PROJECT_ROOT/build/madrona_kernels.cache"
+        rm -f "$PROJECT_ROOT/build/madrona_kernels.cache"
+    fi
+    
     # Clean main build directory
     if [ -d "$PROJECT_ROOT/build" ]; then
         log_info "Removing main build directory: $PROJECT_ROOT/build"
@@ -174,6 +180,12 @@ quick_build() {
     cd "$PROJECT_ROOT"
     check_prerequisites
     
+    # Always delete CUDA kernel cache to ensure correct optimization level
+    if [ -f "$PROJECT_ROOT/build/madrona_kernels.cache" ]; then
+        log_info "Removing CUDA kernel cache to ensure correct optimization level"
+        rm -f "$PROJECT_ROOT/build/madrona_kernels.cache"
+    fi
+    
     # Quick build - only run make if build directory exists
     if [ ! -d "$PROJECT_ROOT/build" ]; then
         log_warning "Build directory doesn't exist. Running full build instead..."
@@ -216,6 +228,12 @@ full_build() {
     cd "$PROJECT_ROOT"
     check_prerequisites
     check_uv_prerequisite
+    
+    # Always delete CUDA kernel cache to ensure correct optimization level
+    if [ -f "$PROJECT_ROOT/build/madrona_kernels.cache" ]; then
+        log_info "Removing CUDA kernel cache to ensure correct optimization level"
+        rm -f "$PROJECT_ROOT/build/madrona_kernels.cache"
+    fi
     
     # Configure with CMake (creates build directory automatically)
     log_info "Configuring with CMake..."

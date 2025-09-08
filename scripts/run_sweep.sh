@@ -32,6 +32,13 @@ echo "Setting up CUDA kernel cache..."
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 mkdir -p build
+
+# Delete existing cache to ensure fresh compilation with correct optimization
+if [ -f "$PROJECT_ROOT/build/madrona_kernels.cache" ]; then
+    echo "Removing existing CUDA kernel cache to ensure correct optimization level"
+    rm -f "$PROJECT_ROOT/build/madrona_kernels.cache"
+fi
+
 export MADRONA_MWGPU_KERNEL_CACHE="$PROJECT_ROOT/build/madrona_kernels.cache"
 echo "Kernel cache enabled: $MADRONA_MWGPU_KERNEL_CACHE"
 
