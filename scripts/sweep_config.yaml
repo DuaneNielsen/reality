@@ -25,7 +25,7 @@ parameters:
   num-worlds:
     value: 4096
   num-updates:
-    value: 600
+    value: 4000
   steps-per-update:
     value: 40
   num-bptt-chunks:

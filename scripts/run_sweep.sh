@@ -28,6 +28,14 @@ TEMP_SWEEP_CONFIG="$SCRIPT_DIR/temp_sweep_config.yaml"
 # Create a temporary config with the specified project
 sed "s/^project:.*/project: $PROJECT/" "$SWEEP_CONFIG" > "$TEMP_SWEEP_CONFIG"
 
+echo "Compiling levels before starting sweep..."
+cd "$(dirname "$SCRIPT_DIR")"  # Go to project root
+if ! uv run python scripts/compile_levels.py; then
+    echo "Error: Level compilation failed"
+    rm "$TEMP_SWEEP_CONFIG"
+    exit 1
+fi
+
 echo "Creating sweep for project '$PROJECT' from: $SWEEP_CONFIG"
 
 # Create the sweep and extract the agent command
