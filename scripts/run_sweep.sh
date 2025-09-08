@@ -28,8 +28,15 @@ TEMP_SWEEP_CONFIG="$SCRIPT_DIR/temp_sweep_config.yaml"
 # Create a temporary config with the specified project
 sed "s/^project:.*/project: $PROJECT/" "$SWEEP_CONFIG" > "$TEMP_SWEEP_CONFIG"
 
+echo "Setting up CUDA kernel cache..."
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+mkdir -p build
+export MADRONA_MWGPU_KERNEL_CACHE="$PROJECT_ROOT/build/madrona_kernels.cache"
+export MADRONA_MWGPU_FORCE_DEBUG=1
+echo "Kernel cache enabled: $MADRONA_MWGPU_KERNEL_CACHE"
+
 echo "Compiling levels before starting sweep..."
-cd "$(dirname "$SCRIPT_DIR")"  # Go to project root
 if ! uv run python scripts/compile_levels.py; then
     echo "Error: Level compilation failed"
     rm "$TEMP_SWEEP_CONFIG"
