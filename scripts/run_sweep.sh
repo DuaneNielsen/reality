@@ -33,7 +33,6 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 mkdir -p build
 export MADRONA_MWGPU_KERNEL_CACHE="$PROJECT_ROOT/build/madrona_kernels.cache"
-export MADRONA_MWGPU_FORCE_DEBUG=1
 echo "Kernel cache enabled: $MADRONA_MWGPU_KERNEL_CACHE"
 
 echo "Compiling levels before starting sweep..."
