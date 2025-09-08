@@ -52,7 +52,7 @@
     "tileset": {
         "#": {
             "asset": "wall",
-            "done_on_collision": false
+            "done_on_collision": true
         },
         "C": {
             "asset": "cube",
