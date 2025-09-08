@@ -10,6 +10,8 @@ command:
   - "--gpu-sim"
   - "--gpu-id"
   - "0"
+  - "--level-file"
+  - "levels/obstacle_course_20x48.lvl"
   - ${args}
 method: bayes
 metric:
