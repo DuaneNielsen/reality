@@ -14,6 +14,7 @@ from policy import make_policy, setup_obs
 
 import madrona_escape_room
 from madrona_escape_room.generated_constants import ExecMode
+from madrona_escape_room.level_io import load_compiled_level
 
 # Optional wandb import
 try:
@@ -35,10 +36,20 @@ class LearningCallback:
         self.use_wandb = False
         if WANDB_AVAILABLE:
             try:
+                # Create tags based on level
+                level_tag = (
+                    training_config.get("level_name", "default_16x16_room")
+                    if training_config
+                    else "default_16x16_room"
+                )
+                tags = ["lidar-training", level_tag]
+                if training_config and training_config.get("level_file"):
+                    tags.append("custom-level")
+
                 wandb.init(
                     project="madrona-escape-room",
                     config=training_config or {},
-                    tags=["lidar-training", "default_16x16_room"],
+                    tags=tags,
                 )
                 self.use_wandb = True
                 print("✓ wandb initialized")
@@ -264,16 +275,32 @@ arg_parser.add_argument(
     help="Enable value normalization during training",
 )
 arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
+arg_parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
 
 args = arg_parser.parse_args()
 
 torch.manual_seed(args.seed)
 
+# Load custom level if provided
+compiled_level = None
+level_name = "default_16x16_room"
+if args.level_file:
+    compiled_level = load_compiled_level(args.level_file)
+    # Extract level name from the compiled level
+    level_name = compiled_level.level_name.decode("utf-8", errors="ignore").strip("\x00")
+    if not level_name:
+        level_name = Path(args.level_file).stem
+    print(f"Loaded custom level: {level_name} from {args.level_file}")
+
 # Setup training environment with 128-beam lidar sensor (distance values only)
 exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
 
 sim_interface = setup_lidar_training_environment(
-    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=args.seed
+    num_worlds=args.num_worlds,
+    exec_mode=exec_mode,
+    gpu_id=args.gpu_id,
+    rand_seed=args.seed,
+    compiled_level=compiled_level,
 )
 
 ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None
@@ -295,7 +322,8 @@ training_config = {
     "gpu_sim": args.gpu_sim,
     "value_normalization_enabled": args.enable_value_normalization,
     "exec_mode": "CUDA" if args.gpu_sim else "CPU",
-    "level_name": "default_16x16_room",  # Known level name
+    "level_name": level_name,  # Dynamic level name
+    "level_file": args.level_file if args.level_file else None,
     "sensor_type": "lidar_128_beam",
     "random_seed": args.seed,
 }
