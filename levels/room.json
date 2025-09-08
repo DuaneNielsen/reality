@@ -1,6 +1,39 @@
 {
-    "ascii": "##########\n#S.......#\n#........#\n#........#\n#........#\n#........#\n##########",
+    "ascii": [
+        "##########",
+        "#S.......#",
+        "#........#",
+        "#........#",
+        "#........#",
+        "#........#",
+        "##########"
+    ],
     "scale": 2.5,
-    "agent_facing": [0.0],
-    "_comment": "Simple 10x7 room with agent facing north (forward)"
+    "agent_facing": [
+        0.0
+    ],
+    "_comment": "Simple 10x7 room with agent facing north (forward)",
+    "tileset": {
+        "#": {
+            "asset": "wall",
+            "done_on_collision": false
+        },
+        "C": {
+            "asset": "cube",
+            "done_on_collision": true
+        },
+        "O": {
+            "asset": "cylinder",
+            "done_on_collision": true
+        },
+        "S": {
+            "asset": "spawn"
+        },
+        ".": {
+            "asset": "empty"
+        },
+        " ": {
+            "asset": "empty"
+        }
+    }
 }

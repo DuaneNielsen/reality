@@ -5,9 +5,15 @@ JSON Level Compiler for Madrona Escape Room
 Compiles JSON level definitions to CompiledLevel format for GPU processing.
 This compiler exclusively accepts JSON format with explicit tileset definitions.
 
-Required JSON format:
+Required JSON format (supports both string and array formats for ascii):
+
+Option 1 - Array of strings (recommended for editor-friendly display):
 {
-    "ascii": "###\\n#S#\\n###",
+    "ascii": [
+        "########",
+        "#S....#",
+        "########"
+    ],
     "tileset": {
         "#": {"asset": "wall"},
         "C": {"asset": "cube"},
@@ -17,6 +23,13 @@ Required JSON format:
     "scale": 2.5,              # Optional, default 2.5
     "agent_facing": [0.0],      # Optional, radians for each agent
     "name": "level_name"        # Optional, default "unknown_level"
+}
+
+Option 2 - String with newlines (backwards compatible):
+{
+    "ascii": "########\\n#S....#\\n########",
+    "tileset": { ... },
+    ...
 }
 """
 
@@ -104,6 +117,22 @@ def _get_asset_object_id(asset_name: str) -> int:
     raise ValueError(f"Unknown asset name: '{asset_name}'")
 
 
+def _normalize_ascii_input(ascii_data: Union[str, List[str]]) -> str:
+    """
+    Normalize ASCII input to a string format.
+
+    Args:
+        ascii_data: Either a string with newlines or array of strings
+
+    Returns:
+        String with newline characters
+    """
+    if isinstance(ascii_data, list):
+        return "\n".join(ascii_data)
+    else:
+        return ascii_data
+
+
 def _validate_tileset(tileset: Dict) -> None:
     """
     Validate a tileset definition.
@@ -170,12 +199,21 @@ def _validate_json_level(data: Dict) -> None:
     if "tileset" not in data:
         raise ValueError("JSON level must contain 'tileset' field")
 
-    # Validate ascii field
-    if not isinstance(data["ascii"], str):
-        raise ValueError("'ascii' field must be a string")
-
-    if not data["ascii"].strip():
-        raise ValueError("'ascii' field cannot be empty")
+    # Validate ascii field - support both string and array formats
+    ascii_data = data["ascii"]
+    if isinstance(ascii_data, list):
+        # Array format - validate each line is a string
+        if not ascii_data:
+            raise ValueError("'ascii' array cannot be empty")
+        for i, line in enumerate(ascii_data):
+            if not isinstance(line, str):
+                raise ValueError(f"'ascii' array line {i} must be a string, got {type(line)}")
+    elif isinstance(ascii_data, str):
+        # String format - must not be empty after stripping
+        if not ascii_data.strip():
+            raise ValueError("'ascii' field cannot be empty")
+    else:
+        raise ValueError("'ascii' field must be a string or array of strings")
 
     # Validate tileset
     _validate_tileset(data["tileset"])
@@ -387,7 +425,7 @@ def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
     _validate_json_level(data)
 
     # Extract fields
-    ascii_str = data["ascii"]
+    ascii_str = _normalize_ascii_input(data["ascii"])
     tileset = data["tileset"]
     scale = data.get("scale", 2.5)
     agent_facing = data.get("agent_facing", None)

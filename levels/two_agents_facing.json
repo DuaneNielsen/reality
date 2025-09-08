@@ -1,6 +1,38 @@
 {
-    "ascii": "##########\n#S......S#\n#........#\n#........#\n##########",
+    "ascii": [
+        "##########",
+        "#S......S#",
+        "#........#",
+        "#........#",
+        "##########"
+    ],
     "scale": 2.5,
-    "agent_facing": [0.0, 3.14159],
-    "_comment": "Two agents facing each other - first faces south (0°), second faces north (180°)"
+    "agent_facing": [
+        0.0,
+        3.14159
+    ],
+    "_comment": "Two agents facing each other - first faces south (0\u00b0), second faces north (180\u00b0)",
+    "tileset": {
+        "#": {
+            "asset": "wall",
+            "done_on_collision": false
+        },
+        "C": {
+            "asset": "cube",
+            "done_on_collision": true
+        },
+        "O": {
+            "asset": "cylinder",
+            "done_on_collision": true
+        },
+        "S": {
+            "asset": "spawn"
+        },
+        ".": {
+            "asset": "empty"
+        },
+        " ": {
+            "asset": "empty"
+        }
+    }
 }

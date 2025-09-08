@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 
 
-def compile_level_file(input_path, output_path, scale=2.5, verbose=False):
-    """Compile a single level file to binary format"""
+def compile_level_file(input_path, output_path, verbose=False):
+    """Compile a JSON level file to binary format"""
     try:
         cmd = [
             "uv",
@@ -25,9 +25,6 @@ def compile_level_file(input_path, output_path, scale=2.5, verbose=False):
             str(input_path),
             str(output_path),
         ]
-
-        if not str(input_path).endswith(".json"):
-            cmd.extend(["--scale", str(scale)])
 
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         print(f"✓ Compiled {input_path.name} -> {output_path.name}")
@@ -50,15 +47,12 @@ def compile_level_file(input_path, output_path, scale=2.5, verbose=False):
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="Compile ASCII/JSON level files to binary .lvl format for Madrona Escape Room",
+        description="Compile JSON level files to binary .lvl format for Madrona Escape Room",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Compile all levels in default directory
+  # Compile all JSON levels in default directory
   python3 compile_levels.py
-
-  # Compile levels with custom scale for .txt files
-  python3 compile_levels.py --scale 3.0
 
   # Force recompilation of all levels
   python3 compile_levels.py --force
@@ -67,7 +61,7 @@ Examples:
   python3 compile_levels.py --input-dir /path/to/levels
 
   # Compile specific file patterns only
-  python3 compile_levels.py --pattern "maze_*.txt"
+  python3 compile_levels.py --pattern "maze_*.json"
 
   # Verbose output with compilation details
   python3 compile_levels.py --verbose
@@ -92,14 +86,10 @@ Examples:
     )
 
     parser.add_argument(
-        "--scale", "-s", type=float, default=2.5, help="Default scale for .txt files (default: 2.5)"
-    )
-
-    parser.add_argument(
         "--pattern",
         "-p",
         type=str,
-        help="File pattern to match (e.g., 'maze_*.txt', default: all .txt and .json files)",
+        help="File pattern to match (e.g., 'maze_*.json', default: all .json files)",
     )
 
     parser.add_argument(
@@ -169,7 +159,7 @@ def main():
     if args.pattern:
         patterns = [args.pattern]
     else:
-        patterns = ["*.txt", "*.json"]
+        patterns = ["*.json"]
 
     # Find all matching files
     all_files = []
@@ -209,7 +199,7 @@ def main():
             continue
 
         # Actually compile the file
-        if compile_level_file(input_file, output_file, args.scale, args.verbose):
+        if compile_level_file(input_file, output_file, args.verbose):
             compiled_count += 1
         else:
             failed_count += 1

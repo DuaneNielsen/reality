@@ -1,4 +1,5 @@
 import argparse
+import shutil
 from pathlib import Path
 
 import torch
@@ -14,6 +15,7 @@ from policy import make_policy, setup_obs
 
 import madrona_escape_room
 from madrona_escape_room.generated_constants import ExecMode
+from madrona_escape_room.level_io import load_compiled_level
 
 # Optional wandb import
 try:
@@ -25,7 +27,7 @@ except ImportError:
 
 
 class LearningCallback:
-    def __init__(self, ckpt_dir, profile_report, training_config=None):
+    def __init__(self, ckpt_dir, profile_report, training_config=None, level_file_path=None):
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
@@ -35,10 +37,20 @@ class LearningCallback:
         self.use_wandb = False
         if WANDB_AVAILABLE:
             try:
+                # Create tags based on level
+                level_tag = (
+                    training_config.get("level_name", "default_16x16_room")
+                    if training_config
+                    else "default_16x16_room"
+                )
+                tags = ["lidar-training", level_tag]
+                if training_config and training_config.get("level_file"):
+                    tags.append("custom-level")
+
                 wandb.init(
                     project="madrona-escape-room",
                     config=training_config or {},
-                    tags=["lidar-training", "default_16x16_room"],
+                    tags=tags,
                 )
                 self.use_wandb = True
                 print("✓ wandb initialized")
@@ -59,6 +71,17 @@ class LearningCallback:
             print(f"Using default checkpoint directory: {self.ckpt_dir}")
 
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy level file to checkpoint directory if provided
+        if level_file_path:
+            level_file_src = Path(level_file_path)
+            if level_file_src.exists():
+                level_file_dst = self.ckpt_dir / level_file_src.name
+                try:
+                    shutil.copy2(level_file_src, level_file_dst)
+                    print(f"Copied level file to checkpoint directory: {level_file_dst}")
+                except Exception as e:
+                    print(f"Warning: Failed to copy level file: {e}")
 
     def __call__(self, update_idx, update_time, update_results, learning_state):
         update_id = update_idx + 1
@@ -264,16 +287,32 @@ arg_parser.add_argument(
     help="Enable value normalization during training",
 )
 arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
+arg_parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
 
 args = arg_parser.parse_args()
 
 torch.manual_seed(args.seed)
 
+# Load custom level if provided
+compiled_level = None
+level_name = "default_16x16_room"
+if args.level_file:
+    compiled_level = load_compiled_level(args.level_file)
+    # Extract level name from the compiled level
+    level_name = compiled_level.level_name.decode("utf-8", errors="ignore").strip("\x00")
+    if not level_name:
+        level_name = Path(args.level_file).stem
+    print(f"Loaded custom level: {level_name} from {args.level_file}")
+
 # Setup training environment with 128-beam lidar sensor (distance values only)
 exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
 
 sim_interface = setup_lidar_training_environment(
-    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=args.seed
+    num_worlds=args.num_worlds,
+    exec_mode=exec_mode,
+    gpu_id=args.gpu_id,
+    rand_seed=args.seed,
+    compiled_level=compiled_level,
 )
 
 ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None
@@ -295,12 +334,13 @@ training_config = {
     "gpu_sim": args.gpu_sim,
     "value_normalization_enabled": args.enable_value_normalization,
     "exec_mode": "CUDA" if args.gpu_sim else "CPU",
-    "level_name": "default_16x16_room",  # Known level name
+    "level_name": level_name,  # Dynamic level name
+    "level_file": args.level_file if args.level_file else None,
     "sensor_type": "lidar_128_beam",
     "random_seed": args.seed,
 }
 
-learning_cb = LearningCallback(ckpt_dir, args.profile_report, training_config)
+learning_cb = LearningCallback(ckpt_dir, args.profile_report, training_config, args.level_file)
 
 if torch.cuda.is_available():
     dev = torch.device(f"cuda:{args.gpu_id}")

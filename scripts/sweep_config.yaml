@@ -10,6 +10,8 @@ command:
   - "--gpu-sim"
   - "--gpu-id"
   - "0"
+  - "--level-file"
+  - "levels/obstacle_course_20x48.lvl"
   - ${args}
 method: bayes
 metric:
@@ -23,7 +25,7 @@ parameters:
   num-worlds:
     value: 4096
   num-updates:
-    value: 600
+    value: 4000
   steps-per-update:
     value: 40
   num-bptt-chunks:
