@@ -93,6 +93,7 @@ The build process will:
 - Compile the C++ simulation engine
 - Generate Python bindings automatically using pahole and libclang
 - Create the shared library for Python integration
+- Clear CUDA kernel cache to ensure correct optimization level
 
 ### Running the Simulation
 

@@ -73,6 +73,8 @@ Use the project-builder subagent to build the project, or use the build.sh scrip
 ./build.sh --jobs 8           # Use 8 parallel jobs instead of default 16
 ```
 
+**Note on CUDA Kernel Cache:** All build commands automatically clear the CUDA kernel cache (`build/madrona_kernels.cache`) to ensure correct optimization levels. The cache provides ~20x speedup within training sweeps but is cleared between builds to prevent debug/optimized contamination.
+
 **Legacy manual build command (if build.sh unavailable):**
 ```bash
 make -C build -j16 -s         # Fast, parallel, quiet incremental build
