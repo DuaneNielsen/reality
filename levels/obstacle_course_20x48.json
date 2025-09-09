@@ -83,7 +83,7 @@
     },
     "scale": 3.0,
     "agent_facing": [
-        0.0
+        1.5708
     ],
     "name": "obstacle_course_20x48"
 }
