@@ -161,4 +161,4 @@ echo "Press Ctrl+C to stop"
 echo
 
 # Launch viewer in replay mode with any additional arguments
-exec ./build/viewer --replay "$LATEST_REC" "$@"
+exec ./build/viewer --replay "$LATEST_REC" --auto-reset "$@"
