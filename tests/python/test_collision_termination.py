@@ -214,3 +214,119 @@ class TestCollisionTermination:
         # Validate the different behaviors
         assert north_terminated, "North collision with cube should terminate episode"
         assert not east_terminated, "East collision with wall should not terminate episode"
+
+    def test_collision_reward_penalty(self, cpu_manager):
+        """Test that collision with DoneOnCollide objects gives -1 reward."""
+        mgr = cpu_manager
+        controller = AgentController(mgr)
+        observer = ObservationReader(mgr)
+
+        # Reset to ensure clean state
+        controller.reset_actions()
+        mgr.step()
+
+        # Verify initial state
+        assert not observer.get_done_flag(0), "Episode should not be done initially"
+        assert observer.get_reward(0) == 0.0, "Reward should be 0 during episode"
+
+        # Move north toward the terminating cube (DoneOnCollide=True)
+        collision_occurred = False
+        for step in range(8):  # Multiple steps to ensure collision
+            controller.reset_actions()
+            controller.move_forward(speed=consts.action.move_amount.FAST)
+            mgr.step()
+
+            # Check if collision terminated the episode
+            if observer.get_done_flag(0):
+                collision_occurred = True
+                # Verify -1 reward on collision death
+                reward = observer.get_reward(0)
+                assert reward == -1.0, f"Expected -1.0 reward on collision, got {reward}"
+                print(f"✓ Collision reward test passed: reward = {reward}")
+                return
+
+        # If we reach here, collision didn't occur
+        assert False, "Collision should have occurred with terminating cube"
+
+    def test_normal_episode_end_vs_collision_rewards(self, cpu_manager):
+        """Test that normal episode timeout gives progress reward, collision gives -1."""
+        mgr = cpu_manager
+        controller = AgentController(mgr)  
+        observer = ObservationReader(mgr)
+
+        # Test 1: Normal episode timeout (should give progress reward)
+        controller.reset_actions()
+        mgr.step()
+        
+        # Stay still to avoid collision and let episode timeout
+        for _ in range(200):  # Run full episode length
+            controller.reset_actions()  # No movement
+            mgr.step()
+            
+        # Check timeout reward (should be progress-based, >= 0)
+        timeout_reward = observer.get_reward(0)
+        assert observer.get_done_flag(0), "Episode should be done after timeout"
+        assert timeout_reward >= 0.0, f"Timeout should give non-negative reward, got {timeout_reward}"
+        print(f"✓ Timeout reward: {timeout_reward}")
+
+        # Reset for collision test
+        reset_tensor = mgr.reset_tensor().to_torch()
+        reset_tensor[0] = 1  # Reset world 0
+        mgr.step()
+        reset_tensor[0] = 0  # Clear reset flag
+
+        # Test 2: Collision death (should give -1 reward)  
+        assert not observer.get_done_flag(0), "Episode should be reset and running"
+
+        # Move toward terminating object
+        collision_occurred = False
+        for step in range(8):
+            controller.reset_actions()
+            controller.move_forward(speed=consts.action.move_amount.FAST)
+            mgr.step()
+
+            if observer.get_done_flag(0):
+                collision_occurred = True
+                collision_reward = observer.get_reward(0)
+                assert collision_reward == -1.0, f"Expected -1.0 collision reward, got {collision_reward}"
+                print(f"✓ Collision reward: {collision_reward}")
+                break
+
+        assert collision_occurred, "Collision should have occurred"
+        
+        # Verify different rewards for different episode end types
+        print(f"✓ Reward comparison: timeout={timeout_reward}, collision={collision_reward}")
+        assert timeout_reward > collision_reward, "Timeout reward should be higher than collision penalty"
+
+    def test_non_terminating_collision_no_penalty(self, cpu_manager):
+        """Test that collision with non-DoneOnCollide objects doesn't give -1 reward."""
+        mgr = cpu_manager
+        controller = AgentController(mgr)
+        observer = ObservationReader(mgr)
+
+        # Reset to ensure clean state
+        controller.reset_actions() 
+        mgr.step()
+
+        # Move east toward non-terminating wall (DoneOnCollide=False)
+        for step in range(10):  # Collide with wall multiple times
+            controller.reset_actions()
+            controller.strafe_right(speed=consts.action.move_amount.FAST)
+            mgr.step()
+
+            # Episode should continue, reward should remain 0
+            assert not observer.get_done_flag(0), f"Episode should continue after non-terminating collision at step {step}"
+            reward = observer.get_reward(0)
+            assert reward == 0.0, f"Reward should be 0 during non-terminating collision, got {reward} at step {step}"
+
+        # Continue until episode timeout to verify normal progress reward
+        remaining_steps = 200 - 10  # Already took 10 steps
+        for _ in range(remaining_steps):
+            controller.reset_actions()  # Stay still
+            mgr.step()
+
+        # Should get normal progress reward, not collision penalty
+        final_reward = observer.get_reward(0)
+        assert observer.get_done_flag(0), "Episode should be done after timeout"
+        assert final_reward >= 0.0, f"Non-terminating collision should not affect final reward, got {final_reward}"
+        print(f"✓ Non-terminating collision final reward: {final_reward}")

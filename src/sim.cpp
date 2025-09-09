@@ -44,6 +44,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerComponent<Action>();
     registry.registerComponent<Reward>();
     registry.registerComponent<Done>();
+    registry.registerComponent<CollisionDeath>();
     
     // [GAME_SPECIFIC] Escape room specific components
     registry.registerComponent<SelfObservation>();
@@ -449,7 +450,8 @@ inline void rewardSystem(Engine &ctx,
                          Progress &progress,
                          Reward &out_reward,
                          Done &done,
-                         StepsTaken &__attribute__((unused)) steps_taken)
+                         CollisionDeath &collision_death,
+                         StepsTaken &steps_taken)
 {
     // Update max Y reached during episode
     if (pos.y > progress.maxY) {
@@ -458,17 +460,21 @@ inline void rewardSystem(Engine &ctx,
 
     // Only give reward at the end of the episode
     if (done.v == 1) {
-        // Get world boundaries from the compiled level singleton
-        const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-        
-        // Use actual world boundaries for normalization
-        float world_length = level.world_max_y - level.world_min_y;
-        
-        
-        float adjusted_progress = progress.maxY - level.world_min_y;
-        float normalized_progress = adjusted_progress / world_length;
-        
-        out_reward.v = normalized_progress;
+        if (collision_death.died == 1) {
+            // Agent died from collision - give penalty
+            out_reward.v = -1.0f;
+        } else {
+            // Normal episode end - give progress reward
+            const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+            
+            // Use actual world boundaries for normalization
+            float world_length = level.world_max_y - level.world_min_y;
+            
+            float adjusted_progress = progress.maxY - level.world_min_y;
+            float normalized_progress = adjusted_progress / world_length;
+            
+            out_reward.v = normalized_progress;
+        }
     } else {
         // No reward during the episode
         out_reward.v = 0.0f;
@@ -480,7 +486,8 @@ inline void rewardSystem(Engine &ctx,
 inline void agentCollisionSystem(Engine &ctx,
                                 Entity agent_entity,
                                 EntityType agent_type,
-                                Done &done)
+                                Done &done,
+                                CollisionDeath &collision_death)
 {
     // Only process agents
     if (agent_type != EntityType::Agent) {
@@ -520,6 +527,7 @@ inline void agentCollisionSystem(Engine &ctx,
             auto done_on_collide_ref = ctx.getCheck<DoneOnCollide>(other_loc);
             if (done_on_collide_ref.valid() && done_on_collide_ref.value().value) {
                 done.v = 1;
+                collision_death.died = 1;  // Mark that agent died from collision
             }
         }
     });
@@ -618,7 +626,8 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             agentCollisionSystem,
             Entity,
             EntityType,
-            Done
+            Done,
+            CollisionDeath
         >>({run_narrowphase});
         
         // Continue with position solver
@@ -677,6 +686,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Progress,
             Reward,
             Done,
+            CollisionDeath,
             StepsTaken
         >>({done_sys});
 

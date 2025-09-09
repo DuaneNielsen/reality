@@ -82,6 +82,12 @@ namespace madEscape {
     };
 
     // [GAME_SPECIFIC]
+    // Tracks if agent died from collision (for reward calculation)
+    struct CollisionDeath {
+        int32_t died;  // Using int32_t like Done due to padding issues with bool
+    };
+
+    // [GAME_SPECIFIC]
     // Observation state for the current agent.
     // Positions are rescaled to the bounds of the play area to assist training.
     struct SelfObservation {
@@ -303,7 +309,7 @@ namespace madEscape {
                   SelfObservation, CompassObservation, Lidar, StepsTaken,
 
                   // Reward, episode termination
-                  Reward, Done,
+                  Reward, Done, CollisionDeath,
 
                   // Visualization: In addition to the fly camera, src/viewer.cpp can
                   // view the scene from the perspective of entities with this component
