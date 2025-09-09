@@ -11,9 +11,9 @@ command:
   - "--gpu-id"
   - "0"
   - "--level-file"
-  - "levels/obstacle_course_20x48.lvl"
+  - ${level_file}
   - ${args}
-method: bayes
+method: grid
 metric:
   name: episodes/reward_ema
   goal: maximize
@@ -31,17 +31,15 @@ parameters:
   num-bptt-chunks:
     value: 8
   
-  # Key hyperparameters to optimize
+  # Optimal hyperparameters from production run
   lr:
-    distribution: log_uniform_values
-    min: 0.0001
-    max: 0.001
+    value: 0.00038822
   gamma:
-    values: [0.995, 0.998]
+    value: 0.998
   
-  # PPO tuning (most impactful)
+  # PPO tuning (optimal values)
   entropy-loss-coef:
-    values: [0.005, 0.01, 0.02]
+    value: 0.005
   
   # Fixed parameters
   value-loss-coef:
@@ -51,4 +49,25 @@ parameters:
   
   # Random seed for reproducibility
   seed:
-    values: [0, 42, 123, 456, 789]
+    value: 0
+  
+  # Level files for grid search across all generated levels
+  level_file:
+    values:
+      - "levels/empty_20x48.json"
+      - "levels/lvl1_20x48.json"
+      - "levels/lvl2_20x48.json"
+      - "levels/lvl3_20x48.json"
+      - "levels/lvl4_20x48.json"
+      - "levels/lvl5_20x48.json"
+      - "levels/lvl6_20x48.json"
+      - "levels/lvl7_20x48.json"
+      - "levels/lvl1_maze_20x48.json"
+      - "levels/lvl2_maze_20x48.json"
+      - "levels/lvl3_maze_20x48.json"
+      - "levels/lvl4_maze_20x48.json"
+      - "levels/lvl5_maze_20x48.json"
+      - "levels/lvl6_maze_20x48.json"
+      - "levels/lvl7_maze_20x48.json"
+      - "levels/lvl8_maze_20x48.json"
+      - "levels/lvl9_maze_20x48.json"
