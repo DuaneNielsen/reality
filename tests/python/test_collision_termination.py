@@ -86,9 +86,9 @@ class TestCollisionTermination:
             mgr.step()
 
             # Episode should continue running even after collision
-            assert not observer.get_done_flag(
-                0
-            ), f"Episode should continue after east wall collision at step {step}"
+            assert not observer.get_done_flag(0), (
+                f"Episode should continue after east wall collision at step {step}"
+            )
 
         # SUCCESS - episode continued running after collision with non-terminating wall
 
@@ -138,9 +138,9 @@ class TestCollisionTermination:
             mgr.step()
 
             # Episode should continue running even after collision
-            assert not observer.get_done_flag(
-                0
-            ), f"Episode should continue after south wall collision at step {step}"
+            assert not observer.get_done_flag(0), (
+                f"Episode should continue after south wall collision at step {step}"
+            )
 
         # SUCCESS - episode continued running after collision with non-terminating wall
 
@@ -238,7 +238,6 @@ class TestCollisionTermination:
 
             # Check if collision terminated the episode
             if observer.get_done_flag(0):
-                collision_occurred = True
                 # Verify -1 reward on collision death
                 reward = observer.get_reward(0)
                 assert reward == -1.0, f"Expected -1.0 reward on collision, got {reward}"
@@ -251,22 +250,24 @@ class TestCollisionTermination:
     def test_normal_episode_end_vs_collision_rewards(self, cpu_manager):
         """Test that normal episode timeout gives progress reward, collision gives -1."""
         mgr = cpu_manager
-        controller = AgentController(mgr)  
+        controller = AgentController(mgr)
         observer = ObservationReader(mgr)
 
         # Test 1: Normal episode timeout (should give progress reward)
         controller.reset_actions()
         mgr.step()
-        
+
         # Stay still to avoid collision and let episode timeout
         for _ in range(200):  # Run full episode length
             controller.reset_actions()  # No movement
             mgr.step()
-            
+
         # Check timeout reward (should be progress-based, >= 0)
         timeout_reward = observer.get_reward(0)
         assert observer.get_done_flag(0), "Episode should be done after timeout"
-        assert timeout_reward >= 0.0, f"Timeout should give non-negative reward, got {timeout_reward}"
+        assert timeout_reward >= 0.0, (
+            f"Timeout should give non-negative reward, got {timeout_reward}"
+        )
         print(f"✓ Timeout reward: {timeout_reward}")
 
         # Reset for collision test
@@ -275,7 +276,7 @@ class TestCollisionTermination:
         mgr.step()
         reset_tensor[0] = 0  # Clear reset flag
 
-        # Test 2: Collision death (should give -1 reward)  
+        # Test 2: Collision death (should give -1 reward)
         assert not observer.get_done_flag(0), "Episode should be reset and running"
 
         # Move toward terminating object
@@ -288,15 +289,19 @@ class TestCollisionTermination:
             if observer.get_done_flag(0):
                 collision_occurred = True
                 collision_reward = observer.get_reward(0)
-                assert collision_reward == -1.0, f"Expected -1.0 collision reward, got {collision_reward}"
+                assert collision_reward == -1.0, (
+                    f"Expected -1.0 collision reward, got {collision_reward}"
+                )
                 print(f"✓ Collision reward: {collision_reward}")
                 break
 
         assert collision_occurred, "Collision should have occurred"
-        
+
         # Verify different rewards for different episode end types
         print(f"✓ Reward comparison: timeout={timeout_reward}, collision={collision_reward}")
-        assert timeout_reward > collision_reward, "Timeout reward should be higher than collision penalty"
+        assert timeout_reward > collision_reward, (
+            "Timeout reward should be higher than collision penalty"
+        )
 
     def test_non_terminating_collision_no_penalty(self, cpu_manager):
         """Test that collision with non-DoneOnCollide objects doesn't give -1 reward."""
@@ -305,7 +310,7 @@ class TestCollisionTermination:
         observer = ObservationReader(mgr)
 
         # Reset to ensure clean state
-        controller.reset_actions() 
+        controller.reset_actions()
         mgr.step()
 
         # Move east toward non-terminating wall (DoneOnCollide=False)
@@ -315,9 +320,13 @@ class TestCollisionTermination:
             mgr.step()
 
             # Episode should continue, reward should remain 0
-            assert not observer.get_done_flag(0), f"Episode should continue after non-terminating collision at step {step}"
+            assert not observer.get_done_flag(0), (
+                f"Episode should continue after non-terminating collision at step {step}"
+            )
             reward = observer.get_reward(0)
-            assert reward == 0.0, f"Reward should be 0 during non-terminating collision, got {reward} at step {step}"
+            assert reward == 0.0, (
+                f"Reward should be 0 during non-terminating collision, got {reward} at step {step}"
+            )
 
         # Continue until episode timeout to verify normal progress reward
         remaining_steps = 200 - 10  # Already took 10 steps
@@ -328,5 +337,7 @@ class TestCollisionTermination:
         # Should get normal progress reward, not collision penalty
         final_reward = observer.get_reward(0)
         assert observer.get_done_flag(0), "Episode should be done after timeout"
-        assert final_reward >= 0.0, f"Non-terminating collision should not affect final reward, got {final_reward}"
+        assert final_reward >= 0.0, (
+            f"Non-terminating collision should not affect final reward, got {final_reward}"
+        )
         print(f"✓ Non-terminating collision final reward: {final_reward}")
