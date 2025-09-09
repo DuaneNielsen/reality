@@ -199,7 +199,10 @@ class LearningCallback:
             wandb.log(wandb_data, step=update_id)
 
         # Keep original console output
-        print(f"\nUpdate: {update_id}")
+        if self.use_wandb and wandb.run is not None:
+            print(f"\nUpdate: {update_id} [{wandb.run.name}]")
+        else:
+            print(f"\nUpdate: {update_id}")
         print(
             f"    Loss: {ppo.loss: .3e}, A: {ppo.action_loss: .3e}, "
             f"V: {ppo.value_loss: .3e}, E: {ppo.entropy_loss: .3e}"
