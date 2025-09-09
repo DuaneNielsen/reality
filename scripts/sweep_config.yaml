@@ -48,3 +48,7 @@ parameters:
     value: 0.5
   num-channels:
     value: 256
+  
+  # Random seed for reproducibility
+  seed:
+    values: [0, 42, 123, 456, 789]

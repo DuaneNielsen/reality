@@ -5,15 +5,22 @@ set -e
 
 # Parse arguments and use environment variable or default
 PROJECT="${WANDB_PROJECT:-madrona-escape-room-dev}"
+CACHED=false
 while [[ $# -gt 0 ]]; do
     case $1 in
         --project)
             PROJECT="$2"
             shift 2
             ;;
+        --cached)
+            CACHED=true
+            shift
+            ;;
         *)
             echo "Unknown argument: $1"
-            echo "Usage: $0 [--project PROJECT_NAME]"
+            echo "Usage: $0 [--project PROJECT_NAME] [--cached]"
+            echo "  --project: Specify wandb project name"
+            echo "  --cached: Keep existing CUDA kernel cache (skip deletion)"
             echo "Or set WANDB_PROJECT environment variable"
             exit 1
             ;;
@@ -34,9 +41,18 @@ cd "$PROJECT_ROOT"
 mkdir -p build
 
 # Delete existing cache to ensure fresh compilation with correct optimization
-if [ -f "$PROJECT_ROOT/build/madrona_kernels.cache" ]; then
-    echo "Removing existing CUDA kernel cache to ensure correct optimization level"
-    rm -f "$PROJECT_ROOT/build/madrona_kernels.cache"
+# (unless --cached flag is used)
+if [ "$CACHED" = false ]; then
+    if [ -f "$PROJECT_ROOT/build/madrona_kernels.cache" ]; then
+        echo "Removing existing CUDA kernel cache to ensure correct optimization level"
+        rm -f "$PROJECT_ROOT/build/madrona_kernels.cache"
+    fi
+else
+    if [ -f "$PROJECT_ROOT/build/madrona_kernels.cache" ]; then
+        echo "Using existing CUDA kernel cache (--cached flag specified)"
+    else
+        echo "No existing CUDA kernel cache found, will be created"
+    fi
 fi
 
 export MADRONA_MWGPU_KERNEL_CACHE="$PROJECT_ROOT/build/madrona_kernels.cache"
