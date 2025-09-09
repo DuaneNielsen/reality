@@ -140,7 +140,8 @@
       "Bash(./tests/quicktest.sh:*)",
       "Bash(git checkout:*)",
       "Bash(./build.sh)",
-      "Bash(git worktree:*)"
+      "Bash(git worktree:*)",
+      "Bash(git cherry-pick:*)"
     ],
     "deny": []
   },
