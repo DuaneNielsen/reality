@@ -86,25 +86,25 @@ if [[ ! -d "$CHECKPOINTS_DIR" ]]; then
     exit 1
 fi
 
-# Find .rec files
-REC_FILES=("$CHECKPOINTS_DIR"/*.rec)
-if [[ ! -f "${REC_FILES[0]}" ]]; then
-    echo "No .rec files found in $CHECKPOINTS_DIR"
-    echo "Looking for checkpoint files to run inference..."
-    
-    # Find .pth checkpoint files
-    CKPT_FILES=("$CHECKPOINTS_DIR"/*.pth)
-    if [[ ! -f "${CKPT_FILES[0]}" ]]; then
-        echo "Error: No checkpoint files (.pth) found in $CHECKPOINTS_DIR"
-        echo "Available files:"
-        ls -la "$CHECKPOINTS_DIR"
-        exit 1
-    fi
-    
-    # Use the latest checkpoint
-    LATEST_CKPT=$(ls -t "${CKPT_FILES[@]}" | head -1)
-    CKPT_NAME=$(basename "$LATEST_CKPT" .pth)
-    echo "Found checkpoint: $CKPT_NAME"
+# Find .pth checkpoint files first to determine the latest checkpoint
+CKPT_FILES=("$CHECKPOINTS_DIR"/*.pth)
+if [[ ! -f "${CKPT_FILES[0]}" ]]; then
+    echo "Error: No checkpoint files (.pth) found in $CHECKPOINTS_DIR"
+    echo "Available files:"
+    ls -la "$CHECKPOINTS_DIR"
+    exit 1
+fi
+
+# Use the latest checkpoint
+LATEST_CKPT=$(ls -t "${CKPT_FILES[@]}" | head -1)
+CKPT_NAME=$(basename "$LATEST_CKPT" .pth)
+echo "Found latest checkpoint: $CKPT_NAME"
+
+# Check if corresponding .rec file exists for the latest checkpoint
+EXPECTED_REC_FILE="$CHECKPOINTS_DIR/$CKPT_NAME.rec"
+if [[ ! -f "$EXPECTED_REC_FILE" ]]; then
+    echo "No .rec file found for latest checkpoint: $CKPT_NAME"
+    echo "Generating recording file through inference..."
     
     # Extract the run hash from the directory path
     RUN_HASH=$(basename "$WANDB_RUN_DIR" | sed 's/.*-//')
@@ -122,28 +122,36 @@ if [[ ! -f "${REC_FILES[0]}" ]]; then
         exit 1
     fi
     
-    echo "Inference completed, looking for generated .rec file..."
+    echo "Inference completed, checking for generated .rec file..."
     
-    # Refresh the .rec files list
-    REC_FILES=("$CHECKPOINTS_DIR"/*.rec)
-    if [[ ! -f "${REC_FILES[0]}" ]]; then
-        echo "Error: No .rec file generated after inference"
+    # Check if the expected .rec file was generated
+    if [[ ! -f "$EXPECTED_REC_FILE" ]]; then
+        echo "Error: Expected .rec file not generated: $EXPECTED_REC_FILE"
+        echo "Available .rec files:"
+        ls -la "$CHECKPOINTS_DIR"/*.rec 2>/dev/null || echo "None found"
         exit 1
     fi
     
-    echo "Generated recording file successfully!"
+    echo "Generated recording file successfully: $(basename "$EXPECTED_REC_FILE")"
 fi
 
-# If multiple .rec files, use the latest one
-if [[ ${#REC_FILES[@]} -gt 1 ]]; then
-    echo "Found ${#REC_FILES[@]} recording files, using the latest:"
-    for rec_file in "${REC_FILES[@]}"; do
-        echo "  $(basename "$rec_file")"
-    done
-    # Sort by modification time and take the latest
-    LATEST_REC=$(ls -t "${REC_FILES[@]}" | head -1)
-else
-    LATEST_REC="${REC_FILES[0]}"
+# Use the .rec file corresponding to the latest checkpoint
+LATEST_REC="$EXPECTED_REC_FILE"
+
+# Show information about other available .rec files if they exist
+OTHER_REC_FILES=("$CHECKPOINTS_DIR"/*.rec)
+if [[ -f "${OTHER_REC_FILES[0]}" ]]; then
+    NUM_REC_FILES=${#OTHER_REC_FILES[@]}
+    if [[ $NUM_REC_FILES -gt 1 ]]; then
+        echo "Found $NUM_REC_FILES recording files in total:"
+        for rec_file in "${OTHER_REC_FILES[@]}"; do
+            if [[ "$rec_file" == "$LATEST_REC" ]]; then
+                echo "  $(basename "$rec_file") [LATEST - USING THIS]"
+            else
+                echo "  $(basename "$rec_file")"
+            fi
+        done
+    fi
 fi
 
 echo "Using recording file: $LATEST_REC"
