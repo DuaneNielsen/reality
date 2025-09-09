@@ -10,8 +10,6 @@ command:
   - "--gpu-sim"
   - "--gpu-id"
   - "0"
-  - "--level-file"
-  - ${level_file}
   - ${args}
 method: grid
 metric:
@@ -52,7 +50,7 @@ parameters:
     value: 0
   
   # Level files for grid search across all generated levels
-  level_file:
+  level-file:
     values:
       - "levels/empty_20x48.json"
       - "levels/lvl1_20x48.json"
