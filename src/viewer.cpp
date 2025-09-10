@@ -59,7 +59,7 @@ namespace ArgChecker {
 }
 
 enum OptionIndex { 
-    UNKNOWN, HELP, CUDA, NUM_WORLDS, LOAD, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED, HIDE_MENU, PAUSE, AUTO_RESET
+    UNKNOWN, HELP, CUDA, NUM_WORLDS, LOAD, REPLAY, RECORD, TRACK, TRACK_WORLD, TRACK_AGENT, TRACK_FILE, SEED, HIDE_MENU, PAUSE, AUTO_RESET, FOLLOW
 };
 
 const option::Descriptor usage[] = {
@@ -81,6 +81,7 @@ const option::Descriptor usage[] = {
     {HIDE_MENU, 0, "", "hide-menu", option::Arg::None, "  --hide-menu  \tHide ImGui menu (useful for clean screenshots)"},
     {PAUSE,   0, "p", "pause", ArgChecker::OptionalNumeric, "  --pause [delay], -p [delay]  \tStart paused, optionally auto-resume after delay seconds"},
     {AUTO_RESET, 0, "", "auto-reset", option::Arg::None, "  --auto-reset  \tAutomatically reset episodes when agents complete them"},
+    {FOLLOW,  0, "f", "follow", option::Arg::None, "  --follow, -f  \tStart in tracking camera mode (follow the agent)"},
     {0, 0, 0, 0, 0, 0}
 };
 
@@ -156,6 +157,7 @@ int main(int argc, char *argv[])
     bool start_paused = false;
     float pause_delay_seconds = 0.0f;
     bool auto_reset = false;
+    bool start_follow_mode = false;
 
     // Process options
     if (options[CUDA]) {
@@ -219,6 +221,11 @@ int main(int argc, char *argv[])
     if (options[AUTO_RESET]) {
         auto_reset = true;
         printf("Auto-reset enabled: episodes will restart automatically when agents complete them\n");
+    }
+    
+    if (options[FOLLOW]) {
+        start_follow_mode = true;
+        printf("Starting in tracking camera mode (following agent)\n");
     }
 
     // Check for any remaining non-option arguments
@@ -424,7 +431,7 @@ int main(int argc, char *argv[])
     std::cout << "  R: Reset current world\n";
     std::cout << "  T: Toggle trajectory tracking for current world\n";
     std::cout << "  L: Toggle lidar ray visualization\n";
-    std::cout << "  C: Cycle camera modes (FreeFly/Tracking/Fixed)\n";
+    std::cout << "  C: Toggle camera mode (FreeFly/Tracking)\n";
     std::cout << "  F: Toggle camera tracking (in Tracking mode)\n";
     std::cout << "  WASD: Move camera\n";
     std::cout << "  Right Mouse + Move: Rotate camera\n";
@@ -433,7 +440,6 @@ int main(int argc, char *argv[])
     // Initialize camera controllers
     std::unique_ptr<madEscape::FreeFlyCameraController> freeFlyCamera(new madEscape::FreeFlyCameraController());
     std::unique_ptr<madEscape::TrackingCameraController> trackingCamera(new madEscape::TrackingCameraController());
-    std::unique_ptr<madEscape::FixedCameraController> fixedCamera(new madEscape::FixedCameraController());
     
     // Get initial agent position to point camera at it
     math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
@@ -448,9 +454,14 @@ int main(int argc, char *argv[])
     freeFlyCamera->setPosition(camPos);
     freeFlyCamera->setLookAt(agentPos);
     
-    // Current camera controller
-    madEscape::CameraController* currentCamera = freeFlyCamera.get();
-    int cameraMode = 0; // 0=FreeFly, 1=Tracking, 2=Fixed
+    // Initialize tracking camera with agent position
+    trackingCamera->setTarget(agentPos);
+    
+    // Current camera controller - start in follow mode if requested
+    madEscape::CameraController* currentCamera = start_follow_mode ? 
+        static_cast<madEscape::CameraController*>(trackingCamera.get()) : 
+        static_cast<madEscape::CameraController*>(freeFlyCamera.get());
+    int cameraMode = start_follow_mode ? 1 : 0; // 0=FreeFly, 1=Tracking
     
     float camera_move_speed = consts::display::defaultCameraDist;
     math::Vector3 initial_camera_position = { 0.0f, -14.0f, 35.0f };
@@ -501,10 +512,11 @@ int main(int argc, char *argv[])
     // Apply initial camera state from our controller to the viewer
     // This overrides the default camera position set in the viewer constructor
     {
-        madEscape::CameraState initialCamState = freeFlyCamera->getState();
+        madEscape::CameraState initialCamState = currentCamera->getState();
         viewer.setCameraVectors(initialCamState.position, initialCamState.forward, 
                                initialCamState.up, initialCamState.right);
-        printf("Applied initial camera state: pos=(%.2f, %.2f, %.2f)\n", 
+        printf("Applied initial camera state (%s): pos=(%.2f, %.2f, %.2f)\n", 
+               start_follow_mode ? "Tracking" : "FreeFly",
                initialCamState.position.x, initialCamState.position.y, initialCamState.position.z);
     }
     
@@ -514,7 +526,7 @@ int main(int argc, char *argv[])
     // Main loop for the viewer
     viewer.loop(
     [&viewer_core, &printObs, &mgr, &viewer, &currentCamera, &cameraMode, 
-     &freeFlyCamera, &trackingCamera, &fixedCamera, &lastFrameTime]
+     &freeFlyCamera, &trackingCamera, &lastFrameTime]
     (CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
@@ -524,19 +536,18 @@ int main(int argc, char *argv[])
         float deltaTime = std::chrono::duration<float>(currentTime - lastFrameTime).count();
         lastFrameTime = currentTime;
         
-        // Camera mode switching
+        // Camera mode switching (toggle between FreeFly and Tracking)
         if (input.keyHit(Key::C)) {
-            cameraMode = (cameraMode + 1) % 3;
-            switch (cameraMode) {
-                case 0: 
-                    currentCamera = freeFlyCamera.get(); 
-                    break;
-                case 1: 
-                    currentCamera = trackingCamera.get();
-                    break;
-                case 2: 
-                    currentCamera = fixedCamera.get();
-                    break;
+            cameraMode = 1 - cameraMode;  // Toggle between 0 and 1
+            if (cameraMode == 0) {
+                currentCamera = freeFlyCamera.get();
+                printf("SWITCHED TO: FreeFly Camera\n");
+            } else {
+                currentCamera = trackingCamera.get();
+                printf("SWITCHED TO: Tracking Camera (follow mode)\n");
+                // Initialize tracking camera with current agent position
+                math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
+                trackingCamera->setTarget(agentPos);
             }
         }
         
@@ -567,6 +578,23 @@ int main(int argc, char *argv[])
             
             // Apply camera state to viewer
             madEscape::CameraState camState = currentCamera->getState();
+            
+            // Debug output for tracking camera
+            if (cameraMode == 1) {
+                static int debugFrame = 0;
+                if (debugFrame++ % 60 == 0) {
+                    printf("Applying tracking camera to viewer:\n");
+                    printf("  Position: (%.2f, %.2f, %.2f)\n", 
+                           camState.position.x, camState.position.y, camState.position.z);
+                    printf("  Forward:  (%.2f, %.2f, %.2f)\n", 
+                           camState.forward.x, camState.forward.y, camState.forward.z);
+                    printf("  Up:       (%.2f, %.2f, %.2f)\n", 
+                           camState.up.x, camState.up.y, camState.up.z);
+                    printf("  Right:    (%.2f, %.2f, %.2f)\n", 
+                           camState.right.x, camState.right.y, camState.right.z);
+                }
+            }
+            
             viewer.setCameraVectors(camState.position, camState.forward, 
                                    camState.up, camState.right);
         }
