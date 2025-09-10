@@ -145,11 +145,11 @@ void TrackingCameraController::handleInput(const CameraInputState& input, float 
         coneHeight_ = std::clamp(coneHeight_, minHeight_, maxHeight_);
     }
     
-    // A/D - Move around the cone (change angle)
-    if (input.left) {
+    // Q/E - Rotate around the cone (change angle)
+    if (input.rotateLeft) {
         coneAngle_ += rotationSpeed_ * deltaTime;
     }
-    if (input.right) {
+    if (input.rotateRight) {
         coneAngle_ -= rotationSpeed_ * deltaTime;
     }
     
@@ -190,7 +190,6 @@ CameraState TrackingCameraController::getState() const {
 }
 
 void TrackingCameraController::reset() {
-    printf("TrackingCameraController::reset() - Initializing cone-based tracking\n");
     
     // Initialize cone parameters for good visibility
     coneRadius_ = 20.0f;    // Good overview distance
@@ -232,13 +231,6 @@ void TrackingCameraController::setTarget(const Vector3& targetPos) {
         firstTargetSet_ = false;
     }
     
-    // Debug output
-    static int counter = 0;
-    if (counter++ % 60 == 0) {
-        printf("TrackingCamera: target=(%.2f, %.2f, %.2f) smoothed=(%.2f, %.2f, %.2f)\n", 
-               targetPos.x, targetPos.y, targetPos.z,
-               smoothedTarget_.x, smoothedTarget_.y, smoothedTarget_.z);
-    }
 }
 
 void TrackingCameraController::updateCameraPosition() {
@@ -271,22 +263,6 @@ void TrackingCameraController::updateCameraPosition() {
         state_.up = cross(state_.right, state_.forward).normalize();
     }
     
-    // Debug output
-    static int dbgCounter = 0;
-    if (dbgCounter++ % 60 == 0) {
-        printf("=== CONE TRACKING CAMERA ===\n");
-        printf("  Camera Pos:     (%.2f, %.2f, %.2f)\n", 
-               state_.position.x, state_.position.y, state_.position.z);
-        printf("  Target (raw):   (%.2f, %.2f, %.2f)\n", 
-               targetPosition_.x, targetPosition_.y, targetPosition_.z);
-        printf("  Target (smooth):(%.2f, %.2f, %.2f)\n", 
-               smoothedTarget_.x, smoothedTarget_.y, smoothedTarget_.z);
-        printf("  Cone params:    R=%.1f H=%.1f A=%.2f°\n", 
-               coneRadius_, coneHeight_, coneAngle_ * 180.0f / 3.14159f);
-        printf("  Forward Vec:    (%.2f, %.2f, %.2f)\n", 
-               state_.forward.x, state_.forward.y, state_.forward.z);
-        printf("=============================\n");
-    }
     
     // Update legacy offset for compatibility
     offset_ = state_.position - targetPosition_;

@@ -443,13 +443,10 @@ int main(int argc, char *argv[])
     
     // Get initial agent position to point camera at it
     math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
-    printf("Initial agent position: (%.2f, %.2f, %.2f)\n", agentPos.x, agentPos.y, agentPos.z);
     
     // Set initial camera position for free fly - looking at agent
     // Position camera behind and above the agent
     math::Vector3 camPos{agentPos.x, agentPos.y - 14.0f, agentPos.z + 35.0f};
-    printf("Setting camera position to: (%.2f, %.2f, %.2f)\n", camPos.x, camPos.y, camPos.z);
-    printf("Looking at: (%.2f, %.2f, %.2f)\n", agentPos.x, agentPos.y, agentPos.z);
     
     freeFlyCamera->setPosition(camPos);
     freeFlyCamera->setLookAt(agentPos);
@@ -515,9 +512,6 @@ int main(int argc, char *argv[])
         madEscape::CameraState initialCamState = currentCamera->getState();
         viewer.setCameraVectors(initialCamState.position, initialCamState.forward, 
                                initialCamState.up, initialCamState.right);
-        printf("Applied initial camera state (%s): pos=(%.2f, %.2f, %.2f)\n", 
-               start_follow_mode ? "Tracking" : "FreeFly",
-               initialCamState.position.x, initialCamState.position.y, initialCamState.position.z);
     }
     
     // Track time for frame delta
@@ -541,10 +535,8 @@ int main(int argc, char *argv[])
             cameraMode = 1 - cameraMode;  // Toggle between 0 and 1
             if (cameraMode == 0) {
                 currentCamera = freeFlyCamera.get();
-                printf("SWITCHED TO: FreeFly Camera\n");
             } else {
                 currentCamera = trackingCamera.get();
-                printf("SWITCHED TO: Tracking Camera (follow mode)\n");
                 // Initialize tracking camera with current agent position
                 math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
                 trackingCamera->setTarget(agentPos);
@@ -570,6 +562,8 @@ int main(int argc, char *argv[])
             camInput.backward = input.keyPressed(Key::S);
             camInput.left = input.keyPressed(Key::A);
             camInput.right = input.keyPressed(Key::D);
+            camInput.rotateLeft = input.keyPressed(Key::Q);
+            camInput.rotateRight = input.keyPressed(Key::E);
             camInput.boost = input.keyPressed(Key::Shift);
             
             // Handle camera input and update
@@ -579,21 +573,6 @@ int main(int argc, char *argv[])
             // Apply camera state to viewer
             madEscape::CameraState camState = currentCamera->getState();
             
-            // Debug output for tracking camera
-            if (cameraMode == 1) {
-                static int debugFrame = 0;
-                if (debugFrame++ % 60 == 0) {
-                    printf("Applying tracking camera to viewer:\n");
-                    printf("  Position: (%.2f, %.2f, %.2f)\n", 
-                           camState.position.x, camState.position.y, camState.position.z);
-                    printf("  Forward:  (%.2f, %.2f, %.2f)\n", 
-                           camState.forward.x, camState.forward.y, camState.forward.z);
-                    printf("  Up:       (%.2f, %.2f, %.2f)\n", 
-                           camState.up.x, camState.up.y, camState.up.z);
-                    printf("  Right:    (%.2f, %.2f, %.2f)\n", 
-                           camState.right.x, camState.right.y, camState.right.z);
-                }
-            }
             
             viewer.setCameraVectors(camState.position, camState.forward, 
                                    camState.up, camState.right);
