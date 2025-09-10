@@ -441,15 +441,27 @@ int main(int argc, char *argv[])
     std::unique_ptr<madEscape::FreeFlyCameraController> freeFlyCamera(new madEscape::FreeFlyCameraController());
     std::unique_ptr<madEscape::TrackingCameraController> trackingCamera(new madEscape::TrackingCameraController());
     
-    // Get initial agent position to point camera at it
+    // Get initial agent position for tracking camera
     math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
     
-    // Set initial camera position for free fly - looking at agent
-    // Position camera behind and above the agent
-    math::Vector3 camPos{agentPos.x, agentPos.y - 14.0f, agentPos.z + 35.0f};
+    // Get level bounds for smart camera positioning and rotation
+    const CompiledLevel* level = mgr.getCompiledLevel(0);
+    float width = level->world_max_x - level->world_min_x;
+    float length = level->world_max_y - level->world_min_y;
+    float height = std::max(width, length) * 0.5f;
+    
+    // Position camera above origin
+    math::Vector3 origin = {0.0f, 0.0f, 0.0f};
+    math::Vector3 camPos = {0.0f, 0.0f, height};
     
     freeFlyCamera->setPosition(camPos);
-    freeFlyCamera->setLookAt(agentPos);
+    freeFlyCamera->setLookAt(origin);
+    
+    // Rotate camera 90° if level is longer than wide
+    if (length > width * 1.2f) {
+        // Rotate camera 90 degrees to align Y-axis with screen width
+        freeFlyCamera->setYaw(90.0f * M_PI / 180.0f);  // Convert degrees to radians
+    }
     
     // Initialize tracking camera with agent position
     trackingCamera->setTarget(agentPos);

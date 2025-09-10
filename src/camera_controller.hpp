@@ -71,6 +71,7 @@ public:
     void setMouseSensitivity(float sensitivity) { mouseSensitivity_ = sensitivity; }
     void setPosition(const madrona::math::Vector3& pos);
     void setLookAt(const madrona::math::Vector3& target);
+    void setYaw(float yaw) { yaw_ = yaw; updateVectors(); }
     
 private:
     CameraState state_;

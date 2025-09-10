@@ -176,6 +176,9 @@ public:
     
     // Get agent position for camera tracking
     madrona::math::Vector3 getAgentPosition(int32_t world_idx, int32_t agent_idx = 0) const;
+    
+    // Get compiled level for camera positioning
+    const CompiledLevel* getCompiledLevel(int32_t world_idx = 0) const;
 
     madrona::render::RenderManager & getRenderManager();
 

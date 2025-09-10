@@ -1156,6 +1156,11 @@ math::Vector3 Manager::getAgentPosition(int32_t world_idx, int32_t agent_idx) co
     }
 }
 
+const CompiledLevel* Manager::getCompiledLevel(int32_t world_idx) const
+{
+    return &impl_->cfg.perWorldCompiledLevels[world_idx].value();
+}
+
 // [BOILERPLATE] Expose render manager for visualization tools
 render::RenderManager & Manager::getRenderManager()
 {
