@@ -105,8 +105,32 @@ public:
     
 private:
     CameraState state_;
-    madrona::math::Vector3 targetPosition_;
-    madrona::math::Vector3 offset_{0.0f, -10.0f, 15.0f};  // Default offset
+    
+    // Target tracking
+    madrona::math::Vector3 targetPosition_;      // Raw target position
+    madrona::math::Vector3 smoothedTarget_;      // Smoothed target for camera to look at
+    float targetSmoothFactor_ = 0.15f;           // How quickly to follow target (0-1)
+    
+    // Cone-based camera positioning
+    float coneRadius_ = 20.0f;                   // Distance from target (horizontal)
+    float coneHeight_ = 15.0f;                   // Height above target (vertical)
+    float coneAngle_ = 0.0f;                     // Rotation around target (radians)
+    
+    // Control speeds
+    float heightSpeed_ = 10.0f;                  // Units per second for W/S
+    float rotationSpeed_ = 2.0f;                 // Radians per second for A/D
+    float zoomSpeed_ = 15.0f;                    // Units per second for zoom
+    
+    // Constraints
+    float minHeight_ = 5.0f;                     // Minimum camera height
+    float maxHeight_ = 50.0f;                    // Maximum camera height
+    float minRadius_ = 5.0f;                     // Minimum distance from target
+    float maxRadius_ = 50.0f;                    // Maximum distance from target
+    
+    bool firstTargetSet_ = true;                 // Track if this is the first target set
+    
+    // Legacy parameters (kept for compatibility)
+    madrona::math::Vector3 offset_{0.0f, -10.0f, 5.0f};
     float smoothingFactor_ = 0.1f;
     float distance_ = 15.0f;
     float height_ = 10.0f;

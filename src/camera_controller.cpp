@@ -135,38 +135,53 @@ TrackingCameraController::TrackingCameraController() {
 }
 
 void TrackingCameraController::handleInput(const CameraInputState& input, float deltaTime) {
-    // Allow user to adjust viewing angle and distance
-    if (input.mouseRightButton) {
-        orbitAngle_ -= input.mouseDeltaX * 0.01f;
-        height_ += input.mouseDeltaY * 0.1f;
-        height_ = std::clamp(height_, 5.0f, 50.0f);
-    }
-    
-    // Zoom with scroll or up/down
-    if (input.up) {
-        distance_ -= 10.0f * deltaTime;
-    }
-    if (input.down) {
-        distance_ += 10.0f * deltaTime;
-    }
-    distance_ = std::clamp(distance_, 5.0f, 50.0f);
-    
-    // Adjust offset with movement keys
+    // W/S - Move up/down the cone (adjust height)
     if (input.forward) {
-        offset_.y += 5.0f * deltaTime;
+        coneHeight_ += heightSpeed_ * deltaTime;
+        coneHeight_ = std::clamp(coneHeight_, minHeight_, maxHeight_);
     }
     if (input.backward) {
-        offset_.y -= 5.0f * deltaTime;
+        coneHeight_ -= heightSpeed_ * deltaTime;
+        coneHeight_ = std::clamp(coneHeight_, minHeight_, maxHeight_);
     }
+    
+    // A/D - Move around the cone (change angle)
     if (input.left) {
-        offset_.x -= 5.0f * deltaTime;
+        coneAngle_ += rotationSpeed_ * deltaTime;
     }
     if (input.right) {
-        offset_.x += 5.0f * deltaTime;
+        coneAngle_ -= rotationSpeed_ * deltaTime;
     }
+    
+    // Mouse wheel or arrow keys for zoom (optional, if supported)
+    if (input.up) {
+        coneRadius_ -= zoomSpeed_ * deltaTime;
+        coneRadius_ = std::clamp(coneRadius_, minRadius_, maxRadius_);
+    }
+    if (input.down) {
+        coneRadius_ += zoomSpeed_ * deltaTime;
+        coneRadius_ = std::clamp(coneRadius_, minRadius_, maxRadius_);
+    }
+    
+    // Right-click drag for fine control
+    if (input.mouseRightButton) {
+        coneAngle_ -= input.mouseDeltaX * 0.01f;
+        coneHeight_ += input.mouseDeltaY * 0.1f;
+        coneHeight_ = std::clamp(coneHeight_, minHeight_, maxHeight_);
+    }
+    
+    // Update legacy parameters for compatibility
+    height_ = coneHeight_;
+    distance_ = coneRadius_;
+    orbitAngle_ = coneAngle_;
 }
 
-void TrackingCameraController::update(float /* deltaTime */) {
+void TrackingCameraController::update(float deltaTime) {
+    // Smooth the target position for natural camera movement
+    // Using exponential smoothing: new = old + (target - old) * factor
+    Vector3 targetDelta = targetPosition_ - smoothedTarget_;
+    smoothedTarget_ = smoothedTarget_ + targetDelta * targetSmoothFactor_;
+    
     updateCameraPosition();
 }
 
@@ -175,77 +190,82 @@ CameraState TrackingCameraController::getState() const {
 }
 
 void TrackingCameraController::reset() {
-    printf("TrackingCameraController::reset() called - setting target to (0,0,0)\n");
-    state_.position = Vector3{0.0f, -10.0f, 5.0f};
-    state_.forward = Vector3{0.0f, 1.0f, -0.3f}.normalize();
+    printf("TrackingCameraController::reset() - Initializing cone-based tracking\n");
+    
+    // Initialize cone parameters for good visibility
+    coneRadius_ = 20.0f;    // Good overview distance
+    coneHeight_ = 15.0f;    // Well above 2.0f walls
+    coneAngle_ = 0.0f;      // Start behind agent
+    
+    // Initialize target positions
+    targetPosition_ = Vector3::zero();
+    smoothedTarget_ = Vector3::zero();
+    
+    // Calculate initial camera position from cone
+    float x = smoothedTarget_.x + coneRadius_ * std::cos(coneAngle_);
+    float y = smoothedTarget_.y + coneRadius_ * std::sin(coneAngle_);
+    float z = smoothedTarget_.z + coneHeight_;
+    state_.position = Vector3{x, y, z};
+    
+    // Look at target
+    state_.forward = Vector3{0.0f, 1.0f, -0.5f}.normalize();
     state_.up = Vector3{0.0f, 0.0f, 1.0f};
     state_.right = cross(state_.forward, state_.up).normalize();
     state_.fov = 60.0f;
     state_.perspective = true;
     
-    targetPosition_ = Vector3::zero();
-    offset_ = Vector3{0.0f, -10.0f, 5.0f};
-    distance_ = 10.0f;
-    height_ = 5.0f;
-    orbitAngle_ = 0.0f;
     firstTargetSet_ = true;
+    
+    // Legacy parameters (for compatibility)
+    offset_ = Vector3{0.0f, -coneRadius_, coneHeight_};
+    distance_ = coneRadius_;
+    height_ = coneHeight_;
+    orbitAngle_ = coneAngle_;
 }
 
 void TrackingCameraController::setTarget(const Vector3& targetPos) {
     targetPosition_ = targetPos;
+    
+    // Initialize smoothed target on first set
+    if (firstTargetSet_) {
+        smoothedTarget_ = targetPos;
+        firstTargetSet_ = false;
+    }
+    
     // Debug output
     static int counter = 0;
     if (counter++ % 60 == 0) {
-        printf("TrackingCamera: setTarget(%.2f, %.2f, %.2f)\n", 
-               targetPos.x, targetPos.y, targetPos.z);
+        printf("TrackingCamera: target=(%.2f, %.2f, %.2f) smoothed=(%.2f, %.2f, %.2f)\n", 
+               targetPos.x, targetPos.y, targetPos.z,
+               smoothedTarget_.x, smoothedTarget_.y, smoothedTarget_.z);
     }
-    updateCameraPosition();
 }
 
 void TrackingCameraController::updateCameraPosition() {
-    // Trace target position BEFORE using it
-    static int traceCount = 0;
-    if (traceCount++ % 30 == 0) {
-        printf("updateCameraPosition: targetPosition_=(%.2f,%.2f,%.2f)\n",
-               targetPosition_.x, targetPosition_.y, targetPosition_.z);
-    }
+    // Calculate camera position on the cone around the smoothed target
+    float x = smoothedTarget_.x + coneRadius_ * std::cos(coneAngle_);
+    float y = smoothedTarget_.y + coneRadius_ * std::sin(coneAngle_);
+    float z = smoothedTarget_.z + coneHeight_;
+    state_.position = Vector3{x, y, z};
     
-    // Update camera position based on target and offset
-    state_.position = targetPosition_ + offset_;
-    
-    // Calculate forward vector pointing at target
-    Vector3 toTarget = targetPosition_ - state_.position;
+    // Calculate forward vector to look at smoothed target
+    Vector3 toTarget = smoothedTarget_ - state_.position;
     float distance = toTarget.length();
     
-    // CRITICAL DEBUG: What are we ACTUALLY calculating?
-    static int lookAtDebug = 0;
-    if (lookAtDebug++ % 60 == 0) {
-        printf("LOOKAT CALC: pos=(%.2f,%.2f,%.2f) target=(%.2f,%.2f,%.2f) toTarget=(%.2f,%.2f,%.2f) dist=%.2f\n",
-               state_.position.x, state_.position.y, state_.position.z,
-               targetPosition_.x, targetPosition_.y, targetPosition_.z,
-               toTarget.x, toTarget.y, toTarget.z, distance);
-    }
-    
     if (distance > 0.001f) {
-        state_.forward = toTarget / distance;  // Manual normalization
-        if (lookAtDebug % 60 == 1) {
-            printf("  -> forward=(%.2f,%.2f,%.2f)\n", state_.forward.x, state_.forward.y, state_.forward.z);
-        }
+        state_.forward = toTarget / distance;  // Normalize to get direction
     } else {
-        // If too close to target, keep previous forward direction
-        state_.forward = Vector3{0.0f, 1.0f, 0.0f};
-        if (lookAtDebug % 60 == 1) {
-            printf("  -> TOO CLOSE, using default forward\n");
-        }
+        // Fallback if too close
+        state_.forward = Vector3{0.0f, 1.0f, -0.5f}.normalize();
     }
     
+    // Calculate right and up vectors
     Vector3 worldUp{0.0f, 0.0f, 1.0f};
     
-    // Handle case where forward is parallel to world up (looking straight down/up)
+    // Handle edge case where looking straight down/up
     if (std::abs(state_.forward.z) > 0.99f) {
-        // Looking nearly straight down or up, use fixed orthogonal vectors
-        state_.right = Vector3{1.0f, 0.0f, 0.0f};  // Use world X as right
-        state_.up = Vector3{0.0f, 1.0f, 0.0f};     // Use world Y as up
+        state_.right = Vector3{1.0f, 0.0f, 0.0f};
+        state_.up = Vector3{0.0f, 1.0f, 0.0f};
     } else {
         state_.right = cross(state_.forward, worldUp).normalize();
         state_.up = cross(state_.right, state_.forward).normalize();
@@ -254,24 +274,22 @@ void TrackingCameraController::updateCameraPosition() {
     // Debug output
     static int dbgCounter = 0;
     if (dbgCounter++ % 60 == 0) {
-        // Calculate what the camera SHOULD be looking at based on forward vector
-        Vector3 lookingAt = state_.position + state_.forward * 10.0f;
-        
-        printf("=== TRACKING CAMERA DEBUG ===\n");
+        printf("=== CONE TRACKING CAMERA ===\n");
         printf("  Camera Pos:     (%.2f, %.2f, %.2f)\n", 
                state_.position.x, state_.position.y, state_.position.z);
-        printf("  Target Pos:     (%.2f, %.2f, %.2f)\n", 
+        printf("  Target (raw):   (%.2f, %.2f, %.2f)\n", 
                targetPosition_.x, targetPosition_.y, targetPosition_.z);
+        printf("  Target (smooth):(%.2f, %.2f, %.2f)\n", 
+               smoothedTarget_.x, smoothedTarget_.y, smoothedTarget_.z);
+        printf("  Cone params:    R=%.1f H=%.1f A=%.2f°\n", 
+               coneRadius_, coneHeight_, coneAngle_ * 180.0f / 3.14159f);
         printf("  Forward Vec:    (%.2f, %.2f, %.2f)\n", 
                state_.forward.x, state_.forward.y, state_.forward.z);
-        printf("  Looking At:     (%.2f, %.2f, %.2f) [cam + fwd*10]\n", 
-               lookingAt.x, lookingAt.y, lookingAt.z);
-        printf("  ToTarget Vec:   (%.2f, %.2f, %.2f) [length=%.2f]\n", 
-               toTarget.x, toTarget.y, toTarget.z, distance);
-        printf("  Offset:         (%.2f, %.2f, %.2f)\n", 
-               offset_.x, offset_.y, offset_.z);
         printf("=============================\n");
     }
+    
+    // Update legacy offset for compatibility
+    offset_ = state_.position - targetPosition_;
 }
 
 // OrbitCameraController implementation
