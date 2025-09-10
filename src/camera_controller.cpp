@@ -175,18 +175,20 @@ CameraState TrackingCameraController::getState() const {
 }
 
 void TrackingCameraController::reset() {
-    state_.position = Vector3{0.0f, -10.0f, 15.0f};
-    state_.forward = Vector3{0.0f, 1.0f, -0.5f}.normalize();
+    printf("TrackingCameraController::reset() called - setting target to (0,0,0)\n");
+    state_.position = Vector3{0.0f, -10.0f, 5.0f};
+    state_.forward = Vector3{0.0f, 1.0f, -0.3f}.normalize();
     state_.up = Vector3{0.0f, 0.0f, 1.0f};
     state_.right = cross(state_.forward, state_.up).normalize();
     state_.fov = 60.0f;
     state_.perspective = true;
     
     targetPosition_ = Vector3::zero();
-    offset_ = Vector3{0.0f, -10.0f, 15.0f};
-    distance_ = 15.0f;
-    height_ = 10.0f;
+    offset_ = Vector3{0.0f, -10.0f, 5.0f};
+    distance_ = 10.0f;
+    height_ = 5.0f;
     orbitAngle_ = 0.0f;
+    firstTargetSet_ = true;
 }
 
 void TrackingCameraController::setTarget(const Vector3& targetPos) {
@@ -201,37 +203,74 @@ void TrackingCameraController::setTarget(const Vector3& targetPos) {
 }
 
 void TrackingCameraController::updateCameraPosition() {
-    // Calculate desired position based on target and offset
-    Vector3 desiredPos = targetPosition_ + offset_;
-    
-    // Add orbit rotation
-    if (std::abs(orbitAngle_) > 0.001f) {
-        float cosAngle = std::cos(orbitAngle_);
-        float sinAngle = std::sin(orbitAngle_);
-        Vector3 relativePos = desiredPos - targetPosition_;
-        desiredPos = targetPosition_ + Vector3{
-            relativePos.x * cosAngle - relativePos.y * sinAngle,
-            relativePos.x * sinAngle + relativePos.y * cosAngle,
-            relativePos.z
-        };
+    // Trace target position BEFORE using it
+    static int traceCount = 0;
+    if (traceCount++ % 30 == 0) {
+        printf("updateCameraPosition: targetPosition_=(%.2f,%.2f,%.2f)\n",
+               targetPosition_.x, targetPosition_.y, targetPosition_.z);
     }
     
-    // Smooth camera movement
-    state_.position = state_.position + (desiredPos - state_.position) * smoothingFactor_;
+    // Update camera position based on target and offset
+    state_.position = targetPosition_ + offset_;
     
-    // Look at target
-    state_.forward = (targetPosition_ - state_.position).normalize();
+    // Calculate forward vector pointing at target
+    Vector3 toTarget = targetPosition_ - state_.position;
+    float distance = toTarget.length();
+    
+    // CRITICAL DEBUG: What are we ACTUALLY calculating?
+    static int lookAtDebug = 0;
+    if (lookAtDebug++ % 60 == 0) {
+        printf("LOOKAT CALC: pos=(%.2f,%.2f,%.2f) target=(%.2f,%.2f,%.2f) toTarget=(%.2f,%.2f,%.2f) dist=%.2f\n",
+               state_.position.x, state_.position.y, state_.position.z,
+               targetPosition_.x, targetPosition_.y, targetPosition_.z,
+               toTarget.x, toTarget.y, toTarget.z, distance);
+    }
+    
+    if (distance > 0.001f) {
+        state_.forward = toTarget / distance;  // Manual normalization
+        if (lookAtDebug % 60 == 1) {
+            printf("  -> forward=(%.2f,%.2f,%.2f)\n", state_.forward.x, state_.forward.y, state_.forward.z);
+        }
+    } else {
+        // If too close to target, keep previous forward direction
+        state_.forward = Vector3{0.0f, 1.0f, 0.0f};
+        if (lookAtDebug % 60 == 1) {
+            printf("  -> TOO CLOSE, using default forward\n");
+        }
+    }
+    
     Vector3 worldUp{0.0f, 0.0f, 1.0f};
-    state_.right = cross(state_.forward, worldUp).normalize();
-    state_.up = cross(state_.right, state_.forward).normalize();
+    
+    // Handle case where forward is parallel to world up (looking straight down/up)
+    if (std::abs(state_.forward.z) > 0.99f) {
+        // Looking nearly straight down or up, use fixed orthogonal vectors
+        state_.right = Vector3{1.0f, 0.0f, 0.0f};  // Use world X as right
+        state_.up = Vector3{0.0f, 1.0f, 0.0f};     // Use world Y as up
+    } else {
+        state_.right = cross(state_.forward, worldUp).normalize();
+        state_.up = cross(state_.right, state_.forward).normalize();
+    }
     
     // Debug output
     static int dbgCounter = 0;
     if (dbgCounter++ % 60 == 0) {
-        printf("TrackingCamera update: pos(%.2f,%.2f,%.2f) target(%.2f,%.2f,%.2f) fwd(%.2f,%.2f,%.2f)\n",
-               state_.position.x, state_.position.y, state_.position.z,
-               targetPosition_.x, targetPosition_.y, targetPosition_.z,
+        // Calculate what the camera SHOULD be looking at based on forward vector
+        Vector3 lookingAt = state_.position + state_.forward * 10.0f;
+        
+        printf("=== TRACKING CAMERA DEBUG ===\n");
+        printf("  Camera Pos:     (%.2f, %.2f, %.2f)\n", 
+               state_.position.x, state_.position.y, state_.position.z);
+        printf("  Target Pos:     (%.2f, %.2f, %.2f)\n", 
+               targetPosition_.x, targetPosition_.y, targetPosition_.z);
+        printf("  Forward Vec:    (%.2f, %.2f, %.2f)\n", 
                state_.forward.x, state_.forward.y, state_.forward.z);
+        printf("  Looking At:     (%.2f, %.2f, %.2f) [cam + fwd*10]\n", 
+               lookingAt.x, lookingAt.y, lookingAt.z);
+        printf("  ToTarget Vec:   (%.2f, %.2f, %.2f) [length=%.2f]\n", 
+               toTarget.x, toTarget.y, toTarget.z, distance);
+        printf("  Offset:         (%.2f, %.2f, %.2f)\n", 
+               offset_.x, offset_.y, offset_.z);
+        printf("=============================\n");
     }
 }
 

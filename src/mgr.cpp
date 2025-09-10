@@ -1133,38 +1133,26 @@ void Manager::disableTrajectoryLogging()
 // Get agent position for camera tracking
 math::Vector3 Manager::getAgentPosition(int32_t world_idx, int32_t agent_idx) const
 {
-    // Calculate index for the specific agent
     int32_t idx = world_idx * madEscape::consts::numAgents + agent_idx;
     
-    // Get self observation tensor and extract the data pointer
-    auto tensor = selfObservationTensor();
-    
-    // Since the Tensor class doesn't expose direct data access,
-    // we'll use a different approach: access via CPU or GPU implementation
     if (impl_->cfg.execMode == ExecMode::CUDA) {
 #ifdef MADRONA_CUDA_SUPPORT
-        // For CUDA, access the exported data directly
         CUDAImpl *cuda_impl = static_cast<CUDAImpl*>(impl_.get());
-        void *export_ptr = cuda_impl->gpuExec.getExported((uint32_t)ExportID::SelfObservation);
+        void *export_ptr = cuda_impl->gpuExec.getExported((uint32_t)ExportID::AgentPosition);
         
-        // For CUDA, we need to copy data to host
-        static SelfObservation host_obs;
-        const SelfObservation* device_obs = (const SelfObservation*)export_ptr;
+        Position host_pos({0.0f, 0.0f, 0.0f});
+        const Position* device_pos = (const Position*)export_ptr;
+        cudaMemcpy(&host_pos, &device_pos[idx], sizeof(Position), cudaMemcpyDeviceToHost);
         
-        // Copy single observation from device to host
-        cudaMemcpy(&host_obs, &device_obs[idx], sizeof(SelfObservation), 
-                   cudaMemcpyDeviceToHost);
-        
-        return math::Vector3{host_obs.globalX, host_obs.globalY, host_obs.globalZ};
+        return math::Vector3{host_pos.x, host_pos.y, host_pos.z};
 #else
         return math::Vector3{0.0f, 0.0f, 0.0f};
 #endif
     } else {
-        // For CPU, directly access the data
         CPUImpl *cpu_impl = static_cast<CPUImpl*>(impl_.get());
-        void *export_ptr = cpu_impl->cpuExec.getExported((uint32_t)ExportID::SelfObservation);
-        const SelfObservation* obs_data = ((const SelfObservation*)export_ptr) + idx;
-        return math::Vector3{obs_data->globalX, obs_data->globalY, obs_data->globalZ};
+        void *export_ptr = cpu_impl->cpuExec.getExported((uint32_t)ExportID::AgentPosition);
+        const Position* pos_data = ((const Position*)export_ptr) + idx;
+        return math::Vector3{pos_data->x, pos_data->y, pos_data->z};
     }
 }
 
