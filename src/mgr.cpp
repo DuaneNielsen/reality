@@ -1130,6 +1130,37 @@ void Manager::disableTrajectoryLogging()
     printf("Trajectory logging disabled\n");
 }
 
+// Get agent position for camera tracking
+math::Vector3 Manager::getAgentPosition(int32_t world_idx, int32_t agent_idx) const
+{
+    int32_t idx = world_idx * madEscape::consts::numAgents + agent_idx;
+    
+    if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+        CUDAImpl *cuda_impl = static_cast<CUDAImpl*>(impl_.get());
+        void *export_ptr = cuda_impl->gpuExec.getExported((uint32_t)ExportID::AgentPosition);
+        
+        Position host_pos({0.0f, 0.0f, 0.0f});
+        const Position* device_pos = (const Position*)export_ptr;
+        cudaMemcpy(&host_pos, &device_pos[idx], sizeof(Position), cudaMemcpyDeviceToHost);
+        
+        return math::Vector3{host_pos.x, host_pos.y, host_pos.z};
+#else
+        return math::Vector3{0.0f, 0.0f, 0.0f};
+#endif
+    } else {
+        CPUImpl *cpu_impl = static_cast<CPUImpl*>(impl_.get());
+        void *export_ptr = cpu_impl->cpuExec.getExported((uint32_t)ExportID::AgentPosition);
+        const Position* pos_data = ((const Position*)export_ptr) + idx;
+        return math::Vector3{pos_data->x, pos_data->y, pos_data->z};
+    }
+}
+
+const CompiledLevel* Manager::getCompiledLevel(int32_t world_idx) const
+{
+    return &impl_->cfg.perWorldCompiledLevels[world_idx].value();
+}
+
 // [BOILERPLATE] Expose render manager for visualization tools
 render::RenderManager & Manager::getRenderManager()
 {

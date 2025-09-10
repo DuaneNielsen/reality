@@ -69,7 +69,7 @@ if (TARGET madrona_viz)
         mad_escape_mgr
         madrona_mw_core)
     
-    add_executable(viewer viewer.cpp)
+    add_executable(viewer viewer.cpp camera_controller.cpp)
     target_link_libraries(viewer PRIVATE
         viewer_core
         madrona_mw_core mad_escape_mgr madrona_viz)

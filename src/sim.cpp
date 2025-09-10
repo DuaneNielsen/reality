@@ -100,6 +100,8 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         (uint32_t)ExportID::StepsTaken);
     registry.exportColumn<Agent, Progress>(
         (uint32_t)ExportID::Progress);
+    registry.exportColumn<Agent, Position>(
+        (uint32_t)ExportID::AgentPosition);
 }
 
 // [GAME_SPECIFIC] Helper to clean up escape room entities

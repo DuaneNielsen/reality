@@ -31,6 +31,7 @@ enum class ExportID : uint32_t {
     Lidar,
     StepsTaken,
     Progress,
+    AgentPosition,  // Actual world position for camera tracking
     NumExports,
 };
 
