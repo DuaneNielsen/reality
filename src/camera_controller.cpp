@@ -191,6 +191,12 @@ void TrackingCameraController::reset() {
 
 void TrackingCameraController::setTarget(const Vector3& targetPos) {
     targetPosition_ = targetPos;
+    // Debug output
+    static int counter = 0;
+    if (counter++ % 60 == 0) {
+        printf("TrackingCamera: setTarget(%.2f, %.2f, %.2f)\n", 
+               targetPos.x, targetPos.y, targetPos.z);
+    }
     updateCameraPosition();
 }
 
@@ -218,6 +224,15 @@ void TrackingCameraController::updateCameraPosition() {
     Vector3 worldUp{0.0f, 0.0f, 1.0f};
     state_.right = cross(state_.forward, worldUp).normalize();
     state_.up = cross(state_.right, state_.forward).normalize();
+    
+    // Debug output
+    static int dbgCounter = 0;
+    if (dbgCounter++ % 60 == 0) {
+        printf("TrackingCamera update: pos(%.2f,%.2f,%.2f) target(%.2f,%.2f,%.2f) fwd(%.2f,%.2f,%.2f)\n",
+               state_.position.x, state_.position.y, state_.position.z,
+               targetPosition_.x, targetPosition_.y, targetPosition_.z,
+               state_.forward.x, state_.forward.y, state_.forward.z);
+    }
 }
 
 // OrbitCameraController implementation

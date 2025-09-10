@@ -1,0 +1,162 @@
+No level file specified, using embedded default level
+Loaded embedded default level: 16x16 grid, 74 tiles
+
+Viewer Controls:
+  R: Reset current world
+  T: Toggle trajectory tracking for current world
+  L: Toggle lidar ray visualization
+  F: Toggle camera tracking mode
+
+Main loop: controlIdx=0
+handleCamera called (frame 1), tracking=false, mgr_ptr=0x7ffc4dbb7de0
+Main loop: controlIdx=0
+handleCamera called (frame 301), tracking=false, mgr_ptr=0x7ffc4dbb7de0
+Main loop: controlIdx=0
+handleCamera called (frame 601), tracking=false, mgr_ptr=0x7ffc4dbb7de0
+Tracking state changed to: ENABLED
+Manager pointer: 0x7ffc4dbb7de0
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-0.83, -16.14, 34.30)
+Camera pos after: (-4.51, -14.52, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.06, 34.30)
+Camera pos after: (-4.51, 0.06, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Main loop: controlIdx=0
+handleCamera called (frame 901), tracking=true, mgr_ptr=0x7ffc4dbb7de0
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Main loop: controlIdx=0
+handleCamera called (frame 1201), tracking=true, mgr_ptr=0x7ffc4dbb7de0
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Main loop: controlIdx=0
+handleCamera called (frame 1501), tracking=true, mgr_ptr=0x7ffc4dbb7de0
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Main loop: controlIdx=0
+handleCamera called (frame 1801), tracking=true, mgr_ptr=0x7ffc4dbb7de0
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Main loop: controlIdx=0
+handleCamera called (frame 2101), tracking=true, mgr_ptr=0x7ffc4dbb7de0
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+
+Tracking: World 0, Agent 0
+Agent pos: (0.49, 0.09, 0.00)
+Camera pos before: (-4.51, 0.09, 34.30)
+Camera pos after: (-4.51, 0.09, 34.30)
+

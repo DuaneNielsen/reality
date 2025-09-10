@@ -435,9 +435,18 @@ int main(int argc, char *argv[])
     std::unique_ptr<madEscape::TrackingCameraController> trackingCamera(new madEscape::TrackingCameraController());
     std::unique_ptr<madEscape::FixedCameraController> fixedCamera(new madEscape::FixedCameraController());
     
-    // Set initial camera position for free fly
-    freeFlyCamera->setPosition(math::Vector3{0.0f, -14.0f, 35.0f});
-    freeFlyCamera->setLookAt(math::Vector3{0.0f, 0.0f, 0.0f});
+    // Get initial agent position to point camera at it
+    math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
+    printf("Initial agent position: (%.2f, %.2f, %.2f)\n", agentPos.x, agentPos.y, agentPos.z);
+    
+    // Set initial camera position for free fly - looking at agent
+    // Position camera behind and above the agent
+    math::Vector3 camPos{agentPos.x, agentPos.y - 14.0f, agentPos.z + 35.0f};
+    printf("Setting camera position to: (%.2f, %.2f, %.2f)\n", camPos.x, camPos.y, camPos.z);
+    printf("Looking at: (%.2f, %.2f, %.2f)\n", agentPos.x, agentPos.y, agentPos.z);
+    
+    freeFlyCamera->setPosition(camPos);
+    freeFlyCamera->setLookAt(agentPos);
     
     // Current camera controller
     madEscape::CameraController* currentCamera = freeFlyCamera.get();
@@ -489,6 +498,16 @@ int main(int argc, char *argv[])
         printf("\n");
     };
 
+    // Apply initial camera state from our controller to the viewer
+    // This overrides the default camera position set in the viewer constructor
+    {
+        madEscape::CameraState initialCamState = freeFlyCamera->getState();
+        viewer.setCameraVectors(initialCamState.position, initialCamState.forward, 
+                               initialCamState.up, initialCamState.right);
+        printf("Applied initial camera state: pos=(%.2f, %.2f, %.2f)\n", 
+               initialCamState.position.x, initialCamState.position.y, initialCamState.position.z);
+    }
+    
     // Track time for frame delta
     auto lastFrameTime = std::chrono::steady_clock::now();
     
@@ -511,42 +530,46 @@ int main(int argc, char *argv[])
             switch (cameraMode) {
                 case 0: 
                     currentCamera = freeFlyCamera.get(); 
-                    printf("Switched to FreeFly camera\n");
                     break;
                 case 1: 
                     currentCamera = trackingCamera.get();
-                    printf("Switched to Tracking camera\n");
                     break;
                 case 2: 
                     currentCamera = fixedCamera.get();
-                    printf("Switched to Fixed camera\n");
                     break;
             }
         }
         
-        // Update tracking camera target if in tracking mode
-        if (cameraMode == 1) {
-            // TODO: Get agent position from observation tensor
-            // For now, track origin
-            trackingCamera->setTarget(math::Vector3{0.0f, 0.0f, 0.0f});
+        // Check if we're in free camera mode (viewID == -1) or agent camera mode (viewID >= 0)
+        // getCurrentViewID() returns viewIdx - 1, so Free Camera returns -1
+        bool inFreeCameraMode = (viewer.getCurrentViewID() == -1);
+        
+        if (inFreeCameraMode) {
+            // Update tracking camera target if in tracking mode
+            if (cameraMode == 1) {
+                // Get agent position from manager (tracks first agent in world 0)
+                math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
+                trackingCamera->setTarget(agentPos);
+                
+            }
+            
+            // Build camera input state
+            madEscape::CameraInputState camInput;
+            camInput.forward = input.keyPressed(Key::W);
+            camInput.backward = input.keyPressed(Key::S);
+            camInput.left = input.keyPressed(Key::A);
+            camInput.right = input.keyPressed(Key::D);
+            camInput.boost = input.keyPressed(Key::Shift);
+            
+            // Handle camera input and update
+            currentCamera->handleInput(camInput, deltaTime);
+            currentCamera->update(deltaTime);
+            
+            // Apply camera state to viewer
+            madEscape::CameraState camState = currentCamera->getState();
+            viewer.setCameraVectors(camState.position, camState.forward, 
+                                   camState.up, camState.right);
         }
-        
-        // Build camera input state
-        madEscape::CameraInputState camInput;
-        camInput.forward = input.keyPressed(Key::W);
-        camInput.backward = input.keyPressed(Key::S);
-        camInput.left = input.keyPressed(Key::A);
-        camInput.right = input.keyPressed(Key::D);
-        camInput.boost = input.keyPressed(Key::Shift);
-        
-        // Handle camera input and update
-        currentCamera->handleInput(camInput, deltaTime);
-        currentCamera->update(deltaTime);
-        
-        // Apply camera state to viewer
-        madEscape::CameraState camState = currentCamera->getState();
-        viewer.setCameraVectors(camState.position, camState.forward, 
-                               camState.up, camState.right);
         
         // Map Viewer keyboard input to ViewerCore events
         if (input.keyHit(Key::R)) {
