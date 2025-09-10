@@ -1,4 +1,4 @@
-# Madrona Escape Room
+# Reality
 
 A high-performance 3D single-agent reinforcement learning environment built on the [Madrona Engine](https://madrona-engine.github.io). This repository demonstrates how to use Madrona's ECS APIs and physics/rendering systems while providing a complete reference implementation for batch simulation and RL training.
 
