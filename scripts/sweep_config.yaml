@@ -12,12 +12,6 @@ command:
   - "0"
   - ${args}
 method: grid
-metric:
-  name: episodes/reward_ema
-  goal: maximize
-early_terminate:
-  type: hyperband
-  min_iter: 50
 parameters:
   # Core training parameters (fixed for efficiency)
   num-worlds:
