@@ -177,6 +177,12 @@ void ViewerCore::handleInput(int world_idx, const InputEvent& event) {
         return;
     }
     
+    if (event.key == InputEvent::M && event.type == InputEvent::KeyHit) {
+        config_.multi_world_grid = !config_.multi_world_grid;
+        printf("Multi-world grid: %s\n", config_.multi_world_grid ? "ON" : "OFF");
+        return;
+    }
+    
     // Update input state for movement keys
     bool pressed = (event.type == InputEvent::KeyPress);
     
@@ -438,7 +444,7 @@ void ViewerCore::resetInputState(int world_idx) {
     if (world_idx >= MAX_WORLDS) return;
     
     auto& input = input_state_[world_idx];
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 11; i++) {
         input.keys_pressed[i] = false;
         input.keys_hit[i] = false;
     }

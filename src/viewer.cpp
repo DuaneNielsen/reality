@@ -532,7 +532,7 @@ int main(int argc, char *argv[])
     // Main loop for the viewer
     viewer.loop(
     [&viewer_core, &printObs, &mgr, &viewer, &currentCamera, &cameraMode, 
-     &freeFlyCamera, &trackingCamera, &lastFrameTime]
+     &freeFlyCamera, &trackingCamera, &lastFrameTime, num_worlds]
     (CountT world_idx, const Viewer::UserInput &input)
     {
         using Key = Viewer::KeyboardKey;
@@ -613,6 +613,35 @@ int main(int argc, char *argv[])
                 ViewerCore::InputEvent::Space
             };
             viewer_core.handleInput(world_idx, event);
+        }
+        
+        if (input.keyHit(Key::M)) {
+            ViewerCore::InputEvent event{
+                ViewerCore::InputEvent::KeyHit,
+                ViewerCore::InputEvent::M
+            };
+            viewer_core.handleInput(world_idx, event);
+            
+            // Update viewer grid settings from viewer_core config
+            const auto& config = viewer_core.getConfig();
+            if (config.multi_world_grid) {
+                const CompiledLevel* level = mgr.getCompiledLevel(0);
+                // Grid cells are ~5 world units each
+                float worldScaleX = level->width * 5.0f;
+                float worldScaleY = level->height * 5.0f;
+                
+                printf("Multi-world grid DEBUG:\n");
+                printf("  Level width: %f, height: %f\n", level->width, level->height);
+                printf("  WorldScaleX: %f, WorldScaleY: %f\n", worldScaleX, worldScaleY);
+                printf("  Spacing: %f, GridCols: %u\n", config.world_spacing, config.grid_cols);
+                printf("  Num worlds: %u\n", num_worlds);
+                
+                viewer.setMultiWorldGrid(true, config.world_spacing, config.grid_cols, 
+                                       worldScaleX, worldScaleY);
+                
+            } else {
+                viewer.setMultiWorldGrid(false);
+            }
         }
         
         // Print observations when 'O' is pressed

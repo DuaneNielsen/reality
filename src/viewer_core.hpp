@@ -72,11 +72,14 @@ public:
         std::string replay_path;
         bool start_paused = false;
         float pause_delay_seconds = 0.0f;
+        bool multi_world_grid = false;  // Enable multi-world grid layout
+        float world_spacing = 1.0f;     // Spacing between worlds
+        uint32_t grid_cols = 8;         // Grid columns (configurable)
     };
     
     struct InputEvent {
         enum Type { KeyPress, KeyRelease, KeyHit };
-        enum Key { W, A, S, D, Q, E, R, T, Space, Shift };
+        enum Key { W, A, S, D, Q, E, R, T, Space, Shift, M };
         Type type;
         Key key;
     };
@@ -116,6 +119,9 @@ public:
     const RecordReplayStateMachine& getStateMachine() const { return state_machine_; }
     const FrameActionManager& getActionManager() const { return action_manager_; }
     
+    // Access configuration
+    const Config& getConfig() const { return config_; }
+    
 private:
     // Core components
     Manager* mgr_;
@@ -131,8 +137,8 @@ private:
     // Input state per world
     static constexpr int MAX_WORLDS = 256;
     struct InputState {
-        bool keys_pressed[10] = {}; // Maps to Key enum
-        bool keys_hit[10] = {};
+        bool keys_pressed[11] = {}; // Maps to Key enum
+        bool keys_hit[11] = {};
         int32_t move_x = 0;
         int32_t move_y = 0;
         int32_t rotate = 2;  // Default no rotation
