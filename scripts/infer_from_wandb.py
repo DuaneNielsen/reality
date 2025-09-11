@@ -225,7 +225,7 @@ def main():
     parser.add_argument("--num-steps", type=int, default=1000, help="Number of steps")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--gpu-id", type=int, default=0, help="GPU ID")
-    parser.add_argument("--num-channels", type=int, default=256, help="Number of channels")
+    parser.add_argument("--num-channels", type=int, default=None, help="Number of channels (auto-detected from wandb config)")
     parser.add_argument("--separate-value", action="store_true", help="Use separate value network")
     parser.add_argument("--sim-seed", type=int, default=0, help="Seed for simulation")
     parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
@@ -327,6 +327,28 @@ def main():
 
     selected_run = matching_runs[0]
     print(f"Using wandb run: {selected_run.name} ({selected_run.id})")
+
+    # Extract model config from wandb config
+    if hasattr(selected_run, 'config'):
+        config = selected_run.config
+        
+        # Get num_channels from config (required)
+        if args.num_channels is None:
+            if 'num_channels' in config:
+                args.num_channels = config['num_channels']
+                print(f"Using num_channels from wandb config: {args.num_channels}")
+            else:
+                print("Error: num_channels not found in wandb config and not provided via --num-channels")
+                sys.exit(1)
+        
+        # Get separate_value from config if not explicitly set
+        if not args.separate_value and 'separate_value' in config and config['separate_value']:
+            args.separate_value = config['separate_value']
+            print(f"Using separate_value from wandb config: {args.separate_value}")
+    else:
+        if args.num_channels is None:
+            print("Error: No wandb config found and --num-channels not provided")
+            sys.exit(1)
 
     # Convert to local wandb directory path
     wandb_base = Path("wandb")
