@@ -200,9 +200,11 @@ class LearningCallback:
 
         # Keep original console output
         if self.use_wandb and wandb.run is not None:
-            print(f"\nUpdate: {update_id} [{wandb.run.name}]")
+            level_info = self.training_config.get("level_name", "unknown")
+            print(f"\nUpdate: {update_id} [{wandb.run.name}] [{level_info}]")
         else:
-            print(f"\nUpdate: {update_id}")
+            level_info = self.training_config.get("level_name", "unknown")
+            print(f"\nUpdate: {update_id} [{level_info}]")
         print(
             f"    Loss: {ppo.loss: .3e}, A: {ppo.action_loss: .3e}, "
             f"V: {ppo.value_loss: .3e}, E: {ppo.entropy_loss: .3e}"
