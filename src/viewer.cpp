@@ -574,8 +574,10 @@ int main(int argc, char *argv[])
             camInput.backward = input.keyPressed(Key::S);
             camInput.left = input.keyPressed(Key::A);
             camInput.right = input.keyPressed(Key::D);
-            camInput.rotateLeft = input.keyPressed(Key::Q);
-            camInput.rotateRight = input.keyPressed(Key::E);
+            camInput.up = input.keyPressed(Key::Q);      // Q = forward
+            camInput.down = input.keyPressed(Key::E);    // E = backward
+            camInput.rotateLeft = input.keyPressed(Key::R);   // R = zoom out
+            camInput.rotateRight = input.keyPressed(Key::F);  // F = zoom in  
             camInput.boost = input.keyPressed(Key::Shift);
             
             // Handle camera input and update

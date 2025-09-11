@@ -46,34 +46,44 @@ void FreeFlyCameraController::handleInput(const CameraInputState& input, float d
     
     Vector3 movement = Vector3::zero();
     
-    // W/S should move forward/backward in Y direction (into/out of screen)
+    // W/S - Move up/down in camera's up direction
     if (input.forward) {
-        movement.y += 1.0f;  // Move +Y (forward into the scene)
+        movement += state_.up;  // W key - move up in camera's up direction
     }
     if (input.backward) {
-        movement.y -= 1.0f;  // Move -Y (backward)
+        movement -= state_.up;  // S key - move down in camera's up direction
     }
     
-    // A/D should move left/right in X direction
+    // A/D - Strafe left/right in camera's right direction  
     if (input.left) {
-        movement.x -= 1.0f;  // Move -X (left)
+        movement -= state_.right;  // A key - strafe left in camera's right direction
     }
     if (input.right) {
-        movement.x += 1.0f;  // Move +X (right)
+        movement += state_.right;  // D key - strafe right in camera's right direction
     }
     
-    // Q/E or other keys for up/down in Z direction
+    // Forward/backward movement - 5x faster than WASD
     if (input.up) {
-        movement.z += 1.0f;  // Move +Z (up)
+        movement += state_.forward * 5.0f;  // Q key - move forward 5x faster
     }
     if (input.down) {
-        movement.z -= 1.0f;  // Move -Z (down)
+        movement -= state_.forward * 5.0f;  // E key - move backward 5x faster
     }
     
-    // Normalize diagonal movement
+    // Handle zoom via FOV adjustment (R/F keys)
+    if (input.rotateLeft) {  // R key - zoom out (increase FOV)
+        state_.fov += 30.0f * deltaTime;  // Zoom out
+        state_.fov = std::clamp(state_.fov, 10.0f, 120.0f);
+    }
+    if (input.rotateRight) {  // F key - zoom in (decrease FOV) 
+        state_.fov -= 30.0f * deltaTime;  // Zoom in
+        state_.fov = std::clamp(state_.fov, 10.0f, 120.0f);
+    }
+    
+    // Apply movement without normalizing to preserve speed multipliers
     float moveLength = movement.length();
     if (moveLength > 0.001f) {
-        movement = movement / moveLength;
+        // Don't normalize - preserve the speed multipliers we applied
         state_.position += movement * speed * deltaTime;
     }
 }
@@ -290,18 +300,18 @@ void OrbitCameraController::handleInput(const CameraInputState& input, float del
     }
     distance_ = std::clamp(distance_, 2.0f, 100.0f);
     
-    // Pan with WASD
+    // Pan with WASD - camera-relative movement
     Vector3 panMovement = Vector3::zero();
-    if (input.forward) {
-        panMovement += state_.forward;
+    if (input.forward) {  // W key - move up in camera's up direction
+        panMovement += state_.up;
     }
-    if (input.backward) {
-        panMovement -= state_.forward;
+    if (input.backward) {  // S key - move down in camera's up direction
+        panMovement -= state_.up;
     }
-    if (input.left) {
+    if (input.left) {  // A key - strafe left in camera's right direction
         panMovement -= state_.right;
     }
-    if (input.right) {
+    if (input.right) {  // D key - strafe right in camera's right direction
         panMovement += state_.right;
     }
     
