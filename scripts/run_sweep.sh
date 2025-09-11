@@ -59,7 +59,7 @@ export MADRONA_MWGPU_KERNEL_CACHE="$PROJECT_ROOT/build/madrona_kernels.cache"
 echo "Kernel cache enabled: $MADRONA_MWGPU_KERNEL_CACHE"
 
 echo "Compiling levels before starting sweep..."
-if ! uv run python scripts/compile_levels.py; then
+if ! uv run python levels/compile_levels.py; then
     echo "Error: Level compilation failed"
     rm "$TEMP_SWEEP_CONFIG"
     exit 1
