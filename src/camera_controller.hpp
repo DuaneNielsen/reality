@@ -75,7 +75,7 @@ public:
     
 private:
     CameraState state_;
-    float moveSpeed_ = 10.0f;
+    float moveSpeed_ = 40.0f;
     float boostMultiplier_ = 3.0f;
     float mouseSensitivity_ = 0.002f;
     float pitch_ = 0.0f;

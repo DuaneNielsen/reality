@@ -62,12 +62,12 @@ void FreeFlyCameraController::handleInput(const CameraInputState& input, float d
         movement += state_.right;  // D key - strafe right in camera's right direction
     }
     
-    // Forward/backward movement - 5x faster than WASD
+    // Forward/backward movement
     if (input.up) {
-        movement += state_.forward * 5.0f;  // Q key - move forward 5x faster
+        movement += state_.forward;  // Q key - move forward
     }
     if (input.down) {
-        movement -= state_.forward * 5.0f;  // E key - move backward 5x faster
+        movement -= state_.forward;  // E key - move backward
     }
     
     // Handle zoom via FOV adjustment (R/F keys)
