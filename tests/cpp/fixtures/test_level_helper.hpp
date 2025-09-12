@@ -21,14 +21,16 @@ public:
     // Get the default level as a CompiledLevel
     static madEscape::CompiledLevel GetDefaultLevel() {
         const unsigned char* data = GetLevelData();
-        // Cast the byte array directly to the struct
-        return *reinterpret_cast<const madEscape::CompiledLevel*>(data);
+        // Skip the "LEVELS" header (6 bytes) and count (4 bytes) to get to the actual CompiledLevel data
+        const unsigned char* level_data = data + 6 + 4; // Skip "LEVELS" + uint32_t count
+        return *reinterpret_cast<const madEscape::CompiledLevel*>(level_data);
     }
     
     // Get the default level as MER_CompiledLevel (C API version)
     static MER_CompiledLevel GetDefaultLevelC() {
         const unsigned char* data = GetLevelData();
-        // Cast the byte array directly to the C struct
-        return *reinterpret_cast<const MER_CompiledLevel*>(data);
+        // Skip the "LEVELS" header (6 bytes) and count (4 bytes) to get to the actual MER_CompiledLevel data
+        const unsigned char* level_data = data + 6 + 4; // Skip "LEVELS" + uint32_t count
+        return *reinterpret_cast<const MER_CompiledLevel*>(level_data);
     }
 };

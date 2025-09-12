@@ -1,5 +1,6 @@
 #include "mgr.hpp"
 #include "types.hpp"
+#include "level_io.hpp"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -143,95 +144,86 @@ bool validateReplayFile(const FileInfo& info) {
 bool validateLevelFile(const FileInfo& info) {
     std::cout << "Level File: " << std::filesystem::path(info.filepath).filename().string() << "\n";
     
-    // Check file size matches CompiledLevel struct
-    size_t expected_size = sizeof(CompiledLevel);
-    if (info.file_size == expected_size) {
-        std::cout << "✓ Valid file size (" << info.file_size << " bytes)\n";
-    } else {
-        std::cout << "✗ Invalid file size: " << info.file_size << " bytes (expected " << expected_size << ")\n";
+    // Try to read using unified format
+    std::vector<CompiledLevel> levels;
+    Result result = readCompiledLevels(info.filepath, levels);
+    
+    if (result != Result::Success) {
+        std::cout << "✗ Failed to read level file (error: " << static_cast<int>(result) << ")\n";
         return false;
     }
     
-    // Read level data
-    std::ifstream file(info.filepath, std::ios::binary);
-    if (!file.is_open()) {
-        std::cout << "✗ Cannot open file\n";
-        return false;
-    }
+    std::cout << "✓ Valid level file format\n";
+    std::cout << "  Contains " << levels.size() << " level(s)\n";
     
-    CompiledLevel level;
-    file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
-    if (!file.good()) {
-        std::cout << "✗ Failed to read level data\n";
-        return false;
-    }
+    bool all_levels_valid = true;
     
-    // Validate level data ranges
-    bool ranges_valid = true;
-    
-    if (level.width <= 0 || level.width > consts::limits::maxGridSize) {
-        std::cout << "✗ Invalid width: " << level.width << "\n";
-        ranges_valid = false;
-    }
-    if (level.height <= 0 || level.height > consts::limits::maxGridSize) {
-        std::cout << "✗ Invalid height: " << level.height << "\n";
-        ranges_valid = false;
-    }
-    if (level.world_scale <= 0.0f || level.world_scale > consts::limits::maxScale) {
-        std::cout << "✗ Invalid world_scale: " << level.world_scale << "\n";
-        ranges_valid = false;
-    }
-    if (level.num_tiles < 0 || level.num_tiles > CompiledLevel::MAX_TILES) {
-        std::cout << "✗ Invalid num_tiles: " << level.num_tiles << "\n";
-        ranges_valid = false;
-    }
-    if (level.num_spawns <= 0 || level.num_spawns > CompiledLevel::MAX_SPAWNS) {
-        std::cout << "✗ Invalid num_spawns: " << level.num_spawns << "\n";
-        ranges_valid = false;
-    }
-    
-    if (ranges_valid) {
-        std::cout << "✓ Level data within valid ranges\n";
-    }
-    
-    // Validate spawn data
-    bool spawns_valid = true;
-    for (int i = 0; i < level.num_spawns; i++) {
-        float x = level.spawn_x[i];
-        float y = level.spawn_y[i];
-        if (x < -consts::limits::maxCoordinate || x > consts::limits::maxCoordinate || 
-            y < -consts::limits::maxCoordinate || y > consts::limits::maxCoordinate) {
-            std::cout << "✗ Invalid spawn " << i << " position: (" << x << ", " << y << ")\n";
-            spawns_valid = false;
+    // Validate each level
+    for (size_t i = 0; i < levels.size(); i++) {
+        const auto& level = levels[i];
+        std::cout << "\nLevel " << (i+1) << "/" << levels.size() << ":\n";
+        std::cout << "  Name: " << level.level_name << "\n";
+        std::cout << "  Grid: " << level.width << "x" << level.height << "\n";
+        std::cout << "  Scale: " << level.world_scale << "\n";
+        std::cout << "  Tiles: " << level.num_tiles << "\n";
+        std::cout << "  Spawns: " << level.num_spawns << "\n";
+        
+        // Validate ranges
+        bool level_valid = true;
+        if (level.width <= 0 || level.width > consts::limits::maxGridSize) {
+            std::cout << "  ✗ Invalid width: " << level.width << "\n";
+            level_valid = false;
+        }
+        if (level.height <= 0 || level.height > consts::limits::maxGridSize) {
+            std::cout << "  ✗ Invalid height: " << level.height << "\n";
+            level_valid = false;
+        }
+        if (level.world_scale <= 0.0f || level.world_scale > consts::limits::maxScale) {
+            std::cout << "  ✗ Invalid world_scale: " << level.world_scale << "\n";
+            level_valid = false;
+        }
+        if (level.num_tiles < 0 || level.num_tiles > CompiledLevel::MAX_TILES) {
+            std::cout << "  ✗ Invalid num_tiles: " << level.num_tiles << "\n";
+            level_valid = false;
+        }
+        if (level.num_spawns <= 0 || level.num_spawns > CompiledLevel::MAX_SPAWNS) {
+            std::cout << "  ✗ Invalid num_spawns: " << level.num_spawns << "\n";
+            level_valid = false;
+        }
+        
+        // Validate spawn data
+        for (int j = 0; j < level.num_spawns; j++) {
+            float x = level.spawn_x[j];
+            float y = level.spawn_y[j];
+            if (x < -consts::limits::maxCoordinate || x > consts::limits::maxCoordinate || 
+                y < -consts::limits::maxCoordinate || y > consts::limits::maxCoordinate) {
+                std::cout << "  ✗ Invalid spawn " << j << " position: (" << x << ", " << y << ")\n";
+                level_valid = false;
+            }
+        }
+        
+        if (level_valid) {
+            std::cout << "  ✓ Level data valid\n";
+        } else {
+            all_levels_valid = false;
         }
     }
     
-    if (spawns_valid) {
-        std::cout << "✓ Spawn data validated\n";
-    }
-    
-    std::cout << "\nLevel Details:\n";
-    std::cout << "  Name: " << level.level_name << "\n";
-    std::cout << "  Dimensions: " << level.width << "x" << level.height << " grid, Scale: " << level.world_scale << "\n";
-    std::cout << "  Tiles: " << level.num_tiles << ", Max entities: " << level.max_entities << "\n";
-    
-    // Show spawn information
-    for (int i = 0; i < level.num_spawns; i++) {
-        float facing_deg = level.spawn_facing[i] * consts::math::radiansToDegrees;
-        std::cout << "  Spawn " << i << ": (" << level.spawn_x[i] << ", " << level.spawn_y[i] 
-                  << ") facing " << facing_deg << "°\n";
-    }
-    
-    // Count actual tiles
-    int actual_tiles = 0;
-    for (int i = 0; i < level.num_tiles; i++) {
-        if (level.object_ids[i] != 0) {  // Not empty (0 means no object)
-            actual_tiles++;
+    // Show distribution example
+    if (levels.size() > 1) {
+        std::cout << "\nLevel Distribution Examples:\n";
+        std::cout << "  10 worlds: ";
+        for (size_t i = 0; i < std::min(10u, static_cast<uint32_t>(levels.size() * 2)); i++) {
+            std::cout << (i % levels.size() + 1) << " ";
         }
+        std::cout << "...\n";
+        
+        std::cout << "  100 worlds: each level used " 
+                  << (100 / levels.size()) << "-" << (100 / levels.size() + 1) 
+                  << " times\n";
     }
-    std::cout << "  Tile data: " << actual_tiles << " valid tiles in bounds\n";
     
-    return ranges_valid && spawns_valid;
+    return all_levels_valid;
 }
 
 int main(int argc, char* argv[]) {

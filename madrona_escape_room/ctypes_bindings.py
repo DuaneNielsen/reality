@@ -301,12 +301,21 @@ lib.mer_get_replay_step_count.restype = c_int
 lib.mer_result_to_string.argtypes = [c_int]
 lib.mer_result_to_string.restype = c_char_p
 
-# Binary I/O functions
-lib.mer_write_compiled_level.argtypes = [c_char_p, c_void_p]  # Direct CompiledLevel pointer
-lib.mer_write_compiled_level.restype = c_int
+# Binary I/O functions (unified format)
+lib.mer_write_compiled_levels.argtypes = [
+    c_char_p,
+    c_void_p,
+    c_uint32,
+]  # filepath, compiled_levels, num_levels
+lib.mer_write_compiled_levels.restype = c_int
 
-lib.mer_read_compiled_level.argtypes = [c_char_p, c_void_p]  # Direct CompiledLevel pointer
-lib.mer_read_compiled_level.restype = c_int
+lib.mer_read_compiled_levels.argtypes = [
+    c_char_p,
+    c_void_p,
+    POINTER(c_uint32),
+    c_uint32,
+]  # filepath, out_levels, out_num_levels, max_levels
+lib.mer_read_compiled_levels.restype = c_int
 
 # Get CompiledLevel size for validation
 lib.mer_get_compiled_level_size.argtypes = []

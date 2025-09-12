@@ -2,6 +2,7 @@
 #include "types.hpp"
 #include "mgr.hpp"
 #include "test_level_helper.hpp"
+#include "level_io.hpp"
 #include <fstream>
 #include <filesystem>
 #include <cstdlib>
@@ -78,15 +79,16 @@ protected:
         level.num_tiles = 22;
         level.max_entities = 58;
         
-        // Update spawn data for test
+        // Set proper number of spawns and update spawn data for test
+        level.num_spawns = 1;
         level.spawn_x[0] = -6.25f;
         level.spawn_y[0] = 2.5f;
         level.spawn_facing[0] = 0.0f; // 0 degrees
         
-        // Write to file
-        std::ofstream file(testLevelFile, std::ios::binary);
-        file.write(reinterpret_cast<const char*>(&level), sizeof(CompiledLevel));
-        file.close();
+        // Write to file using unified format
+        std::vector<CompiledLevel> levels = {level};
+        Result result = writeCompiledLevels(testLevelFile, levels);
+        // Note: Cannot use exceptions in this project - test will fail if file write fails
     }
     
     void createTestRecordingFile() {
@@ -162,17 +164,17 @@ TEST_F(FileInspectorTest, InspectorHandlesDefaultLevel) {
     // Run file inspector on default level
     std::string output = runFileInspector(defaultLevelPath);
     
-    // Check for expected output
+    // Check for expected output (updated for unified format)
     EXPECT_TRUE(output.find("Level File:") != std::string::npos);
     EXPECT_TRUE(output.find("default_level") != std::string::npos);
-    EXPECT_TRUE(output.find("grid") != std::string::npos);
-    EXPECT_TRUE(output.find("Scale:") != std::string::npos);
-    EXPECT_TRUE(output.find("Tiles:") != std::string::npos);
-    EXPECT_TRUE(output.find("Max entities:") != std::string::npos);
-    EXPECT_TRUE(output.find("Spawn") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ Valid file size") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ Level data within valid ranges") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ Spawn data validated") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Valid level file format") != std::string::npos);
+    EXPECT_TRUE(output.find("Contains 1 level(s)") != std::string::npos);
+    EXPECT_TRUE(output.find("Name: default_16x16_room") != std::string::npos);
+    EXPECT_TRUE(output.find("Grid: 16x16") != std::string::npos);
+    EXPECT_TRUE(output.find("Scale: 1") != std::string::npos);
+    EXPECT_TRUE(output.find("Tiles: 74") != std::string::npos);
+    EXPECT_TRUE(output.find("Spawns: 1") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Level data valid") != std::string::npos);
     EXPECT_TRUE(output.find("✓ File validation completed successfully") != std::string::npos);
     EXPECT_TRUE(output.find("EXIT_CODE:0") != std::string::npos);
 }
@@ -183,17 +185,20 @@ TEST_F(FileInspectorTest, InspectorHandlesLevelFile) {
     
     std::string output = runFileInspector(testLevelFile);
     
-    // Check for expected output
+    // Debug: Print actual output
+    std::cout << "\n=== ACTUAL OUTPUT ===\n" << output << "\n=== END OUTPUT ===\n";
+    
+    // Check for expected output (updated for unified format)
     EXPECT_TRUE(output.find("Level File:") != std::string::npos);
-    EXPECT_TRUE(output.find("test_compiled_level") != std::string::npos);
-    EXPECT_TRUE(output.find("8x5 grid") != std::string::npos);
+    EXPECT_TRUE(output.find("test_level") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Valid level file format") != std::string::npos);
+    EXPECT_TRUE(output.find("Contains 1 level(s)") != std::string::npos);
+    EXPECT_TRUE(output.find("Name: test_compiled_level") != std::string::npos);
+    EXPECT_TRUE(output.find("Grid: 8x5") != std::string::npos);
     EXPECT_TRUE(output.find("Scale: 2.5") != std::string::npos);
     EXPECT_TRUE(output.find("Tiles: 22") != std::string::npos);
-    EXPECT_TRUE(output.find("Max entities: 58") != std::string::npos);
-    EXPECT_TRUE(output.find("Spawn 0: (-6.25, 2.5) facing 0°") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ Valid file size") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ Level data within valid ranges") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ Spawn data validated") != std::string::npos);
+    EXPECT_TRUE(output.find("Spawns: 1") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Level data valid") != std::string::npos);
     EXPECT_TRUE(output.find("✓ File validation completed successfully") != std::string::npos);
     EXPECT_TRUE(output.find("EXIT_CODE:0") != std::string::npos);
 }
@@ -257,7 +262,7 @@ TEST_F(FileInspectorTest, InspectorHandlesCorruptedLevelFile) {
     file.close();
     
     std::string output = runFileInspector(corruptedFile);
-    EXPECT_TRUE(output.find("✗ Invalid file size") != std::string::npos);
+    EXPECT_TRUE(output.find("✗ Failed to read level file") != std::string::npos);
     EXPECT_TRUE(output.find("✗ File validation failed") != std::string::npos);
     EXPECT_TRUE(output.find("EXIT_CODE:1") != std::string::npos);
 }

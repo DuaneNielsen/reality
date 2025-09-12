@@ -1,4 +1,5 @@
 #include "mgr.hpp"
+#include "level_io.hpp"
 
 #include <optionparser.h>
 
@@ -274,28 +275,27 @@ int main(int argc, char *argv[])
         headless_levels.resize(num_worlds, loaded_level);
         
     } else if (!load_path.empty()) {
-        // Load from .lvl file
-        std::ifstream lvl_file(load_path, std::ios::binary);
-        if (!lvl_file.is_open()) {
-            std::cerr << "Error: Cannot open level file: " << load_path << "\n";
+        // Load from level file using unified format
+        std::vector<CompiledLevel> loaded_levels;
+        Result result = readCompiledLevels(load_path, loaded_levels);
+        
+        if (result != Result::Success) {
+            std::cerr << "Error: Failed to read level file: " << load_path << "\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        lvl_file.read(reinterpret_cast<char*>(&loaded_level), sizeof(CompiledLevel));
-        if (!lvl_file.good()) {
-            std::cerr << "Error: Failed to read level from: " << load_path << "\n";
-            delete[] options;
-            delete[] buffer;
-            return 1;
+        printf("Loaded %zu level(s) from %s\n", loaded_levels.size(), load_path.c_str());
+        if (loaded_levels.size() > 1) {
+            printf("  Distribution: %u worlds will use levels round-robin\n", num_worlds);
         }
         
-        printf("Loaded level from %s: %dx%d grid, %d tiles\n", 
-               load_path.c_str(), loaded_level.width, loaded_level.height, loaded_level.num_tiles);
-        
-        // All worlds use the same loaded level
-        headless_levels.resize(num_worlds, loaded_level);
+        // Distribute levels across worlds
+        headless_levels.resize(num_worlds);
+        for (uint32_t i = 0; i < num_worlds; i++) {
+            headless_levels[i] = loaded_levels[i % loaded_levels.size()];
+        }
         
     } else if (!replay_file.empty()) {
         // Replay mode - extract embedded level data from recording

@@ -124,15 +124,18 @@ MER_EXPORT MER_Result mer_get_replay_step_count(
 // Utility functions
 MER_EXPORT const char* mer_result_to_string(MER_Result result);
 
-// Binary I/O functions for CompiledLevel
-MER_EXPORT MER_Result mer_write_compiled_level(
+// Binary I/O functions for CompiledLevel (unified format)
+MER_EXPORT MER_Result mer_write_compiled_levels(
     const char* filepath,
-    const void* level  // Direct CompiledLevel pointer from Python
+    const void* compiled_levels,  // Array of CompiledLevel structs from Python
+    uint32_t num_levels
 );
 
-MER_EXPORT MER_Result mer_read_compiled_level(
+MER_EXPORT MER_Result mer_read_compiled_levels(
     const char* filepath,
-    void* level  // Direct CompiledLevel pointer from Python
+    void* out_levels,            // Pre-allocated array of CompiledLevel structs from Python
+    uint32_t* out_num_levels,    // Actual number of levels read
+    uint32_t max_levels          // Maximum levels buffer can hold
 );
 
 // Get CompiledLevel constants

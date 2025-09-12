@@ -630,48 +630,96 @@ int32_t mer_get_render_asset_object_id(const char* name) {
     return -1;  // Not found or doesn't have render
 }
 
-MER_Result mer_write_compiled_level(
-    const char* filepath, 
-    const void* level
+
+MER_Result mer_write_compiled_levels(
+    const char* filepath,
+    const void* levels,
+    uint32_t num_levels
 ) {
-    if (!filepath || !level) {
-        return MER_ERROR_NULL_POINTER;
+    // Validation
+    if (!filepath || !levels || num_levels == 0) {
+        return MER_ERROR_INVALID_PARAMETER;
     }
-    
-    // Direct cast from void* - Python passes the exact C++ struct
-    const CompiledLevel* compiled_level = reinterpret_cast<const CompiledLevel*>(level);
     
     FILE* f = fopen(filepath, "wb");
     if (!f) {
+        return MER_ERROR_FILE_NOT_FOUND;
+    }
+    
+    // Write unified format header
+    const char magic[] = "LEVELS";  // Changed from "MLEVL"
+    size_t magic_written = fwrite(magic, sizeof(char), 6, f);
+    if (magic_written != 6) {
+        fclose(f);
         return MER_ERROR_FILE_IO;
     }
     
-    size_t written = fwrite(compiled_level, sizeof(CompiledLevel), 1, f);
-    fclose(f);
-    
-    return (written == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
-}
-
-MER_Result mer_read_compiled_level(
-    const char* filepath, 
-    void* level
-) {
-    if (!filepath || !level) {
-        return MER_ERROR_NULL_POINTER;
+    // Write count
+    size_t count_written = fwrite(&num_levels, sizeof(uint32_t), 1, f);
+    if (count_written != 1) {
+        fclose(f);
+        return MER_ERROR_FILE_IO;
     }
     
-    // Direct cast from void* - Python passes the exact C++ struct
-    CompiledLevel* compiled_level = reinterpret_cast<CompiledLevel*>(level);
+    // Write all levels
+    size_t levels_size = sizeof(CompiledLevel) * num_levels;
+    size_t levels_written = fwrite(levels, 1, levels_size, f);
+    if (levels_written != levels_size) {
+        fclose(f);
+        return MER_ERROR_FILE_IO;
+    }
+    
+    fclose(f);
+    return MER_SUCCESS;
+}
+
+MER_Result mer_read_compiled_levels(
+    const char* filepath,
+    void* out_levels,
+    uint32_t* out_num_levels,
+    uint32_t max_levels
+) {
+    if (!filepath || !out_num_levels) {
+        return MER_ERROR_INVALID_PARAMETER;
+    }
     
     FILE* f = fopen(filepath, "rb");
     if (!f) {
+        return MER_ERROR_FILE_NOT_FOUND;
+    }
+    
+    // Read magic header
+    char magic[7] = {0};
+    size_t magic_read = fread(magic, sizeof(char), 6, f);
+    
+    if (magic_read != 6 || strcmp(magic, "LEVELS") != 0) {
+        fclose(f);
+        return MER_ERROR_INVALID_FILE;
+    }
+    
+    // Read number of levels
+    uint32_t num_levels;
+    size_t count_read = fread(&num_levels, sizeof(uint32_t), 1, f);
+    if (count_read != 1) {
+        fclose(f);
         return MER_ERROR_FILE_IO;
     }
     
-    size_t read = fread(compiled_level, sizeof(CompiledLevel), 1, f);
-    fclose(f);
+    *out_num_levels = num_levels;
     
-    return (read == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
+    // Read levels if buffer provided
+    if (out_levels && max_levels > 0) {
+        uint32_t levels_to_read = (num_levels < max_levels) ? num_levels : max_levels;
+        size_t levels_size = sizeof(CompiledLevel) * levels_to_read;
+        size_t read = fread(out_levels, 1, levels_size, f);
+        if (read != levels_size) {
+            fclose(f);
+            return MER_ERROR_FILE_IO;
+        }
+    }
+    
+    fclose(f);
+    return MER_SUCCESS;
 }
 
 } // extern "C"

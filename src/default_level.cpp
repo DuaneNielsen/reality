@@ -3,6 +3,7 @@
 #include <cstring>
 #include "types.hpp"
 #include "asset_ids.hpp"
+#include "level_io.hpp"
 
 using namespace madEscape;
 
@@ -422,16 +423,15 @@ int main(int argc, char* argv[]) {
     // Set the actual number of tiles used
     level.num_tiles = tile_index;
     
-    // Write to file
-    std::ofstream file(output_file, std::ios::binary);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open output file: " << output_file << std::endl;
+    // Write to file using unified format
+    std::vector<CompiledLevel> levels = {level};
+    Result result = writeCompiledLevels(output_file, levels);
+    
+    if (result != Result::Success) {
+        std::cerr << "Failed to write level file: " << output_file << " (error: " << static_cast<int>(result) << ")" << std::endl;
         return 1;
     }
     
-    file.write(reinterpret_cast<const char*>(&level), sizeof(CompiledLevel));
-    file.close();
-    
-    std::cout << "Generated level file: " << output_file << " (" << sizeof(CompiledLevel) << " bytes)" << std::endl;
+    std::cout << "Generated level file: " << output_file << " (unified format with 1 level)" << std::endl;
     return 0;
 }

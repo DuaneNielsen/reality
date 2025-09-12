@@ -840,17 +840,20 @@ def validate_compiled_level(compiled: CompiledLevel) -> None:
 # Binary I/O functions moved to level_io.py
 # Import them for backwards compatibility
 def save_compiled_level_binary(compiled: CompiledLevel, filepath: str) -> None:
-    """Deprecated: Use level_io.save_compiled_level() instead."""
-    from .level_io import save_compiled_level
+    """Deprecated: Use level_io.save_compiled_levels() instead."""
+    from .level_io import save_compiled_levels
 
-    save_compiled_level(compiled, filepath)
+    save_compiled_levels([compiled], filepath)
 
 
 def load_compiled_level_binary(filepath: str) -> CompiledLevel:
-    """Deprecated: Use level_io.load_compiled_level() instead."""
-    from .level_io import load_compiled_level
+    """Deprecated: Use level_io.load_compiled_levels() instead."""
+    from .level_io import load_compiled_levels
 
-    return load_compiled_level(filepath)
+    levels = load_compiled_levels(filepath)
+    if len(levels) != 1:
+        raise ValueError(f"Expected exactly 1 level in file, got {len(levels)}")
+    return levels[0]
 
 
 def print_level_info(compiled: CompiledLevel) -> None:
@@ -968,19 +971,25 @@ Examples:
             # Compile and validate
             compiled_levels = compile_level(json_data)
 
-            # For single-level input, save the single level
             if len(compiled_levels) == 1:
+                # Single level
                 compiled = compiled_levels[0]
                 validate_compiled_level(compiled)
                 save_compiled_level_binary(compiled, args.output)
                 print("✓ Level compiled successfully")
                 print_level_info(compiled)
             else:
-                # Multi-level JSON should be consumed by SimManager directly, not split
-                print(f"Error: Multi-level JSON with {len(compiled_levels)} levels detected.")
-                print("Multi-level JSON files are meant to be used directly by SimManager,")
-                print("not compiled to individual .lvl files. Use the JSON file directly.")
-                sys.exit(1)
+                # Multi-level - save as single file containing all levels
+                print(f"✓ Multi-level compilation: {len(compiled_levels)} levels")
+                for compiled in compiled_levels:
+                    validate_compiled_level(compiled)
+
+                # Save all levels as multi-level binary file (still .lvl extension)
+                from .level_io import save_compiled_levels
+
+                save_compiled_levels(compiled_levels, args.output)
+                print("✓ Multi-level compiled successfully")
+                print(f"Contains {len(compiled_levels)} levels for curriculum learning")
 
         else:
             parser.print_help()

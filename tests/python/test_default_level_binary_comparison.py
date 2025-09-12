@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from madrona_escape_room.default_level import create_default_level
-from madrona_escape_room.level_io import save_compiled_level
+from madrona_escape_room.level_io import save_compiled_levels
 
 
 def test_cpp_vs_python_default_level_binary_identical():
@@ -28,8 +28,8 @@ def test_cpp_vs_python_default_level_binary_identical():
         python_level_path = Path(tmp.name)
 
     try:
-        # Save Python level
-        save_compiled_level(python_level, python_level_path)
+        # Save Python level using new unified format (wrapping single level in list)
+        save_compiled_levels([python_level], python_level_path)
 
         # Read both files as binary
         cpp_data = cpp_level_path.read_bytes()
