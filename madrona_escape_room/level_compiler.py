@@ -967,29 +967,20 @@ Examples:
 
             # Compile and validate
             compiled_levels = compile_level(json_data)
-            
-            # Handle both single and multi-level cases
+
+            # For single-level input, save the single level
             if len(compiled_levels) == 1:
-                # Single level - save directly
                 compiled = compiled_levels[0]
                 validate_compiled_level(compiled)
                 save_compiled_level_binary(compiled, args.output)
                 print("✓ Level compiled successfully")
                 print_level_info(compiled)
             else:
-                # Multi-level - save each level with numbered suffix
-                base_output = Path(args.output)
-                print(f"✓ Multi-level compilation: {len(compiled_levels)} levels")
-                
-                for i, compiled in enumerate(compiled_levels):
-                    validate_compiled_level(compiled)
-                    
-                    # Generate numbered filename for each level
-                    level_output = base_output.with_name(f"{base_output.stem}_level_{i+1}{base_output.suffix}")
-                    save_compiled_level_binary(compiled, str(level_output))
-                    print(f"  Level {i+1} → {level_output}")
-                    print_level_info(compiled)
-                    print()
+                # Multi-level JSON should be consumed by SimManager directly, not split
+                print(f"Error: Multi-level JSON with {len(compiled_levels)} levels detected.")
+                print("Multi-level JSON files are meant to be used directly by SimManager,")
+                print("not compiled to individual .lvl files. Use the JSON file directly.")
+                sys.exit(1)
 
         else:
             parser.print_help()
