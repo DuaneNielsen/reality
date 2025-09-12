@@ -142,7 +142,8 @@
       "Bash(./build.sh)",
       "Bash(git worktree:*)",
       "Bash(git cherry-pick:*)",
-      "Bash(./build.sh:*)"
+      "Bash(./build.sh:*)",
+      "Bash(git merge:*)"
     ],
     "deny": []
   },
