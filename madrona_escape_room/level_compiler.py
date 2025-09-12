@@ -5,9 +5,9 @@ JSON Level Compiler for Madrona Escape Room
 Compiles JSON level definitions to CompiledLevel format for GPU processing.
 This compiler exclusively accepts JSON format with explicit tileset definitions.
 
-Required JSON format (supports both string and array formats for ascii):
+Required JSON format (supports single and multi-level formats):
 
-Option 1 - Array of strings (recommended for editor-friendly display):
+Option 1 - Single level with array of strings (recommended):
 {
     "ascii": [
         "########",
@@ -25,7 +25,38 @@ Option 1 - Array of strings (recommended for editor-friendly display):
     "name": "level_name"        # Optional, default "unknown_level"
 }
 
-Option 2 - String with newlines (backwards compatible):
+Option 2 - Multi-level format with shared tileset:
+{
+    "levels": [
+        {
+            "ascii": [
+                "########",
+                "#S....#",
+                "########"
+            ],
+            "name": "level_1",     # Optional per-level name
+            "agent_facing": [0.0]  # Optional per-level agent facing
+        },
+        {
+            "ascii": [
+                "##########",
+                "#S......C#",
+                "##########"
+            ],
+            "name": "level_2"
+        }
+    ],
+    "tileset": {               # Shared tileset for all levels
+        "#": {"asset": "wall"},
+        "C": {"asset": "cube"},
+        "S": {"asset": "spawn"},
+        ".": {"asset": "empty"}
+    },
+    "scale": 2.5,              # Optional, default 2.5 (applies to all levels)
+    "name": "multi_level_set"   # Optional name for the level set
+}
+
+Option 3 - String with newlines (backwards compatible):
 {
     "ascii": "########\\n#S....#\\n########",
     "tileset": { ... },
@@ -182,6 +213,81 @@ def _validate_tileset(tileset: Dict) -> None:
                 )
 
 
+def _validate_multi_level_json(data: Dict) -> None:
+    """
+    Validate multi-level JSON data structure.
+
+    Args:
+        data: JSON multi-level dictionary
+
+    Raises:
+        ValueError: If JSON structure is invalid
+    """
+    # Required fields for multi-level format
+    if "levels" not in data:
+        raise ValueError("Multi-level JSON must contain 'levels' field")
+
+    if "tileset" not in data:
+        raise ValueError("Multi-level JSON must contain 'tileset' field")
+
+    # Validate levels array
+    levels = data["levels"]
+    if not isinstance(levels, list) or not levels:
+        raise ValueError("'levels' field must be a non-empty list")
+
+    # Validate each level
+    for i, level in enumerate(levels):
+        if not isinstance(level, dict):
+            raise ValueError(f"Level {i} must be a dictionary")
+
+        if "ascii" not in level:
+            raise ValueError(f"Level {i} must contain 'ascii' field")
+
+        # Validate ascii field (same as single level)
+        ascii_data = level["ascii"]
+        if isinstance(ascii_data, list):
+            if not ascii_data:
+                raise ValueError(f"Level {i} 'ascii' array cannot be empty")
+            for j, line in enumerate(ascii_data):
+                if not isinstance(line, str):
+                    raise ValueError(f"Level {i} 'ascii' array line {j} must be a string")
+        elif isinstance(ascii_data, str):
+            if not ascii_data.strip():
+                raise ValueError(f"Level {i} 'ascii' field cannot be empty")
+        else:
+            raise ValueError(f"Level {i} 'ascii' field must be a string or array of strings")
+
+        # Validate optional per-level fields
+        if "agent_facing" in level:
+            agent_facing = level["agent_facing"]
+            if not isinstance(agent_facing, list):
+                raise ValueError(f"Level {i} 'agent_facing' must be a list of angles in radians")
+            for j, angle in enumerate(agent_facing):
+                if not isinstance(angle, (int, float)):
+                    raise ValueError(f"Level {i} agent_facing[{j}]: {angle} (must be number)")
+
+        if "name" in level:
+            name = level["name"]
+            if not isinstance(name, str):
+                raise ValueError(f"Level {i} 'name' field must be a string")
+            if len(name) > MAX_LEVEL_NAME_LENGTH:
+                raise ValueError(f"Level {i} name too long: {len(name)} > {MAX_LEVEL_NAME_LENGTH}")
+
+    # Validate shared tileset
+    _validate_tileset(data["tileset"])
+
+    # Validate optional shared fields
+    if "scale" in data:
+        scale = data["scale"]
+        if not isinstance(scale, (int, float)) or scale <= 0:
+            raise ValueError(f"Invalid scale: {scale} (must be positive number)")
+
+    if "name" in data:
+        name = data["name"]
+        if not isinstance(name, str):
+            raise ValueError("'name' field must be a string")
+
+
 def _validate_json_level(data: Dict) -> None:
     """
     Validate JSON level data structure.
@@ -192,7 +298,12 @@ def _validate_json_level(data: Dict) -> None:
     Raises:
         ValueError: If JSON structure is invalid
     """
-    # Required fields
+    # Check if this is multi-level format
+    if "levels" in data:
+        _validate_multi_level_json(data)
+        return
+
+    # Required fields for single level
     if "ascii" not in data:
         raise ValueError("JSON level must contain 'ascii' field")
 
@@ -384,46 +495,16 @@ def compile_ascii_level(
     return compile_level(json_data)
 
 
-def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
+def _compile_single_level(data: Dict) -> CompiledLevel:
     """
-    Compile JSON level definition to CompiledLevel format.
+    Internal function to compile a single level from validated JSON data.
 
     Args:
-        json_data: JSON string or dictionary with level definition
+        data: Validated single-level JSON dictionary
 
     Returns:
-        CompiledLevel struct ready for C API
-
-    Raises:
-        ValueError: If JSON is invalid or compilation fails
-
-    Example:
-        json_level = {
-            "ascii": "###O###\\n#S...C#\\n#######",
-            "tileset": {
-                "#": {"asset": "wall"},
-                "C": {"asset": "cube"},
-                "O": {"asset": "cylinder"},
-                "S": {"asset": "spawn"},
-                ".": {"asset": "empty"}
-            },
-            "scale": 2.5,
-            "agent_facing": [0.0]
-        }
-        compiled = compile_level(json_level)
+        CompiledLevel struct
     """
-    # Parse JSON if string
-    if isinstance(json_data, str):
-        try:
-            data = json.loads(json_data)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON format: {e}")
-    else:
-        data = json_data
-
-    # Validate JSON structure
-    _validate_json_level(data)
-
     # Extract fields
     ascii_str = _normalize_ascii_input(data["ascii"])
     tileset = data["tileset"]
@@ -571,6 +652,141 @@ def compile_level(json_data: Union[str, Dict]) -> CompiledLevel:
         level.tile_rotation[i] = (1.0, 0.0, 0.0, 0.0)
 
     return level
+
+
+def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
+    """
+    Compile multi-level JSON definition to list of CompiledLevel structures.
+
+    Args:
+        json_data: JSON string or dictionary with multi-level definition
+
+    Returns:
+        List of CompiledLevel structs ready for C API
+
+    Raises:
+        ValueError: If JSON is invalid or compilation fails
+
+    Example:
+        multi_level = {
+            "levels": [
+                {
+                    "ascii": ["###", "#S#", "###"],
+                    "name": "level_1",
+                    "agent_facing": [0.0]
+                },
+                {
+                    "ascii": ["#####", "#S.C#", "#####"],
+                    "name": "level_2"
+                }
+            ],
+            "tileset": {
+                "#": {"asset": "wall"},
+                "C": {"asset": "cube"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"}
+            },
+            "scale": 2.5
+        }
+        compiled_levels = compile_multi_level(multi_level)
+    """
+    # Parse JSON if string
+    if isinstance(json_data, str):
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format: {e}")
+    else:
+        data = json_data
+
+    # Ensure this is actually multi-level format
+    if "levels" not in data:
+        raise ValueError(
+            "compile_multi_level() requires multi-level JSON format with 'levels' field"
+        )
+
+    # Validate JSON structure (will call multi-level validation)
+    _validate_json_level(data)
+
+    # Extract shared fields
+    shared_tileset = data["tileset"]
+    shared_scale = data.get("scale", 2.5)
+    level_set_name = data.get("name", "multi_level_set")
+
+    compiled_levels = []
+
+    # Compile each level
+    for i, level_data in enumerate(data["levels"]):
+        # Build single-level JSON for this level
+        single_level_json = {
+            "ascii": level_data["ascii"],
+            "tileset": shared_tileset,
+            "scale": shared_scale,
+        }
+
+        # Use per-level name if provided, otherwise generate from set name
+        if "name" in level_data:
+            single_level_json["name"] = level_data["name"]
+        else:
+            single_level_json["name"] = f"{level_set_name}_level_{i+1}"
+
+        # Use per-level agent_facing if provided
+        if "agent_facing" in level_data:
+            single_level_json["agent_facing"] = level_data["agent_facing"]
+
+        # Compile this individual level using the internal function
+        compiled_level = _compile_single_level(single_level_json)
+        compiled_levels.append(compiled_level)
+
+    return compiled_levels
+
+
+def compile_level(json_data: Union[str, Dict]) -> Union[CompiledLevel, List[CompiledLevel]]:
+    """
+    Compile JSON level definition to CompiledLevel format.
+
+    Args:
+        json_data: JSON string or dictionary with level definition
+
+    Returns:
+        CompiledLevel struct ready for C API
+
+    Raises:
+        ValueError: If JSON is invalid or compilation fails
+
+    Example:
+        json_level = {
+            "ascii": "###O###\\n#S...C#\\n#######",
+            "tileset": {
+                "#": {"asset": "wall"},
+                "C": {"asset": "cube"},
+                "O": {"asset": "cylinder"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"}
+            },
+            "scale": 2.5,
+            "agent_facing": [0.0]
+        }
+        compiled = compile_level(json_level)
+    """
+    # Parse JSON if string
+    if isinstance(json_data, str):
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format: {e}")
+    else:
+        data = json_data
+
+    # Validate JSON structure
+    _validate_json_level(data)
+
+    # Check if this is multi-level format - delegate to compile_multi_level
+    if "levels" in data:
+        return compile_multi_level(data)
+
+    # Single level format - use internal helper
+    return _compile_single_level(data)
 
 
 # Alias for backward compatibility with old test files

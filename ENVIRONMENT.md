@@ -71,7 +71,7 @@ import madrona_escape_room
 
 # Create the simulation manager
 mgr = madrona_escape_room.SimManager(
-    exec_mode=madrona_escape_room.madrona.ExecMode.CPU,  # or CUDA
+    exec_mode=madrona_escape_room.ExecMode.CPU,  # or CUDA
     gpu_id=-1,           # -1 for CPU, 0+ for GPU device
     num_worlds=1024,     # Number of parallel worlds
     rand_seed=42,        # Random seed

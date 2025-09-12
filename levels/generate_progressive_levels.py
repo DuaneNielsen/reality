@@ -9,6 +9,7 @@ likely to contain obstacles.
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -273,6 +274,86 @@ def generate_all_levels(output_dir="levels", random_seed=42):
     print("All levels generated successfully!")
 
 
+def generate_multi_level_json(output_dir="levels", random_seed=42):
+    """
+    Generate a single multi-level JSON file containing all progressive levels (1-20).
+
+    Args:
+        output_dir: Output directory for the multi-level file
+        random_seed: Base random seed for reproducibility
+
+    Returns:
+        Path to generated multi-level file
+    """
+    print(f"Generating multi-level JSON file in {output_dir}/")
+
+    # Shared tileset for all levels
+    shared_tileset = {
+        "#": {"asset": "wall", "done_on_collision": True},
+        "C": {
+            "asset": "cube",
+            "done_on_collision": True,
+            "rand_x": 50.0,
+            "rand_y": 1.2,
+            "rand_z": 0.3,
+            "rand_rot_z": 6.28318,
+            "rand_scale": 0.4,
+        },
+        "O": {
+            "asset": "cylinder",
+            "done_on_collision": True,
+            "rand_x": 50.0,
+            "rand_y": 1.0,
+            "rand_z": 0.2,
+            "rand_rot_z": 6.28318,
+            "rand_scale": 0.3,
+        },
+        "S": {"asset": "spawn", "rand_x": 0.5, "rand_y": 0.5, "rand_z": 0.0, "rand_rot_z": 0.0},
+        ".": {"asset": "empty"},
+    }
+
+    levels_data = []
+
+    # Generate each level's ASCII and metadata
+    for level_num in range(1, 21):
+        # Use different seed for each level
+        level_seed = random_seed + level_num if random_seed else None
+        num_obstacles = level_num * 10
+
+        # Create cell pool and sample positions
+        cell_pool = create_cell_pool()
+        positions = sample_obstacle_positions(cell_pool, num_obstacles, level_seed)
+        obstacles = assign_obstacle_types(positions)
+
+        # Create level grid
+        grid = create_level_grid(obstacles)
+
+        # Add level to multi-level data
+        level_entry = {"ascii": grid, "name": f"lvl{level_num}_19x48_prog", "agent_facing": [0]}
+        levels_data.append(level_entry)
+
+    # Create multi-level JSON structure
+    multi_level_data = {
+        "levels": levels_data,
+        "tileset": shared_tileset,
+        "scale": 3.0,
+        "name": "progressive_levels_1_to_20",
+    }
+
+    # Save to file
+    output_path = Path(output_dir) / "progressive_levels_1_to_20_multi.json"
+    output_path.parent.mkdir(exist_ok=True)
+
+    with open(output_path, "w") as f:
+        json.dump(multi_level_data, f, indent=4)
+
+    total_obstacles = sum(level_num * 10 for level_num in range(1, 21))
+    print(
+        f"Generated {output_path} with {len(levels_data)} levels and {total_obstacles} total obstacles"
+    )
+    return output_path
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate progressive difficulty levels")
     parser.add_argument(
@@ -282,12 +363,25 @@ def main():
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility (default: 42)"
     )
+    parser.add_argument(
+        "--single",
+        action="store_true",
+        help="Generate single multi-level JSON file containing all levels",
+    )
 
     args = parser.parse_args()
 
-    if args.level:
+    if args.single:
+        # Generate single multi-level JSON file
+        if args.level:
+            print("Error: --single and --level cannot be used together")
+            sys.exit(1)
+        generate_multi_level_json(args.output_dir, args.seed)
+    elif args.level:
+        # Generate single level
         generate_level(args.level, args.output_dir, args.seed)
     else:
+        # Generate all levels as separate files
         generate_all_levels(args.output_dir, args.seed)
 
 
