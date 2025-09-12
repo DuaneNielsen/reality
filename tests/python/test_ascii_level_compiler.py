@@ -293,7 +293,8 @@ class TestJSONLevelFormat:
             "agent_facing": [0.0, math.pi / 2],  # First faces forward, second faces right
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Verify structure
         assert compiled.world_scale == 1.5
@@ -321,7 +322,8 @@ class TestJSONLevelFormat:
             "scale": 2.0,
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Should default to facing forward (0.0)
         assert compiled.spawn_facing[0] == 0.0
@@ -345,7 +347,8 @@ class TestJSONLevelFormat:
         }
 
         # Compile and validate the level
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Verify the compiled level has the correct facing
         assert abs(compiled.spawn_facing[0] - math.pi / 4) < 0.001
@@ -377,7 +380,8 @@ class TestDoneOnCollisionFlags:
             "name": "test_collision_flags",
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Get asset IDs for verification
         from madrona_escape_room.ctypes_bindings import (
@@ -464,7 +468,8 @@ class TestDoneOnCollisionFlags:
             "scale": 2.0,
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         from madrona_escape_room.ctypes_bindings import get_physics_asset_object_id
 

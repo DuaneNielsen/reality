@@ -296,7 +296,8 @@ def test_multiple_spawn_parsing(cpu_manager):
         "name": "test_multiple_spawns",
     }
 
-    compiled = compile_level(level_json)
+    compiled_levels = compile_level(level_json)
+    compiled = compiled_levels[0]  # Extract single level
 
     # Check that we have multiple spawn points
     assert compiled.num_spawns == 2, f"Expected 2 spawn points, got {compiled.num_spawns}"

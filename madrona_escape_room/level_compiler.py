@@ -491,8 +491,9 @@ def compile_ascii_level(
     if agent_facing is not None:
         json_data["agent_facing"] = agent_facing
 
-    # Compile using the main compile_level function
-    return compile_level(json_data)
+    # Compile using the main compile_level function and extract single level
+    compiled_levels = compile_level(json_data)
+    return compiled_levels[0]  # Always single level for this function
 
 
 def _compile_single_level(data: Dict) -> CompiledLevel:
@@ -741,7 +742,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
     return compiled_levels
 
 
-def compile_level(json_data: Union[str, Dict]) -> Union[CompiledLevel, List[CompiledLevel]]:
+def compile_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
     """
     Compile JSON level definition to CompiledLevel format.
 
@@ -749,7 +750,7 @@ def compile_level(json_data: Union[str, Dict]) -> Union[CompiledLevel, List[Comp
         json_data: JSON string or dictionary with level definition
 
     Returns:
-        CompiledLevel struct ready for C API
+        List of CompiledLevel structs ready for C API (always returns list, even for single levels)
 
     Raises:
         ValueError: If JSON is invalid or compilation fails
@@ -785,8 +786,8 @@ def compile_level(json_data: Union[str, Dict]) -> Union[CompiledLevel, List[Comp
     if "levels" in data:
         return compile_multi_level(data)
 
-    # Single level format - use internal helper
-    return _compile_single_level(data)
+    # Single level format - use internal helper and wrap in list
+    return [_compile_single_level(data)]
 
 
 # Alias for backward compatibility with old test files
@@ -918,7 +919,8 @@ Examples:
             }
 
             print("Compiling test level...")
-            compiled = compile_level(test_json)
+            compiled_levels = compile_level(test_json)
+            compiled = compiled_levels[0]  # Test level is always single level
             validate_compiled_level(compiled)
             print_level_info(compiled)
 
@@ -964,15 +966,30 @@ Examples:
                 json_data = f.read()
 
             # Compile and validate
-            compiled = compile_level(json_data)
-            validate_compiled_level(compiled)
-
-            # Save to binary
-            save_compiled_level_binary(compiled, args.output)
-            print("✓ Level compiled successfully")
-
-            # Display info
-            print_level_info(compiled)
+            compiled_levels = compile_level(json_data)
+            
+            # Handle both single and multi-level cases
+            if len(compiled_levels) == 1:
+                # Single level - save directly
+                compiled = compiled_levels[0]
+                validate_compiled_level(compiled)
+                save_compiled_level_binary(compiled, args.output)
+                print("✓ Level compiled successfully")
+                print_level_info(compiled)
+            else:
+                # Multi-level - save each level with numbered suffix
+                base_output = Path(args.output)
+                print(f"✓ Multi-level compilation: {len(compiled_levels)} levels")
+                
+                for i, compiled in enumerate(compiled_levels):
+                    validate_compiled_level(compiled)
+                    
+                    # Generate numbered filename for each level
+                    level_output = base_output.with_name(f"{base_output.stem}_level_{i+1}{base_output.suffix}")
+                    save_compiled_level_binary(compiled, str(level_output))
+                    print(f"  Level {i+1} → {level_output}")
+                    print_level_info(compiled)
+                    print()
 
         else:
             parser.print_help()

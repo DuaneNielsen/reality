@@ -75,7 +75,8 @@ class TestTilesetFunctionality:
             "name": "test_tileset_with_randomization",
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
         validate_compiled_level(compiled)
 
         # Find the cube tile and verify randomization
@@ -136,7 +137,8 @@ class TestTilesetFunctionality:
             "scale": 2.0,
         }
 
-        compiled = compile_level_from_json(json_level)
+        compiled_levels = compile_level_from_json(json_level)
+        compiled = compiled_levels[0]  # Extract single level
         validate_compiled_level(compiled)
 
         # Verify cube randomization
@@ -253,7 +255,8 @@ class TestTilesetFunctionality:
             "name": "test_compile_with_custom_tileset",
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         assert compiled.width == 7
         assert compiled.height == 3
@@ -289,7 +292,8 @@ class TestTilesetFunctionality:
             "name": "test_tileset_level",
         }
 
-        compiled = compile_level_from_json(json_data)
+        compiled_levels = compile_level_from_json(json_data)
+        compiled = compiled_levels[0]  # Extract single level
 
         assert compiled.world_scale == 3.0
         assert compiled.level_name.decode("utf-8").rstrip("\x00") == "test_tileset_level"
@@ -302,7 +306,8 @@ class TestTilesetFunctionality:
         # Level with 'O' which is not in legacy CHAR_MAP
         json_data = {"ascii": "###O###\n#S....#\n#######", "tileset": DEFAULT_TILESET}
 
-        compiled = compile_level_from_json(json_data)
+        compiled_levels = compile_level_from_json(json_data)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Should compile successfully using DEFAULT_TILESET
         assert compiled.num_tiles > 0
@@ -324,7 +329,8 @@ class TestTilesetFunctionality:
             "name": "test_backward_compatibility",
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         assert compiled.num_tiles > 0
         validate_compiled_level(compiled)
@@ -367,7 +373,8 @@ class TestTilesetFunctionality:
                 "name": "test_mixed_assets_tileset",
             }
 
-            compiled = compile_level(json_level)
+            compiled_levels = compile_level(json_level)
+            compiled = compiled_levels[0]  # Extract single level
             assert compiled.num_tiles > 0
             validate_compiled_level(compiled)
         except ValueError as e:
@@ -407,6 +414,7 @@ class TestTilesetFunctionality:
             {"ascii": "###\n#S#\n###", "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}}}
         )
 
-        compiled = compile_level_from_json(json_str)
+        compiled_levels = compile_level_from_json(json_str)
+        compiled = compiled_levels[0]  # Extract single level
         assert compiled.num_tiles > 0
         validate_compiled_level(compiled)

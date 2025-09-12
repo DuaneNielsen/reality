@@ -493,7 +493,8 @@ def create_sim_manager(
             # JSON level string
             from .level_compiler import compile_level
 
-            compiled_level = compile_level(level_str)
+            compiled_levels = compile_level(level_str)
+            compiled_level = compiled_levels[0]  # Extract single level (JSON must be single level here)
         else:
             # ASCII level
             from .level_compiler import compile_ascii_level
