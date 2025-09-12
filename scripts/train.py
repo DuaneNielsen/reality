@@ -212,7 +212,7 @@ class LearningCallback:
         # Keep original console output
         if self.use_wandb and wandb.run is not None:
             level_info = self.training_config.get("level_name", "unknown")
-            print(f"\nUpdate: {update_id} [{wandb.run.name}] [{level_info}]")
+            print(f"\nUpdate: {update_id} [{wandb.run.name}] ({wandb.run.id}) [{level_info}]")
         else:
             level_info = self.training_config.get("level_name", "unknown")
             print(f"\nUpdate: {update_id} [{level_info}]")
