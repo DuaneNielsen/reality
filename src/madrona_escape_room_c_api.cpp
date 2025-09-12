@@ -119,21 +119,20 @@ MER_Result mer_create_manager(
     // Convert array of compiled levels to C++ vector (if provided)
     std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;
     if (cpp_levels != nullptr && num_compiled_levels > 0) {
-        // Validate array size doesn't exceed number of worlds
-        if (num_compiled_levels > mgr_cfg->num_worlds) {
-            return MER_ERROR_INVALID_PARAMETER;
-        }
-        
+        // Reserve space for all worlds
         cpp_per_world_levels.reserve(mgr_cfg->num_worlds);
         
-        for (uint32_t i = 0; i < num_compiled_levels; i++) {
-            // Direct copy of the CompiledLevel struct
-            cpp_per_world_levels.push_back(cpp_levels[i]);
-        }
-        
-        // Fill remaining worlds with nullopt if array is smaller than num_worlds
-        while (cpp_per_world_levels.size() < mgr_cfg->num_worlds) {
-            cpp_per_world_levels.push_back(std::nullopt);
+        // Distribute levels across worlds using round-robin for curriculum learning
+        // This allows more levels than worlds (e.g., 20 levels across 4 worlds)
+        for (uint32_t world_idx = 0; world_idx < mgr_cfg->num_worlds; world_idx++) {
+            if (num_compiled_levels > 0) {
+                // Round-robin distribution: world i gets level (i % num_levels)
+                uint32_t level_idx = world_idx % num_compiled_levels;
+                cpp_per_world_levels.push_back(cpp_levels[level_idx]);
+            } else {
+                // No levels provided - use default
+                cpp_per_world_levels.push_back(std::nullopt);
+            }
         }
     }
     
