@@ -8,7 +8,7 @@ from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training
 from policy import make_policy, setup_obs
 
 import madrona_escape_room
-from madrona_escape_room.level_io import load_compiled_level
+from madrona_escape_room.level_io import load_compiled_levels
 
 warnings.filterwarnings("error")
 
@@ -37,13 +37,20 @@ torch.manual_seed(args.seed)
 exec_mode = madrona_escape_room.ExecMode.CUDA if args.gpu_sim else madrona_escape_room.ExecMode.CPU
 
 # Load custom level if provided
-compiled_level = None
+compiled_levels = None
 if args.level_file:
-    compiled_level = load_compiled_level(args.level_file)
-    print(f"Loaded custom level from {args.level_file}")
+    compiled_levels = load_compiled_levels(args.level_file)
+    if len(compiled_levels) == 1:
+        print(f"Loaded custom level from {args.level_file}")
+    else:
+        print(f"Loaded multi-level file with {len(compiled_levels)} levels from {args.level_file}")
 
 sim_interface = setup_lidar_training_environment(
-    num_worlds=args.num_worlds, exec_mode=exec_mode, gpu_id=args.gpu_id, rand_seed=args.seed, compiled_level=compiled_level
+    num_worlds=args.num_worlds,
+    exec_mode=exec_mode,
+    gpu_id=args.gpu_id,
+    rand_seed=args.seed,
+    compiled_levels=compiled_levels,
 )
 
 obs, num_obs_features = setup_obs(sim_interface.obs)

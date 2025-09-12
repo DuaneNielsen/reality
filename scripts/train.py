@@ -15,7 +15,7 @@ from policy import make_policy, setup_obs
 
 import madrona_escape_room
 from madrona_escape_room.generated_constants import ExecMode
-from madrona_escape_room.level_io import load_compiled_level
+from madrona_escape_room.level_io import load_compiled_levels
 
 # Optional wandb import
 try:
@@ -313,15 +313,22 @@ args = arg_parser.parse_args()
 torch.manual_seed(args.seed)
 
 # Load custom level if provided
-compiled_level = None
+compiled_levels = None
 level_name = "default_16x16_room"
 if args.level_file:
-    compiled_level = load_compiled_level(args.level_file)
-    # Extract level name from the compiled level
-    level_name = compiled_level.level_name.decode("utf-8", errors="ignore").strip("\x00")
-    if not level_name:
+    compiled_levels = load_compiled_levels(args.level_file)
+
+    if len(compiled_levels) == 1:
+        # Single level file - extract level name from the level
+        level_name = compiled_levels[0].level_name.decode("utf-8", errors="ignore").strip("\x00")
+        if not level_name:
+            level_name = Path(args.level_file).stem
+        print(f"Loaded custom level: {level_name} from {args.level_file}")
+    else:
+        # Multi-level file - use filename for display
         level_name = Path(args.level_file).stem
-    print(f"Loaded custom level: {level_name} from {args.level_file}")
+        print(f"Loaded multi-level file: {len(compiled_levels)} levels from {args.level_file}")
+        print(f"Using curriculum name: {level_name}")
 
 # Setup training environment with 128-beam lidar sensor (distance values only)
 exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
@@ -331,7 +338,7 @@ sim_interface = setup_lidar_training_environment(
     exec_mode=exec_mode,
     gpu_id=args.gpu_id,
     rand_seed=args.seed,
-    compiled_level=compiled_level,
+    compiled_levels=compiled_levels,
 )
 
 ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None

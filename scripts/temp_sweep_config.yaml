@@ -1,5 +1,5 @@
 program: scripts/train.py
-project: madrona-escape-room
+project: madrona-escape-room-dev
 command:
   - uv
   - run
@@ -10,6 +10,8 @@ command:
   - "--gpu-sim"
   - "--gpu-id"
   - "0"
+  - "--tag"
+  - "curriculum"
   - ${args}
 method: grid
 parameters:
