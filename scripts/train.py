@@ -27,7 +27,14 @@ except ImportError:
 
 
 class LearningCallback:
-    def __init__(self, ckpt_dir, profile_report, training_config=None, level_file_path=None):
+    def __init__(
+        self,
+        ckpt_dir,
+        profile_report,
+        training_config=None,
+        level_file_path=None,
+        additional_tags=None,
+    ):
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
@@ -46,6 +53,10 @@ class LearningCallback:
                 tags = ["lidar-training", level_tag]
                 if training_config and training_config.get("level_file"):
                     tags.append("custom-level")
+
+                # Add additional tags from command line
+                if additional_tags:
+                    tags.extend(additional_tags)
 
                 wandb.init(
                     project="madrona-escape-room",
@@ -293,6 +304,9 @@ arg_parser.add_argument(
 )
 arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
 arg_parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
+arg_parser.add_argument(
+    "--tag", action="append", dest="tags", help="Add tags to wandb run (can be used multiple times)"
+)
 
 args = arg_parser.parse_args()
 
@@ -345,7 +359,9 @@ training_config = {
     "random_seed": args.seed,
 }
 
-learning_cb = LearningCallback(ckpt_dir, args.profile_report, training_config, args.level_file)
+learning_cb = LearningCallback(
+    ckpt_dir, args.profile_report, training_config, args.level_file, args.tags
+)
 
 if torch.cuda.is_available():
     dev = torch.device(f"cuda:{args.gpu_id}")
