@@ -15,7 +15,7 @@ inline constexpr int numAgents = 1;
 // NOTE: maxEntitiesPerRoom removed - now dynamically calculated in CompiledLevel.max_entities
 
 // Various world / entity size parameters
-inline constexpr float worldLength = 40.f;
+inline constexpr float worldLength = 20.f;
 inline constexpr float worldWidth = 20.f;
 inline constexpr float wallWidth = 1.f;
 inline constexpr float agentRadius = 1.f;
