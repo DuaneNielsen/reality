@@ -12,18 +12,12 @@ command:
   - "0"
   - ${args}
 method: grid
-metric:
-  name: episodes/reward_ema
-  goal: maximize
-early_terminate:
-  type: hyperband
-  min_iter: 50
 parameters:
   # Core training parameters (fixed for efficiency)
   num-worlds:
     value: 4096
   num-updates:
-    value: 4000
+    value: 2000
   steps-per-update:
     value: 40
   num-bptt-chunks:
@@ -37,35 +31,38 @@ parameters:
   
   # PPO tuning (optimal values)
   entropy-loss-coef:
-    value: 0.005
+    values: [ 0.005, 0.01 ]
   
   # Fixed parameters
   value-loss-coef:
     value: 0.5
   num-channels:
-    value: 256
+    values: [256, 512]
   
   # Random seed for reproducibility
   seed:
     value: 0
   
-  # Level files for grid search across all generated levels
+  # Level files for grid search across all 20 generated levels
   level-file:
     values:
-      - "levels/empty_20x48.lvl"
-      - "levels/lvl1_20x48.lvl"
-      - "levels/lvl2_20x48.lvl"
-      - "levels/lvl3_20x48.lvl"
-      - "levels/lvl4_20x48.lvl"
-      - "levels/lvl5_20x48.lvl"
-      - "levels/lvl6_20x48.lvl"
-      - "levels/lvl7_20x48.lvl"
-      - "levels/lvl1_maze_20x48.lvl"
-      - "levels/lvl2_maze_20x48.lvl"
-      - "levels/lvl3_maze_20x48.lvl"
-      - "levels/lvl4_maze_20x48.lvl"
-      - "levels/lvl5_maze_20x48.lvl"
-      - "levels/lvl6_maze_20x48.lvl"
-      - "levels/lvl7_maze_20x48.lvl"
-      - "levels/lvl8_maze_20x48.lvl"
-      - "levels/lvl9_maze_20x48.lvl"
+      - "levels/lvl1_19x48_gen.lvl"
+      - "levels/lvl2_19x48_gen.lvl"
+      - "levels/lvl3_19x48_gen.lvl"
+      - "levels/lvl4_19x48_gen.lvl"
+      - "levels/lvl5_19x48_gen.lvl"
+      - "levels/lvl6_19x48_gen.lvl"
+      - "levels/lvl7_19x48_gen.lvl"
+      - "levels/lvl8_19x48_gen.lvl"
+      - "levels/lvl9_19x48_gen.lvl"
+      - "levels/lvl10_19x48_gen.lvl"
+      - "levels/lvl11_19x48_gen.lvl"
+      - "levels/lvl12_19x48_gen.lvl"
+      - "levels/lvl13_19x48_gen.lvl"
+      - "levels/lvl14_19x48_gen.lvl"
+      - "levels/lvl15_19x48_gen.lvl"
+      - "levels/lvl16_19x48_gen.lvl"
+      - "levels/lvl17_19x48_gen.lvl"
+      - "levels/lvl18_19x48_gen.lvl"
+      - "levels/lvl19_19x48_gen.lvl"
+      - "levels/lvl20_19x48_gen.lvl"

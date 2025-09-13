@@ -638,11 +638,13 @@ int main(int argc, char *argv[])
                 printf("  Spacing: %f, GridCols: %u\n", config.world_spacing, config.grid_cols);
                 printf("  Num worlds: %u\n", num_worlds);
                 
-                viewer.setMultiWorldGrid(true, config.world_spacing, config.grid_cols, 
-                                       worldScaleX, worldScaleY);
+                // Stage 1: setMultiWorldGrid API not implemented yet
+                // Grid parameters are hardcoded in viewer_renderer.cpp for now
+                // viewer.setMultiWorldGrid(true, config.world_spacing, config.grid_cols, 
+                //                        worldScaleX, worldScaleY);
                 
             } else {
-                viewer.setMultiWorldGrid(false);
+                // viewer.setMultiWorldGrid(false);
             }
         }
         
