@@ -164,15 +164,17 @@ TEST_F(FileInspectorTest, InspectorHandlesDefaultLevel) {
     // Run file inspector on default level
     std::string output = runFileInspector(defaultLevelPath);
     
-    // Check for expected output (updated for unified format)
+    // Check for expected output (updated for 2-level unified format)
     EXPECT_TRUE(output.find("Level File:") != std::string::npos);
     EXPECT_TRUE(output.find("default_level") != std::string::npos);
     EXPECT_TRUE(output.find("✓ Valid level file format") != std::string::npos);
-    EXPECT_TRUE(output.find("Contains 1 level(s)") != std::string::npos);
-    EXPECT_TRUE(output.find("Name: default_16x16_room") != std::string::npos);
+    EXPECT_TRUE(output.find("Contains 2 level(s)") != std::string::npos);
+    EXPECT_TRUE(output.find("Name: default_full_obstacles") != std::string::npos);
+    EXPECT_TRUE(output.find("Name: default_cubes_only") != std::string::npos);
     EXPECT_TRUE(output.find("Grid: 16x16") != std::string::npos);
     EXPECT_TRUE(output.find("Scale: 1") != std::string::npos);
     EXPECT_TRUE(output.find("Tiles: 74") != std::string::npos);
+    EXPECT_TRUE(output.find("Tiles: 66") != std::string::npos);
     EXPECT_TRUE(output.find("Spawns: 1") != std::string::npos);
     EXPECT_TRUE(output.find("✓ Level data valid") != std::string::npos);
     EXPECT_TRUE(output.find("✓ File validation completed successfully") != std::string::npos);

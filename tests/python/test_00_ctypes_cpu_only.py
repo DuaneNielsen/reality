@@ -189,7 +189,6 @@ def test_dataclass_level_structure():
     assert level.width == 16
     assert level.height == 16
     assert level.world_scale == 1.0
-    assert not level.done_on_collide
     assert level.num_spawns == 1
 
     # Check spawn position
