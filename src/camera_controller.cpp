@@ -62,23 +62,33 @@ void FreeFlyCameraController::handleInput(const CameraInputState& input, float d
         movement += state_.right;  // D key - strafe right in camera's right direction
     }
     
-    // Forward/backward movement
+    // Forward/backward movement (now using Z/C keys)
     if (input.up) {
-        movement += state_.forward;  // Q key - move forward
+        movement += state_.forward;  // Z key - move forward
     }
     if (input.down) {
-        movement -= state_.forward;  // E key - move backward
+        movement -= state_.forward;  // C key - move backward
     }
     
-    // Handle zoom via FOV adjustment (R/F keys)
-    if (input.rotateLeft) {  // R key - zoom out (increase FOV)
-        state_.fov += 30.0f * deltaTime;  // Zoom out
-        state_.fov = std::clamp(state_.fov, 10.0f, 120.0f);
+    // Handle 90-degree rotation snaps (Q/E keys)
+    // Detect key press edges (transition from not pressed to pressed)
+    bool qJustPressed = input.rotateLeft && !qKeyPressed_;
+    bool eJustPressed = input.rotateRight && !eKeyPressed_;
+    
+    if (qJustPressed) {  // Q key - rotate left 90 degrees
+        yaw_ -= consts::math::pi / 2.0f;  // 90 degrees in radians
+        updateVectors();
     }
-    if (input.rotateRight) {  // F key - zoom in (decrease FOV) 
-        state_.fov -= 30.0f * deltaTime;  // Zoom in
-        state_.fov = std::clamp(state_.fov, 10.0f, 120.0f);
+    if (eJustPressed) {  // E key - rotate right 90 degrees  
+        yaw_ += consts::math::pi / 2.0f;  // 90 degrees in radians
+        updateVectors();
     }
+    
+    // Update key states for next frame
+    qKeyPressed_ = input.rotateLeft;
+    eKeyPressed_ = input.rotateRight;
+    
+    // No zoom functionality - ZC now used for forward/backward movement
     
     // Apply movement without normalizing to preserve speed multipliers
     float moveLength = movement.length();

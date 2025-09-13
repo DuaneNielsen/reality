@@ -15,6 +15,8 @@ struct CameraInputState {
     bool down = false;
     bool rotateLeft = false;
     bool rotateRight = false;
+    bool zoomIn = false;
+    bool zoomOut = false;
     bool boost = false;
     float mouseX = 0.0f;
     float mouseY = 0.0f;
@@ -80,6 +82,10 @@ private:
     float mouseSensitivity_ = 0.002f;
     float pitch_ = 0.0f;
     float yaw_ = 0.0f;
+    
+    // For 90-degree rotation snapping
+    bool qKeyPressed_ = false;
+    bool eKeyPressed_ = false;
     
     void updateVectors();
 };

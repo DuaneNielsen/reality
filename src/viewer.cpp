@@ -431,10 +431,11 @@ int main(int argc, char *argv[])
     std::cout << "  R: Reset current world\n";
     std::cout << "  T: Toggle trajectory tracking for current world\n";
     std::cout << "  L: Toggle lidar ray visualization\n";
-    std::cout << "  C: Toggle camera mode (FreeFly/Tracking)\n";
-    std::cout << "  F: Toggle camera tracking (in Tracking mode)\n";
+    std::cout << "  F: Toggle camera mode (FreeFly/Tracking)\n";
     std::cout << "  WASD: Move camera\n";
-    std::cout << "  Right Mouse + Move: Rotate camera\n";
+    std::cout << "  ZC: Move forward/backward (in camera direction)\n";
+    std::cout << "  QE: Rotate camera 90 degrees left/right\n";
+    std::cout << "  Right Mouse + Move: Free look rotation\n";
     std::cout << "\n";
 
     // Initialize camera controllers
@@ -543,7 +544,7 @@ int main(int argc, char *argv[])
         lastFrameTime = currentTime;
         
         // Camera mode switching (toggle between FreeFly and Tracking)
-        if (input.keyHit(Key::C)) {
+        if (input.keyHit(Key::F)) {
             cameraMode = 1 - cameraMode;  // Toggle between 0 and 1
             if (cameraMode == 0) {
                 currentCamera = freeFlyCamera.get();
@@ -574,10 +575,10 @@ int main(int argc, char *argv[])
             camInput.backward = input.keyPressed(Key::S);
             camInput.left = input.keyPressed(Key::A);
             camInput.right = input.keyPressed(Key::D);
-            camInput.up = input.keyPressed(Key::Q);      // Q = forward
-            camInput.down = input.keyPressed(Key::E);    // E = backward
-            camInput.rotateLeft = input.keyPressed(Key::R);   // R = zoom out
-            camInput.rotateRight = input.keyPressed(Key::F);  // F = zoom in  
+            camInput.up = input.keyPressed(Key::Z);      // Z = forward in camera direction
+            camInput.down = input.keyPressed(Key::C);    // C = backward in camera direction
+            camInput.rotateLeft = input.keyPressed(Key::Q);   // Q = rotate left 90 degrees
+            camInput.rotateRight = input.keyPressed(Key::E);  // E = rotate right 90 degrees  
             camInput.boost = input.keyPressed(Key::Shift);
             
             // Handle camera input and update
