@@ -4,6 +4,40 @@
 
 namespace madEscape {
 
+// Core parsing function that works on memory buffer
+static Result readCompiledLevelsCore(
+    const char* data,
+    size_t data_size,
+    std::vector<CompiledLevel>& out_levels
+) {
+    // Check minimum size for header
+    if (data_size < 10) { // 6 bytes magic + 4 bytes count
+        return Result::ErrorInvalidFile;
+    }
+    
+    // Check magic header
+    if (std::memcmp(data, "LEVELS", 6) != 0) {
+        return Result::ErrorInvalidFile;
+    }
+    
+    // Read number of levels
+    uint32_t num_levels;
+    std::memcpy(&num_levels, data + 6, sizeof(uint32_t));
+    
+    // Check total size
+    size_t expected_size = 10 + (sizeof(CompiledLevel) * num_levels);
+    if (data_size != expected_size) {
+        return Result::ErrorInvalidFile;
+    }
+    
+    // Read all levels
+    out_levels.resize(num_levels);
+    size_t levels_size = sizeof(CompiledLevel) * num_levels;
+    std::memcpy(out_levels.data(), data + 10, levels_size);
+    
+    return Result::Success;
+}
+
 Result writeCompiledLevels(
     const std::string& filepath,
     const std::vector<CompiledLevel>& levels
@@ -54,34 +88,35 @@ Result readCompiledLevels(
         return Result::ErrorFileNotFound;
     }
     
-    // Read magic header
-    char magic[7] = {0};
-    size_t magic_read = fread(magic, sizeof(char), 6, f);
+    // Get file size
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
     
-    if (magic_read != 6 || strcmp(magic, "LEVELS") != 0) {
-        fclose(f);
-        return Result::ErrorInvalidFile;
-    }
-    
-    // Read number of levels
-    uint32_t num_levels;
-    size_t count_read = fread(&num_levels, sizeof(uint32_t), 1, f);
-    if (count_read != 1) {
+    if (file_size < 0) {
         fclose(f);
         return Result::ErrorFileIO;
     }
     
-    // Read all levels
-    out_levels.resize(num_levels);
-    size_t levels_size = sizeof(CompiledLevel) * num_levels;
-    size_t read = fread(out_levels.data(), 1, levels_size, f);
-    if (read != levels_size) {
-        fclose(f);
-        return Result::ErrorFileIO;
-    }
-    
+    // Read entire file into memory
+    std::vector<char> buffer(file_size);
+    size_t bytes_read = fread(buffer.data(), 1, file_size, f);
     fclose(f);
-    return Result::Success;
+    
+    if (bytes_read != static_cast<size_t>(file_size)) {
+        return Result::ErrorFileIO;
+    }
+    
+    // Use core parsing function
+    return readCompiledLevelsCore(buffer.data(), file_size, out_levels);
+}
+
+Result readCompiledLevelsFromMemory(
+    const char* data,
+    size_t data_size,
+    std::vector<CompiledLevel>& out_levels
+) {
+    return readCompiledLevelsCore(data, data_size, out_levels);
 }
 
 } // namespace madEscape

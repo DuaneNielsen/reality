@@ -144,7 +144,8 @@ int main(int argc, char *argv[])
     }
 
     // Parameters with defaults
-    uint32_t num_worlds = 1;
+    uint32_t num_worlds = 1;  // Default to 1, auto-detect from levels if not specified
+    bool num_worlds_specified = false;  // Track if user explicitly set --num-worlds
     madrona::ExecMode exec_mode = madrona::ExecMode::CPU;
     uint32_t gpu_id = 0;
     std::string load_path;
@@ -168,6 +169,7 @@ int main(int argc, char *argv[])
     
     if (options[NUM_WORLDS]) {
         num_worlds = strtoul(options[NUM_WORLDS].arg, nullptr, 10);
+        num_worlds_specified = true;
     }
     
     if (options[LOAD]) {
@@ -316,31 +318,54 @@ int main(int argc, char *argv[])
         std::cout << "Using seed " << sim_seed << " from replay file\n";
     }
 
+    // Auto-detect num_worlds from embedded levels if not specified by user
+    if (!num_worlds_specified && use_embedded_default) {
+        #include "default_level_data.h"
+        
+        // Quick peek at header to get level count without full parsing
+        if (default_level_lvl_len >= 10) {
+            uint32_t num_embedded_levels;
+            std::memcpy(&num_embedded_levels, default_level_lvl + 6, sizeof(uint32_t));
+            if (num_embedded_levels > 0) {
+                num_worlds = num_embedded_levels;
+                printf("Auto-detected %u embedded levels, setting num_worlds to %u\n", 
+                       num_embedded_levels, num_worlds);
+            }
+        }
+    }
+
     // Load level based on three-flag interface
     CompiledLevel loaded_level = {};
     std::vector<std::optional<CompiledLevel>> per_world_levels;
     
     if (use_embedded_default) {
-        // Load from embedded default level data (unified format)
+        // Load from embedded default level data using unified format
         #include "default_level_data.h"
         
-        // Unified format: "LEVELS" (6 bytes) + count (4 bytes) + CompiledLevel data
-        const size_t expected_size = 10 + sizeof(CompiledLevel);
-        if (expected_size != default_level_lvl_len) {
-            std::cerr << "Error: Embedded level size mismatch: expected " << expected_size 
-                     << " bytes, got " << default_level_lvl_len << " bytes\n";
+        std::vector<CompiledLevel> loaded_levels;
+        Result result = readCompiledLevelsFromMemory(
+            reinterpret_cast<const char*>(default_level_lvl),
+            default_level_lvl_len,
+            loaded_levels
+        );
+        
+        if (result != Result::Success || loaded_levels.empty()) {
+            std::cerr << "Error: Failed to parse embedded level data (unified format)\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        // Skip 10-byte header and memcpy the CompiledLevel struct
-        std::memcpy(&loaded_level, default_level_lvl + 10, sizeof(CompiledLevel));
-        printf("Loaded embedded default level (unified format): %dx%d grid, %d tiles\n", 
-               loaded_level.width, loaded_level.height, loaded_level.num_tiles);
+        printf("Loaded %zu embedded level(s) from unified format\n", loaded_levels.size());
+        if (loaded_levels.size() > 1) {
+            printf("  Distribution: %u worlds will use levels round-robin\n", num_worlds);
+        }
         
-        // All worlds use the same loaded level
-        per_world_levels.resize(num_worlds, loaded_level);
+        // Use existing level distribution logic (same as file-based loading)
+        per_world_levels.resize(num_worlds);
+        for (uint32_t i = 0; i < num_worlds; i++) {
+            per_world_levels[i] = loaded_levels[i % loaded_levels.size()];
+        }
         
     } else if (!load_path.empty()) {
         // Load from level file using unified format
