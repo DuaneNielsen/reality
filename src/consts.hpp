@@ -213,6 +213,9 @@ namespace display {
     // Default batch render dimensions
     inline constexpr uint32_t defaultBatchRenderSize = 64;
     
+    // Maximum worlds to display in grid mode
+    inline constexpr uint32_t maxDisplayWorlds = 36;
+    
     // Timing constants  
     inline constexpr int32_t defaultSimTickRate = 20;
     inline constexpr float defaultCameraDist = 10.0f;

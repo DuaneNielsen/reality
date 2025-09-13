@@ -142,7 +142,9 @@
       "Bash(./build.sh)",
       "Bash(git worktree:*)",
       "Bash(git cherry-pick:*)",
-      "Bash(./build.sh:*)"
+      "Bash(./build.sh:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(/home/duane/camera_rework/.claude/scripts/repo-status.sh:*)"
     ],
     "deny": []
   },
