@@ -5,8 +5,9 @@
 
 set -e  # Exit on any error
 
-# Ensure we're in the project root
-cd /home/duane/madrona_escape_room
+# Find the git repository root (works with worktrees)
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_ROOT"
 
 # Print current directory for verification
 echo "Working directory: $(pwd)"
