@@ -233,6 +233,7 @@ I will:
 - **ALWAYS** check git status thoroughly before any commits
 - **ALWAYS** ensure all related work is committed together
 - **ALWAYS** verify what's staged vs unstaged vs untracked
+- **ALWAYS** check the .gitmodules is pointing to the correct commit in external/madrona
 - **NEVER** leave implementation work uncommitted
 
 Bad code can be fixed. Bugs can be debugged. But losing progress due to careless git management is unacceptable and wastes valuable time.
