@@ -76,7 +76,7 @@ def test_replay_metadata_complete_structure(cpu_manager):
 
             # Validate all 14 fields (vs existing test's 9 fields)
             assert magic == 0x4D455352, f"Expected magic 0x4D455352, got 0x{magic:08x}"
-            assert version == 2, f"Expected version 2, got {version}"
+            assert version == 3, f"Expected version 3, got {version}"
             assert (
                 sim_name == "madrona_escape_room"
             ), f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
@@ -345,7 +345,7 @@ def test_format_specification_compliance(cpu_manager):
             version = struct.unpack("<I", file_data[4:8])[0]
 
             assert magic == 0x4D455352, f"Invalid magic number: 0x{magic:08x}"
-            assert version == 2, f"Expected version 2, got {version}"
+            assert version == 3, f"Expected version 3, got {version}"
 
             # Validate struct alignment - check for null padding in strings
             sim_name_section = file_data[8:72]  # 64 bytes

@@ -627,7 +627,7 @@ def test_file_structure_integrity_validation(cpu_manager):
             version = struct.unpack("<I", f.read(4))[0]
 
             assert magic == 0x4D455352, f"Invalid magic: 0x{magic:08x}"
-            assert version == 2, f"Invalid version: {version}"
+            assert version == 3, f"Invalid version: {version}"
 
             # Skip to end of metadata
             f.seek(136)  # ReplayMetadata size

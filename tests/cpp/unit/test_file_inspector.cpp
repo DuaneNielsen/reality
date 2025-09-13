@@ -92,41 +92,41 @@ protected:
     }
     
     void createTestRecordingFile() {
-        // Create metadata
-        ReplayMetadata metadata = ReplayMetadata::createDefault();
-        std::strcpy(metadata.level_name, "test_recording_level");
-        metadata.num_worlds = 1;
-        metadata.num_agents_per_world = 1;
-        metadata.num_steps = 3;
-        metadata.timestamp = 1692123456; // Fixed timestamp for testing
-        
-        // Create embedded level
-        CompiledLevel level = {};
-        level.num_tiles = 10;
-        level.max_entities = 40;
+        // Create a test level with specific properties
+        CompiledLevel level = DefaultLevelProvider::GetDefaultLevel();
+        std::strcpy(level.level_name, "embedded_test_level");
         level.width = 5;
         level.height = 4;
         level.world_scale = 1.5f;
-        // level.done_on_collide = false;  // This field was renamed/moved
-        std::strcpy(level.level_name, "embedded_test_level");
         level.num_spawns = 1;
         level.spawn_x[0] = 0.0f;
         level.spawn_y[0] = 0.0f;
         level.spawn_facing[0] = 1.57f; // 90 degrees
         
-        // Create some action data (3 steps, 1 world, 1 agent, 3 actions per step)
-        std::vector<int32_t> actions = {
-            1, 0, 2,  // Step 1: slow forward, no turn
-            2, 2, 3,  // Step 2: medium right, slow right turn
-            0, 4, 2   // Step 3: stop, backward, no turn
-        };
-        
-        // Write to file
-        std::ofstream file(testRecordingFile, std::ios::binary);
-        file.write(reinterpret_cast<const char*>(&metadata), sizeof(ReplayMetadata));
-        file.write(reinterpret_cast<const char*>(&level), sizeof(CompiledLevel));
-        file.write(reinterpret_cast<const char*>(actions.data()), actions.size() * sizeof(int32_t));
-        file.close();
+        // Use Manager API to create proper recording file
+        {
+            Manager::Config cfg;
+            cfg.execMode = madrona::ExecMode::CPU;
+            cfg.gpuID = -1;
+            cfg.numWorlds = 1;
+            cfg.randSeed = 42;
+            cfg.autoReset = true;
+            cfg.enableBatchRenderer = false;
+            cfg.perWorldCompiledLevels = {level};
+            
+            Manager mgr(cfg);
+            auto result = mgr.startRecording(testRecordingFile);
+            if (result != Result::Success) {
+                // Test will fail if recording setup fails
+                return;
+            }
+            
+            // Step through 3 simulation steps
+            for (int i = 0; i < 3; i++) {
+                mgr.step();
+            }
+            mgr.stopRecording();
+        }
     }
     
     // Helper to run file inspector and capture output
@@ -185,9 +185,6 @@ TEST_F(FileInspectorTest, InspectorHandlesLevelFile) {
     
     std::string output = runFileInspector(testLevelFile);
     
-    // Debug: Print actual output
-    std::cout << "\n=== ACTUAL OUTPUT ===\n" << output << "\n=== END OUTPUT ===\n";
-    
     // Check for expected output (updated for unified format)
     EXPECT_TRUE(output.find("Level File:") != std::string::npos);
     EXPECT_TRUE(output.find("test_level") != std::string::npos);
@@ -209,23 +206,22 @@ TEST_F(FileInspectorTest, InspectorHandlesRecordingFile) {
     
     std::string output = runFileInspector(testRecordingFile);
     
-    // Check for expected recording output
+    // Check for expected recording output (v3 format)
     EXPECT_TRUE(output.find("Recording File:") != std::string::npos);
     EXPECT_TRUE(output.find("✓ Valid magic number (MESR)") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ Valid version (2)") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Valid version (3)") != std::string::npos);
     EXPECT_TRUE(output.find("✓ File structure intact") != std::string::npos);
     EXPECT_TRUE(output.find("✓ Metadata fields within valid ranges") != std::string::npos);
     
     // Check metadata content
     EXPECT_TRUE(output.find("Simulation: madrona_escape_room") != std::string::npos);
-    EXPECT_TRUE(output.find("Level: test_recording_level") != std::string::npos);
     EXPECT_TRUE(output.find("Worlds: 1, Agents per world: 1") != std::string::npos);
     EXPECT_TRUE(output.find("Steps recorded: 3") != std::string::npos);
     EXPECT_TRUE(output.find("Actions per step: 3") != std::string::npos);
     
-    // Check embedded level content
-    EXPECT_TRUE(output.find("Embedded Level:") != std::string::npos);
-    EXPECT_TRUE(output.find("Name: embedded_test_level") != std::string::npos);
+    // Check embedded level content (v3 format shows levels differently)
+    EXPECT_TRUE(output.find("Embedded Levels") != std::string::npos);
+    EXPECT_TRUE(output.find("embedded_test_level") != std::string::npos);
     EXPECT_TRUE(output.find("5x4 grid") != std::string::npos);
     EXPECT_TRUE(output.find("Scale: 1.5") != std::string::npos);
     

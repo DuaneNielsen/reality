@@ -173,7 +173,7 @@ def test_recording_error_handling(cpu_manager):
 
 
 def test_recording_file_format(cpu_manager):
-    """Test comprehensive recording file format validation - Version 2 complete validation"""
+    """Test comprehensive recording file format validation - Version 3 complete validation"""
     mgr = cpu_manager
 
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
@@ -196,7 +196,7 @@ def test_recording_file_format(cpu_manager):
 
         mgr.stop_recording()
 
-        # Read and verify complete file structure with Version 2 format
+        # Read and verify complete file structure with Version 3 format
         with open(recording_path, "rb") as f:
             file_data = f.read()
 
@@ -205,11 +205,11 @@ def test_recording_file_format(cpu_manager):
             # File should have some content
             assert len(file_data) > 0
 
-            # Version 2 ReplayMetadata structure (192 bytes total):
+            # Version 3 ReplayMetadata structure (192 bytes total):
             # - magic number (4 bytes)
             # - version (4 bytes)
             # - sim_name (64 bytes)
-            # - level_name (64 bytes) - NEW in version 2
+            # - level_name (64 bytes) - NEW in version 2, kept in version 3
             # - num_worlds (4 bytes)
             # - num_agents_per_world (4 bytes)
             # - num_steps (4 bytes)
@@ -217,7 +217,7 @@ def test_recording_file_format(cpu_manager):
             # - timestamp (8 bytes)
             # - seed (4 bytes)
             # - reserved (28 bytes) - 7 * 4 bytes
-            metadata_size = 192  # Correct size for version 2
+            metadata_size = 192  # Correct size for version 3
 
             if len(file_data) >= metadata_size:
                 # Read all 14 fields (vs previous 9 fields) from the loaded data
@@ -286,13 +286,13 @@ def test_recording_file_format(cpu_manager):
 
                 # Verify all 14 fields (comprehensive validation)
                 assert magic == 0x4D455352, f"Expected magic 0x4D455352, got 0x{magic:08x}"
-                assert version == 2, f"Expected version 2 (current format), got {version}"
+                assert version == 3, f"Expected version 3 (current format), got {version}"
                 assert (
                     sim_name == "madrona_escape_room"
                 ), f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
                 assert (
                     level_name
-                ), f"Level name should not be empty in version 2, got '{level_name}'"
+                ), f"Level name should not be empty in version 3, got '{level_name}'"
                 assert (
                     num_worlds_meta == num_worlds
                 ), f"Expected {num_worlds} worlds, got {num_worlds_meta}"
@@ -333,10 +333,10 @@ def test_recording_file_format(cpu_manager):
                 ), f"Insufficient action data: {len(action_data)} < {expected_action_bytes}"
 
                 print("✓ Enhanced action data validation completed")
-                print("✓ Current format (version 2) comprehensive validation PASSED")
+                print("✓ Current format (version 3) comprehensive validation PASSED")
             else:
                 raise AssertionError(
-                    f"File too small ({len(file_data)} bytes) for version 2 metadata "
+                    f"File too small ({len(file_data)} bytes) for version 3 metadata "
                     f"({metadata_size} bytes)"
                 )
 
@@ -402,7 +402,7 @@ def test_recording_state_persistence(cpu_manager):
 
 
 def test_current_format_specification_compliance(cpu_manager):
-    """Test current format (version 2) specification compliance and struct layout"""
+    """Test current format (version 3) specification compliance and struct layout"""
     mgr = cpu_manager
 
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
@@ -415,7 +415,7 @@ def test_current_format_specification_compliance(cpu_manager):
 
         # Test format specification compliance
         with open(recording_path, "rb") as f:
-            print("=== Current Format (Version 2) Specification Compliance ===")
+            print("=== Current Format (Version 3) Specification Compliance ===")
 
             # Read and validate exact struct layout
             magic_bytes = f.read(4)
@@ -427,13 +427,13 @@ def test_current_format_specification_compliance(cpu_manager):
             version = struct.unpack("<I", version_bytes)[0]
 
             print(f"Magic number: 0x{magic:08x} (expected: 0x4D455352)")
-            print(f"Version: {version} (expected: 2)")
+            print(f"Version: {version} (expected: 3)")
             print(f"Sim name section: {len(sim_name_bytes)} bytes")
             print(f"Level name section: {len(level_name_bytes)} bytes")
 
             # Validate magic number and version (critical format identifiers)
             assert magic == 0x4D455352, f"Invalid magic number: 0x{magic:08x}"
-            assert version == 2, f"Expected current version 2, got {version}"
+            assert version == 3, f"Expected current version 3, got {version}"
 
             # Validate string field layout
             assert (
@@ -490,7 +490,7 @@ def test_format_error_conditions(cpu_manager):
         invalid_magic_path = f.name
         # Write file with invalid magic but valid structure
         f.write(struct.pack("<I", 0xDEADBEEF))  # Invalid magic
-        f.write(struct.pack("<I", 2))  # Valid version
+        f.write(struct.pack("<I", 3))  # Valid version
         f.write(b"madrona_escape_room\x00" + b"\x00" * 44)  # sim_name (64 bytes)
         f.write(b"test_level\x00" + b"\x00" * 53)  # level_name (64 bytes)
         f.write(b"\x00" * 40)  # Remaining fields
@@ -503,7 +503,7 @@ def test_format_error_conditions(cpu_manager):
             # Should detect invalid magic
             assert magic == 0xDEADBEEF, "Should read invalid magic"
             assert magic != 0x4D455352, "Magic should not match expected value"
-            assert version == 2, "Version should still be valid"
+            assert version == 3, "Version should still be valid"
 
         print("✓ Invalid magic number detection validated")
 
@@ -525,7 +525,7 @@ def test_format_error_conditions(cpu_manager):
 
             assert magic == 0x4D455352, "Magic should be valid"
             assert version == 999, "Should read invalid version"
-            assert version != 2, "Version should not match current version"
+            assert version != 3, "Version should not match current version"
 
         print("✓ Invalid version detection validated")
 
@@ -538,7 +538,7 @@ def test_format_error_conditions(cpu_manager):
         incomplete_path = f.name
         # Write only partial header
         f.write(struct.pack("<I", 0x4D455352))  # Valid magic
-        f.write(struct.pack("<I", 2))  # Valid version
+        f.write(struct.pack("<I", 3))  # Valid version
         f.write(b"madrona")  # Incomplete sim_name
 
     try:
@@ -551,7 +551,7 @@ def test_format_error_conditions(cpu_manager):
             remaining = f.read()
 
             assert magic == 0x4D455352, "Magic should be valid"
-            assert version == 2, "Version should be valid"
+            assert version == 3, "Version should be valid"
             assert len(remaining) < 128, "Should have incomplete data"
 
         print("✓ Incomplete header detection validated")
@@ -646,7 +646,7 @@ def test_field_alignment_and_padding(cpu_manager):
 
             # Validate field values
             assert magic == 0x4D455352, "Magic field misaligned or corrupted"
-            assert version == 2, "Version field misaligned or corrupted"
+            assert version == 3, "Version field misaligned or corrupted"
             assert sim_name == "madrona_escape_room", "sim_name field misaligned or corrupted"
             assert level_name, "level_name field misaligned or corrupted"
             assert offset == 192, f"Field alignment error: should be at offset 192, got {offset}"

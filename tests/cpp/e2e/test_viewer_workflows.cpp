@@ -238,54 +238,25 @@ TEST_F(SimulatedViewerWorkflowTest, ManagerReplayDeterminism) {
     mer_destroy_manager(handle);
     handle = nullptr;
     
-    // Phase 2: Replay and verify
+    // Phase 2: Replay using fromReplay
     {
-        // Read metadata
-        MER_ReplayMetadata metadata;
-        ASSERT_EQ(mer_read_replay_metadata("demo.rec", &metadata), MER_SUCCESS);
+        // Create manager from replay using the new factory method
+        auto replay_mgr = madEscape::Manager::fromReplay("demo.rec", madrona::ExecMode::CPU, -1);
+        ASSERT_NE(replay_mgr, nullptr) << "Failed to create manager from replay";
         
-        // Load embedded level from replay file
-        auto embedded_level = madrona::escape_room::ReplayLoader::loadEmbeddedLevel("demo.rec");
-        ASSERT_TRUE(embedded_level.has_value()) << "Failed to load embedded level from replay";
+        // Use C++ API directly instead of C API wrapper
+        replay_mgr->enableTrajectoryLogging(0, 0, "trajectory_replay.csv");
         
-        // Convert to C API format
-        MER_CompiledLevel c_level;
-        std::memcpy(&c_level, &embedded_level.value(), sizeof(MER_CompiledLevel));
+        // Run replay using the C++ API
+        for (int i = 0; i < 10; i++) {
+            bool finished = replay_mgr->replayStep();
+            replay_mgr->step();
+            if (finished) {
+                break;
+            }
+        }
         
-        // Create manager for replay
-        config.num_worlds = metadata.num_worlds;
-        config.auto_reset = true;
-        config.rand_seed = metadata.seed;
-        
-        ASSERT_TRUE(CreateManager(&c_level, 1));  // Use level from recording
-        
-        TestManagerWrapper mgr(handle);
-        MockViewer viewer(1);
-        InputSimulator& input = viewer.getInputSimulator();
-        
-        mgr.loadReplay("demo.rec");
-        mgr.enableTrajectoryLogging(0, 0, "trajectory_replay.csv");
-        
-        EXPECT_TRUE(mgr.hasReplay());
-        
-        // Run replay
-        bool is_paused = false;
-        bool is_recording = false;
-        
-        viewer.setFrameLimit(10);
-        viewer.loop(
-            [](int32_t, const MockViewer::UserInput&) {},
-            [](int32_t, int32_t, const MockViewer::UserInput&) {},
-            [&]() {
-                if (mgr.hasReplay()) {
-                    mgr.replayStep();
-                }
-                mgr.step();
-            },
-            []() {}
-        );
-        
-        mgr.disableTrajectoryLogging();
+        replay_mgr->disableTrajectoryLogging();
     }
     
     // Phase 3: Compare trajectories
