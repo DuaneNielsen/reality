@@ -626,25 +626,25 @@ int main(int argc, char *argv[])
             
             // Update viewer grid settings from viewer_core config
             const auto& config = viewer_core.getConfig();
+            const CompiledLevel* level = mgr.getCompiledLevel(0);
+            // Grid cells are ~5 world units each
+            float worldScaleX = level->width * 5.0f;
+            float worldScaleY = level->height * 5.0f;
+            
             if (config.multi_world_grid) {
-                const CompiledLevel* level = mgr.getCompiledLevel(0);
-                // Grid cells are ~5 world units each
-                float worldScaleX = level->width * 5.0f;
-                float worldScaleY = level->height * 5.0f;
-                
                 printf("Multi-world grid DEBUG:\n");
                 printf("  Level width: %f, height: %f\n", level->width, level->height);
                 printf("  WorldScaleX: %f, WorldScaleY: %f\n", worldScaleX, worldScaleY);
                 printf("  Spacing: %f, GridCols: %u\n", config.world_spacing, config.grid_cols);
                 printf("  Num worlds: %u\n", num_worlds);
                 
-                // Stage 1: setMultiWorldGrid API not implemented yet
-                // Grid parameters are hardcoded in viewer_renderer.cpp for now
-                // viewer.setMultiWorldGrid(true, config.world_spacing, config.grid_cols, 
-                //                        worldScaleX, worldScaleY);
+                // Stage 2: Use external parameters from config and level data
+                viewer.setMultiWorldGrid(true, config.world_spacing, config.grid_cols, 
+                                       worldScaleX, worldScaleY);
                 
             } else {
-                // viewer.setMultiWorldGrid(false);
+                viewer.setMultiWorldGrid(false, config.world_spacing, config.grid_cols, 
+                                       worldScaleX, worldScaleY);
             }
         }
         
