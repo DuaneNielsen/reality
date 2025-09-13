@@ -11,6 +11,7 @@
 
 #include <string>
 #include <cstring>
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -402,6 +403,7 @@ int main(int argc, char *argv[])
         .replay_path = replay_path,
         .start_paused = start_paused,
         .pause_delay_seconds = pause_delay_seconds,
+        .grid_cols = static_cast<uint32_t>(std::ceil(std::sqrt(num_worlds))),
     };
     
     // Initialize ViewerCore
