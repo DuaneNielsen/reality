@@ -22,7 +22,7 @@ struct FileInfo {
 enum OptionIndex { UNKNOWN, HELP, JSON };
 
 const option::Descriptor usage[] = {
-    {UNKNOWN, 0, "", "", option::Arg::None, "USAGE: file_inspector [options] <file.(rec|lvl)>\n\n"
+    {UNKNOWN, 0, "", "", option::Arg::None, "Usage: file_inspector [options] <file.(rec|lvl)>\n\n"
                                            "Unified file inspector for Madrona Escape Room files:\n"
                                            "  .rec files: Recording files with metadata, embedded level, and action data\n"
                                            "  .lvl files: Compiled level files with level geometry and spawn data\n\n"
@@ -511,9 +511,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    if (options[HELP] || argc == 0) {
+    if (options[HELP]) {
         option::printUsage(std::cout, usage);
         return 0;
+    }
+    
+    if (argc == 0) {
+        option::printUsage(std::cout, usage);
+        return 1;
     }
     
     if (parse.nonOptionsCount() != 1) {
