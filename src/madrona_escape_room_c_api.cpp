@@ -166,6 +166,40 @@ MER_Result mer_create_manager(
     return MER_SUCCESS;
 }
 
+MER_Result mer_create_manager_from_replay(
+    MER_ManagerHandle* out_handle,
+    const char* filepath,
+    int32_t exec_mode,
+    int32_t gpu_id,
+    bool enable_batch_renderer)
+{
+    // Install signal handler on first manager creation
+    install_signal_handler();
+    
+    g_manager_creation_count.fetch_add(1);
+    
+    if (!out_handle || !filepath) {
+        return MER_ERROR_NULL_POINTER;
+    }
+    
+    *out_handle = nullptr;
+    
+    // Convert int32_t to ExecMode enum
+    madrona::ExecMode execMode = static_cast<madrona::ExecMode>(exec_mode);
+    
+    // Use Manager::fromReplay static factory method
+    auto mgr = Manager::fromReplay(std::string(filepath), execMode, gpu_id, enable_batch_renderer);
+    if (!mgr) {
+        return MER_ERROR_FILE_NOT_FOUND; // Or appropriate error
+    }
+    
+    // Transfer ownership to C API
+    Manager* mgr_ptr = mgr.release();
+    *out_handle = reinterpret_cast<MER_ManagerHandle>(mgr_ptr);
+    
+    return MER_SUCCESS;
+}
+
 MER_Result mer_validate_compiled_level(const void* level) {
     if (!level) return MER_ERROR_NULL_POINTER;
     
@@ -508,16 +542,24 @@ MER_Result mer_read_replay_metadata(
     // Direct cast to ReplayMetadata* - Python passes the exact C++ struct via ctypes
     ReplayMetadata* replay_meta = reinterpret_cast<ReplayMetadata*>(out_metadata);
     
-    // Copy metadata
+    // Copy ALL metadata fields including v3 additions
+    replay_meta->magic = metadata.magic;
+    replay_meta->version = metadata.version;
     replay_meta->num_worlds = metadata.num_worlds;
     replay_meta->num_agents_per_world = metadata.num_agents_per_world;
     replay_meta->num_steps = metadata.num_steps;
-    replay_meta->seed = metadata.seed;
+    replay_meta->actions_per_step = metadata.actions_per_step;
     replay_meta->timestamp = metadata.timestamp;
+    replay_meta->seed = metadata.seed;
     
-    // Copy sim name safely
+    std::memcpy(replay_meta->reserved, metadata.reserved, sizeof(replay_meta->reserved));
+    
+    // Copy string fields safely
     std::strncpy(replay_meta->sim_name, metadata.sim_name, sizeof(replay_meta->sim_name) - 1);
     replay_meta->sim_name[sizeof(replay_meta->sim_name) - 1] = '\0';
+    
+    std::strncpy(replay_meta->level_name, metadata.level_name, sizeof(replay_meta->level_name) - 1);
+    replay_meta->level_name[sizeof(replay_meta->level_name) - 1] = '\0';
     
     return MER_SUCCESS;
 }

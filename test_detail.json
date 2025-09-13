@@ -1,40 +1,104 @@
 {
-  "tests": 2,
-  "failures": 0,
+  "tests": 1,
+  "failures": 1,
   "disabled": 0,
   "errors": 0,
-  "timestamp": "2025-09-07T13:35:20Z",
-  "time": "0.013s",
+  "timestamp": "2025-09-12T18:22:58Z",
+  "time": "0.016s",
   "name": "AllTests",
   "testsuites": [
     {
-      "name": "ManagerIntegrationTest",
-      "tests": 2,
-      "failures": 0,
+      "name": "SimulatedViewerWorkflowTest",
+      "tests": 1,
+      "failures": 1,
       "disabled": 0,
       "errors": 0,
-      "timestamp": "2025-09-07T13:35:20Z",
-      "time": "0.013s",
+      "timestamp": "2025-09-12T18:22:58Z",
+      "time": "0.016s",
       "testsuite": [
         {
-          "name": "ManagerReplayAPI",
-          "file": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/integration\/test_viewer_integration.cpp",
-          "line": 95,
+          "name": "ManagerReplayDeterminism",
+          "file": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp",
+          "line": 194,
           "status": "RUN",
           "result": "COMPLETED",
-          "timestamp": "2025-09-07T13:35:20Z",
-          "time": "0.007s",
-          "classname": "ManagerIntegrationTest"
-        },
-        {
-          "name": "ManagerEmbeddedLevelRecording",
-          "file": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/integration\/test_viewer_integration.cpp",
-          "line": 398,
-          "status": "RUN",
-          "result": "COMPLETED",
-          "timestamp": "2025-09-07T13:35:20Z",
-          "time": "0.006s",
-          "classname": "ManagerIntegrationTest"
+          "timestamp": "2025-09-12T18:22:58Z",
+          "time": "0.016s",
+          "classname": "SimulatedViewerWorkflowTest",
+          "failures": [
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:260\nValue of: mgr.hasReplay()\n  Actual: false\nExpected: true\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:295\nThe difference between original_trajectory[i].rotation and replay_trajectory[i].rotation is 0.5, which exceeds 0.1f, where\noriginal_trajectory[i].rotation evaluates to 0.5,\nreplay_trajectory[i].rotation evaluates to 0, and\n0.1f evaluates to 0.10000000149011612.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:295\nThe difference between original_trajectory[i].rotation and replay_trajectory[i].rotation is 0.5, which exceeds 0.1f, where\noriginal_trajectory[i].rotation evaluates to 0.5,\nreplay_trajectory[i].rotation evaluates to 0, and\n0.1f evaluates to 0.10000000149011612.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:292\nThe difference between original_trajectory[i].x and replay_trajectory[i].x is 0.039999961853027344, which exceeds 0.01f, where\noriginal_trajectory[i].x evaluates to 0.52999997138977051,\nreplay_trajectory[i].x evaluates to 0.49000000953674316, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:295\nThe difference between original_trajectory[i].rotation and replay_trajectory[i].rotation is 3.9000000953674316, which exceeds 0.1f, where\noriginal_trajectory[i].rotation evaluates to -3.9000000953674316,\nreplay_trajectory[i].rotation evaluates to 0, and\n0.1f evaluates to 0.10000000149011612.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:292\nThe difference between original_trajectory[i].x and replay_trajectory[i].x is 0.069999992847442627, which exceeds 0.01f, where\noriginal_trajectory[i].x evaluates to 0.56000000238418579,\nreplay_trajectory[i].x evaluates to 0.49000000953674316, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:292\nThe difference between original_trajectory[i].x and replay_trajectory[i].x is 0.069999992847442627, which exceeds 0.01f, where\noriginal_trajectory[i].x evaluates to 0.56000000238418579,\nreplay_trajectory[i].x evaluates to 0.49000000953674316, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:292\nThe difference between original_trajectory[i].x and replay_trajectory[i].x is 0.060000002384185791, which exceeds 0.01f, where\noriginal_trajectory[i].x evaluates to 0.55000001192092896,\nreplay_trajectory[i].x evaluates to 0.49000000953674316, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:292\nThe difference between original_trajectory[i].x and replay_trajectory[i].x is 0.029999971389770508, which exceeds 0.01f, where\noriginal_trajectory[i].x evaluates to 0.51999998092651367,\nreplay_trajectory[i].x evaluates to 0.49000000953674316, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:295\nThe difference between original_trajectory[i].rotation and replay_trajectory[i].rotation is 2, which exceeds 0.1f, where\noriginal_trajectory[i].rotation evaluates to 2,\nreplay_trajectory[i].rotation evaluates to 0, and\n0.1f evaluates to 0.10000000149011612.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:292\nThe difference between original_trajectory[i].x and replay_trajectory[i].x is 0.010000020265579224, which exceeds 0.01f, where\noriginal_trajectory[i].x evaluates to 0.47999998927116394,\nreplay_trajectory[i].x evaluates to 0.49000000953674316, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:293\nThe difference between original_trajectory[i].y and replay_trajectory[i].y is 0.019999995827674866, which exceeds 0.01f, where\noriginal_trajectory[i].y evaluates to 0.10999999940395355,\nreplay_trajectory[i].y evaluates to 0.090000003576278687, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:295\nThe difference between original_trajectory[i].rotation and replay_trajectory[i].rotation is 2, which exceeds 0.1f, where\noriginal_trajectory[i].rotation evaluates to 2,\nreplay_trajectory[i].rotation evaluates to 0, and\n0.1f evaluates to 0.10000000149011612.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:292\nThe difference between original_trajectory[i].x and replay_trajectory[i].x is 0.010000020265579224, which exceeds 0.01f, where\noriginal_trajectory[i].x evaluates to 0.47999998927116394,\nreplay_trajectory[i].x evaluates to 0.49000000953674316, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:293\nThe difference between original_trajectory[i].y and replay_trajectory[i].y is 0.019999995827674866, which exceeds 0.01f, where\noriginal_trajectory[i].y evaluates to 0.10999999940395355,\nreplay_trajectory[i].y evaluates to 0.090000003576278687, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:295\nThe difference between original_trajectory[i].rotation and replay_trajectory[i].rotation is 2.4000000953674316, which exceeds 0.1f, where\noriginal_trajectory[i].rotation evaluates to -2.4000000953674316,\nreplay_trajectory[i].rotation evaluates to 0, and\n0.1f evaluates to 0.10000000149011612.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:293\nThe difference between original_trajectory[i].y and replay_trajectory[i].y is 0.019999995827674866, which exceeds 0.01f, where\noriginal_trajectory[i].y evaluates to 0.10999999940395355,\nreplay_trajectory[i].y evaluates to 0.090000003576278687, and\n0.01f evaluates to 0.0099999997764825821.\n",
+              "type": ""
+            },
+            {
+              "failure": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/e2e\/test_viewer_workflows.cpp:295\nThe difference between original_trajectory[i].rotation and replay_trajectory[i].rotation is 2, which exceeds 0.1f, where\noriginal_trajectory[i].rotation evaluates to 2,\nreplay_trajectory[i].rotation evaluates to 0, and\n0.1f evaluates to 0.10000000149011612.\n",
+              "type": ""
+            }
+          ]
         }
       ]
     }

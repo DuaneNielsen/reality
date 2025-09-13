@@ -55,6 +55,14 @@ MER_EXPORT MER_Result mer_create_manager(
     uint32_t num_compiled_levels   // Length of compiled_levels array
 );
 
+MER_EXPORT MER_Result mer_create_manager_from_replay(
+    MER_ManagerHandle* out_handle,
+    const char* filepath,
+    int32_t exec_mode,             // MER_ExecMode value (0=CPU, 1=CUDA)
+    int32_t gpu_id,
+    bool enable_batch_renderer
+);
+
 MER_EXPORT MER_Result mer_destroy_manager(MER_ManagerHandle handle);
 
 // Level validation functions

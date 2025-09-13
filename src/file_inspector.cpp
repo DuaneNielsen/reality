@@ -71,16 +71,17 @@ bool validateReplayFile(const FileInfo& info) {
         return false;
     }
     
-    // Validate version
-    if (metadata.version == 1 || metadata.version == 2) {
+    // Validate version - only v3 supported
+    if (metadata.version == 3) {
         std::cout << "✓ Valid version (" << metadata.version << ")\n";
     } else {
-        std::cout << "✗ Unsupported version: " << metadata.version << "\n";
+        std::cout << "✗ Unsupported version: " << metadata.version << " (only v3 supported)\n";
         return false;
     }
     
-    // Check file structure - calculate expected size
-    size_t expected_size = sizeof(madEscape::ReplayMetadata) + sizeof(CompiledLevel);
+    // Check file structure - calculate expected size for v3 format
+    // Format: [ReplayMetadata][CompiledLevel1...N][Actions...]
+    size_t expected_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
     if (metadata.num_steps > 0) {
         expected_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
     }
@@ -114,27 +115,44 @@ bool validateReplayFile(const FileInfo& info) {
     std::cout << "\nRecording Metadata:\n";
     std::cout << "  Simulation: " << metadata.sim_name << "\n";
     
-    // Handle level name field (only available in version 2)
-    if (metadata.version >= 2) {
-        std::cout << "  Level: " << metadata.level_name << "\n";
-    }
+    // v3 format displays multi-level information
+    std::cout << "  Primary level: " << metadata.level_name << " (legacy field)\n";
+    std::cout << "  World levels: " << metadata.num_worlds << "\n";
     
     std::cout << "  Created: " << formatTimestamp(metadata.timestamp) << "\n";
     std::cout << "  Worlds: " << metadata.num_worlds << ", Agents per world: " << metadata.num_agents_per_world << "\n";
     std::cout << "  Steps recorded: " << metadata.num_steps << ", Actions per step: " << metadata.actions_per_step << "\n";
     std::cout << "  Random seed: " << metadata.seed << "\n";
     
-    // Try to load embedded level
-    auto level_opt = madrona::escape_room::ReplayLoader::loadEmbeddedLevel(info.filepath);
-    if (level_opt.has_value()) {
-        const auto& level = level_opt.value();
-        std::cout << "\nEmbedded Level:\n";
-        std::cout << "  Name: " << level.level_name << "\n";
-        std::cout << "  Dimensions: " << level.width << "x" << level.height << " grid, Scale: " << level.world_scale << "\n";
-        std::cout << "  Tiles: " << level.num_tiles << ", Spawns: " << level.num_spawns << "\n";
-        std::cout << "  File size: " << info.file_size << " bytes (matches expected)\n";
+    // Try to load all embedded levels (v3 format)
+    auto levels_opt = madrona::escape_room::ReplayLoader::loadAllEmbeddedLevels(info.filepath);
+    if (levels_opt.has_value()) {
+        const auto& levels = levels_opt.value();
+        std::cout << "\nEmbedded Levels (" << levels.size() << " total):\n";
+        
+        for (size_t i = 0; i < levels.size(); i++) {
+            const auto& level = levels[i];
+            std::cout << "  Level " << i << ": " << level.level_name << "\n";
+            std::cout << "    Dimensions: " << level.width << "x" << level.height 
+                     << " grid, Scale: " << level.world_scale << "\n";
+            std::cout << "    Tiles: " << level.num_tiles << ", Spawns: " << level.num_spawns << "\n";
+        }
+        
+        // Show level names for each world
+        std::cout << "\nWorld Levels:\n";
+        for (uint32_t worldIdx = 0; worldIdx < std::min(metadata.num_worlds, 10u); worldIdx++) {
+            if (worldIdx < levels.size()) {
+                std::cout << "  World " << worldIdx << " -> " << levels[worldIdx].level_name << "\n";
+            }
+        }
+        
+        if (metadata.num_worlds > 10) {
+            std::cout << "  ... (showing first 10 worlds only)\n";
+        }
+        
+        std::cout << "\nFile size: " << info.file_size << " bytes (matches expected)\n";
     } else {
-        std::cout << "\n✗ Failed to read embedded level\n";
+        std::cout << "\n✗ Failed to read embedded levels\n";
         return false;
     }
     

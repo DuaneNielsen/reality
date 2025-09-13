@@ -1186,40 +1186,50 @@ Result Manager::startRecording(const std::string& filepath)
         return Result::ErrorFileIO;
     }
     
-    // Always embed compiled level data after metadata
-    // Format: [ReplayMetadata] [CompiledLevel] [ActionFrames...]
-    // Use first valid per-world level for embedding
-    CompiledLevel levelToEmbed;
-    bool foundLevel = false;
-    for (const auto& level : impl_->cfg.perWorldCompiledLevels) {
-        if (level.has_value()) {
-            levelToEmbed = level.value();
-            foundLevel = true;
-            break;
+    // V3 format: store each world's level directly
+    // Format: [ReplayMetadata][CompiledLevel1][CompiledLevel2]...[CompiledLevelN][Actions]
+    
+    // Collect all world levels
+    std::vector<CompiledLevel> worldLevels;
+    
+    for (uint32_t worldIdx = 0; worldIdx < impl_->cfg.numWorlds; worldIdx++) {
+        if (worldIdx < impl_->cfg.perWorldCompiledLevels.size() && 
+            impl_->cfg.perWorldCompiledLevels[worldIdx].has_value()) {
+            
+            worldLevels.push_back(impl_->cfg.perWorldCompiledLevels[worldIdx].value());
+        } else {
+            std::cerr << "ERROR: World " << worldIdx << " has no compiled level\n";
+            return Result::ErrorNotInitialized;
         }
     }
-    if (!foundLevel) {
-        std::cerr << "ERROR: Cannot start recording - no compiled level available\n";
+    
+    if (worldLevels.empty()) {
+        std::cerr << "ERROR: Cannot start recording - no compiled levels available\n";
         return Result::ErrorNotInitialized;
     }
     
     // Prepare metadata
     impl_->recordingMetadata = madEscape::ReplayMetadata::createDefault();
     impl_->recordingMetadata.num_worlds = impl_->cfg.numWorlds;
-    impl_->recordingMetadata.num_agents_per_world = 1; // Single agent per world
-    impl_->recordingMetadata.seed = impl_->cfg.randSeed; // Use the Manager's original seed
+    impl_->recordingMetadata.num_agents_per_world = 1;
+    impl_->recordingMetadata.seed = impl_->cfg.randSeed;
     impl_->recordingMetadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
-    // Copy level name from the CompiledLevel to the ReplayMetadata
-    std::strncpy(impl_->recordingMetadata.level_name, levelToEmbed.level_name, sizeof(impl_->recordingMetadata.level_name) - 1);
-    impl_->recordingMetadata.level_name[sizeof(impl_->recordingMetadata.level_name) - 1] = '\0';
     
-    // Write metadata header (will update num_steps when closing)
+    // Use first level name for legacy level_name field
+    if (!worldLevels.empty()) {
+        std::strncpy(impl_->recordingMetadata.level_name, worldLevels[0].level_name, 
+                    sizeof(impl_->recordingMetadata.level_name) - 1);
+        impl_->recordingMetadata.level_name[sizeof(impl_->recordingMetadata.level_name) - 1] = '\0';
+    }
+    
+    // Write metadata header
     impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
                               sizeof(impl_->recordingMetadata));
     
-    // Write compiled level data
-    impl_->recordingFile.write(reinterpret_cast<const char*>(&levelToEmbed), 
-                              sizeof(CompiledLevel));
+    // Write all world level data
+    for (const auto& level : worldLevels) {
+        impl_->recordingFile.write(reinterpret_cast<const char*>(&level), sizeof(CompiledLevel));
+    }
     
     impl_->recordedFrames = 0;
     impl_->isRecordingActive = true;
@@ -1293,11 +1303,17 @@ std::optional<madEscape::ReplayMetadata> Manager::readReplayMetadata(const std::
         return std::nullopt;
     }
     
-    // Validate metadata
+    // Validate metadata - only v3 format supported
     if (!metadata.isValid()) {
-        std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
-                  << std::hex << REPLAY_MAGIC << ", got: 0x" 
-                  << metadata.magic << std::dec << "\n";
+        if (metadata.magic != REPLAY_MAGIC) {
+            std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
+                      << std::hex << REPLAY_MAGIC << ", got: 0x" 
+                      << metadata.magic << std::dec << "\n";
+        } else {
+            std::cerr << "Error: Only replay format v3 is supported. This file is v" 
+                      << metadata.version << "\n";
+            std::cerr << "Please re-record your replay with the current version.\n";
+        }
         return std::nullopt;
     }
     
@@ -1318,26 +1334,41 @@ bool Manager::loadReplay(const std::string& filepath)
     madEscape::ReplayMetadata metadata;
     replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
     
-    // Validate metadata
+    // Validate metadata - only v3 format supported
     if (!metadata.isValid()) {
-        std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
-                  << std::hex << REPLAY_MAGIC << ", got: 0x" 
-                  << metadata.magic << std::dec << "\n";
+        if (metadata.magic != REPLAY_MAGIC) {
+            std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
+                      << std::hex << REPLAY_MAGIC << ", got: 0x" 
+                      << metadata.magic << std::dec << "\n";
+        } else {
+            std::cerr << "Error: Only replay format v3 is supported. This file is v" 
+                      << metadata.version << "\n";
+            std::cerr << "Please re-record your replay with the current version.\n";
+        }
         return false;
     }
     
-    // NEW: Read embedded level data after metadata
-    // Format: [ReplayMetadata] [CompiledLevel] [ActionFrames...]
-    CompiledLevel embeddedLevel;
-    replay_file.read(reinterpret_cast<char*>(&embeddedLevel), sizeof(CompiledLevel));
+    // Read all world levels (v3 format)
+    // Format: [ReplayMetadata][CompiledLevel1][CompiledLevel2]...[CompiledLevelN][Actions]
+    std::vector<CompiledLevel> worldLevels;
+    worldLevels.reserve(metadata.num_worlds);
     
-    if (replay_file.fail()) {
-        std::cerr << "Error: Failed to read embedded level data from replay file\n";
-        return false;
+    for (uint32_t i = 0; i < metadata.num_worlds; i++) {
+        CompiledLevel level;
+        replay_file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
+        
+        if (replay_file.fail()) {
+            std::cerr << "Error: Failed to read level for world " << i << " from replay file\n";
+            return false;
+        }
+        
+        worldLevels.push_back(level);
+        std::cout << "  World " << i << " -> Level (" << level.level_name << ")\n";
     }
     
-    // TODO: Apply the embedded level to the manager/simulation
-    // For now, just log that we read level data
+    // TODO: Apply the embedded levels to reconfigure simulation worlds
+    // This would require reinitializing the Manager with the correct per-world levels
+    // For now, we just verify that the levels were read correctly
     
     // Read actions after embedded level data
     int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
@@ -1405,29 +1436,60 @@ const Manager::ReplayData* Manager::getReplayData() const
 
 std::optional<CompiledLevel> Manager::readEmbeddedLevel(const std::string& filepath)
 {
-    std::ifstream replay_file(filepath, std::ios::binary);
-    if (!replay_file.is_open()) {
-        return std::nullopt;
+    // Use ReplayLoader utility which handles v3 format properly
+    return madrona::escape_room::ReplayLoader::loadEmbeddedLevel(filepath);
+}
+
+std::unique_ptr<Manager> Manager::fromReplay(
+    const std::string& filepath,
+    madrona::ExecMode execMode,
+    int gpuID,
+    bool enableBatchRenderer,
+    madrona::render::APIBackend *extRenderAPI,
+    madrona::render::GPUDevice *extRenderDev)
+{
+    // 1. Read metadata
+    auto metadata = readReplayMetadata(filepath);
+    if (!metadata.has_value()) {
+        std::cerr << "Error: Failed to read replay metadata from " << filepath << "\n";
+        return nullptr;
     }
     
-    // Read and skip metadata header
-    madEscape::ReplayMetadata metadata;
-    replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
-    
-    // Validate metadata
-    if (!metadata.isValid()) {
-        return std::nullopt;
+    // 2. Extract ALL embedded levels (v3 format has one per world)
+    auto levels = madrona::escape_room::ReplayLoader::loadAllEmbeddedLevels(filepath);
+    if (!levels.has_value()) {
+        std::cerr << "Error: Failed to load embedded levels from " << filepath << "\n";
+        return nullptr;
     }
     
-    // Read embedded level data after metadata
-    CompiledLevel embeddedLevel;
-    replay_file.read(reinterpret_cast<char*>(&embeddedLevel), sizeof(CompiledLevel));
+    // 3. Build config from replay data
+    Config cfg;
+    cfg.execMode = execMode;
+    cfg.gpuID = gpuID;
+    cfg.numWorlds = metadata->num_worlds;
+    cfg.randSeed = metadata->seed;
+    cfg.autoReset = true;
+    cfg.enableBatchRenderer = enableBatchRenderer;
+    cfg.extRenderAPI = extRenderAPI;
+    cfg.extRenderDev = extRenderDev;
     
-    if (replay_file.fail()) {
-        return std::nullopt;
+    // Convert vector<CompiledLevel> to vector<optional<CompiledLevel>>
+    cfg.perWorldCompiledLevels.clear();
+    cfg.perWorldCompiledLevels.reserve(levels->size());
+    for (const auto& level : *levels) {
+        cfg.perWorldCompiledLevels.emplace_back(level);
     }
     
-    return embeddedLevel;
+    // 4. Create manager with replay configuration
+    auto mgr = std::make_unique<Manager>(cfg);
+    
+    // 5. Load replay actions
+    if (!mgr->loadReplay(filepath)) {
+        std::cerr << "Error: Failed to load replay actions from " << filepath << "\n";
+        return nullptr;
+    }
+    
+    return mgr;
 }
 
 }

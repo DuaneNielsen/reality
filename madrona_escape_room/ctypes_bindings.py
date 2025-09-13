@@ -202,6 +202,15 @@ lib.mer_create_manager.argtypes = [
 ]
 lib.mer_create_manager.restype = c_int
 
+lib.mer_create_manager_from_replay.argtypes = [
+    POINTER(MER_ManagerHandle),
+    c_char_p,  # filepath
+    c_int32,  # exec_mode (0=CPU, 1=CUDA)
+    c_int32,  # gpu_id
+    c_bool,  # enable_batch_renderer
+]
+lib.mer_create_manager_from_replay.restype = c_int
+
 # Level validation functions
 lib.mer_validate_compiled_level.argtypes = [c_void_p]  # Direct CompiledLevel pointer
 lib.mer_validate_compiled_level.restype = c_int
