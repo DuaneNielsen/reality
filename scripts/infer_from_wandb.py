@@ -385,8 +385,9 @@ def main():
 
     if level_file_to_use:
         compiled_levels = load_compiled_levels(level_file_to_use)
+        num_sublevels = len(compiled_levels)
 
-        if len(compiled_levels) == 1:
+        if num_sublevels == 1:
             # Single level file - extract level name from the level
             level_name = (
                 compiled_levels[0].level_name.decode("utf-8", errors="ignore").strip("\x00")
@@ -394,14 +395,23 @@ def main():
             if not level_name:
                 level_name = Path(level_file_to_use).stem
             print(f"Loaded custom level: {level_name} from {level_file_to_use}")
+            print(f"Number of sublevels: {num_sublevels}")
         else:
             # Multi-level file - use filename for display
             level_name = Path(level_file_to_use).stem
             print(
-                f"Loaded multi-level file with {len(compiled_levels)} levels from "
-                f"{level_file_to_use}"
+                f"Loaded multi-level file with {num_sublevels} levels from " f"{level_file_to_use}"
             )
             print(f"Using curriculum name: {level_name}")
+            print(f"Number of sublevels: {num_sublevels}")
+
+        # Override num_worlds to match number of sublevels
+        if args.num_worlds != num_sublevels:
+            print(
+                f"Overriding --num-worlds from {args.num_worlds} to {num_sublevels} "
+                f"to match sublevels"
+            )
+            args.num_worlds = num_sublevels
 
     try:
         latest_checkpoint = find_latest_checkpoint(wandb_run_path)
