@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <vector>
 #include "types.hpp"
 #include "asset_ids.hpp"
 #include "level_io.hpp"
@@ -423,15 +424,15 @@ int main(int argc, char* argv[]) {
     // Set the actual number of tiles used
     level.num_tiles = tile_index;
     
-    // Write to file using unified format
+    // Write unified level format (with header) for embedded use
     std::vector<CompiledLevel> levels = {level};
     Result result = writeCompiledLevels(output_file, levels);
     
     if (result != Result::Success) {
-        std::cerr << "Failed to write level file: " << output_file << " (error: " << static_cast<int>(result) << ")" << std::endl;
+        std::cerr << "Failed to write level data to: " << output_file << std::endl;
         return 1;
     }
     
-    std::cout << "Generated level file: " << output_file << " (unified format with 1 level)" << std::endl;
+    std::cout << "Generated level file: " << output_file << " (unified format with header)" << std::endl;
     return 0;
 }

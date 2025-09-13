@@ -321,18 +321,22 @@ int main(int argc, char *argv[])
     std::vector<std::optional<CompiledLevel>> per_world_levels;
     
     if (use_embedded_default) {
-        // Load from embedded default level data
+        // Load from embedded default level data (unified format)
         #include "default_level_data.h"
-        if (sizeof(CompiledLevel) != default_level_lvl_len) {
-            std::cerr << "Error: Embedded level size mismatch: expected " << sizeof(CompiledLevel) 
+        
+        // Unified format: "LEVELS" (6 bytes) + count (4 bytes) + CompiledLevel data
+        const size_t expected_size = 10 + sizeof(CompiledLevel);
+        if (expected_size != default_level_lvl_len) {
+            std::cerr << "Error: Embedded level size mismatch: expected " << expected_size 
                      << " bytes, got " << default_level_lvl_len << " bytes\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        std::memcpy(&loaded_level, default_level_lvl, sizeof(CompiledLevel));
-        printf("Loaded embedded default level: %dx%d grid, %d tiles\n", 
+        // Skip 10-byte header and memcpy the CompiledLevel struct
+        std::memcpy(&loaded_level, default_level_lvl + 10, sizeof(CompiledLevel));
+        printf("Loaded embedded default level (unified format): %dx%d grid, %d tiles\n", 
                loaded_level.width, loaded_level.height, loaded_level.num_tiles);
         
         // All worlds use the same loaded level
@@ -361,36 +365,45 @@ int main(int argc, char *argv[])
             per_world_levels[i] = loaded_levels[i % loaded_levels.size()];
         }
         
-    } else if (!replay_path.empty()) {
-        // Replay mode - extract embedded level data from recording
-        auto embedded_level = Manager::readEmbeddedLevel(replay_path);
-        if (!embedded_level.has_value()) {
-            std::cerr << "Error: Failed to read embedded level from replay file: " << replay_path << "\n";
+    }
+    // Note: Replay mode no longer needs to extract levels here - 
+    // Manager::fromReplay() handles embedded levels internally
+    
+    // Create the simulation manager using appropriate method
+    std::unique_ptr<Manager> mgr_ptr;
+    
+    if (has_replay) {
+        // Use the new factory method for replay with external render support
+        mgr_ptr = Manager::fromReplay(
+            replay_path, 
+            exec_mode, 
+            0, 
+            enable_batch_renderer,
+            wm.gpuAPIManager().backend(),
+            render_gpu.device()
+        );
+        if (!mgr_ptr) {
+            std::cerr << "Error: Failed to create manager from replay\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
-        
-        loaded_level = embedded_level.value();
-        printf("Extracted embedded level from %s: %dx%d grid, %d tiles\n", 
-               replay_path.c_str(), loaded_level.width, loaded_level.height, loaded_level.num_tiles);
-        
-        // All worlds use the embedded level
-        per_world_levels.resize(num_worlds, loaded_level);
+    } else {
+        // Normal creation path with levels from --load or embedded default
+        mgr_ptr = std::make_unique<Manager>(Manager::Config{
+            .execMode = exec_mode,
+            .gpuID = 0,
+            .numWorlds = num_worlds,
+            .randSeed = sim_seed,
+            .autoReset = auto_reset || !record_path.empty(),
+            .enableBatchRenderer = enable_batch_renderer,
+            .extRenderAPI = wm.gpuAPIManager().backend(),
+            .extRenderDev = render_gpu.device(),
+            .perWorldCompiledLevels = per_world_levels,
+        });
     }
     
-    // Create the simulation manager
-    Manager mgr({
-        .execMode = exec_mode,
-        .gpuID = 0,
-        .numWorlds = num_worlds,
-        .randSeed = sim_seed,
-        .autoReset = auto_reset || has_replay || !record_path.empty(),
-        .enableBatchRenderer = enable_batch_renderer,
-        .extRenderAPI = wm.gpuAPIManager().backend(),
-        .extRenderDev = render_gpu.device(),
-        .perWorldCompiledLevels = per_world_levels,
-    });
+    Manager& mgr = *mgr_ptr;
     
     // Create ViewerCore config
     ViewerCore::Config core_config {
@@ -409,6 +422,8 @@ int main(int argc, char *argv[])
     
     // Load replay if available
     if (has_replay) {
+        // Note: Replay is already loaded by Manager::fromReplay()
+        // ViewerCore should detect this automatically
         viewer_core.loadReplay(replay_path);
     }
     
