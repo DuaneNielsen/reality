@@ -20,12 +20,11 @@ int main(int argc, char* argv[]) {
     level.max_entities = 150;  // Enough for walls (16*4 = 64) and other objects
     std::strcpy(level.level_name, "default_16x16_room");
     
-    // World boundaries using constants from consts.hpp
-    // Use proper worldWidth and worldLength constants
-    level.world_min_x = -consts::worldWidth / 2.0f;   // -10.0f
-    level.world_max_x = consts::worldWidth / 2.0f;    // +10.0f
-    level.world_min_y = -consts::worldLength / 2.0f;  // -20.0f
-    level.world_max_y = consts::worldLength / 2.0f;   // +20.0f
+    // World boundaries: 16 tiles × 2.5 spacing = 40 units, centered = ±20
+    level.world_min_x = -20.0f;
+    level.world_max_x = 20.0f;
+    level.world_min_y = -20.0f;
+    level.world_max_y = 20.0f;
     level.world_min_z = 0.0f;    // Floor level
     level.world_max_z = 25.0f;   // 10 * 2.5 (reasonable max height)
     

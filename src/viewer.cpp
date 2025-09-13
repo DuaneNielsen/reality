@@ -627,14 +627,16 @@ int main(int argc, char *argv[])
             // Update viewer grid settings from viewer_core config
             const auto& config = viewer_core.getConfig();
             const CompiledLevel* level = mgr.getCompiledLevel(0);
-            // Calculate actual world dimensions for grid layout
-            float worldWidth = level->width * level->world_scale;
-            float worldHeight = level->height * level->world_scale;
+            // Calculate actual world dimensions from level boundaries
+            float worldWidth = level->world_max_x - level->world_min_x;
+            float worldHeight = level->world_max_y - level->world_min_y;
             
             if (config.multi_world_grid) {
                 printf("Multi-world grid DEBUG:\n");
-                printf("  Level width: %f, height: %f\n", level->width, level->height);
-                printf("  WorldWidth: %f, WorldHeight: %f\n", worldWidth, worldHeight);
+                printf("  Level dimensions: width=%f, height=%f, scale=%f\n", level->width, level->height, level->world_scale);
+                printf("  Level boundaries: min_x=%f, max_x=%f, min_y=%f, max_y=%f\n", 
+                       level->world_min_x, level->world_max_x, level->world_min_y, level->world_max_y);
+                printf("  Calculated WorldWidth: %f, WorldHeight: %f\n", worldWidth, worldHeight);
                 printf("  Spacing: %f, GridCols: %u\n", config.world_spacing, config.grid_cols);
                 printf("  Num worlds: %u\n", num_worlds);
                 
