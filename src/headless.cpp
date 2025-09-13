@@ -257,22 +257,33 @@ int main(int argc, char *argv[])
     std::vector<std::optional<CompiledLevel>> headless_levels;
     
     if (use_embedded_default) {
-        // Load from embedded default level data
+        // Load from embedded default level data using unified format
         #include "default_level_data.h"
-        if (sizeof(CompiledLevel) != default_level_lvl_len) {
-            std::cerr << "Error: Embedded level size mismatch: expected " << sizeof(CompiledLevel) 
-                     << " bytes, got " << default_level_lvl_len << " bytes\n";
+        
+        std::vector<CompiledLevel> loaded_levels;
+        Result result = readCompiledLevelsFromMemory(
+            reinterpret_cast<const char*>(default_level_lvl),
+            default_level_lvl_len,
+            loaded_levels
+        );
+        
+        if (result != Result::Success) {
+            std::cerr << "Error: Failed to parse embedded default level data\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        std::memcpy(&loaded_level, default_level_lvl, sizeof(CompiledLevel));
-        printf("Loaded embedded default level: %dx%d grid, %d tiles\n", 
-               loaded_level.width, loaded_level.height, loaded_level.num_tiles);
+        printf("Loaded %zu embedded default level(s)\n", loaded_levels.size());
+        if (loaded_levels.size() > 1) {
+            printf("  Distribution: %u worlds will use levels round-robin\n", num_worlds);
+        }
         
-        // All worlds use the same loaded level
-        headless_levels.resize(num_worlds, loaded_level);
+        // Distribute levels across worlds (same logic as file loading)
+        headless_levels.resize(num_worlds);
+        for (uint32_t i = 0; i < num_worlds; i++) {
+            headless_levels[i] = loaded_levels[i % loaded_levels.size()];
+        }
         
     } else if (!load_path.empty()) {
         // Load from level file using unified format
@@ -297,48 +308,41 @@ int main(int argc, char *argv[])
             headless_levels[i] = loaded_levels[i % loaded_levels.size()];
         }
         
-    } else if (!replay_file.empty()) {
-        // Replay mode - extract embedded level data from recording
-        auto embedded_level = Manager::readEmbeddedLevel(replay_file);
-        if (!embedded_level.has_value()) {
-            std::cerr << "Error: Failed to read embedded level from replay file: " << replay_file << "\n";
-            delete[] options;
-            delete[] buffer;
-            return 1;
-        }
-        
-        loaded_level = embedded_level.value();
-        printf("Extracted embedded level from %s: %dx%d grid, %d tiles\n", 
-               replay_file.c_str(), loaded_level.width, loaded_level.height, loaded_level.num_tiles);
-        
-        // All worlds use the embedded level
-        headless_levels.resize(num_worlds, loaded_level);
     }
+    // Note: Replay mode no longer needs to extract levels here - 
+    // Manager::fromReplay() handles embedded levels internally
 
     printf("Executing %lu Steps x %lu Worlds (%s)%s\n",
            num_steps, num_worlds,
            exec_mode == madrona::ExecMode::CPU ? "CPU" : "CUDA",
            replay_mode ? " [REPLAY MODE]" : "");
 
-    Manager mgr({
-        .execMode = exec_mode,
-        .gpuID = (int)gpu_id,
-        .numWorlds = (uint32_t)num_worlds,
-        .randSeed = replay_mode ? replay_seed : rand_seed,
-        .autoReset = replay_mode,
-        .enableBatchRenderer = false,
-        .perWorldCompiledLevels = headless_levels,
-    });
+    // Create manager using appropriate method
+    std::unique_ptr<Manager> mgr_ptr;
     
-    // Load replay if available
     if (replay_mode) {
-        if (!mgr.loadReplay(replay_file)) {
-            std::cerr << "Error: Failed to load replay into manager\n";
+        // Use the new factory method for replay
+        mgr_ptr = Manager::fromReplay(replay_file, exec_mode, (int)gpu_id);
+        if (!mgr_ptr) {
+            std::cerr << "Error: Failed to create manager from replay\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
+    } else {
+        // Normal creation path with levels from --load or embedded default
+        mgr_ptr = std::make_unique<Manager>(Manager::Config{
+            .execMode = exec_mode,
+            .gpuID = (int)gpu_id,
+            .numWorlds = (uint32_t)num_worlds,
+            .randSeed = rand_seed,
+            .autoReset = false,
+            .enableBatchRenderer = false,
+            .perWorldCompiledLevels = headless_levels,
+        });
     }
+    
+    Manager& mgr = *mgr_ptr;
 
     if (rand_actions || replay_mode) {
         std::mt19937 rand_gen(rand_seed);
