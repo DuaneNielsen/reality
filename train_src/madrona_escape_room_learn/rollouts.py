@@ -126,6 +126,11 @@ class RolloutManager:
         self.episode_length_ema = EMATracker(episode_length_ema_decay).to(dev)
         self.episode_reward_ema = EMATracker(episode_reward_ema_decay).to(dev)
 
+        # Track cumulative episode rewards and episode reward max/min from most recent update
+        self.episode_reward_accum = torch.zeros(sim.rewards.shape, dtype=torch.float32, device=dev)
+        self.episode_reward_max = 0.0
+        self.episode_reward_min = 0.0
+
     def collect(
         self,
         amp: AMPState,
@@ -186,6 +191,9 @@ class RolloutManager:
                     cur_rewards_store = self.rewards[bptt_chunk, slot]
                     cur_rewards_store.copy_(sim.rewards, non_blocking=True)
 
+                    # Accumulate rewards for episode totals
+                    self.episode_reward_accum += sim.rewards.to(self.episode_reward_accum.dtype)
+
                     cur_dones_store = self.dones[bptt_chunk, slot]
                     cur_dones_store.copy_(sim.dones, non_blocking=True)
 
@@ -206,8 +214,8 @@ class RolloutManager:
                                 completed_episodes, 0, 0
                             ]  # Get lengths for completed episodes
 
-                            # Get final episode rewards (reward given when done=True)
-                            episode_rewards = cur_rewards_store[completed_episodes, 0]
+                            # Get total accumulated episode rewards for completed episodes
+                            episode_rewards = self.episode_reward_accum[completed_episodes, 0]
 
                             # Update EMAs with mean of completed episodes (vectorized, no CPU sync)
                             if len(episode_lengths) > 0:
@@ -215,6 +223,13 @@ class RolloutManager:
                                 mean_episode_reward = episode_rewards.float().mean()
                                 self.episode_length_ema.update(mean_episode_length)
                                 self.episode_reward_ema.update(mean_episode_reward)
+
+                                # Track max/min of episode rewards from this update
+                                self.episode_reward_max = episode_rewards.float().max().item()
+                                self.episode_reward_min = episode_rewards.float().min().item()
+
+                            # Reset accumulator for completed episodes
+                            self.episode_reward_accum[completed_episodes] = 0.0
 
                     for rnn_states in rnn_states_cur_in:
                         rnn_states.masked_fill_(cur_dones_store, 0)

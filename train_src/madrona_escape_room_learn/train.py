@@ -48,6 +48,8 @@ class UpdateResult:
     ppo_stats: PPOStats
     episode_length_ema: float
     episode_reward_ema: float
+    episode_reward_max: float
+    episode_reward_min: float
 
 
 def _mb_slice(tensor, inds):
@@ -296,6 +298,8 @@ def _update_iter(
         ppo_stats=aggregate_stats,
         episode_length_ema=rollout_mgr.episode_length_ema.ema.item(),
         episode_reward_ema=rollout_mgr.episode_reward_ema.ema.item(),
+        episode_reward_max=rollout_mgr.episode_reward_max,
+        episode_reward_min=rollout_mgr.episode_reward_min,
     )
 
 

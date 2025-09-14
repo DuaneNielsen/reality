@@ -46,4 +46,4 @@ parameters:
   # Level files for grid search across all 20 generated levels
   level-file:
     values:
-      - "levels/empty_20x48.lvl"
+      - "levels/progressive_20_levels.lvl"
