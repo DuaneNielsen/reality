@@ -460,6 +460,17 @@ inline void rewardSystem(Engine &ctx,
         progress.maxY = pos.y;
     }
 
+    // Calculate normalized progress once
+    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    float world_length = level.world_max_y - level.world_min_y;
+    float adjusted_progress = progress.maxY - level.world_min_y;
+    float normalized_progress = adjusted_progress / world_length;
+
+    // Mark episode as done if agent reaches 100% progress
+    if (done.v == 0 && normalized_progress >= 1.0f) {
+        done.v = 1;
+    }
+
     // Only give reward at the end of the episode
     if (done.v == 1) {
         if (collision_death.died == 1) {
@@ -467,14 +478,6 @@ inline void rewardSystem(Engine &ctx,
             out_reward.v = -1.0f;
         } else {
             // Normal episode end - give progress reward
-            const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-            
-            // Use actual world boundaries for normalization
-            float world_length = level.world_max_y - level.world_min_y;
-            
-            float adjusted_progress = progress.maxY - level.world_min_y;
-            float normalized_progress = adjusted_progress / world_length;
-            
             out_reward.v = normalized_progress;
         }
     } else {

@@ -25,6 +25,7 @@ set(CPU_TEST_SOURCES
     integration/test_viewer_integration.cpp
     integration/test_viewer_input.cpp
     integration/test_viewer_errors.cpp  # Has mixed tests but GPU test will skip gracefully
+    integration/test_manager_from_replay.cpp
     e2e/test_viewer_workflows.cpp
     test_asset_registry.cpp
 )

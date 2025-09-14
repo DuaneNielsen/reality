@@ -1,24 +1,20 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <vector>
 #include "types.hpp"
 #include "asset_ids.hpp"
+#include "level_io.hpp"
 
 using namespace madEscape;
 
-int main(int argc, char* argv[]) {
-    const char* output_file = "default_level.lvl";
-    if (argc > 1) {
-        output_file = argv[1];
-    }
-    
-    // Create a 16x16 room with border walls
+// Helper function to initialize a CompiledLevel with common settings
+CompiledLevel createBaseLevelTemplate() {
     CompiledLevel level = {};
     level.width = 16;
     level.height = 16;
     level.world_scale = 1.0f;
-    level.max_entities = 150;  // Enough for walls (16*4 = 64) and other objects
-    std::strcpy(level.level_name, "default_16x16_room");
+    level.max_entities = 150;  // Enough for walls and obstacles
     
     // World boundaries: 16 tiles × 2.5 spacing = 40 units, centered = ±20
     level.world_min_x = -20.0f;
@@ -54,11 +50,12 @@ int main(int argc, char* argv[]) {
     level.spawn_y[0] = -17.0f;
     level.spawn_facing[0] = 0.0f;
     
-    // Generate border walls with 2.5 unit tile spacing
-    // 16x16 means 16 wall tiles by 16 wall tiles
-    // Each wall tile is 2.5 units, so room is 40x40 units total
-    // The room spans from -20 to 20 in both X and Y
-    int tile_index = 0;
+    return level;
+}
+
+// Generate border walls for a level
+int generateWalls(CompiledLevel& level, int start_tile_index) {
+    int tile_index = start_tile_index;
     const float wall_tile_size = 2.5f;
     const int walls_per_side = 16;  // 16 wall tiles per side
     const float room_size = walls_per_side * wall_tile_size;  // 40 units
@@ -133,7 +130,13 @@ int main(int argc, char* argv[]) {
         tile_index++;
     }
     
-    // Add an axis marker at x=0, y=12.5 for visual reference
+    return tile_index;
+}
+
+// Add axis marker for visual reference
+int generateAxisMarker(CompiledLevel& level, int start_tile_index) {
+    int tile_index = start_tile_index;
+    
     level.object_ids[tile_index] = AssetIDs::AXIS_X;
     level.tile_x[tile_index] = 0.0f;
     level.tile_y[tile_index] = 12.5f;
@@ -141,296 +144,133 @@ int main(int argc, char* argv[]) {
     level.tile_render_only[tile_index] = true;
     level.tile_done_on_collide[tile_index] = false;  // Render-only, no collision
     level.tile_entity_type[tile_index] = (int32_t)EntityType::NoEntity;
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;  // ResponseType::Static (render-only)
+    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
     tile_index++;
     
-    // Add cylinders scattered around the level with 3m XY variance
+    return tile_index;
+}
+
+// Generate cylinder obstacles
+int generateCylinders(CompiledLevel& level, int start_tile_index) {
+    int tile_index = start_tile_index;
     const float cylinder_z_offset = 2.55f;  // Adjusted for 1.7x scale cylinders
     const float variance_3m = 3.0f;  // 3-meter variance for XY positions
+
+    // Cylinder positions (8 cylinders)
+    float cylinder_positions[][2] = {
+        {-10.0f, 10.0f},   // Near top-left corner
+        {8.0f, 12.0f},     // Near top-right corner
+        {-12.0f, -3.0f},   // Left side
+        {11.0f, 3.0f},     // Right side
+        {3.0f, -2.0f},     // Near center but offset
+        {-7.0f, -10.0f},   // Bottom-left area
+        {9.0f, -8.0f},     // Bottom-right area
+        {-5.0f, 4.0f}      // Mid-left
+    };
     
-    // Cylinder 1: Near top-left corner
-    level.object_ids[tile_index] = AssetIDs::CYLINDER;
-    level.tile_x[tile_index] = -10.0f;
-    level.tile_y[tile_index] = 10.0f;
-    level.tile_z[tile_index] = cylinder_z_offset;
-    level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_y[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles (static obstacle)
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;  // 3m variance in X
-    level.tile_rand_y[tile_index] = variance_3m;  // 3m variance in Y
-    level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
-    level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
-    tile_index++;
+    for (int i = 0; i < 8; i++) {
+        level.object_ids[tile_index] = AssetIDs::CYLINDER;
+        level.tile_x[tile_index] = cylinder_positions[i][0];
+        level.tile_y[tile_index] = cylinder_positions[i][1];
+        level.tile_z[tile_index] = cylinder_z_offset;
+        level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
+        level.tile_scale_y[tile_index] = 1.7f;
+        level.tile_scale_z[tile_index] = 1.7f;
+        level.tile_persistent[tile_index] = false;
+        level.tile_render_only[tile_index] = false;
+        level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+        level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
+        level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
+        level.tile_rand_x[tile_index] = variance_3m;  // 3m variance in X
+        level.tile_rand_y[tile_index] = variance_3m;  // 3m variance in Y
+        level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
+        level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
+        level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
+        tile_index++;
+    }
     
-    // Cylinder 2: Near top-right corner
-    level.object_ids[tile_index] = AssetIDs::CYLINDER;
-    level.tile_x[tile_index] = 8.0f;
-    level.tile_y[tile_index] = 12.0f;
-    level.tile_z[tile_index] = cylinder_z_offset;
-    level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_y[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
-    level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
-    tile_index++;
-    
-    // Cylinder 3: Left side
-    level.object_ids[tile_index] = AssetIDs::CYLINDER;
-    level.tile_x[tile_index] = -12.0f;
-    level.tile_y[tile_index] = -3.0f;
-    level.tile_z[tile_index] = cylinder_z_offset;
-    level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_y[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
-    level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
-    tile_index++;
-    
-    // Cylinder 4: Right side
-    level.object_ids[tile_index] = AssetIDs::CYLINDER;
-    level.tile_x[tile_index] = 11.0f;
-    level.tile_y[tile_index] = 3.0f;
-    level.tile_z[tile_index] = cylinder_z_offset;
-    level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_y[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
-    level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
-    tile_index++;
-    
-    // Cylinder 5: Near center but offset
-    level.object_ids[tile_index] = AssetIDs::CYLINDER;
-    level.tile_x[tile_index] = 3.0f;
-    level.tile_y[tile_index] = -2.0f;
-    level.tile_z[tile_index] = cylinder_z_offset;
-    level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_y[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
-    level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
-    tile_index++;
-    
-    // Cylinder 6: Bottom-left area
-    level.object_ids[tile_index] = AssetIDs::CYLINDER;
-    level.tile_x[tile_index] = -7.0f;
-    level.tile_y[tile_index] = -10.0f;
-    level.tile_z[tile_index] = cylinder_z_offset;
-    level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_y[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
-    level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
-    tile_index++;
-    
-    // Cylinder 7: Bottom-right area
-    level.object_ids[tile_index] = AssetIDs::CYLINDER;
-    level.tile_x[tile_index] = 9.0f;
-    level.tile_y[tile_index] = -8.0f;
-    level.tile_z[tile_index] = cylinder_z_offset;
-    level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_y[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
-    level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
-    tile_index++;
-    
-    // Cylinder 8: Mid-left
-    level.object_ids[tile_index] = AssetIDs::CYLINDER;
-    level.tile_x[tile_index] = -5.0f;
-    level.tile_y[tile_index] = 4.0f;
-    level.tile_z[tile_index] = cylinder_z_offset;
-    level.tile_scale_x[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_y[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_scale_z[tile_index] = 1.7f;  // 1.7x base size
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;  // Static obstacles
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_scale_x[tile_index] = 1.5f;  // ±150% scale variation in X
-    level.tile_rand_scale_y[tile_index] = 1.5f;  // ±150% scale variation in Y
-    level.tile_rand_rot_z[tile_index] = 2.0f * consts::math::pi;  // Full 360° rotation randomization
-    tile_index++;
-    
-    // Add cubes with physics, XY variance, and random rotation
-    // Cube base size is 1.0, scaled by 1.5, so half-height is 0.75
+    return tile_index;
+}
+
+// Generate cube obstacles
+int generateCubes(CompiledLevel& level, int start_tile_index) {
+    int tile_index = start_tile_index;
     const float cube_z_offset = 0.75f;  // Half of scaled cube height (1.5 * 1.0 / 2)
+    const float variance_3m = 3.0f;  // 3-meter variance for XY positions
     const float rotation_range = 2.0f * consts::math::pi;  // Full rotation range (360 degrees)
     
-    // Cube 1: Upper-left quadrant
-    level.object_ids[tile_index] = AssetIDs::CUBE;
-    level.tile_x[tile_index] = -8.0f;
-    level.tile_y[tile_index] = 6.0f;
-    level.tile_z[tile_index] = cube_z_offset;
-    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
-    level.tile_scale_y[tile_index] = 1.5f;
-    level.tile_scale_z[tile_index] = 1.5f;
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;  // Has physics
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;  // ResponseType::Static (immovable)
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_rot_z[tile_index] = rotation_range;  // Random Z-axis rotation
-    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
-    level.tile_rand_scale_y[tile_index] = 0.4f;
-    // No Z randomization to keep cubes at consistent height
-    tile_index++;
+    // Cube positions (5 cubes)
+    float cube_positions[][2] = {
+        {-8.0f, 6.0f},     // Upper-left quadrant
+        {6.0f, 8.0f},      // Upper-right quadrant
+        {-10.0f, -6.0f},   // Lower-left quadrant
+        {7.0f, -5.0f},     // Lower-right quadrant
+        {-2.0f, 1.0f}      // Near center
+    };
     
-    // Cube 2: Upper-right quadrant
-    level.object_ids[tile_index] = AssetIDs::CUBE;
-    level.tile_x[tile_index] = 6.0f;
-    level.tile_y[tile_index] = 8.0f;
-    level.tile_z[tile_index] = cube_z_offset;
-    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
-    level.tile_scale_y[tile_index] = 1.5f;
-    level.tile_scale_z[tile_index] = 1.5f;
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_rot_z[tile_index] = rotation_range;
-    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
-    level.tile_rand_scale_y[tile_index] = 0.4f;
-    // No Z randomization to keep cubes at consistent height
-    tile_index++;
+    for (int i = 0; i < 5; i++) {
+        level.object_ids[tile_index] = AssetIDs::CUBE;
+        level.tile_x[tile_index] = cube_positions[i][0];
+        level.tile_y[tile_index] = cube_positions[i][1];
+        level.tile_z[tile_index] = cube_z_offset;
+        level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
+        level.tile_scale_y[tile_index] = 1.5f;
+        level.tile_scale_z[tile_index] = 1.5f;
+        level.tile_persistent[tile_index] = false;
+        level.tile_render_only[tile_index] = false;
+        level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
+        level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
+        level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
+        level.tile_rand_x[tile_index] = variance_3m;
+        level.tile_rand_y[tile_index] = variance_3m;
+        level.tile_rand_rot_z[tile_index] = rotation_range;
+        level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
+        level.tile_rand_scale_y[tile_index] = 0.4f;
+        tile_index++;
+    }
     
-    // Cube 3: Lower-left quadrant
-    level.object_ids[tile_index] = AssetIDs::CUBE;
-    level.tile_x[tile_index] = -10.0f;
-    level.tile_y[tile_index] = -6.0f;
-    level.tile_z[tile_index] = cube_z_offset;
-    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
-    level.tile_scale_y[tile_index] = 1.5f;
-    level.tile_scale_z[tile_index] = 1.5f;
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_rot_z[tile_index] = rotation_range;
-    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
-    level.tile_rand_scale_y[tile_index] = 0.4f;
-    // No Z randomization to keep cubes at consistent height
-    tile_index++;
+    return tile_index;
+}
+
+int main(int argc, char* argv[]) {
+    const char* output_file = "default_level.lvl";
+    if (argc > 1) {
+        output_file = argv[1];
+    }
     
-    // Cube 4: Lower-right quadrant
-    level.object_ids[tile_index] = AssetIDs::CUBE;
-    level.tile_x[tile_index] = 7.0f;
-    level.tile_y[tile_index] = -5.0f;
-    level.tile_z[tile_index] = cube_z_offset;
-    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
-    level.tile_scale_y[tile_index] = 1.5f;
-    level.tile_scale_z[tile_index] = 1.5f;
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_rot_z[tile_index] = rotation_range;
-    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
-    level.tile_rand_scale_y[tile_index] = 0.4f;
-    // No Z randomization to keep cubes at consistent height
-    tile_index++;
+    std::vector<CompiledLevel> levels;
     
-    // Cube 5: Near center
-    level.object_ids[tile_index] = AssetIDs::CUBE;
-    level.tile_x[tile_index] = -2.0f;
-    level.tile_y[tile_index] = 1.0f;
-    level.tile_z[tile_index] = cube_z_offset;
-    level.tile_scale_x[tile_index] = 1.5f;  // 50% larger
-    level.tile_scale_y[tile_index] = 1.5f;
-    level.tile_scale_z[tile_index] = 1.5f;
-    level.tile_persistent[tile_index] = false;
-    level.tile_render_only[tile_index] = false;
-    level.tile_done_on_collide[tile_index] = true;  // Obstacles trigger episode end
-    level.tile_entity_type[tile_index] = (int32_t)EntityType::Cube;
-    level.tile_response_type[tile_index] = (int32_t)ResponseType::Static;
-    level.tile_rand_x[tile_index] = variance_3m;
-    level.tile_rand_y[tile_index] = variance_3m;
-    level.tile_rand_rot_z[tile_index] = rotation_range;
-    level.tile_rand_scale_x[tile_index] = 0.4f;  // ±40% scale variation
-    level.tile_rand_scale_y[tile_index] = 0.4f;
-    // No Z randomization to keep cubes at consistent height
-    tile_index++;
+    // Create first level: Full obstacles (cubes + cylinders)
+    CompiledLevel level1 = createBaseLevelTemplate();
+    std::strcpy(level1.level_name, "default_full_obstacles");
     
-    // Set the actual number of tiles used
-    level.num_tiles = tile_index;
+    int tile_index = 0;
+    tile_index = generateWalls(level1, tile_index);
+    tile_index = generateAxisMarker(level1, tile_index);
+    tile_index = generateCylinders(level1, tile_index);
+    tile_index = generateCubes(level1, tile_index);
+    level1.num_tiles = tile_index;
+    levels.push_back(level1);
     
-    // Write to file
-    std::ofstream file(output_file, std::ios::binary);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open output file: " << output_file << std::endl;
+    // Create second level: Cubes only (no cylinders)
+    CompiledLevel level2 = createBaseLevelTemplate();
+    std::strcpy(level2.level_name, "default_cubes_only");
+    
+    tile_index = 0;
+    tile_index = generateWalls(level2, tile_index);
+    tile_index = generateAxisMarker(level2, tile_index);
+    tile_index = generateCubes(level2, tile_index);  // No cylinders
+    level2.num_tiles = tile_index;
+    levels.push_back(level2);
+    
+    // Write unified level format (with header) containing both levels
+    Result result = writeCompiledLevels(output_file, levels);
+    
+    if (result != Result::Success) {
+        std::cerr << "Failed to write level data to: " << output_file << std::endl;
         return 1;
     }
     
-    file.write(reinterpret_cast<const char*>(&level), sizeof(CompiledLevel));
-    file.close();
-    
-    std::cout << "Generated level file: " << output_file << " (" << sizeof(CompiledLevel) << " bytes)" << std::endl;
+    std::cout << "Generated level file: " << output_file << " (unified format with " << levels.size() << " levels)" << std::endl;
     return 0;
 }

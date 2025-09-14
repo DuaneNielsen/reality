@@ -17,7 +17,7 @@ parameters:
   num-worlds:
     value: 4096
   num-updates:
-    value: 2000
+    value: 500
   steps-per-update:
     value: 40
   num-bptt-chunks:
@@ -27,42 +27,23 @@ parameters:
   lr:
     value: 0.00038822
   gamma:
-    value: 0.998
+    values: [0.99, 0.9]
   
   # PPO tuning (optimal values)
   entropy-loss-coef:
-    values: [ 0.005, 0.01 ]
+    values: [ 0.001, 0.005, 0.01 ]
   
   # Fixed parameters
   value-loss-coef:
     value: 0.5
   num-channels:
-    values: [256, 512]
+    values: [256, 512, 1024]
   
   # Random seed for reproducibility
   seed:
-    value: 0
+    values: [0, 1]
   
   # Level files for grid search across all 20 generated levels
   level-file:
     values:
-      - "levels/lvl1_19x48_gen.lvl"
-      - "levels/lvl2_19x48_gen.lvl"
-      - "levels/lvl3_19x48_gen.lvl"
-      - "levels/lvl4_19x48_gen.lvl"
-      - "levels/lvl5_19x48_gen.lvl"
-      - "levels/lvl6_19x48_gen.lvl"
-      - "levels/lvl7_19x48_gen.lvl"
-      - "levels/lvl8_19x48_gen.lvl"
-      - "levels/lvl9_19x48_gen.lvl"
-      - "levels/lvl10_19x48_gen.lvl"
-      - "levels/lvl11_19x48_gen.lvl"
-      - "levels/lvl12_19x48_gen.lvl"
-      - "levels/lvl13_19x48_gen.lvl"
-      - "levels/lvl14_19x48_gen.lvl"
-      - "levels/lvl15_19x48_gen.lvl"
-      - "levels/lvl16_19x48_gen.lvl"
-      - "levels/lvl17_19x48_gen.lvl"
-      - "levels/lvl18_19x48_gen.lvl"
-      - "levels/lvl19_19x48_gen.lvl"
-      - "levels/lvl20_19x48_gen.lvl"
+      - "levels/progressive_20_levels.lvl"

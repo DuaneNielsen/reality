@@ -76,7 +76,7 @@ def test_replay_metadata_complete_structure(cpu_manager):
 
             # Validate all 14 fields (vs existing test's 9 fields)
             assert magic == 0x4D455352, f"Expected magic 0x4D455352, got 0x{magic:08x}"
-            assert version == 2, f"Expected version 2, got {version}"
+            assert version == 3, f"Expected version 3, got {version}"
             assert (
                 sim_name == "madrona_escape_room"
             ), f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
@@ -125,18 +125,26 @@ def test_compiled_level_structure_validation(cpu_manager):
         level_path = f.name
 
     try:
-        # Write the compiled level to binary file
+        # Write the compiled level to binary file using new unified format
         c_level_write = level_write.to_ctype()
-        result = lib.mer_write_compiled_level(
-            level_path.encode("utf-8"), ctypes.byref(c_level_write)
+        result = lib.mer_write_compiled_levels(
+            level_path.encode("utf-8"), ctypes.byref(c_level_write), 1
         )
         assert result == Result.Success, f"Failed to write compiled level: {result}"
 
-        # Read it back
+        # Read it back using unified format
+        # Pre-allocate buffer for 1 level
         level_read_empty = create_compiled_level()
         c_level_read = level_read_empty.to_ctype()
-        result = lib.mer_read_compiled_level(level_path.encode("utf-8"), ctypes.byref(c_level_read))
-        assert result == Result.Success, f"Failed to read compiled level: {result}"
+        num_levels = ctypes.c_uint32()
+        result = lib.mer_read_compiled_levels(
+            level_path.encode("utf-8"),
+            ctypes.byref(c_level_read),
+            ctypes.byref(num_levels),
+            1,  # max_levels = 1
+        )
+        assert result == Result.Success, f"Failed to read compiled levels: {result}"
+        assert num_levels.value == 1, f"Expected 1 level, got {num_levels.value}"
 
         # Convert back to dataclass
         level_read = CompiledLevel.from_ctype(c_level_read)
@@ -337,7 +345,7 @@ def test_format_specification_compliance(cpu_manager):
             version = struct.unpack("<I", file_data[4:8])[0]
 
             assert magic == 0x4D455352, f"Invalid magic number: 0x{magic:08x}"
-            assert version == 2, f"Expected version 2, got {version}"
+            assert version == 3, f"Expected version 3, got {version}"
 
             # Validate struct alignment - check for null padding in strings
             sim_name_section = file_data[8:72]  # 64 bytes

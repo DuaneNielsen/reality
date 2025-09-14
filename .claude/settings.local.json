@@ -146,7 +146,9 @@
       "Bash(git ls-tree:*)",
       "Bash(/home/duane/camera_rework/.claude/scripts/repo-status.sh:*)",
       "Bash(git -C external/madrona diff src/render/shaders/viewer_cull.hlsl)",
-      "Bash(git -C external/madrona diff src/viz/viewer_renderer.cpp)"
+      "Bash(git -C external/madrona diff src/viz/viewer_renderer.cpp)",
+      "Bash(git merge:*)",
+      "Bash(./levels/generate_progressive_levels.py --single --output-dir levels)"
     ],
     "deny": []
   },

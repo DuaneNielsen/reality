@@ -1,11 +1,14 @@
 #include "mgr.hpp"
 #include "types.hpp"
+#include "level_io.hpp"
+#include "../external/optionparser/optionparser.h"
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <filesystem>
 #include <ctime>
 #include <iomanip>
+#include <sstream>
 
 using namespace madrona::escape_room;
 using namespace madEscape;
@@ -14,6 +17,28 @@ struct FileInfo {
     std::string filepath;
     std::string extension;
     size_t file_size;
+};
+
+enum OptionIndex { UNKNOWN, HELP, JSON };
+
+const option::Descriptor usage[] = {
+    {UNKNOWN, 0, "", "", option::Arg::None, "Usage: file_inspector [options] <file.(rec|lvl)>\n\n"
+                                           "Unified file inspector for Madrona Escape Room files:\n"
+                                           "  .rec files: Recording files with metadata, embedded level, and action data\n"
+                                           "  .lvl files: Compiled level files with level geometry and spawn data\n\n"
+                                           "Options:" },
+    {HELP, 0, "h", "help", option::Arg::None, "  --help, -h  \tPrint usage and exit." },
+    {JSON, 0, "j", "json", option::Arg::None, "  --json, -j  \tOutput results in JSON format." },
+    {UNKNOWN, 0, "", "", option::Arg::None, "\nExamples:\n"
+                                           "  file_inspector level.lvl\n"
+                                           "  file_inspector --json recording.rec\n"
+                                           "  file_inspector -j test.lvl > output.json\n" },
+    {0,0,0,0,0,0}
+};
+
+struct InspectorConfig {
+    bool json_output = false;
+    std::string filepath;
 };
 
 FileInfo analyzeFile(const std::string& filepath) {
@@ -49,6 +74,143 @@ std::string formatTimestamp(uint64_t timestamp) {
     return ss.str();
 }
 
+std::string escapeJsonString(const std::string& str) {
+    std::stringstream ss;
+    ss << "\"";
+    for (char c : str) {
+        switch (c) {
+            case '"':  ss << "\\\""; break;
+            case '\\': ss << "\\\\"; break;
+            case '\b': ss << "\\b"; break;
+            case '\f': ss << "\\f"; break;
+            case '\n': ss << "\\n"; break;
+            case '\r': ss << "\\r"; break;
+            case '\t': ss << "\\t"; break;
+            default:
+                if (c >= 0 && c < 32) {
+                    ss << "\\u" << std::hex << std::setfill('0') << std::setw(4) << static_cast<int>(c);
+                } else {
+                    ss << c;
+                }
+                break;
+        }
+    }
+    ss << "\"";
+    return ss.str();
+}
+
+bool validateReplayFileJson(const FileInfo& info) {
+    std::cout << "{\n";
+    std::cout << "  \"type\": \"recording\",\n";
+    std::cout << "  \"filename\": " << escapeJsonString(std::filesystem::path(info.filepath).filename().string()) << ",\n";
+    std::cout << "  \"file_size\": " << info.file_size << ",\n";
+    
+    // Load metadata using existing manager method
+    auto metadata_opt = madEscape::Manager::readReplayMetadata(info.filepath);
+    
+    if (!metadata_opt.has_value()) {
+        std::cout << "  \"valid\": false,\n";
+        std::cout << "  \"error\": \"Failed to read replay metadata\"\n";
+        std::cout << "}\n";
+        return false;
+    }
+    
+    const auto& metadata = metadata_opt.value();
+    
+    bool valid = true;
+    std::stringstream errors;
+    
+    // Validate magic number
+    if (metadata.magic != REPLAY_MAGIC) {
+        valid = false;
+        errors << "Invalid magic number: 0x" << std::hex << metadata.magic << std::dec;
+    }
+    
+    // Validate version - only v3 supported
+    if (metadata.version != 3) {
+        valid = false;
+        if (errors.tellp() > 0) errors << "; ";
+        errors << "Unsupported version: " << metadata.version << " (only v3 supported)";
+    }
+    
+    // Check file structure
+    size_t expected_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
+    if (metadata.num_steps > 0) {
+        expected_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
+    }
+    
+    if (info.file_size < expected_size) {
+        valid = false;
+        if (errors.tellp() > 0) errors << "; ";
+        errors << "File too small: " << info.file_size << " bytes < " << expected_size << " expected";
+    }
+    
+    // Validate metadata ranges
+    if (metadata.num_worlds == 0 || metadata.num_worlds > consts::limits::maxWorlds) {
+        valid = false;
+        if (errors.tellp() > 0) errors << "; ";
+        errors << "Invalid num_worlds: " << metadata.num_worlds;
+    }
+    if (metadata.num_agents_per_world == 0 || metadata.num_agents_per_world > consts::limits::maxAgentsPerWorld) {
+        valid = false;
+        if (errors.tellp() > 0) errors << "; ";
+        errors << "Invalid num_agents_per_world: " << metadata.num_agents_per_world;
+    }
+    if (metadata.actions_per_step != consts::numActionComponents) {
+        valid = false;
+        if (errors.tellp() > 0) errors << "; ";
+        errors << "Invalid actions_per_step: " << metadata.actions_per_step << " (expected " << consts::numActionComponents << ")";
+    }
+    
+    std::cout << "  \"valid\": " << (valid ? "true" : "false") << ",\n";
+    if (!valid) {
+        std::cout << "  \"errors\": " << escapeJsonString(errors.str()) << ",\n";
+    }
+    
+    // Output metadata
+    std::cout << "  \"metadata\": {\n";
+    std::cout << "    \"magic\": \"0x" << std::hex << metadata.magic << std::dec << "\",\n";
+    std::cout << "    \"version\": " << metadata.version << ",\n";
+    std::cout << "    \"sim_name\": " << escapeJsonString(metadata.sim_name) << ",\n";
+    std::cout << "    \"level_name\": " << escapeJsonString(metadata.level_name) << ",\n";
+    std::cout << "    \"timestamp\": " << metadata.timestamp << ",\n";
+    std::cout << "    \"timestamp_formatted\": " << escapeJsonString(formatTimestamp(metadata.timestamp)) << ",\n";
+    std::cout << "    \"num_worlds\": " << metadata.num_worlds << ",\n";
+    std::cout << "    \"num_agents_per_world\": " << metadata.num_agents_per_world << ",\n";
+    std::cout << "    \"num_steps\": " << metadata.num_steps << ",\n";
+    std::cout << "    \"actions_per_step\": " << metadata.actions_per_step << ",\n";
+    std::cout << "    \"seed\": " << metadata.seed << "\n";
+    std::cout << "  },\n";
+    
+    // Try to load all embedded levels (v3 format)
+    auto levels_opt = madrona::escape_room::ReplayLoader::loadAllEmbeddedLevels(info.filepath);
+    if (levels_opt.has_value()) {
+        const auto& levels = levels_opt.value();
+        std::cout << "  \"embedded_levels\": [\n";
+        
+        for (size_t i = 0; i < levels.size(); i++) {
+            const auto& level = levels[i];
+            std::cout << "    {\n";
+            std::cout << "      \"index\": " << i << ",\n";
+            std::cout << "      \"name\": " << escapeJsonString(level.level_name) << ",\n";
+            std::cout << "      \"width\": " << level.width << ",\n";
+            std::cout << "      \"height\": " << level.height << ",\n";
+            std::cout << "      \"world_scale\": " << level.world_scale << ",\n";
+            std::cout << "      \"num_tiles\": " << level.num_tiles << ",\n";
+            std::cout << "      \"num_spawns\": " << level.num_spawns << "\n";
+            std::cout << "    }" << (i < levels.size() - 1 ? "," : "") << "\n";
+        }
+        
+        std::cout << "  ]\n";
+    } else {
+        std::cout << "  \"embedded_levels\": null,\n";
+        std::cout << "  \"embedded_levels_error\": \"Failed to read embedded levels\"\n";
+    }
+    
+    std::cout << "}\n";
+    return valid;
+}
+
 bool validateReplayFile(const FileInfo& info) {
     std::cout << "Recording File: " << std::filesystem::path(info.filepath).filename().string() << "\n";
     
@@ -70,16 +232,17 @@ bool validateReplayFile(const FileInfo& info) {
         return false;
     }
     
-    // Validate version
-    if (metadata.version == 1 || metadata.version == 2) {
+    // Validate version - only v3 supported
+    if (metadata.version == 3) {
         std::cout << "✓ Valid version (" << metadata.version << ")\n";
     } else {
-        std::cout << "✗ Unsupported version: " << metadata.version << "\n";
+        std::cout << "✗ Unsupported version: " << metadata.version << " (only v3 supported)\n";
         return false;
     }
     
-    // Check file structure - calculate expected size
-    size_t expected_size = sizeof(madEscape::ReplayMetadata) + sizeof(CompiledLevel);
+    // Check file structure - calculate expected size for v3 format
+    // Format: [ReplayMetadata][CompiledLevel1...N][Actions...]
+    size_t expected_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
     if (metadata.num_steps > 0) {
         expected_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
     }
@@ -113,161 +276,305 @@ bool validateReplayFile(const FileInfo& info) {
     std::cout << "\nRecording Metadata:\n";
     std::cout << "  Simulation: " << metadata.sim_name << "\n";
     
-    // Handle level name field (only available in version 2)
-    if (metadata.version >= 2) {
-        std::cout << "  Level: " << metadata.level_name << "\n";
-    }
+    // v3 format displays multi-level information
+    std::cout << "  Primary level: " << metadata.level_name << " (legacy field)\n";
+    std::cout << "  World levels: " << metadata.num_worlds << "\n";
     
     std::cout << "  Created: " << formatTimestamp(metadata.timestamp) << "\n";
     std::cout << "  Worlds: " << metadata.num_worlds << ", Agents per world: " << metadata.num_agents_per_world << "\n";
     std::cout << "  Steps recorded: " << metadata.num_steps << ", Actions per step: " << metadata.actions_per_step << "\n";
     std::cout << "  Random seed: " << metadata.seed << "\n";
     
-    // Try to load embedded level
-    auto level_opt = madrona::escape_room::ReplayLoader::loadEmbeddedLevel(info.filepath);
-    if (level_opt.has_value()) {
-        const auto& level = level_opt.value();
-        std::cout << "\nEmbedded Level:\n";
-        std::cout << "  Name: " << level.level_name << "\n";
-        std::cout << "  Dimensions: " << level.width << "x" << level.height << " grid, Scale: " << level.world_scale << "\n";
-        std::cout << "  Tiles: " << level.num_tiles << ", Spawns: " << level.num_spawns << "\n";
-        std::cout << "  File size: " << info.file_size << " bytes (matches expected)\n";
+    // Try to load all embedded levels (v3 format)
+    auto levels_opt = madrona::escape_room::ReplayLoader::loadAllEmbeddedLevels(info.filepath);
+    if (levels_opt.has_value()) {
+        const auto& levels = levels_opt.value();
+        std::cout << "\nEmbedded Levels (" << levels.size() << " total):\n";
+        
+        for (size_t i = 0; i < levels.size(); i++) {
+            const auto& level = levels[i];
+            std::cout << "  Level " << i << ": " << level.level_name << "\n";
+            std::cout << "    Dimensions: " << level.width << "x" << level.height 
+                     << " grid, Scale: " << level.world_scale << "\n";
+            std::cout << "    Tiles: " << level.num_tiles << ", Spawns: " << level.num_spawns << "\n";
+        }
+        
+        // Show level names for each world
+        std::cout << "\nWorld Levels:\n";
+        for (uint32_t worldIdx = 0; worldIdx < std::min(metadata.num_worlds, 10u); worldIdx++) {
+            if (worldIdx < levels.size()) {
+                std::cout << "  World " << worldIdx << " -> " << levels[worldIdx].level_name << "\n";
+            }
+        }
+        
+        if (metadata.num_worlds > 10) {
+            std::cout << "  ... (showing first 10 worlds only)\n";
+        }
+        
+        std::cout << "\nFile size: " << info.file_size << " bytes (matches expected)\n";
     } else {
-        std::cout << "\n✗ Failed to read embedded level\n";
+        std::cout << "\n✗ Failed to read embedded levels\n";
         return false;
     }
     
     return ranges_valid;
 }
 
+bool validateLevelFileJson(const FileInfo& info) {
+    std::cout << "{\n";
+    std::cout << "  \"type\": \"level\",\n";
+    std::cout << "  \"filename\": " << escapeJsonString(std::filesystem::path(info.filepath).filename().string()) << ",\n";
+    std::cout << "  \"file_size\": " << info.file_size << ",\n";
+    
+    // Try to read using unified format
+    std::vector<CompiledLevel> levels;
+    Result result = readCompiledLevels(info.filepath, levels);
+    
+    if (result != Result::Success) {
+        std::cout << "  \"valid\": false,\n";
+        std::cout << "  \"error\": \"Failed to read level file\",\n";
+        std::cout << "  \"error_code\": " << static_cast<int>(result) << "\n";
+        std::cout << "}\n";
+        return false;
+    }
+    
+    bool all_levels_valid = true;
+    std::cout << "  \"valid\": true,\n";
+    std::cout << "  \"level_count\": " << levels.size() << ",\n";
+    std::cout << "  \"levels\": [\n";
+    
+    // Validate each level
+    for (size_t i = 0; i < levels.size(); i++) {
+        const auto& level = levels[i];
+        bool level_valid = true;
+        std::stringstream level_errors;
+        
+        // Validate ranges
+        if (level.width <= 0 || level.width > consts::limits::maxGridSize) {
+            level_valid = false;
+            level_errors << "Invalid width: " << level.width;
+        }
+        if (level.height <= 0 || level.height > consts::limits::maxGridSize) {
+            level_valid = false;
+            if (level_errors.tellp() > 0) level_errors << "; ";
+            level_errors << "Invalid height: " << level.height;
+        }
+        if (level.world_scale <= 0.0f || level.world_scale > consts::limits::maxScale) {
+            level_valid = false;
+            if (level_errors.tellp() > 0) level_errors << "; ";
+            level_errors << "Invalid world_scale: " << level.world_scale;
+        }
+        if (level.num_tiles < 0 || level.num_tiles > CompiledLevel::MAX_TILES) {
+            level_valid = false;
+            if (level_errors.tellp() > 0) level_errors << "; ";
+            level_errors << "Invalid num_tiles: " << level.num_tiles;
+        }
+        if (level.num_spawns <= 0 || level.num_spawns > CompiledLevel::MAX_SPAWNS) {
+            level_valid = false;
+            if (level_errors.tellp() > 0) level_errors << "; ";
+            level_errors << "Invalid num_spawns: " << level.num_spawns;
+        }
+        
+        // Validate spawn data
+        for (int j = 0; j < level.num_spawns; j++) {
+            float x = level.spawn_x[j];
+            float y = level.spawn_y[j];
+            if (x < -consts::limits::maxCoordinate || x > consts::limits::maxCoordinate || 
+                y < -consts::limits::maxCoordinate || y > consts::limits::maxCoordinate) {
+                level_valid = false;
+                if (level_errors.tellp() > 0) level_errors << "; ";
+                level_errors << "Invalid spawn " << j << " position: (" << x << ", " << y << ")";
+            }
+        }
+        
+        if (!level_valid) {
+            all_levels_valid = false;
+        }
+        
+        std::cout << "    {\n";
+        std::cout << "      \"index\": " << i << ",\n";
+        std::cout << "      \"name\": " << escapeJsonString(level.level_name) << ",\n";
+        std::cout << "      \"width\": " << level.width << ",\n";
+        std::cout << "      \"height\": " << level.height << ",\n";
+        std::cout << "      \"world_scale\": " << level.world_scale << ",\n";
+        std::cout << "      \"num_tiles\": " << level.num_tiles << ",\n";
+        std::cout << "      \"num_spawns\": " << level.num_spawns << ",\n";
+        std::cout << "      \"valid\": " << (level_valid ? "true" : "false");
+        if (!level_valid) {
+            std::cout << ",\n      \"errors\": " << escapeJsonString(level_errors.str());
+        }
+        std::cout << "\n    }" << (i < levels.size() - 1 ? "," : "") << "\n";
+    }
+    
+    std::cout << "  ],\n";
+    std::cout << "  \"all_levels_valid\": " << (all_levels_valid ? "true" : "false") << "\n";
+    std::cout << "}\n";
+    
+    return all_levels_valid;
+}
+
 bool validateLevelFile(const FileInfo& info) {
     std::cout << "Level File: " << std::filesystem::path(info.filepath).filename().string() << "\n";
     
-    // Check file size matches CompiledLevel struct
-    size_t expected_size = sizeof(CompiledLevel);
-    if (info.file_size == expected_size) {
-        std::cout << "✓ Valid file size (" << info.file_size << " bytes)\n";
-    } else {
-        std::cout << "✗ Invalid file size: " << info.file_size << " bytes (expected " << expected_size << ")\n";
+    // Try to read using unified format
+    std::vector<CompiledLevel> levels;
+    Result result = readCompiledLevels(info.filepath, levels);
+    
+    if (result != Result::Success) {
+        std::cout << "✗ Failed to read level file (error: " << static_cast<int>(result) << ")\n";
         return false;
     }
     
-    // Read level data
-    std::ifstream file(info.filepath, std::ios::binary);
-    if (!file.is_open()) {
-        std::cout << "✗ Cannot open file\n";
-        return false;
-    }
+    std::cout << "✓ Valid level file format\n";
+    std::cout << "  Contains " << levels.size() << " level(s)\n";
     
-    CompiledLevel level;
-    file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
-    if (!file.good()) {
-        std::cout << "✗ Failed to read level data\n";
-        return false;
-    }
+    bool all_levels_valid = true;
     
-    // Validate level data ranges
-    bool ranges_valid = true;
-    
-    if (level.width <= 0 || level.width > consts::limits::maxGridSize) {
-        std::cout << "✗ Invalid width: " << level.width << "\n";
-        ranges_valid = false;
-    }
-    if (level.height <= 0 || level.height > consts::limits::maxGridSize) {
-        std::cout << "✗ Invalid height: " << level.height << "\n";
-        ranges_valid = false;
-    }
-    if (level.world_scale <= 0.0f || level.world_scale > consts::limits::maxScale) {
-        std::cout << "✗ Invalid world_scale: " << level.world_scale << "\n";
-        ranges_valid = false;
-    }
-    if (level.num_tiles < 0 || level.num_tiles > CompiledLevel::MAX_TILES) {
-        std::cout << "✗ Invalid num_tiles: " << level.num_tiles << "\n";
-        ranges_valid = false;
-    }
-    if (level.num_spawns <= 0 || level.num_spawns > CompiledLevel::MAX_SPAWNS) {
-        std::cout << "✗ Invalid num_spawns: " << level.num_spawns << "\n";
-        ranges_valid = false;
-    }
-    
-    if (ranges_valid) {
-        std::cout << "✓ Level data within valid ranges\n";
-    }
-    
-    // Validate spawn data
-    bool spawns_valid = true;
-    for (int i = 0; i < level.num_spawns; i++) {
-        float x = level.spawn_x[i];
-        float y = level.spawn_y[i];
-        if (x < -consts::limits::maxCoordinate || x > consts::limits::maxCoordinate || 
-            y < -consts::limits::maxCoordinate || y > consts::limits::maxCoordinate) {
-            std::cout << "✗ Invalid spawn " << i << " position: (" << x << ", " << y << ")\n";
-            spawns_valid = false;
+    // Validate each level
+    for (size_t i = 0; i < levels.size(); i++) {
+        const auto& level = levels[i];
+        std::cout << "\nLevel " << (i+1) << "/" << levels.size() << ":\n";
+        std::cout << "  Name: " << level.level_name << "\n";
+        std::cout << "  Grid: " << level.width << "x" << level.height << "\n";
+        std::cout << "  Scale: " << level.world_scale << "\n";
+        std::cout << "  Tiles: " << level.num_tiles << "\n";
+        std::cout << "  Spawns: " << level.num_spawns << "\n";
+        
+        // Validate ranges
+        bool level_valid = true;
+        if (level.width <= 0 || level.width > consts::limits::maxGridSize) {
+            std::cout << "  ✗ Invalid width: " << level.width << "\n";
+            level_valid = false;
+        }
+        if (level.height <= 0 || level.height > consts::limits::maxGridSize) {
+            std::cout << "  ✗ Invalid height: " << level.height << "\n";
+            level_valid = false;
+        }
+        if (level.world_scale <= 0.0f || level.world_scale > consts::limits::maxScale) {
+            std::cout << "  ✗ Invalid world_scale: " << level.world_scale << "\n";
+            level_valid = false;
+        }
+        if (level.num_tiles < 0 || level.num_tiles > CompiledLevel::MAX_TILES) {
+            std::cout << "  ✗ Invalid num_tiles: " << level.num_tiles << "\n";
+            level_valid = false;
+        }
+        if (level.num_spawns <= 0 || level.num_spawns > CompiledLevel::MAX_SPAWNS) {
+            std::cout << "  ✗ Invalid num_spawns: " << level.num_spawns << "\n";
+            level_valid = false;
+        }
+        
+        // Validate spawn data
+        for (int j = 0; j < level.num_spawns; j++) {
+            float x = level.spawn_x[j];
+            float y = level.spawn_y[j];
+            if (x < -consts::limits::maxCoordinate || x > consts::limits::maxCoordinate || 
+                y < -consts::limits::maxCoordinate || y > consts::limits::maxCoordinate) {
+                std::cout << "  ✗ Invalid spawn " << j << " position: (" << x << ", " << y << ")\n";
+                level_valid = false;
+            }
+        }
+        
+        if (level_valid) {
+            std::cout << "  ✓ Level data valid\n";
+        } else {
+            all_levels_valid = false;
         }
     }
     
-    if (spawns_valid) {
-        std::cout << "✓ Spawn data validated\n";
-    }
-    
-    std::cout << "\nLevel Details:\n";
-    std::cout << "  Name: " << level.level_name << "\n";
-    std::cout << "  Dimensions: " << level.width << "x" << level.height << " grid, Scale: " << level.world_scale << "\n";
-    std::cout << "  Tiles: " << level.num_tiles << ", Max entities: " << level.max_entities << "\n";
-    
-    // Show spawn information
-    for (int i = 0; i < level.num_spawns; i++) {
-        float facing_deg = level.spawn_facing[i] * consts::math::radiansToDegrees;
-        std::cout << "  Spawn " << i << ": (" << level.spawn_x[i] << ", " << level.spawn_y[i] 
-                  << ") facing " << facing_deg << "°\n";
-    }
-    
-    // Count actual tiles
-    int actual_tiles = 0;
-    for (int i = 0; i < level.num_tiles; i++) {
-        if (level.object_ids[i] != 0) {  // Not empty (0 means no object)
-            actual_tiles++;
+    // Show distribution example
+    if (levels.size() > 1) {
+        std::cout << "\nLevel Distribution Examples:\n";
+        std::cout << "  10 worlds: ";
+        for (size_t i = 0; i < std::min(10u, static_cast<uint32_t>(levels.size() * 2)); i++) {
+            std::cout << (i % levels.size() + 1) << " ";
         }
+        std::cout << "...\n";
+        
+        std::cout << "  100 worlds: each level used " 
+                  << (100 / levels.size()) << "-" << (100 / levels.size() + 1) 
+                  << " times\n";
     }
-    std::cout << "  Tile data: " << actual_tiles << " valid tiles in bounds\n";
     
-    return ranges_valid && spawns_valid;
+    return all_levels_valid;
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <file.(rec|lvl)>\n";
-        std::cerr << "\nUnified file inspector for Madrona Escape Room files:\n";
-        std::cerr << "  .rec files: Recording files with metadata, embedded level, and action data\n";
-        std::cerr << "  .lvl files: Compiled level files with level geometry and spawn data\n";
+    // Skip program name for option parser
+    argc -= (argc > 0); 
+    argv += (argc > 0);
+    
+    option::Stats stats(usage, argc, argv);
+    option::Option options[stats.options_max], buffer[stats.buffer_max];
+    option::Parser parse(usage, argc, argv, options, buffer);
+    
+    if (parse.error()) {
         return 1;
     }
     
-    std::string filepath = argv[1];
-    FileInfo info = analyzeFile(filepath);
+    if (options[HELP]) {
+        option::printUsage(std::cout, usage);
+        return 0;
+    }
+    
+    if (argc == 0) {
+        option::printUsage(std::cout, usage);
+        return 1;
+    }
+    
+    if (parse.nonOptionsCount() != 1) {
+        std::cerr << "Error: Exactly one file path is required\n";
+        option::printUsage(std::cerr, usage);
+        return 1;
+    }
+    
+    InspectorConfig config;
+    config.json_output = options[JSON];
+    config.filepath = parse.nonOption(0);
+    
+    FileInfo info = analyzeFile(config.filepath);
     
     if (info.file_size == 0) {
-        std::cerr << "Error: Cannot access file or file is empty: " << filepath << "\n";
+        if (config.json_output) {
+            std::cout << "{\n";
+            std::cout << "  \"valid\": false,\n";
+            std::cout << "  \"error\": \"Cannot access file or file is empty\",\n";
+            std::cout << "  \"filename\": " << escapeJsonString(std::filesystem::path(config.filepath).filename().string()) << "\n";
+            std::cout << "}\n";
+        } else {
+            std::cerr << "Error: Cannot access file or file is empty: " << config.filepath << "\n";
+        }
         return 1;
     }
     
     bool success = false;
     
     if (info.extension == ".rec") {
-        success = validateReplayFile(info);
+        success = config.json_output ? validateReplayFileJson(info) : validateReplayFile(info);
     } else if (info.extension == ".lvl") {
-        success = validateLevelFile(info);
+        success = config.json_output ? validateLevelFileJson(info) : validateLevelFile(info);
     } else {
-        std::cerr << "Error: Unsupported file type '" << info.extension << "'\n";
-        std::cerr << "Supported extensions: .rec (recording files), .lvl (level files)\n";
+        if (config.json_output) {
+            std::cout << "{\n";
+            std::cout << "  \"valid\": false,\n";
+            std::cout << "  \"error\": \"Unsupported file type\",\n";
+            std::cout << "  \"extension\": " << escapeJsonString(info.extension) << ",\n";
+            std::cout << "  \"supported_extensions\": [\".rec\", \".lvl\"],\n";
+            std::cout << "  \"filename\": " << escapeJsonString(std::filesystem::path(config.filepath).filename().string()) << "\n";
+            std::cout << "}\n";
+        } else {
+            std::cerr << "Error: Unsupported file type '" << info.extension << "'\n";
+            std::cerr << "Supported extensions: .rec (recording files), .lvl (level files)\n";
+        }
         return 1;
     }
     
-    if (success) {
-        std::cout << "\n✓ File validation completed successfully\n";
-        return 0;
-    } else {
-        std::cout << "\n✗ File validation failed\n";
-        return 1;
+    if (!config.json_output) {
+        if (success) {
+            std::cout << "\n✓ File validation completed successfully\n";
+        } else {
+            std::cout << "\n✗ File validation failed\n";
+        }
     }
+    
+    return success ? 0 : 1;
 }

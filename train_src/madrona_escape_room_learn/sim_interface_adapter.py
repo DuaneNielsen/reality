@@ -197,7 +197,12 @@ def create_lidar_sim_interface(manager: madrona_escape_room.SimManager) -> SimIn
 
 
 def setup_lidar_training_environment(
-    num_worlds: int, exec_mode, gpu_id: int = -1, rand_seed: int = 42, compiled_level=None
+    num_worlds: int,
+    exec_mode,
+    gpu_id: int = -1,
+    rand_seed: int = 42,
+    compiled_level=None,
+    compiled_levels=None,
 ) -> SimInterface:
     """
     Setup training environment with native lidar sensor system.
@@ -207,7 +212,8 @@ def setup_lidar_training_environment(
         exec_mode: madrona.ExecMode.CPU or madrona.ExecMode.CUDA
         gpu_id: GPU device ID (ignored for CPU mode)
         rand_seed: Random seed for reproducible training
-        compiled_level: Optional CompiledLevel to use instead of default level
+        compiled_level: Optional single CompiledLevel to use (deprecated, use compiled_levels)
+        compiled_levels: Optional list of CompiledLevel to use for multi-level/curriculum training
 
     Returns:
         SimInterface with lidar, compass, and progress observations
@@ -224,8 +230,14 @@ def setup_lidar_training_environment(
             gpu_id=0
         )
     """
-    # Create manager without visual sensors, using native lidar
-    compiled_levels = [compiled_level] if compiled_level else None
+    # Handle both old and new parameter styles for backward compatibility
+    if compiled_levels is not None:
+        levels_to_use = compiled_levels
+    elif compiled_level is not None:
+        levels_to_use = [compiled_level]
+    else:
+        levels_to_use = None
+
     manager = madrona_escape_room.SimManager(
         exec_mode=exec_mode,
         gpu_id=gpu_id,
@@ -233,7 +245,7 @@ def setup_lidar_training_environment(
         rand_seed=rand_seed,
         auto_reset=True,
         enable_batch_renderer=False,  # No visual rendering
-        compiled_levels=compiled_levels,
+        compiled_levels=levels_to_use,
     )
 
     return create_lidar_sim_interface(manager)

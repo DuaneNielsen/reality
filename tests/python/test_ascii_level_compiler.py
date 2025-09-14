@@ -10,6 +10,7 @@ from madrona_escape_room.level_compiler import (
     MAX_TILES_C_API,
     compile_ascii_level,
     compile_level,
+    compile_multi_level,
     validate_compiled_level,
 )
 
@@ -85,6 +86,81 @@ class TestLevelCompiler:
             compile_ascii_level("""####
 #SX#
 ####""")
+
+    def test_multi_level_compilation(self):
+        """Test compiling multi-level JSON format"""
+        multi_level = {
+            "levels": [
+                {"ascii": ["####", "#S.#", "####"], "name": "simple_level", "agent_facing": [0.0]},
+                {
+                    "ascii": ["######", "#S..C#", "######"],
+                    "name": "cube_level",
+                    "agent_facing": [1.57],  # Face right
+                },
+            ],
+            "tileset": {
+                "#": {"asset": "wall", "done_on_collision": True},
+                "C": {"asset": "cube", "done_on_collision": True},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "scale": 2.5,
+            "name": "test_multi_levels",
+        }
+
+        # Test compile_multi_level() directly
+        compiled_levels = compile_multi_level(multi_level)
+
+        # Should return a list of CompiledLevel objects
+        assert isinstance(compiled_levels, list)
+        assert len(compiled_levels) == 2
+
+        # Test first level
+        level1 = compiled_levels[0]
+        assert level1.width == 4
+        assert level1.height == 3
+        assert level1.world_scale == 2.5
+        assert level1.num_spawns == 1
+        assert level1.level_name.decode("utf-8", errors="ignore").startswith("simple_level")
+        validate_compiled_level(level1)
+
+        # Test second level
+        level2 = compiled_levels[1]
+        assert level2.width == 6
+        assert level2.height == 3
+        assert level2.world_scale == 2.5
+        assert level2.num_spawns == 1
+        assert level2.num_tiles > level1.num_tiles  # Has more obstacles
+        assert level2.level_name.decode("utf-8", errors="ignore").startswith("cube_level")
+        validate_compiled_level(level2)
+
+        # Test auto-detection via compile_level()
+        compiled_levels2 = compile_level(multi_level)
+        assert isinstance(compiled_levels2, list)
+        assert len(compiled_levels2) == 2
+        assert compiled_levels2[0].width == compiled_levels[0].width
+        assert compiled_levels2[1].width == compiled_levels[1].width
+
+    def test_multi_level_validation_errors(self):
+        """Test multi-level format validation errors"""
+
+        # Missing levels field - compile_multi_level expects multi-level format
+        with pytest.raises(
+            ValueError, match="compile_multi_level\\(\\) requires multi-level JSON format"
+        ):
+            compile_multi_level({"tileset": {"#": {"asset": "wall"}}})
+
+        # Empty levels array
+        with pytest.raises(ValueError, match="'levels' field must be a non-empty list"):
+            compile_multi_level({"levels": [], "tileset": {"#": {"asset": "wall"}}})
+
+        # Level missing ascii
+        with pytest.raises(ValueError, match="Level 0 must contain 'ascii' field"):
+            compile_multi_level({"levels": [{"name": "test"}], "tileset": {"#": {"asset": "wall"}}})
+
+        # Missing tileset
+        with pytest.raises(ValueError, match="Multi-level JSON must contain 'tileset' field"):
+            compile_multi_level({"levels": [{"ascii": ["###", "#S#", "###"]}]})
 
 
 class TestCTypesIntegration:
@@ -217,7 +293,8 @@ class TestJSONLevelFormat:
             "agent_facing": [0.0, math.pi / 2],  # First faces forward, second faces right
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Verify structure
         assert compiled.world_scale == 1.5
@@ -245,7 +322,8 @@ class TestJSONLevelFormat:
             "scale": 2.0,
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Should default to facing forward (0.0)
         assert compiled.spawn_facing[0] == 0.0
@@ -269,7 +347,8 @@ class TestJSONLevelFormat:
         }
 
         # Compile and validate the level
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Verify the compiled level has the correct facing
         assert abs(compiled.spawn_facing[0] - math.pi / 4) < 0.001
@@ -301,7 +380,8 @@ class TestDoneOnCollisionFlags:
             "name": "test_collision_flags",
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         # Get asset IDs for verification
         from madrona_escape_room.ctypes_bindings import (
@@ -388,7 +468,8 @@ class TestDoneOnCollisionFlags:
             "scale": 2.0,
         }
 
-        compiled = compile_level(json_level)
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]  # Extract single level
 
         from madrona_escape_room.ctypes_bindings import get_physics_asset_object_id
 

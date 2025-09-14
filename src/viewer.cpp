@@ -6,6 +6,7 @@
 #include "types.hpp"
 #include "viewer_core.hpp"
 #include "camera_controller.hpp"
+#include "level_io.hpp"
 
 #include <optionparser.h>
 
@@ -144,7 +145,8 @@ int main(int argc, char *argv[])
     }
 
     // Parameters with defaults
-    uint32_t num_worlds = 1;
+    uint32_t num_worlds = 1;  // Default to 1, auto-detect from levels if not specified
+    bool num_worlds_specified = false;  // Track if user explicitly set --num-worlds
     madrona::ExecMode exec_mode = madrona::ExecMode::CPU;
     uint32_t gpu_id = 0;
     std::string load_path;
@@ -168,6 +170,7 @@ int main(int argc, char *argv[])
     
     if (options[NUM_WORLDS]) {
         num_worlds = strtoul(options[NUM_WORLDS].arg, nullptr, 10);
+        num_worlds_specified = true;
     }
     
     if (options[LOAD]) {
@@ -316,82 +319,117 @@ int main(int argc, char *argv[])
         std::cout << "Using seed " << sim_seed << " from replay file\n";
     }
 
+    // Auto-detect num_worlds from embedded levels if not specified by user
+    if (!num_worlds_specified && use_embedded_default) {
+        #include "default_level_data.h"
+        
+        // Quick peek at header to get level count without full parsing
+        if (default_level_lvl_len >= 10) {
+            uint32_t num_embedded_levels;
+            std::memcpy(&num_embedded_levels, default_level_lvl + 6, sizeof(uint32_t));
+            if (num_embedded_levels > 0) {
+                num_worlds = num_embedded_levels;
+                printf("Auto-detected %u embedded levels, setting num_worlds to %u\n", 
+                       num_embedded_levels, num_worlds);
+            }
+        }
+    }
+
     // Load level based on three-flag interface
     CompiledLevel loaded_level = {};
     std::vector<std::optional<CompiledLevel>> per_world_levels;
     
     if (use_embedded_default) {
-        // Load from embedded default level data
+        // Load from embedded default level data using unified format
         #include "default_level_data.h"
-        if (sizeof(CompiledLevel) != default_level_lvl_len) {
-            std::cerr << "Error: Embedded level size mismatch: expected " << sizeof(CompiledLevel) 
-                     << " bytes, got " << default_level_lvl_len << " bytes\n";
+        
+        std::vector<CompiledLevel> loaded_levels;
+        Result result = readCompiledLevelsFromMemory(
+            reinterpret_cast<const char*>(default_level_lvl),
+            default_level_lvl_len,
+            loaded_levels
+        );
+        
+        if (result != Result::Success || loaded_levels.empty()) {
+            std::cerr << "Error: Failed to parse embedded level data (unified format)\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        std::memcpy(&loaded_level, default_level_lvl, sizeof(CompiledLevel));
-        printf("Loaded embedded default level: %dx%d grid, %d tiles\n", 
-               loaded_level.width, loaded_level.height, loaded_level.num_tiles);
+        printf("Loaded %zu embedded level(s) from unified format\n", loaded_levels.size());
+        if (loaded_levels.size() > 1) {
+            printf("  Distribution: %u worlds will use levels round-robin\n", num_worlds);
+        }
         
-        // All worlds use the same loaded level
-        per_world_levels.resize(num_worlds, loaded_level);
+        // Use existing level distribution logic (same as file-based loading)
+        per_world_levels.resize(num_worlds);
+        for (uint32_t i = 0; i < num_worlds; i++) {
+            per_world_levels[i] = loaded_levels[i % loaded_levels.size()];
+        }
         
     } else if (!load_path.empty()) {
-        // Load from .lvl file
-        std::ifstream lvl_file(load_path, std::ios::binary);
-        if (!lvl_file.is_open()) {
-            std::cerr << "Error: Cannot open level file: " << load_path << "\n";
+        // Load from level file using unified format
+        std::vector<CompiledLevel> loaded_levels;
+        Result result = readCompiledLevels(load_path, loaded_levels);
+        
+        if (result != Result::Success) {
+            std::cerr << "Error: Failed to read level file: " << load_path << "\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
         
-        lvl_file.read(reinterpret_cast<char*>(&loaded_level), sizeof(CompiledLevel));
-        if (!lvl_file.good()) {
-            std::cerr << "Error: Failed to read level from: " << load_path << "\n";
+        printf("Loaded %zu level(s) from %s\n", loaded_levels.size(), load_path.c_str());
+        if (loaded_levels.size() > 1) {
+            printf("  Distribution: %u worlds will use levels round-robin\n", num_worlds);
+        }
+        
+        // Distribute levels across worlds
+        per_world_levels.resize(num_worlds);
+        for (uint32_t i = 0; i < num_worlds; i++) {
+            per_world_levels[i] = loaded_levels[i % loaded_levels.size()];
+        }
+        
+    }
+    // Note: Replay mode no longer needs to extract levels here - 
+    // Manager::fromReplay() handles embedded levels internally
+    
+    // Create the simulation manager using appropriate method
+    std::unique_ptr<Manager> mgr_ptr;
+    
+    if (has_replay) {
+        // Use the new factory method for replay with external render support
+        mgr_ptr = Manager::fromReplay(
+            replay_path, 
+            exec_mode, 
+            0, 
+            enable_batch_renderer,
+            wm.gpuAPIManager().backend(),
+            render_gpu.device()
+        );
+        if (!mgr_ptr) {
+            std::cerr << "Error: Failed to create manager from replay\n";
             delete[] options;
             delete[] buffer;
             return 1;
         }
-        
-        printf("Loaded level from %s: %dx%d grid, %d tiles\n", 
-               load_path.c_str(), loaded_level.width, loaded_level.height, loaded_level.num_tiles);
-        
-        // All worlds use the same loaded level
-        per_world_levels.resize(num_worlds, loaded_level);
-        
-    } else if (!replay_path.empty()) {
-        // Replay mode - extract embedded level data from recording
-        auto embedded_level = Manager::readEmbeddedLevel(replay_path);
-        if (!embedded_level.has_value()) {
-            std::cerr << "Error: Failed to read embedded level from replay file: " << replay_path << "\n";
-            delete[] options;
-            delete[] buffer;
-            return 1;
-        }
-        
-        loaded_level = embedded_level.value();
-        printf("Extracted embedded level from %s: %dx%d grid, %d tiles\n", 
-               replay_path.c_str(), loaded_level.width, loaded_level.height, loaded_level.num_tiles);
-        
-        // All worlds use the embedded level
-        per_world_levels.resize(num_worlds, loaded_level);
+    } else {
+        // Normal creation path with levels from --load or embedded default
+        mgr_ptr = std::make_unique<Manager>(Manager::Config{
+            .execMode = exec_mode,
+            .gpuID = 0,
+            .numWorlds = num_worlds,
+            .randSeed = sim_seed,
+            .autoReset = auto_reset || !record_path.empty(),
+            .enableBatchRenderer = enable_batch_renderer,
+            .extRenderAPI = wm.gpuAPIManager().backend(),
+            .extRenderDev = render_gpu.device(),
+            .perWorldCompiledLevels = per_world_levels,
+        });
     }
     
-    // Create the simulation manager
-    Manager mgr({
-        .execMode = exec_mode,
-        .gpuID = 0,
-        .numWorlds = num_worlds,
-        .randSeed = sim_seed,
-        .autoReset = auto_reset || has_replay || !record_path.empty(),
-        .enableBatchRenderer = enable_batch_renderer,
-        .extRenderAPI = wm.gpuAPIManager().backend(),
-        .extRenderDev = render_gpu.device(),
-        .perWorldCompiledLevels = per_world_levels,
-    });
+    Manager& mgr = *mgr_ptr;
     
     // Create ViewerCore config
     ViewerCore::Config core_config {
@@ -411,6 +449,8 @@ int main(int argc, char *argv[])
     
     // Load replay if available
     if (has_replay) {
+        // Note: Replay is already loaded by Manager::fromReplay()
+        // ViewerCore should detect this automatically
         viewer_core.loadReplay(replay_path);
     }
     

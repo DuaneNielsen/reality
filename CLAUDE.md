@@ -13,6 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Pragmatic over dogmatic** - Adapt to project reality
 - **Clear intent over clever code** - Be boring and obvious
 - Engineering safety:  Never fail to mention failing tests, even if they are incidental to the current object, failing tests are always a problem and should never be overlooked.
+- **Git management discipline**: NEVER make git management mistakes that risk losing progress.
 
 ### Simplicity Means
 
@@ -223,6 +224,19 @@ If the user asks to "debug the code", or "debug it" or generally references "deb
 
 1. read the file [GDB_GUIDE.md](docs/development/GDB_GUIDE.md)
 2. use the debug tool in your MCP library to gather information on the problem at hand, or study the code
+
+## Git Management Rules - CRITICAL
+
+**NEVER make git management mistakes that risk losing progress.**
+
+I will:
+- **ALWAYS** check git status thoroughly before any commits
+- **ALWAYS** ensure all related work is committed together
+- **ALWAYS** verify what's staged vs unstaged vs untracked
+- **ALWAYS** check the .gitmodules is pointing to the correct commit in external/madrona
+- **NEVER** leave implementation work uncommitted
+
+Bad code can be fixed. Bugs can be debugged. But losing progress due to careless git management is unacceptable and wastes valuable time.
 
 # Documentation
 

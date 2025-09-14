@@ -18,7 +18,7 @@ namespace madEscape {
 
     // Replay metadata constants and structure (host-only with STL usage)
     static constexpr uint32_t REPLAY_MAGIC = 0x4D455352; // "MESR" in hex
-    static constexpr uint32_t REPLAY_VERSION = 2;
+    static constexpr uint32_t REPLAY_VERSION = 3;
     static constexpr uint32_t MAX_SIM_NAME_LENGTH = 64;
 
     // [GAME_SPECIFIC] Host-only replay metadata structure with STL usage
@@ -26,7 +26,7 @@ namespace madEscape {
         uint32_t magic;                         // Magic number for file identification
         uint32_t version;                       // Format version
         char sim_name[MAX_SIM_NAME_LENGTH];     // Name of the simulation
-        char level_name[MAX_SIM_NAME_LENGTH];   // Name of the level being played
+        char level_name[MAX_SIM_NAME_LENGTH];   // Name of the level being played (kept for compatibility but deprecated in v3)
         uint32_t num_worlds;                    // Number of worlds recorded
         uint32_t num_agents_per_world;          // Number of agents per world
         uint32_t num_steps;                     // Total number of steps recorded
@@ -54,7 +54,7 @@ namespace madEscape {
         }
         
         bool isValid() const {
-            return magic == REPLAY_MAGIC && (version == 1 || version == 2);
+            return magic == REPLAY_MAGIC && version == 3;
         }
     };
 
@@ -83,15 +83,25 @@ struct ReplayLoader {
         return metadata;
     }
     
-    // Load the embedded level from a replay file
-    // Replay format: [ReplayMetadata][CompiledLevel][Actions...]
+    // Load the embedded levels from a replay file
+    // Replay format v3: [ReplayMetadata][NumUniqueLevels][CompiledLevel1...N][Actions...]
+    // Load the first embedded level from a replay file (for backward compatibility)
     static std::optional<madEscape::CompiledLevel> loadEmbeddedLevel(const std::string& filepath) {
+        auto levels = loadAllEmbeddedLevels(filepath);
+        if (!levels.has_value() || levels->empty()) {
+            return std::nullopt;
+        }
+        return levels->front();
+    }
+    
+    // Load all embedded levels from a replay file (v3 format)
+    static std::optional<std::vector<madEscape::CompiledLevel>> loadAllEmbeddedLevels(const std::string& filepath) {
         std::ifstream file(filepath, std::ios::binary);
         if (!file.is_open()) {
             return std::nullopt;
         }
         
-        // Skip metadata
+        // Read metadata
         madEscape::ReplayMetadata metadata;
         file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
         
@@ -99,15 +109,22 @@ struct ReplayLoader {
             return std::nullopt;
         }
         
-        // Read embedded level
-        madEscape::CompiledLevel level;
-        file.read(reinterpret_cast<char*>(&level), sizeof(madEscape::CompiledLevel));
+        // Read all world levels
+        std::vector<madEscape::CompiledLevel> levels;
+        levels.reserve(metadata.num_worlds);
         
-        if (!file.good()) {
-            return std::nullopt;
+        for (uint32_t i = 0; i < metadata.num_worlds; i++) {
+            madEscape::CompiledLevel level;
+            file.read(reinterpret_cast<char*>(&level), sizeof(madEscape::CompiledLevel));
+            
+            if (!file.good()) {
+                return std::nullopt;
+            }
+            
+            levels.push_back(level);
         }
         
-        return level;
+        return levels;
     }
 };
 
@@ -207,6 +224,15 @@ public:
     
     // Static method to read embedded level from replay file
     static std::optional<CompiledLevel> readEmbeddedLevel(const std::string& filepath);
+    
+    // Static factory method to create Manager from replay file
+    static std::unique_ptr<Manager> fromReplay(
+        const std::string& filepath,
+        madrona::ExecMode execMode,
+        int gpuID,
+        bool enableBatchRenderer = false,
+        madrona::render::APIBackend *extRenderAPI = nullptr,
+        madrona::render::GPUDevice *extRenderDev = nullptr);
 
 private:
     struct Impl;

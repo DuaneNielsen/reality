@@ -119,21 +119,20 @@ MER_Result mer_create_manager(
     // Convert array of compiled levels to C++ vector (if provided)
     std::vector<std::optional<CompiledLevel>> cpp_per_world_levels;
     if (cpp_levels != nullptr && num_compiled_levels > 0) {
-        // Validate array size doesn't exceed number of worlds
-        if (num_compiled_levels > mgr_cfg->num_worlds) {
-            return MER_ERROR_INVALID_PARAMETER;
-        }
-        
+        // Reserve space for all worlds
         cpp_per_world_levels.reserve(mgr_cfg->num_worlds);
         
-        for (uint32_t i = 0; i < num_compiled_levels; i++) {
-            // Direct copy of the CompiledLevel struct
-            cpp_per_world_levels.push_back(cpp_levels[i]);
-        }
-        
-        // Fill remaining worlds with nullopt if array is smaller than num_worlds
-        while (cpp_per_world_levels.size() < mgr_cfg->num_worlds) {
-            cpp_per_world_levels.push_back(std::nullopt);
+        // Distribute levels across worlds using round-robin for curriculum learning
+        // This allows more levels than worlds (e.g., 20 levels across 4 worlds)
+        for (uint32_t world_idx = 0; world_idx < mgr_cfg->num_worlds; world_idx++) {
+            if (num_compiled_levels > 0) {
+                // Round-robin distribution: world i gets level (i % num_levels)
+                uint32_t level_idx = world_idx % num_compiled_levels;
+                cpp_per_world_levels.push_back(cpp_levels[level_idx]);
+            } else {
+                // No levels provided - use default
+                cpp_per_world_levels.push_back(std::nullopt);
+            }
         }
     }
     
@@ -164,6 +163,40 @@ MER_Result mer_create_manager(
     Manager* mgr = new (mgr_memory) Manager(mgr_config);
     
     *out_handle = reinterpret_cast<MER_ManagerHandle>(mgr);
+    return MER_SUCCESS;
+}
+
+MER_Result mer_create_manager_from_replay(
+    MER_ManagerHandle* out_handle,
+    const char* filepath,
+    int32_t exec_mode,
+    int32_t gpu_id,
+    bool enable_batch_renderer)
+{
+    // Install signal handler on first manager creation
+    install_signal_handler();
+    
+    g_manager_creation_count.fetch_add(1);
+    
+    if (!out_handle || !filepath) {
+        return MER_ERROR_NULL_POINTER;
+    }
+    
+    *out_handle = nullptr;
+    
+    // Convert int32_t to ExecMode enum
+    madrona::ExecMode execMode = static_cast<madrona::ExecMode>(exec_mode);
+    
+    // Use Manager::fromReplay static factory method
+    auto mgr = Manager::fromReplay(std::string(filepath), execMode, gpu_id, enable_batch_renderer);
+    if (!mgr) {
+        return MER_ERROR_FILE_NOT_FOUND; // Or appropriate error
+    }
+    
+    // Transfer ownership to C API
+    Manager* mgr_ptr = mgr.release();
+    *out_handle = reinterpret_cast<MER_ManagerHandle>(mgr_ptr);
+    
     return MER_SUCCESS;
 }
 
@@ -509,16 +542,24 @@ MER_Result mer_read_replay_metadata(
     // Direct cast to ReplayMetadata* - Python passes the exact C++ struct via ctypes
     ReplayMetadata* replay_meta = reinterpret_cast<ReplayMetadata*>(out_metadata);
     
-    // Copy metadata
+    // Copy ALL metadata fields including v3 additions
+    replay_meta->magic = metadata.magic;
+    replay_meta->version = metadata.version;
     replay_meta->num_worlds = metadata.num_worlds;
     replay_meta->num_agents_per_world = metadata.num_agents_per_world;
     replay_meta->num_steps = metadata.num_steps;
-    replay_meta->seed = metadata.seed;
+    replay_meta->actions_per_step = metadata.actions_per_step;
     replay_meta->timestamp = metadata.timestamp;
+    replay_meta->seed = metadata.seed;
     
-    // Copy sim name safely
+    std::memcpy(replay_meta->reserved, metadata.reserved, sizeof(replay_meta->reserved));
+    
+    // Copy string fields safely
     std::strncpy(replay_meta->sim_name, metadata.sim_name, sizeof(replay_meta->sim_name) - 1);
     replay_meta->sim_name[sizeof(replay_meta->sim_name) - 1] = '\0';
+    
+    std::strncpy(replay_meta->level_name, metadata.level_name, sizeof(replay_meta->level_name) - 1);
+    replay_meta->level_name[sizeof(replay_meta->level_name) - 1] = '\0';
     
     return MER_SUCCESS;
 }
@@ -630,48 +671,96 @@ int32_t mer_get_render_asset_object_id(const char* name) {
     return -1;  // Not found or doesn't have render
 }
 
-MER_Result mer_write_compiled_level(
-    const char* filepath, 
-    const void* level
+
+MER_Result mer_write_compiled_levels(
+    const char* filepath,
+    const void* levels,
+    uint32_t num_levels
 ) {
-    if (!filepath || !level) {
-        return MER_ERROR_NULL_POINTER;
+    // Validation
+    if (!filepath || !levels || num_levels == 0) {
+        return MER_ERROR_INVALID_PARAMETER;
     }
-    
-    // Direct cast from void* - Python passes the exact C++ struct
-    const CompiledLevel* compiled_level = reinterpret_cast<const CompiledLevel*>(level);
     
     FILE* f = fopen(filepath, "wb");
     if (!f) {
+        return MER_ERROR_FILE_NOT_FOUND;
+    }
+    
+    // Write unified format header
+    const char magic[] = "LEVELS";  // Changed from "MLEVL"
+    size_t magic_written = fwrite(magic, sizeof(char), 6, f);
+    if (magic_written != 6) {
+        fclose(f);
         return MER_ERROR_FILE_IO;
     }
     
-    size_t written = fwrite(compiled_level, sizeof(CompiledLevel), 1, f);
-    fclose(f);
-    
-    return (written == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
-}
-
-MER_Result mer_read_compiled_level(
-    const char* filepath, 
-    void* level
-) {
-    if (!filepath || !level) {
-        return MER_ERROR_NULL_POINTER;
+    // Write count
+    size_t count_written = fwrite(&num_levels, sizeof(uint32_t), 1, f);
+    if (count_written != 1) {
+        fclose(f);
+        return MER_ERROR_FILE_IO;
     }
     
-    // Direct cast from void* - Python passes the exact C++ struct
-    CompiledLevel* compiled_level = reinterpret_cast<CompiledLevel*>(level);
+    // Write all levels
+    size_t levels_size = sizeof(CompiledLevel) * num_levels;
+    size_t levels_written = fwrite(levels, 1, levels_size, f);
+    if (levels_written != levels_size) {
+        fclose(f);
+        return MER_ERROR_FILE_IO;
+    }
+    
+    fclose(f);
+    return MER_SUCCESS;
+}
+
+MER_Result mer_read_compiled_levels(
+    const char* filepath,
+    void* out_levels,
+    uint32_t* out_num_levels,
+    uint32_t max_levels
+) {
+    if (!filepath || !out_num_levels) {
+        return MER_ERROR_INVALID_PARAMETER;
+    }
     
     FILE* f = fopen(filepath, "rb");
     if (!f) {
+        return MER_ERROR_FILE_NOT_FOUND;
+    }
+    
+    // Read magic header
+    char magic[7] = {0};
+    size_t magic_read = fread(magic, sizeof(char), 6, f);
+    
+    if (magic_read != 6 || strcmp(magic, "LEVELS") != 0) {
+        fclose(f);
+        return MER_ERROR_INVALID_FILE;
+    }
+    
+    // Read number of levels
+    uint32_t num_levels;
+    size_t count_read = fread(&num_levels, sizeof(uint32_t), 1, f);
+    if (count_read != 1) {
+        fclose(f);
         return MER_ERROR_FILE_IO;
     }
     
-    size_t read = fread(compiled_level, sizeof(CompiledLevel), 1, f);
-    fclose(f);
+    *out_num_levels = num_levels;
     
-    return (read == 1) ? MER_SUCCESS : MER_ERROR_FILE_IO;
+    // Read levels if buffer provided
+    if (out_levels && max_levels > 0) {
+        uint32_t levels_to_read = (num_levels < max_levels) ? num_levels : max_levels;
+        size_t levels_size = sizeof(CompiledLevel) * levels_to_read;
+        size_t read = fread(out_levels, 1, levels_size, f);
+        if (read != levels_size) {
+            fclose(f);
+            return MER_ERROR_FILE_IO;
+        }
+    }
+    
+    fclose(f);
+    return MER_SUCCESS;
 }
 
 } // extern "C"

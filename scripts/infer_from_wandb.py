@@ -17,7 +17,7 @@ from policy import make_policy, setup_obs
 
 import madrona_escape_room
 import wandb
-from madrona_escape_room.level_io import load_compiled_level
+from madrona_escape_room.level_io import load_compiled_levels
 
 
 def find_latest_checkpoint(wandb_run_path):
@@ -51,7 +51,7 @@ def run_inference(
     num_channels=256,
     separate_value=False,
     sim_seed=0,
-    compiled_level=None,
+    compiled_levels=None,
 ):
     """Run inference with the given parameters."""
 
@@ -64,7 +64,7 @@ def run_inference(
         exec_mode=exec_mode,
         gpu_id=gpu_id,
         rand_seed=sim_seed,
-        compiled_level=compiled_level,
+        compiled_levels=compiled_levels,
     )
 
     obs, num_obs_features = setup_obs(sim_interface.obs)
@@ -225,7 +225,12 @@ def main():
     parser.add_argument("--num-steps", type=int, default=1000, help="Number of steps")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     parser.add_argument("--gpu-id", type=int, default=0, help="GPU ID")
-    parser.add_argument("--num-channels", type=int, default=None, help="Number of channels (auto-detected from wandb config)")
+    parser.add_argument(
+        "--num-channels",
+        type=int,
+        default=None,
+        help="Number of channels (auto-detected from wandb config)",
+    )
     parser.add_argument("--separate-value", action="store_true", help="Use separate value network")
     parser.add_argument("--sim-seed", type=int, default=0, help="Seed for simulation")
     parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
@@ -329,21 +334,24 @@ def main():
     print(f"Using wandb run: {selected_run.name} ({selected_run.id})")
 
     # Extract model config from wandb config
-    if hasattr(selected_run, 'config'):
+    if hasattr(selected_run, "config"):
         config = selected_run.config
-        
+
         # Get num_channels from config (required)
         if args.num_channels is None:
-            if 'num_channels' in config:
-                args.num_channels = config['num_channels']
+            if "num_channels" in config:
+                args.num_channels = config["num_channels"]
                 print(f"Using num_channels from wandb config: {args.num_channels}")
             else:
-                print("Error: num_channels not found in wandb config and not provided via --num-channels")
+                print(
+                    "Error: num_channels not found in wandb config and "
+                    "not provided via --num-channels"
+                )
                 sys.exit(1)
-        
+
         # Get separate_value from config if not explicitly set
-        if not args.separate_value and 'separate_value' in config and config['separate_value']:
-            args.separate_value = config['separate_value']
+        if not args.separate_value and "separate_value" in config and config["separate_value"]:
+            args.separate_value = config["separate_value"]
             print(f"Using separate_value from wandb config: {args.separate_value}")
     else:
         if args.num_channels is None:
@@ -362,7 +370,7 @@ def main():
     wandb_run_path = wandb_run_dirs[0]
 
     # Load custom level if provided via --level-file, or check checkpoint directory for .lvl file
-    compiled_level = None
+    compiled_levels = None
     level_name = "default_16x16_room"
     level_file_to_use = args.level_file
 
@@ -376,12 +384,34 @@ def main():
                 print(f"Found level file in checkpoint directory: {level_file_to_use}")
 
     if level_file_to_use:
-        compiled_level = load_compiled_level(level_file_to_use)
-        # Extract level name from the compiled level
-        level_name = compiled_level.level_name.decode("utf-8", errors="ignore").strip("\x00")
-        if not level_name:
+        compiled_levels = load_compiled_levels(level_file_to_use)
+        num_sublevels = len(compiled_levels)
+
+        if num_sublevels == 1:
+            # Single level file - extract level name from the level
+            level_name = (
+                compiled_levels[0].level_name.decode("utf-8", errors="ignore").strip("\x00")
+            )
+            if not level_name:
+                level_name = Path(level_file_to_use).stem
+            print(f"Loaded custom level: {level_name} from {level_file_to_use}")
+            print(f"Number of sublevels: {num_sublevels}")
+        else:
+            # Multi-level file - use filename for display
             level_name = Path(level_file_to_use).stem
-        print(f"Loaded custom level: {level_name} from {level_file_to_use}")
+            print(
+                f"Loaded multi-level file with {num_sublevels} levels from " f"{level_file_to_use}"
+            )
+            print(f"Using curriculum name: {level_name}")
+            print(f"Number of sublevels: {num_sublevels}")
+
+        # Override num_worlds to match number of sublevels
+        if args.num_worlds != num_sublevels:
+            print(
+                f"Overriding --num-worlds from {args.num_worlds} to {num_sublevels} "
+                f"to match sublevels"
+            )
+            args.num_worlds = num_sublevels
 
     try:
         latest_checkpoint = find_latest_checkpoint(wandb_run_path)
@@ -404,7 +434,7 @@ def main():
             num_channels=args.num_channels,
             separate_value=args.separate_value,
             sim_seed=args.sim_seed,
-            compiled_level=compiled_level,
+            compiled_levels=compiled_levels,
         )
 
     except FileNotFoundError as e:

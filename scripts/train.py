@@ -15,7 +15,7 @@ from policy import make_policy, setup_obs
 
 import madrona_escape_room
 from madrona_escape_room.generated_constants import ExecMode
-from madrona_escape_room.level_io import load_compiled_level
+from madrona_escape_room.level_io import load_compiled_levels
 
 # Optional wandb import
 try:
@@ -27,7 +27,14 @@ except ImportError:
 
 
 class LearningCallback:
-    def __init__(self, ckpt_dir, profile_report, training_config=None, level_file_path=None):
+    def __init__(
+        self,
+        ckpt_dir,
+        profile_report,
+        training_config=None,
+        level_file_path=None,
+        additional_tags=None,
+    ):
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
@@ -46,6 +53,10 @@ class LearningCallback:
                 tags = ["lidar-training", level_tag]
                 if training_config and training_config.get("level_file"):
                     tags.append("custom-level")
+
+                # Add additional tags from command line
+                if additional_tags:
+                    tags.extend(additional_tags)
 
                 wandb.init(
                     project="madrona-escape-room",
@@ -201,7 +212,7 @@ class LearningCallback:
         # Keep original console output
         if self.use_wandb and wandb.run is not None:
             level_info = self.training_config.get("level_name", "unknown")
-            print(f"\nUpdate: {update_id} [{wandb.run.name}] [{level_info}]")
+            print(f"\nUpdate: {update_id} [{wandb.run.name}] ({wandb.run.id}) [{level_info}]")
         else:
             level_info = self.training_config.get("level_name", "unknown")
             print(f"\nUpdate: {update_id} [{level_info}]")
@@ -293,21 +304,31 @@ arg_parser.add_argument(
 )
 arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
 arg_parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
+arg_parser.add_argument(
+    "--tag", action="append", dest="tags", help="Add tags to wandb run (can be used multiple times)"
+)
 
 args = arg_parser.parse_args()
 
 torch.manual_seed(args.seed)
 
 # Load custom level if provided
-compiled_level = None
+compiled_levels = None
 level_name = "default_16x16_room"
 if args.level_file:
-    compiled_level = load_compiled_level(args.level_file)
-    # Extract level name from the compiled level
-    level_name = compiled_level.level_name.decode("utf-8", errors="ignore").strip("\x00")
-    if not level_name:
+    compiled_levels = load_compiled_levels(args.level_file)
+
+    if len(compiled_levels) == 1:
+        # Single level file - extract level name from the level
+        level_name = compiled_levels[0].level_name.decode("utf-8", errors="ignore").strip("\x00")
+        if not level_name:
+            level_name = Path(args.level_file).stem
+        print(f"Loaded custom level: {level_name} from {args.level_file}")
+    else:
+        # Multi-level file - use filename for display
         level_name = Path(args.level_file).stem
-    print(f"Loaded custom level: {level_name} from {args.level_file}")
+        print(f"Loaded multi-level file: {len(compiled_levels)} levels from {args.level_file}")
+        print(f"Using curriculum name: {level_name}")
 
 # Setup training environment with 128-beam lidar sensor (distance values only)
 exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
@@ -317,7 +338,7 @@ sim_interface = setup_lidar_training_environment(
     exec_mode=exec_mode,
     gpu_id=args.gpu_id,
     rand_seed=args.seed,
-    compiled_level=compiled_level,
+    compiled_levels=compiled_levels,
 )
 
 ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None
@@ -345,7 +366,9 @@ training_config = {
     "random_seed": args.seed,
 }
 
-learning_cb = LearningCallback(ckpt_dir, args.profile_report, training_config, args.level_file)
+learning_cb = LearningCallback(
+    ckpt_dir, args.profile_report, training_config, args.level_file, args.tags
+)
 
 if torch.cuda.is_available():
     dev = torch.device(f"cuda:{args.gpu_id}")

@@ -55,6 +55,14 @@ MER_EXPORT MER_Result mer_create_manager(
     uint32_t num_compiled_levels   // Length of compiled_levels array
 );
 
+MER_EXPORT MER_Result mer_create_manager_from_replay(
+    MER_ManagerHandle* out_handle,
+    const char* filepath,
+    int32_t exec_mode,             // MER_ExecMode value (0=CPU, 1=CUDA)
+    int32_t gpu_id,
+    bool enable_batch_renderer
+);
+
 MER_EXPORT MER_Result mer_destroy_manager(MER_ManagerHandle handle);
 
 // Level validation functions
@@ -124,15 +132,18 @@ MER_EXPORT MER_Result mer_get_replay_step_count(
 // Utility functions
 MER_EXPORT const char* mer_result_to_string(MER_Result result);
 
-// Binary I/O functions for CompiledLevel
-MER_EXPORT MER_Result mer_write_compiled_level(
+// Binary I/O functions for CompiledLevel (unified format)
+MER_EXPORT MER_Result mer_write_compiled_levels(
     const char* filepath,
-    const void* level  // Direct CompiledLevel pointer from Python
+    const void* compiled_levels,  // Array of CompiledLevel structs from Python
+    uint32_t num_levels
 );
 
-MER_EXPORT MER_Result mer_read_compiled_level(
+MER_EXPORT MER_Result mer_read_compiled_levels(
     const char* filepath,
-    void* level  // Direct CompiledLevel pointer from Python
+    void* out_levels,            // Pre-allocated array of CompiledLevel structs from Python
+    uint32_t* out_num_levels,    // Actual number of levels read
+    uint32_t max_levels          // Maximum levels buffer can hold
 );
 
 // Get CompiledLevel constants

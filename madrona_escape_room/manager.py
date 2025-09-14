@@ -291,12 +291,11 @@ class SimManager:
             filepath: Path to replay file
 
         Returns:
-            dict: Replay metadata with keys: num_worlds, num_agents_per_world,
-                  num_steps, seed, sim_name, timestamp
+            ReplayMetadata: Replay metadata dataclass with all fields from the binary file
 
         Example:
             metadata = SimManager.read_replay_metadata("demo.bin")
-            print(f"Replay has {metadata['num_worlds']} worlds, seed {metadata['seed']}")
+            print(f"Replay has {metadata.num_worlds} worlds, version {metadata.version}")
         """
         from ctypes import byref
 
@@ -310,35 +309,8 @@ class SimManager:
         # Convert back to dataclass to get updated values
         metadata = ReplayMetadata.from_buffer(bytearray(c_metadata))
 
-        result_dict = {
-            "num_worlds": metadata.num_worlds,
-            "num_agents_per_world": metadata.num_agents_per_world,
-            "num_steps": metadata.num_steps,
-            "seed": metadata.seed,
-            "timestamp": metadata.timestamp,
-        }
-
-        # Add string fields if they exist
-        if hasattr(metadata, "sim_name"):
-            result_dict["sim_name"] = (
-                metadata.sim_name.decode("utf-8")
-                if isinstance(metadata.sim_name, bytes)
-                else metadata.sim_name
-            )
-        if hasattr(metadata, "level_name"):
-            result_dict["level_name"] = (
-                metadata.level_name.decode("utf-8")
-                if isinstance(metadata.level_name, bytes)
-                else metadata.level_name
-            )
-        if hasattr(metadata, "magic"):
-            result_dict["magic"] = metadata.magic
-        if hasattr(metadata, "version"):
-            result_dict["version"] = metadata.version
-        if hasattr(metadata, "actions_per_step"):
-            result_dict["actions_per_step"] = metadata.actions_per_step
-
-        return result_dict
+        # Return the dataclass directly instead of converting to dict
+        return metadata
 
     @classmethod
     def from_replay(cls, replay_filepath, exec_mode, gpu_id=0, enable_batch_renderer=False):
@@ -368,25 +340,43 @@ class SimManager:
                 obs = sim.self_observation_tensor().to_torch()
                 # ... process replay data
         """
-        # Read metadata to get configuration
-        metadata = cls.read_replay_metadata(replay_filepath)
+        # Single C call that handles everything
+        from .generated_constants import ExecMode
 
-        # Create manager with exact replay configuration
-        manager = cls(
-            exec_mode=exec_mode,
-            gpu_id=gpu_id,
-            num_worlds=metadata["num_worlds"],
-            rand_seed=metadata["seed"],
-            auto_reset=True,  # Always true for replay
-            enable_batch_renderer=enable_batch_renderer,
+        # Convert exec_mode to integer value
+        exec_mode_value = exec_mode.value if isinstance(exec_mode, ExecMode) else exec_mode
+
+        handle = MER_ManagerHandle()
+        result = lib.mer_create_manager_from_replay(
+            byref(handle),
+            replay_filepath.encode("utf-8"),
+            exec_mode_value,
+            gpu_id,
+            enable_batch_renderer,
         )
 
-        # Load replay into the manager
-        manager._load_replay_internal(replay_filepath)
+        if result != 0:  # Success = 0
+            error_msg = lib.mer_result_to_string(result)
+            if error_msg:
+                error_str = error_msg.decode("utf-8")
+            else:
+                error_str = f"Unknown error code: {result}"
+            raise RuntimeError(
+                f"Failed to create manager from replay: {replay_filepath}. Error: {error_str}"
+            )
+
+        # Create Python wrapper
+        manager = cls.__new__(cls)
+        manager._handle = handle
+
+        # Read metadata to set Python attributes
+        metadata = cls.read_replay_metadata(replay_filepath)
+        manager.num_worlds = metadata.num_worlds
+        manager.seed = metadata.seed
 
         print(
-            f"Loaded replay with {metadata['num_worlds']} worlds, "
-            f"{metadata['num_steps']} steps, seed {metadata['seed']}"
+            f"Loaded replay with {metadata.num_worlds} worlds, "
+            f"{metadata.num_steps} steps, seed {metadata.seed}"
         )
 
         return manager
@@ -493,7 +483,10 @@ def create_sim_manager(
             # JSON level string
             from .level_compiler import compile_level
 
-            compiled_level = compile_level(level_str)
+            compiled_levels = compile_level(level_str)
+            compiled_level = compiled_levels[
+                0
+            ]  # Extract single level (JSON must be single level here)
         else:
             # ASCII level
             from .level_compiler import compile_ascii_level
