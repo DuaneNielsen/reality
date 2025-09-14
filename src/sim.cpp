@@ -272,7 +272,20 @@ static inline float computeZAngle(Quat q)
     return atan2f(siny_cosp, cosy_cosp);
 }
 
-// [REQUIRED_INTERFACE] This system packages all the egocentric observations together 
+// [GAME_SPECIFIC] Initialize progress values after reset and physics settling
+// This ensures Progress contains valid values (not sentinel) for tensor export
+inline void initProgressAfterReset(Engine &,
+                                   Position pos,
+                                   Progress &progress)
+{
+    // Initialize progress with current position after physics has settled
+    if (progress.maxY < -999990.0f) {
+        progress.maxY = pos.y;
+        progress.initialY = pos.y;
+    }
+}
+
+// [REQUIRED_INTERFACE] This system packages all the egocentric observations together
 // for the policy inputs. Every environment must implement observation collection.
 // [GAME_SPECIFIC] The specific observations collected and their format.
 inline void collectObservationsSystem(Engine &ctx,
@@ -446,7 +459,7 @@ inline void lidarSystem(Engine &ctx,
 }
 
 // [REQUIRED_INTERFACE] Computes reward for each agent - every environment needs a reward system
-// [GAME_SPECIFIC] Tracks max Y position reached, but only gives reward at episode end
+// [GAME_SPECIFIC] Provides incremental rewards for forward progress
 inline void rewardSystem(Engine &ctx,
                          Position pos,
                          Progress &progress,
@@ -455,34 +468,35 @@ inline void rewardSystem(Engine &ctx,
                          CollisionDeath &collision_death,
                          StepsTaken &steps_taken)
 {
-    // Update max Y reached during episode
+    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+
+    // Check if agent made forward progress this step
     if (pos.y > progress.maxY) {
+        // Calculate incremental reward for forward progress
+        float prev_maxY = progress.maxY;
         progress.maxY = pos.y;
+
+        // Normalize based on total possible progress (from initial to world max)
+        float total_possible_progress = level.world_max_y - progress.initialY;
+        float progress_this_step = pos.y - prev_maxY;
+        float normalized_increment = progress_this_step / total_possible_progress;
+
+        out_reward.v = normalized_increment;
+    } else {
+        // No forward progress = no reward
+        out_reward.v = 0.0f;
     }
 
-    // Calculate normalized progress once
-    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-    float world_length = level.world_max_y - level.world_min_y;
-    float adjusted_progress = progress.maxY - level.world_min_y;
-    float normalized_progress = adjusted_progress / world_length;
-
-    // Mark episode as done if agent reaches 100% progress
+    // Check for episode completion - use proper normalization
+    float normalized_progress = (progress.maxY - progress.initialY) /
+                                (level.world_max_y - progress.initialY);
     if (done.v == 0 && normalized_progress >= 1.0f) {
         done.v = 1;
     }
 
-    // Only give reward at the end of the episode
-    if (done.v == 1) {
-        if (collision_death.died == 1) {
-            // Agent died from collision - give penalty
-            out_reward.v = -1.0f;
-        } else {
-            // Normal episode end - give progress reward
-            out_reward.v = normalized_progress;
-        }
-    } else {
-        // No reward during the episode
-        out_reward.v = 0.0f;
+    // Override with collision penalty if agent died
+    if (done.v == 1 && collision_death.died == 1) {
+        out_reward.v = -1.0f;  // Death penalty overrides any progress reward
     }
 }
 
@@ -718,6 +732,13 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto post_reset_broadphase = phys::PhysicsSystem::setupBroadphaseTasks(
         builder, {reset_sys});
 
+    // [GAME_SPECIFIC] Initialize progress after reset and physics settling
+    auto init_progress = builder.addToGraph<ParallelForNode<Engine,
+        initProgressAfterReset,
+            Position,
+            Progress
+        >>({post_reset_broadphase});
+
     // [REQUIRED_INTERFACE] Finally, collect observations for the next step.
     auto collect_obs = builder.addToGraph<ParallelForNode<Engine,
         collectObservationsSystem,
@@ -725,7 +746,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Rotation,
             Progress,
             SelfObservation
-        >>({post_reset_broadphase});
+        >>({init_progress});
 
     // [GAME_SPECIFIC] Update compass observations
     auto compass_sys = builder.addToGraph<ParallelForNode<Engine,

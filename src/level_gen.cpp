@@ -131,7 +131,10 @@ static void resetAgentPhysics(Engine &ctx) {
             facing_angle,  // Use facing angle from level data
             math::up);
 
-        ctx.get<Progress>(agent_entity).maxY = pos.y;
+        // Initialize Progress with sentinel values - reward system will set them after physics settles
+        Progress &progress = ctx.get<Progress>(agent_entity);
+        progress.maxY = -999999.0f;  // Sentinel value to indicate not initialized
+        progress.initialY = -999999.0f;
 
         ctx.get<Velocity>(agent_entity) = {
             Vector3::zero(),

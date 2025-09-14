@@ -142,7 +142,8 @@ namespace madEscape {
     // Tracks progress the agent has made through the challenge, used to add
     // reward when more progress has been made
     struct Progress {
-        float maxY;
+        float maxY;     // Maximum Y position reached during episode
+        float initialY; // Initial Y position at episode start
     };
 
 
