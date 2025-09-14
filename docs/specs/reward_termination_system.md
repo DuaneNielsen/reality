@@ -59,8 +59,9 @@ The Madrona Escape Room reward and termination system provides incremental feedb
 ## Special Cases
 
 ### Collision Death Penalty
-- When agent dies from collision: `reward = -1.0` (overrides any progress reward)
+- When agent dies from collision: `reward = -0.1` (overrides any progress reward)
 - Death penalty is applied only on the step when `done=1` and `collision_death.died=1`
+- The softer penalty reduces training instability while still discouraging collisions
 
 ### Episode Completion Conditions
 - **Progress Completion**: Episode completes when `normalized_progress >= 1.0`
