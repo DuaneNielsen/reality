@@ -508,7 +508,7 @@ inline void rewardSystem(Engine &ctx,
 
     // Override with collision penalty if agent died
     if (done.v == 1 && collision_death.died == 1) {
-        out_reward.v = -1.0f;  // Death penalty overrides any progress reward
+        out_reward.v = -0.1f;  // Death penalty overrides any progress reward
     }
 }
 
