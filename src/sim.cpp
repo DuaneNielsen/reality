@@ -470,6 +470,12 @@ inline void rewardSystem(Engine &ctx,
 {
     const CompiledLevel& level = ctx.singleton<CompiledLevel>();
 
+    // Skip reward calculation if progress is not yet initialized (sentinel values)
+    if (progress.maxY < -999990.0f || progress.initialY < -999990.0f) {
+        out_reward.v = 0.0f;
+        return;
+    }
+
     // Check if agent made forward progress this step
     if (pos.y > progress.maxY) {
         // Calculate incremental reward for forward progress
