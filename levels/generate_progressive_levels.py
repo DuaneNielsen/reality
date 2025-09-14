@@ -286,6 +286,9 @@ def generate_multi_level_json(output_dir="levels", random_seed=42):
     """
     print(f"Generating multi-level JSON file in {output_dir}/")
 
+    # Shared name for both filename and internal level name
+    level_name = "progressive_20_levels"
+
     # Shared tileset for all levels
     shared_tileset = {
         "#": {"asset": "wall", "done_on_collision": True},
@@ -336,11 +339,11 @@ def generate_multi_level_json(output_dir="levels", random_seed=42):
         "levels": levels_data,
         "tileset": shared_tileset,
         "scale": 3.0,
-        "name": "progressive_20_levels",
+        "name": level_name,
     }
 
     # Save to file
-    output_path = Path(output_dir) / "progressive_levels_1_to_20_multi.json"
+    output_path = Path(output_dir) / f"{level_name}.json"
     output_path.parent.mkdir(exist_ok=True)
 
     with open(output_path, "w") as f:
