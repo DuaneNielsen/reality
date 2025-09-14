@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test reward system for Madrona Escape Room.
-Tests that rewards are only given at episode end based on normalized Y progress.
+Tests that rewards are given incrementally as the agent makes forward progress.
 """
 
 import numpy as np
@@ -37,7 +37,7 @@ TEST_LEVEL_SOUTH_SPAWN = """
 
 @pytest.mark.ascii_level(TEST_LEVEL_SOUTH_SPAWN)
 def test_forward_movement_reward(cpu_manager):
-    """Test reward for consistent forward movement"""
+    """Test incremental reward for consistent forward movement"""
     mgr = cpu_manager
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
@@ -60,39 +60,67 @@ def test_forward_movement_reward(cpu_manager):
     initial_y = observer.get_position(0)[1]
     print(f"Starting Y position: {initial_y:.2f}")
 
+    total_rewards = 0.0
+    prev_y = initial_y
+    rewards_received = 0
+
     # Run for 190 steps
     for i in range(190):
         controller.step()
 
-        # Check no reward during episode
+        # Check for incremental rewards
         reward = observer.get_reward(0)
-        assert reward == 0.0, f"Reward should be 0 during episode, got {reward} at step {i + 1}"
+        current_y = observer.get_position(0)[1]
+
+        if reward > 0.0:
+            rewards_received += 1
+            total_rewards += reward
+            print(
+                f"Step {i+1}: Y={current_y:.2f} "
+                f"(moved {current_y - prev_y:.3f}), reward={reward:.6f}"
+            )
+            prev_y = current_y
 
         # Print progress every 50 steps
         if i % 50 == 0:
             pos = observer.get_position(0)
             max_y = observer.get_max_y_progress(0)
-            print(f"Step {i}: X={pos[0]:.2f}, Y={pos[1]:.2f}, Max Y progress={max_y:.3f}")
+            print(
+                f"Step {i}: X={pos[0]:.2f}, Y={pos[1]:.2f}, "
+                f"Max Y progress={max_y:.3f}, Total rewards={total_rewards:.6f}"
+            )
 
-    # Final steps to trigger reward
+    # Final steps to complete episode
     for _ in range(10):
         controller.step()
+        reward = observer.get_reward(0)
+        if reward > 0.0:
+            total_rewards += reward
+            rewards_received += 1
 
     # Check final state
     final_pos = observer.get_position(0)
-    final_reward = observer.get_reward(0)
     max_y_progress = observer.get_max_y_progress(0)
 
     print("\nFinal state:")
     y_movement = final_pos[1] - initial_y
     print(f"  Position: X={final_pos[0]:.2f}, Y={final_pos[1]:.2f} (moved Y by {y_movement:.2f})")
     print(f"  Max Y progress: {max_y_progress:.3f}")
-    print(f"  Final reward: {final_reward:.3f}")
+    print(f"  Total rewards accumulated: {total_rewards:.6f}")
+    print(f"  Number of steps with rewards: {rewards_received}")
 
-    # Verify reward matches progress
-    assert final_reward > 0.0, "Should receive positive reward for forward movement"
+    # Verify incremental reward system
+    assert rewards_received > 0, "Should receive incremental rewards during movement"
+    assert total_rewards > 0.0, "Should accumulate positive rewards for forward movement"
     assert observer.get_done_flag(0), "Episode should be done"
     assert observer.get_steps_remaining(0) == 0, "Steps should be exhausted"
+
+    # The total accumulated rewards should be roughly equal to the normalized progress
+    # (allowing for small numerical differences)
+    expected_total = max_y_progress
+    assert (
+        abs(total_rewards - expected_total) < 0.01
+    ), f"Total rewards {total_rewards:.6f} should match progress {expected_total:.6f}"
 
 
 # Define custom level with walls that limit forward progress
@@ -119,7 +147,7 @@ TEST_LEVEL_WITH_WALLS = """
 
 @pytest.mark.ascii_level(TEST_LEVEL_WITH_WALLS)
 def test_reward_normalization(cpu_manager):
-    """Test that rewards are properly normalized by world length"""
+    """Test that incremental rewards sum to normalized total progress"""
     mgr = cpu_manager
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
@@ -138,28 +166,42 @@ def test_reward_normalization(cpu_manager):
     controller.reset_actions()
     controller.move_forward(world_idx=0, speed=1.5)
 
-    # Run until episode end
+    total_rewards = 0.0
+    rewards_received = 0
+
+    # Run until episode end, accumulating rewards
     while observer.get_steps_remaining(0) > 0:
         controller.step()
+        reward = observer.get_reward(0)
+        if reward > 0.0:
+            total_rewards += reward
+            rewards_received += 1
 
-    final_reward = observer.get_reward(0)
+    # Final step reward check
+    final_step_reward = observer.get_reward(0)
     max_y = observer.get_max_y_progress(0)
 
     print("Normalization test:")
     print(f"  Max Y (normalized): {max_y:.3f}")
-    print(f"  Reward: {final_reward:.3f}")
+    print(f"  Total accumulated rewards: {total_rewards:.6f}")
+    print(f"  Steps with rewards: {rewards_received}")
+    print(f"  Final step reward: {final_step_reward:.6f}")
 
-    # Rewards are normalized to [0, 1] based on Y progress through the world
-    assert 0.0 < final_reward <= 1.0, "Reward should be normalized between 0 and 1"
+    # Incremental rewards should sum to normalized progress (0 to 1)
+    assert (
+        0.0 < total_rewards <= 1.0
+    ), f"Total rewards {total_rewards} should be normalized between 0 and 1"
 
-    # The observation maxY and reward should now be consistent after the C++ fix
-    assert abs(final_reward - max_y) < 0.01, "Reward and observation maxY should match"
+    # The total accumulated rewards should match the observation maxY
+    assert (
+        abs(total_rewards - max_y) < 0.01
+    ), f"Total rewards {total_rewards:.6f} should match progress {max_y:.6f}"
 
     # With the gap in the wall at row 4, the agent can pass through and reach
     # nearly the end of the level (about 90% progress)
     assert (
-        0.85 < final_reward < 0.95
-    ), "Reward should reflect nearly complete progress through the gap"
+        0.85 < total_rewards < 0.95
+    ), f"Total rewards {total_rewards:.3f} should reflect nearly complete progress through the gap"
 
 
 def test_reward_tensor_shape(cpu_manager):
@@ -249,28 +291,16 @@ def test_auto_reset_reward_delivery():
 
         reward_history.append(current_rewards.copy())
 
-        # Rewards should be 0 during episode, but may be delivered at the final step
-        # due to auto-reset
+        # With incremental rewards, agent still gets no rewards since they're not moving
+        # Only forward movement (increased Y) gives rewards
         for world_idx, reward in enumerate(current_rewards):
-            if step == consts.episodeLen - 1:
-                # At the final step, auto-reset may deliver rewards
-                if reward > 0:
-                    print(
-                        f"Step {step}: Auto-reset delivered reward {reward:.4f} "
-                        f"to world {world_idx}"
-                    )
-                assert reward >= 0.0, (
-                    f"Final step reward should be non-negative at step {step}, "
-                    f"world {world_idx}, got {reward}"
-                )
-            else:
-                # During episode (not final step), rewards should be 0
-                assert reward == 0.0, (
-                    f"Reward should be 0 during episode at step {step}, "
-                    f"world {world_idx}, got {reward}"
-                )
+            # Since agents are stationary, they shouldn't get rewards from movement
+            assert reward == 0.0, (
+                f"Stationary agents should get no rewards at step {step}, "
+                f"world {world_idx}, got {reward}"
+            )
 
-    # Step once more to trigger auto-reset and reward delivery
+    # Step once more to trigger auto-reset
     controller.step()
 
     # Check final rewards after auto-reset trigger
@@ -285,22 +315,26 @@ def test_auto_reset_reward_delivery():
             f"Progress={max_progress[world_idx]:.2f}"
         )
 
-        # With auto-reset, reward is based on maxY reached (including spawn position)
-        # Even stationary agents get reward based on spawn position relative to world_min_y
+        # With incremental rewards and no movement, agents should get no rewards
+        # Incremental rewards only come from forward movement
         assert (
-            reward >= 0.0
-        ), f"Should receive non-negative reward in world {world_idx}, got {reward}"
+            reward == 0.0
+        ), f"Stationary agents should get no rewards in world {world_idx}, got {reward}"
 
-        # Verify reward is properly normalized
+        # Collision death penalty still works, but no collision occurred
         assert (
-            0.0 <= reward <= 1.0
-        ), f"Reward should be normalized [0,1] in world {world_idx}, got {reward}"
+            reward >= -1.0
+        ), f"Rewards should not be less than collision penalty in world {world_idx}, got {reward}"
 
-    print(f"✓ Auto-reset test passed - rewards delivered: {[f'{r:.4f}' for r in final_rewards]}")
+    print(
+        f"✓ Auto-reset test passed - no rewards for stationary agents: "
+        f"{[f'{r:.4f}' for r in final_rewards]}"
+    )
 
-    # The key test: verify that auto-reset properly delivers rewards when episodes end
-    # Even with no movement, agents get reward based on their spawn position relative to world_min_y
+    # The key test: verify that auto-reset works with incremental reward system
+    # Stationary agents get no rewards since they made no forward progress
     for world_idx, reward in enumerate(final_rewards):
-        # Auto-reset should deliver consistent rewards based on agent position
-        assert reward >= 0.0, f"Reward should be non-negative in world {world_idx}, got {reward}"
-        print(f"  World {world_idx}: Auto-reset delivered reward {reward:.4f} for spawn position")
+        assert (
+            reward == 0.0
+        ), f"Stationary agent should get no reward in world {world_idx}, got {reward}"
+        print(f"  World {world_idx}: No reward for stationary agent (correct incremental behavior)")
