@@ -69,6 +69,12 @@ The Madrona Escape Room reward and termination system provides incremental feedb
 - **Final Reward**: Follows same incremental calculation rules regardless of completion reason
 - **Auto-reset Behavior**: Preserves reward calculation consistency across episode boundaries
 
+### 9. Complete Traversal Reward Guarantee
+- **SPEC 9**: Agent traversing from spawn to world_max_y without obstacles receives total reward = 1.0 ± ε
+- **Behavior**: Complete level traversal (spawn → world_max_y) yields exactly 1.0 total reward
+- **Rationale**: Validates that incremental reward system correctly sums to normalized completion
+- **Termination**: Episode terminates with `done=1` when agent reaches world boundary
+
 ### Progress Tracking
 - `progress.maxY`: Tracks highest Y position reached by agent
 - `progress.initialY`: Starting Y position, set after physics settling
@@ -114,6 +120,9 @@ All implementations must pass the following validation tests:
 ### Integration Tests
 9. `test_multiple_episode_cycles_with_auto_reset()` - Validates cross-episode consistency
 10. `test_reward_behavior_across_episode_boundaries()` - Validates no reward artifacts
+
+### Complete Traversal Tests
+11. `test_complete_traversal_yields_unit_reward()` - Validates SPEC 9
 
 ## Known Issues
 

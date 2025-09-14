@@ -44,10 +44,10 @@ CompiledLevel createBaseLevelTemplate() {
         level.tile_rand_scale_z[i] = 0.0f;
     }
     
-    // Set spawn point at x=0, y=-17.0 (near southern wall)
+    // Set spawn point at x=0, y=-14.5 (moved forward from southern wall)
     level.num_spawns = 1;
     level.spawn_x[0] = 0.0f;
-    level.spawn_y[0] = -17.0f;
+    level.spawn_y[0] = -14.5f;  // Moved forward by 2.5 units from -17.0
     level.spawn_facing[0] = 0.0f;
     
     return level;

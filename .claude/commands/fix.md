@@ -71,22 +71,60 @@ Create a structured summary following this format:
 
 ## validate test premise
 
-**Decision Point:** Determine if the test premise and assertions are correct.
+**Decision Point:** Determine if the test premise and assertions are correct by comparing against specification.
+
+**Step 1: Locate corresponding spec file**
+- Extract test name from failing test path: `tests/python/[TEST_FILE].py`
+- Look for corresponding spec at: `docs/specs/[TEST_FILE_WITHOUT_PREFIX].md`
+- Example: `tests/python/test_reward_termination_system.py` → `docs/specs/reward_termination_system.md`
+
+Use the Glob tool to check if spec exists:
+```tool
+Glob(pattern="docs/specs/[TEST_NAME_WITHOUT_TEST_PREFIX].md")
+```
+
+**Step 2: If spec file NOT found - STOP and work with user**
+```
+❌ **Missing Specification File**
+
+**Test:** $ARGUMENTS
+
+**Expected spec location:** `docs/specs/[DERIVED_NAME].md`
+
+**Action Required:** Cannot proceed with test validation without corresponding specification.
+
+**Next Steps:**
+1. Work with user to create the specification document
+2. Define expected behavior, requirements, and test criteria
+3. Ensure test aligns with documented specifications
+
+**Please create the specification file before continuing with test debugging.**
+```
+
+**Step 3: If spec file found - validate test against spec**
+
+Use the Read tool to examine both files:
+```tool
+Read(file_path="docs/specs/[SPEC_FILE].md")
+Read(file_path="tests/python/[TEST_FILE].py")
+```
 
 **Validation checklist:**
 - Does the test use proper fixtures (cpu_manager, gpu_manager)?
-- Are the assertions logically correct for the intended behavior?
+- Do the test assertions match the SPEC requirements listed in the specification?
+- Are the test scenarios covering the behaviors defined in the specification?
 - Does the test follow patterns from TESTING_GUIDE.md?
-- Is the test setup appropriate for what's being tested?
+- Is the test setup appropriate for what's being tested per the spec?
 
-Use the Read tool to examine:
-```tool
-Read(file_path="docs/development/TESTING_GUIDE.md")
-Read(file_path="tests/python/conftest.py")
-```
+**Step 4: Compare test assertions to specification requirements**
 
-**If test premise is invalid:** Work with user to redefine test requirements
-**If test premise is valid:** Proceed to hypothesis formulation
+For each test assertion, verify it matches a corresponding SPEC requirement:
+- **SPEC 1**: [Requirement from spec] → **Test assertion**: [Corresponding assertion]
+- **SPEC 2**: [Requirement from spec] → **Test assertion**: [Corresponding assertion]
+- **SPEC N**: [Requirement from spec] → **Test assertion**: [Corresponding assertion]
+
+**If test-spec mismatch found:** Work with user to align test with specification
+**If test matches specification:** Proceed to hypothesis formulation
 
 ## hypothesis not verified
 

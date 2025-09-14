@@ -308,7 +308,13 @@ inline void collectObservationsSystem(Engine &ctx,
     self_obs.globalX = (pos.x - level.world_min_x) / world_width;
     self_obs.globalY = (pos.y - level.world_min_y) / world_length;
     self_obs.globalZ = (pos.z - level.world_min_z) / world_height;
-    self_obs.maxY = (progress.maxY - level.world_min_y) / world_length;
+    // Use same normalization as reward system: (maxY - initialY) / (world_max_y - initialY)
+    if (progress.initialY > -999990.0f) {
+        float total_possible_progress = level.world_max_y - progress.initialY;
+        self_obs.maxY = (progress.maxY - progress.initialY) / total_possible_progress;
+    } else {
+        self_obs.maxY = 0.0f;  // Not initialized yet
+    }
     self_obs.theta = angleObs(computeZAngle(rot));
 }
 

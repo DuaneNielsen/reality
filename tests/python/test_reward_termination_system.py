@@ -384,9 +384,10 @@ def test_forward_movement_gives_incremental_reward(cpu_manager):
 
     # SPEC REQUIREMENT: Forward movement gives positive incremental reward
     if forward_progress > 0:
-        assert (
-            reward_after_forward > 0.0
-        ), f"SPEC VIOLATION: Forward progress {forward_progress:.3f} should give positive reward, got {reward_after_forward}"
+        assert reward_after_forward > 0.0, (
+            f"SPEC VIOLATION: Forward progress {forward_progress:.3f} should give "
+            f"positive reward, got {reward_after_forward}"
+        )
     else:
         print("No forward progress made - this may be a physics issue")
 
@@ -490,7 +491,8 @@ def test_reward_proportional_to_progress_over_max_y(cpu_manager):
         if reward > 0.0:
             progress_this_step = current_y - prev_y
             print(
-                f"Step {step+1}: Progress={progress_this_step:.6f}, Reward={reward:.6f}, Ratio={reward/progress_this_step if progress_this_step > 0 else 'N/A'}"
+                f"Step {step+1}: Progress={progress_this_step:.6f}, Reward={reward:.6f}, "
+                f"Ratio={reward/progress_this_step if progress_this_step > 0 else 'N/A'}"
             )
             total_reward += reward
             prev_y = current_y
@@ -505,11 +507,13 @@ def test_reward_proportional_to_progress_over_max_y(cpu_manager):
 
     # SPEC REQUIREMENT: Total reward should equal normalized progress
     if total_progress > 0:
-        assert (
-            abs(total_reward - max_y_progress) < 0.01
-        ), f"SPEC VIOLATION: Total reward {total_reward:.6f} should equal normalized progress {max_y_progress:.6f}"
+        assert abs(total_reward - max_y_progress) < 0.01, (
+            f"SPEC VIOLATION: Total reward {total_reward:.6f} should equal "
+            f"normalized progress {max_y_progress:.6f}"
+        )
         print(
-            f"✓ Reward correctly proportional to progress: {total_reward:.6f} ≈ {max_y_progress:.6f}"
+            f"✓ Reward correctly proportional to progress: {total_reward:.6f} ≈ "
+            f"{max_y_progress:.6f}"
         )
 
 
@@ -556,15 +560,17 @@ def test_episode_terminates_after_200_steps():
         if step < consts.episodeLen - 1:
             # Before final step, should not be done
             expected_remaining = consts.episodeLen - step - 1
-            assert (
-                steps_remaining == expected_remaining
-            ), f"Step {step+1}: Expected {expected_remaining} steps remaining, got {steps_remaining}"
+            assert steps_remaining == expected_remaining, (
+                f"Step {step+1}: Expected {expected_remaining} steps remaining, "
+                f"got {steps_remaining}"
+            )
             assert not done, f"Episode should not be done at step {step+1}"
         else:
             # At final step (step 200), episode should terminate
-            assert (
-                steps_remaining == 0
-            ), f"SPEC VIOLATION: After {consts.episodeLen} steps, should have 0 steps remaining, got {steps_remaining}"
+            assert steps_remaining == 0, (
+                f"SPEC VIOLATION: After {consts.episodeLen} steps, should have 0 steps "
+                f"remaining, got {steps_remaining}"
+            )
 
     print(f"✓ Episode correctly terminated after exactly {consts.episodeLen} steps")
 
@@ -602,7 +608,8 @@ def test_auto_reset_after_episode_termination():
     done_after_termination = observer.get_done_flag(0)
 
     print(
-        f"After episode termination: steps_remaining={steps_after_termination}, done={done_after_termination}"
+        f"After episode termination: steps_remaining={steps_after_termination}, "
+        f"done={done_after_termination}"
     )
 
     # Take one more step to trigger auto-reset
@@ -617,9 +624,10 @@ def test_auto_reset_after_episode_termination():
     print(f"Position after:  ({position_after_reset[0]:.3f}, {position_after_reset[1]:.3f})")
 
     # SPEC REQUIREMENT: Steps should reset to full episode length
-    assert (
-        steps_after_reset >= consts.episodeLen - 5
-    ), f"SPEC VIOLATION: Auto-reset should restore ~{consts.episodeLen} steps, got {steps_after_reset}"
+    assert steps_after_reset >= consts.episodeLen - 5, (
+        f"SPEC VIOLATION: Auto-reset should restore ~{consts.episodeLen} steps, "
+        f"got {steps_after_reset}"
+    )
 
     print("✓ Auto-reset correctly restored episode after termination")
 
@@ -662,9 +670,10 @@ def test_post_reset_reward_consistency():
     print(f"Episode 2 step 0 reward: {episode_2_step_0_reward}")
 
     # SPEC REQUIREMENT: Post-reset step 0 should match initial step 0
-    assert (
-        episode_2_step_0_reward == episode_1_step_0_reward
-    ), f"SPEC VIOLATION: Post-reset step 0 reward should match initial ({episode_1_step_0_reward}), got {episode_2_step_0_reward}"
+    assert episode_2_step_0_reward == episode_1_step_0_reward, (
+        f"SPEC VIOLATION: Post-reset step 0 reward should match initial "
+        f"({episode_1_step_0_reward}), got {episode_2_step_0_reward}"
+    )
 
     # SPEC REQUIREMENT: Both should be 0.0 (this will fail with current bug)
     if episode_1_step_0_reward != 0.0 or episode_2_step_0_reward != 0.0:
@@ -728,8 +737,133 @@ def test_multiple_episode_cycles_with_auto_reset():
 
     # SPEC REQUIREMENT: All step 0 rewards should be identical
     for i, reward in enumerate(step_0_rewards[1:], 1):
-        assert (
-            reward == step_0_rewards[0]
-        ), f"SPEC VIOLATION: Episode {i+1} step 0 reward {reward} should match episode 1 reward {step_0_rewards[0]}"
+        assert reward == step_0_rewards[0], (
+            f"SPEC VIOLATION: Episode {i+1} step 0 reward {reward} should match "
+            f"episode 1 reward {step_0_rewards[0]}"
+        )
 
     print(f"✓ Verified consistent step 0 rewards across {episode_count} episodes: {step_0_rewards}")
+
+
+# Define empty level for complete traversal test - no northern wall, agent can reach world_max_y
+# 32×20 = 640 tiles (under 1024 limit), spawn at 25% from bottom
+TEST_LEVEL_EMPTY_TRAVERSAL = """
+................................
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#...........S..................#
+#..............................#
+#..............................#
+#..............................#
+################################
+"""
+
+
+@pytest.mark.ascii_level(TEST_LEVEL_EMPTY_TRAVERSAL)
+def test_complete_traversal_yields_unit_reward(cpu_manager):
+    """SPEC 9: Agent traversing from spawn to world_max_y without obstacles receives
+    total reward = 1.0 ± ε
+    """
+    mgr = cpu_manager
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Reset world 0
+    reset_world(mgr, 0)
+
+    # Get initial position (should be at 25% along Y-axis based on spawn location)
+    initial_pos = observer.get_position(0)
+    initial_y = initial_pos[1]
+    print(f"Agent initial position: ({initial_pos[0]:.2f}, {initial_y:.2f}, {initial_pos[2]:.2f})")
+
+    # Verify agent is roughly at 25% of the level (spawn at row 15 of 20 rows,
+    # so 75% from top = 25% from bottom)
+    print("Level has 20 rows, agent spawned at row 15 (75% down = 25% up from bottom)")
+
+    # Move forward consistently to traverse the entire level
+    controller.reset_actions()
+    controller.move_forward(world_idx=0, speed=3)  # Use fastest speed for efficiency
+
+    total_reward = 0.0
+    step_count = 0
+    max_steps = 300  # Safety limit
+
+    print("Starting traversal...")
+
+    # Run until episode completes (done=True) or we hit the step limit
+    while not observer.get_done_flag(0) and step_count < max_steps:
+        controller.step()
+        step_count += 1
+
+        reward = observer.get_reward(0)
+        total_reward += reward
+
+        current_pos = observer.get_position(0)
+        current_y = current_pos[1]
+        max_y_progress = observer.get_max_y_progress(0)
+
+        # Log progress every 50 steps
+        if step_count % 50 == 0:
+            print(
+                f"Step {step_count}: Y={current_y:.2f}, Total reward={total_reward:.6f}, "
+                f"Progress={max_y_progress:.3f}"
+            )
+
+        # Check for early completion due to progress
+        if max_y_progress >= 1.0:
+            print(f"Reached world boundary at step {step_count}")
+            break
+
+    # Final state
+    final_pos = observer.get_position(0)
+    final_y = final_pos[1]
+    final_max_y_progress = observer.get_max_y_progress(0)
+    done_flag = observer.get_done_flag(0)
+
+    print("\nTraversal completed:")
+    print(f"  Steps taken: {step_count}")
+    print(f"  Initial Y: {initial_y:.2f}")
+    print(f"  Final Y: {final_y:.2f}")
+    print(f"  Y distance traveled: {final_y - initial_y:.2f}")
+    print(f"  Max Y progress (normalized): {final_max_y_progress:.6f}")
+    print(f"  Total reward accumulated: {total_reward:.6f}")
+    print(f"  Episode done: {done_flag}")
+
+    # SPEC 9 REQUIREMENTS: Complete traversal validation
+
+    # 1. Episode should terminate due to reaching world boundary
+    assert (
+        done_flag
+    ), "SPEC VIOLATION: Episode should terminate (done=True) after complete traversal"
+
+    # 2. Agent should reach very close to 100% progress
+    assert (
+        final_max_y_progress >= 0.99
+    ), f"SPEC VIOLATION: Agent should reach ~100% progress, got {final_max_y_progress:.3f}"
+
+    # 3. Total reward should equal 1.0 ± small epsilon (0.01)
+    epsilon = 0.01
+    assert abs(total_reward - 1.0) < epsilon, (
+        f"SPEC VIOLATION: Complete traversal should yield total reward = 1.0 ± {epsilon}, "
+        f"got {total_reward:.6f} (difference: {abs(total_reward - 1.0):.6f})"
+    )
+
+    # 4. Total reward should match the max Y progress (they should be equal)
+    assert abs(total_reward - final_max_y_progress) < 0.01, (
+        f"SPEC VIOLATION: Total reward {total_reward:.6f} should match max Y progress "
+        f"{final_max_y_progress:.6f}"
+    )
+
+    print(f"✓ SPEC 9 verified: Complete traversal yielded {total_reward:.6f} total reward (≈ 1.0)")

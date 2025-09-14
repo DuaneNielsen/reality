@@ -26,10 +26,10 @@ def create_base_level_template():
     level.world_min_z = 0.0  # Floor level
     level.world_max_z = 25.0  # Reasonable max height
 
-    # Set spawn point at x=0, y=-17.0 (near southern wall)
+    # Set spawn point at x=0, y=-14.5 (moved forward from southern wall)
     level.num_spawns = 1
     level.spawn_x[0] = 0.0
-    level.spawn_y[0] = -17.0
+    level.spawn_y[0] = -14.5  # Moved forward by 2.5 units from -17.0
     level.spawn_facing[0] = 0.0
 
     return level
