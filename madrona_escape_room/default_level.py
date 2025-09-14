@@ -18,11 +18,11 @@ def create_base_level_template():
     level.world_scale = 1.0
     level.max_entities = 150  # Enough for walls and obstacles
 
-    # World boundaries using constants from consts.hpp
-    level.world_min_x = -consts.worldWidth / 2.0  # -10.0
-    level.world_max_x = consts.worldWidth / 2.0  # +10.0
-    level.world_min_y = -consts.worldLength / 2.0  # -20.0
-    level.world_max_y = consts.worldLength / 2.0  # +20.0
+    # World boundaries: 16 tiles × 2.5 spacing = 40 units, centered = ±20
+    level.world_min_x = -20.0
+    level.world_max_x = 20.0
+    level.world_min_y = -20.0
+    level.world_max_y = 20.0
     level.world_min_z = 0.0  # Floor level
     level.world_max_z = 25.0  # Reasonable max height
 

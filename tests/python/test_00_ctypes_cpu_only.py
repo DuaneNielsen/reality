@@ -196,13 +196,11 @@ def test_dataclass_level_structure():
     assert level.spawn_y[0] == -17.0
     assert level.spawn_facing[0] == 0.0
 
-    # Check world boundaries (calculated from constants)
-    expected_half_width = consts.worldWidth / 2.0
-    expected_half_length = consts.worldLength / 2.0
-    assert level.world_min_x == -expected_half_width
-    assert level.world_max_x == expected_half_width
-    assert level.world_min_y == -expected_half_length
-    assert level.world_max_y == expected_half_length
+    # Check world boundaries (hardcoded to match C++ default_level.cpp)
+    assert level.world_min_x == -20.0
+    assert level.world_max_x == 20.0
+    assert level.world_min_y == -20.0
+    assert level.world_max_y == 20.0
 
     # Verify arrays are Python lists (not ctypes arrays)
     assert isinstance(level.spawn_x, list)

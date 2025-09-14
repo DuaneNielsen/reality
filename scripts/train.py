@@ -307,6 +307,11 @@ arg_parser.add_argument("--level-file", type=str, help="Path to compiled .lvl le
 arg_parser.add_argument(
     "--tag", action="append", dest="tags", help="Add tags to wandb run (can be used multiple times)"
 )
+arg_parser.add_argument(
+    "--record",
+    type=str,
+    help="Enable recording and save to specified filepath (e.g., training_run.bin)",
+)
 
 args = arg_parser.parse_args()
 
@@ -341,6 +346,11 @@ sim_interface = setup_lidar_training_environment(
     compiled_levels=compiled_levels,
 )
 
+# Start recording if requested
+if args.record:
+    sim_interface.manager.start_recording(args.record)
+    print(f"✓ Started recording to: {args.record}")
+
 ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None
 
 # Prepare training configuration for wandb logging
@@ -364,6 +374,8 @@ training_config = {
     "level_file": args.level_file if args.level_file else None,
     "sensor_type": "lidar_128_beam",
     "random_seed": args.seed,
+    "recording_enabled": bool(args.record),
+    "recording_filepath": args.record if args.record else None,
 }
 
 learning_cb = LearningCallback(
@@ -415,5 +427,13 @@ try:
         restore_ckpt,
     )
 finally:
+    # Stop recording if active
+    if args.record and sim_interface.manager.is_recording():
+        try:
+            sim_interface.manager.stop_recording()
+            print(f"✓ Recording saved to: {args.record}")
+        except Exception as e:
+            print(f"⚠ Warning: Failed to stop recording: {e}")
+
     # Clean up wandb
     learning_cb.finish()
