@@ -114,6 +114,7 @@ def _create_sim_manager(
     ascii_marker = request.node.get_closest_marker("ascii_level")
     json_marker = request.node.get_closest_marker("json_level")
     depth_marker = request.node.get_closest_marker("depth_sensor")
+    auto_reset_marker = request.node.get_closest_marker("auto_reset")
 
     # Determine level data from markers
     level_data = None
@@ -184,6 +185,11 @@ def _create_sim_manager(
 
             exec_mode_name = "CPU" if exec_mode == 0 else "CUDA"
             logger.info(f"Legacy depth sensor for {exec_mode_name}: {sensor_config}")
+
+    # Check for auto_reset marker override
+    if auto_reset_marker:
+        auto_reset = True
+        logger.info("Auto-reset enabled via @pytest.mark.auto_reset marker")
 
     # Use the factory function
     return create_sim_manager(

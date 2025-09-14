@@ -4,6 +4,8 @@ Test reward system for Madrona Escape Room.
 Tests that rewards are given incrementally as the agent makes forward progress.
 """
 
+import json
+
 import numpy as np
 import pytest
 import torch
@@ -745,6 +747,145 @@ def test_multiple_episode_cycles_with_auto_reset():
     print(f"✓ Verified consistent step 0 rewards across {episode_count} episodes: {step_0_rewards}")
 
 
+# Define level with cubes surrounding agent spawn to cause collision termination
+# Using JSON level to specify DoneOnCollide=True for cubes
+@pytest.mark.json_level(
+    {
+        "ascii": """################################
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............CCCCCC..........#
+#..............C....C..........#
+#..............C.S..C..........#
+#..............C....C..........#
+#..............CCCCCC..........#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+################################""",
+        "tileset": {
+            "#": {"asset": "wall", "done_on_collision": False},  # Outer walls don't terminate
+            "C": {"asset": "cube", "done_on_collision": True},  # Collision cubes terminate episode
+            "S": {"asset": "spawn"},  # Agent spawn point
+            ".": {"asset": "empty"},  # Empty space
+        },
+        "scale": 2.5,
+        "name": "collision_chamber_with_cubes",
+    }
+)
+@pytest.mark.auto_reset
+def test_collision_auto_reset_step_zero_reward(cpu_manager):
+    """Test that step 0 reward is 0 after collision-induced auto-reset"""
+    mgr = cpu_manager
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Verify cpu_manager has auto_reset enabled
+    # Note: cpu_manager fixture should be configured with auto_reset=True
+
+    # Reset world 0
+    reset_world(mgr, 0)
+
+    # Verify initial step 0 reward is 0
+    initial_step_0_reward = observer.get_reward(0)
+    initial_position = observer.get_position(0)
+    print(f"Initial step 0 reward: {initial_step_0_reward}")
+    print(
+        f"Initial position: ({initial_position[0]:.2f}, "
+        f"{initial_position[1]:.2f}, {initial_position[2]:.2f})"
+    )
+    assert (
+        initial_step_0_reward == 0.0
+    ), f"Initial step 0 reward should be 0.0, got {initial_step_0_reward}"
+
+    # Agent spawns in center of chamber with walls 1 tile away in all directions
+    # Move agent eastward to collide with wall
+    controller.reset_actions()
+    controller.strafe_right(world_idx=0, speed=3)  # High speed to ensure collision
+
+    collision_detected = False
+    step_count = 0
+    max_collision_steps = 20  # Should hit wall quickly in small chamber
+
+    # Keep moving until collision occurs
+    while not observer.get_done_flag(0) and step_count < max_collision_steps:
+        controller.step()
+        step_count += 1
+
+        reward = observer.get_reward(0)
+        position = observer.get_position(0)
+
+        # Check for collision penalty (DoneOnCollide cubes give -1.0 reward)
+        if reward == -1.0:  # Collision with terminating object gives exactly -1.0
+            collision_detected = True
+            print(
+                f"Collision detected at step {step_count}: reward={reward:.4f}, "
+                f"position=({position[0]:.2f}, {position[1]:.2f}, {position[2]:.2f})"
+            )
+            break
+
+        if step_count % 5 == 0:
+            print(
+                f"Step {step_count}: reward={reward:.4f}, "
+                f"position=({position[0]:.2f}, {position[1]:.2f}, {position[2]:.2f})"
+            )
+
+    # Verify collision was detected
+    assert collision_detected, f"Expected collision with wall within {max_collision_steps} steps"
+
+    # Episode should be done due to collision
+    assert observer.get_done_flag(0), "Episode should be done after collision"
+
+    # Trigger auto-reset
+    controller.step()
+
+    # Check step 0 reward after auto-reset
+    post_reset_step_0_reward = observer.get_reward(0)
+    post_reset_position = observer.get_position(0)
+    steps_remaining = observer.get_steps_remaining(0)
+
+    print("After auto-reset:")
+    print(f"  Step 0 reward: {post_reset_step_0_reward}")
+    print(
+        f"  Position: ({post_reset_position[0]:.2f}, "
+        f"{post_reset_position[1]:.2f}, {post_reset_position[2]:.2f})"
+    )
+    print(f"  Steps remaining: {steps_remaining}")
+
+    # SPEC REQUIREMENT: Step 0 reward after auto-reset must be 0
+    assert post_reset_step_0_reward == 0.0, (
+        f"SPEC VIOLATION: Step 0 reward after auto-reset should be 0.0, "
+        f"got {post_reset_step_0_reward}"
+    )
+
+    # Verify the episode reset properly (should have close to full episode length)
+    assert (
+        steps_remaining > 190
+    ), f"Episode should have ~200 steps after reset, got {steps_remaining}"
+
+    print("✓ Step 0 reward correctly set to 0.0 after collision-induced auto-reset")
+
+
 # Define empty level for complete traversal test - no northern wall, agent can reach world_max_y
 # 32×20 = 640 tiles (under 1024 limit), spawn at 25% from bottom
 TEST_LEVEL_EMPTY_TRAVERSAL = """
@@ -769,6 +910,120 @@ TEST_LEVEL_EMPTY_TRAVERSAL = """
 #..............................#
 ################################
 """
+
+
+# Load the empty level JSON and modify it for traversal testing
+with open("levels/empty_20x48.json", "r") as f:
+    EMPTY_LEVEL_JSON = json.load(f)
+
+# Create a modified version for traversal testing - remove north wall for complete traversal
+EMPTY_LEVEL_TRAVERSAL_JSON = EMPTY_LEVEL_JSON.copy()
+EMPTY_LEVEL_TRAVERSAL_JSON["ascii"] = EMPTY_LEVEL_JSON["ascii"].copy()
+# Remove the top wall (first line) to allow complete traversal
+EMPTY_LEVEL_TRAVERSAL_JSON["ascii"][0] = "." * len(EMPTY_LEVEL_JSON["ascii"][0])
+EMPTY_LEVEL_TRAVERSAL_JSON["name"] = "empty_level_traversal_test"
+
+
+@pytest.mark.json_level(EMPTY_LEVEL_TRAVERSAL_JSON)
+def test_empty_level_complete_traversal_rewards(cpu_manager):
+    """Test reward system on empty level - agent should reach ~1.0 total reward with traversal"""
+    mgr = cpu_manager
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Reset world 0
+    reset_world(mgr, 0)
+
+    # Get initial position (spawn should be near bottom of 48-row level)
+    initial_pos = observer.get_position(0)
+    initial_y = initial_pos[1]
+    print(
+        f"Agent initial position in empty level: ({initial_pos[0]:.2f}, "
+        f"{initial_y:.2f}, {initial_pos[2]:.2f})"
+    )
+
+    # Agent spawns at row 46 of 48 rows (near bottom), with top wall removed for complete traversal
+    print("Empty level: 48 rows, agent spawned near bottom, can traverse to open north boundary")
+
+    # Move forward consistently to traverse the entire level
+    controller.reset_actions()
+    controller.move_forward(world_idx=0, speed=3)  # Use fastest speed for efficiency
+
+    total_reward = 0.0
+    step_count = 0
+    max_steps = 400  # Longer level needs more steps
+
+    print("Starting traversal of empty level...")
+
+    # Run until episode completes (done=True) or we hit the step limit
+    while not observer.get_done_flag(0) and step_count < max_steps:
+        controller.step()
+        step_count += 1
+
+        reward = observer.get_reward(0)
+        total_reward += reward
+
+        current_pos = observer.get_position(0)
+        current_y = current_pos[1]
+        max_y_progress = observer.get_max_y_progress(0)
+
+        # Log progress every 75 steps (longer level)
+        if step_count % 75 == 0:
+            print(
+                f"Step {step_count}: Y={current_y:.2f}, Total reward={total_reward:.6f}, "
+                f"Progress={max_y_progress:.3f}"
+            )
+
+        # Check for early completion due to progress
+        if max_y_progress >= 1.0:
+            print(f"Reached world boundary at step {step_count}")
+            break
+
+    # Final state
+    final_pos = observer.get_position(0)
+    final_y = final_pos[1]
+    final_max_y_progress = observer.get_max_y_progress(0)
+    done_flag = observer.get_done_flag(0)
+
+    print("\nEmpty level traversal completed:")
+    print(f"  Steps taken: {step_count}")
+    print(f"  Initial Y: {initial_y:.2f}")
+    print(f"  Final Y: {final_y:.2f}")
+    print(f"  Y distance traveled: {final_y - initial_y:.2f}")
+    print(f"  Max Y progress (normalized): {final_max_y_progress:.6f}")
+    print(f"  Total reward accumulated: {total_reward:.6f}")
+    print(f"  Episode done: {done_flag}")
+
+    # SPEC 9 REQUIREMENTS: Complete traversal validation for empty level
+
+    # 1. Episode should terminate due to reaching world boundary or hitting walls
+    assert (
+        done_flag
+    ), "SPEC VIOLATION: Episode should terminate (done=True) after complete traversal"
+
+    # 2. Agent should reach very close to 100% progress in empty level
+    assert final_max_y_progress >= 0.95, (
+        f"SPEC VIOLATION: Agent should reach ~100% progress in empty level, "
+        f"got {final_max_y_progress:.3f}"
+    )
+
+    # 3. Total reward should equal 1.0 ± small epsilon (0.02 for longer level)
+    epsilon = 0.02
+    assert abs(total_reward - 1.0) < epsilon, (
+        f"SPEC VIOLATION: Complete traversal should yield total reward = 1.0 ± {epsilon}, "
+        f"got {total_reward:.6f} (difference: {abs(total_reward - 1.0):.6f})"
+    )
+
+    # 4. Total reward should match the max Y progress (they should be equal)
+    assert abs(total_reward - final_max_y_progress) < 0.02, (
+        f"SPEC VIOLATION: Total reward {total_reward:.6f} should match max Y progress "
+        f"{final_max_y_progress:.6f}"
+    )
+
+    print(
+        f"✓ Empty level SPEC 9 verified: Complete traversal yielded "
+        f"{total_reward:.6f} total reward (≈ 1.0)"
+    )
 
 
 @pytest.mark.ascii_level(TEST_LEVEL_EMPTY_TRAVERSAL)

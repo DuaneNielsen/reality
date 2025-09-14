@@ -27,23 +27,23 @@ parameters:
   lr:
     value: 0.00038822
   gamma:
-    values: [0.99, 0.9]
+    value: 0.99
   
   # PPO tuning (optimal values)
   entropy-loss-coef:
-    values: [ 0.001, 0.005, 0.01 ]
+    value: 0.005
   
   # Fixed parameters
   value-loss-coef:
     value: 0.5
   num-channels:
-    values: [256, 512, 1024]
+    value: 256
   
   # Random seed for reproducibility
   seed:
-    values: [0, 1]
+    value: 0
   
   # Level files for grid search across all 20 generated levels
   level-file:
     values:
-      - "levels/progressive_20_levels.lvl"
+      - "levels/empty_20x48.lvl"

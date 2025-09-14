@@ -1242,21 +1242,13 @@ void Manager::stopRecording()
     if (!impl_->isRecordingActive) {
         return;
     }
-    
-    if (impl_->recordedFrames > 0) {
-        // Update metadata with actual number of steps
-        impl_->recordingMetadata.num_steps = impl_->recordedFrames;
-        
-        // Seek back to beginning and rewrite the metadata
-        impl_->recordingFile.seekp(0, std::ios::beg);
-        impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata), 
-                                  sizeof(impl_->recordingMetadata));
-        
-    } else {
-    }
-    
+
+    // Metadata is already up-to-date from incremental updates
+    // Just close the file
     impl_->recordingFile.close();
     impl_->isRecordingActive = false;
+
+    std::cout << "Recording stopped. Recorded " << impl_->recordedFrames << " steps.\n";
 }
 
 bool Manager::isRecording() const
@@ -1269,12 +1261,28 @@ void Manager::recordActions(const std::vector<int32_t>& frame_actions)
     if (!impl_->isRecordingActive) {
         return;
     }
-    
-    impl_->recordingFile.write(reinterpret_cast<const char*>(frame_actions.data()), 
+
+    // Write action data
+    impl_->recordingFile.write(reinterpret_cast<const char*>(frame_actions.data()),
                               frame_actions.size() * sizeof(int32_t));
     impl_->recordedFrames++;
-    
-    // Tracking frame count without logging
+
+    // Update metadata with new step count
+    impl_->recordingMetadata.num_steps = impl_->recordedFrames;
+
+    // Save current position
+    std::streampos current_pos = impl_->recordingFile.tellp();
+
+    // Seek to metadata location and update it
+    impl_->recordingFile.seekp(0, std::ios::beg);
+    impl_->recordingFile.write(reinterpret_cast<const char*>(&impl_->recordingMetadata),
+                              sizeof(impl_->recordingMetadata));
+
+    // Return to end of file for next write
+    impl_->recordingFile.seekp(current_pos);
+
+    // Flush to ensure data is written
+    impl_->recordingFile.flush();
 }
 
 // Replay functionality

@@ -151,6 +151,7 @@ static void resetAgentPhysics(Engine &ctx) {
         ctx.get<StepsTaken>(agent_entity).t = 0;  // Reset to 0 for new episode
         ctx.get<Done>(agent_entity).v = 0;  // Reset done flag for new episode
         ctx.get<CollisionDeath>(agent_entity).died = 0;  // Reset collision death flag
+        ctx.get<Reward>(agent_entity).v = 0.0f;  // Reset reward for new episode
         
         // Initialize compass observation to all zeros (will be updated by compassSystem)
         CompassObservation &compass_obs = ctx.get<CompassObservation>(agent_entity);

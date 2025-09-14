@@ -40,6 +40,10 @@ class LearningCallback:
         self.profile_report = profile_report
         self.training_config = training_config or {}
 
+        # Episode reward tracking
+        self.episode_reward_max = float("-inf")
+        self.episode_reward_min = float("inf")
+
         # Initialize wandb
         self.use_wandb = False
         if WANDB_AVAILABLE:
