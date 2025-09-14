@@ -460,6 +460,12 @@ inline void rewardSystem(Engine &ctx,
         progress.maxY = pos.y;
     }
 
+    // Mark episode as done if agent reaches the end of the level
+    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    if (pos.y >= level.world_max_y) {
+        done.v = 1;
+    }
+
     // Only give reward at the end of the episode
     if (done.v == 1) {
         if (collision_death.died == 1) {
@@ -467,8 +473,6 @@ inline void rewardSystem(Engine &ctx,
             out_reward.v = -1.0f;
         } else {
             // Normal episode end - give progress reward
-            const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-            
             // Use actual world boundaries for normalization
             float world_length = level.world_max_y - level.world_min_y;
             

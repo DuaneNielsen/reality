@@ -155,12 +155,11 @@ def create_level_grid(obstacles, width=19, height=48):
     # Initialize grid with empty spaces
     grid = [["." for _ in range(width)] for _ in range(height)]
 
-    # Add walls around perimeter
+    # Add walls around perimeter (except top)
     for i in range(height):
         grid[i][0] = "#"  # Left wall
         grid[i][width - 1] = "#"  # Right wall
     for j in range(width):
-        grid[0][j] = "#"  # Top wall
         grid[height - 1][j] = "#"  # Bottom wall
 
     # Add spawn point at bottom center
@@ -349,7 +348,8 @@ def generate_multi_level_json(output_dir="levels", random_seed=42):
 
     total_obstacles = sum(level_num * 10 for level_num in range(1, 21))
     print(
-        f"Generated {output_path} with {len(levels_data)} levels and {total_obstacles} total obstacles"
+        f"Generated {output_path} with {len(levels_data)} levels and "
+        f"{total_obstacles} total obstacles"
     )
     return output_path
 
