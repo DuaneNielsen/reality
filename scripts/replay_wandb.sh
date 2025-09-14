@@ -35,7 +35,7 @@ if [[ ! -d "${WANDB_RUN_DIRS[0]}" ]]; then
             echo "No local directory found, trying to lookup run hash..."
             PROJECT_NAME="${WANDB_PROJECT:-madrona-escape-room-dev}"
             
-            LOOKUP_RESULT=$(uv run python scripts/infer_from_wandb.py --lookup "$RUN_IDENTIFIER" --project "$PROJECT_NAME")
+            LOOKUP_RESULT=$(uv run python scripts/wandb_utils.py lookup "$RUN_IDENTIFIER" --project "$PROJECT_NAME")
             
             if [[ "$LOOKUP_RESULT" == "NOT_FOUND" ]]; then
                 echo "Error: No wandb run found matching '$RUN_IDENTIFIER' in project $PROJECT_NAME"

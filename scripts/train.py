@@ -346,11 +346,6 @@ sim_interface = setup_lidar_training_environment(
     compiled_levels=compiled_levels,
 )
 
-# Start recording if requested
-if args.record:
-    sim_interface.manager.start_recording(args.record)
-    print(f"✓ Started recording to: {args.record}")
-
 ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None
 
 # Prepare training configuration for wandb logging
@@ -375,12 +370,28 @@ training_config = {
     "sensor_type": "lidar_128_beam",
     "random_seed": args.seed,
     "recording_enabled": bool(args.record),
-    "recording_filepath": args.record if args.record else None,
+    "recording_filepath": args.record
+    if args.record and args.record != "wandb"
+    else "train.rec"
+    if args.record
+    else None,
 }
 
 learning_cb = LearningCallback(
     ckpt_dir, args.profile_report, training_config, args.level_file, args.tags
 )
+
+# Start recording if requested
+if args.record:
+    if args.record == "wandb" and learning_cb.use_wandb:
+        # Save recording to checkpoint directory for wandb runs
+        record_path = learning_cb.ckpt_dir / "train.rec"
+        sim_interface.manager.start_recording(str(record_path))
+        print(f"✓ Started recording to wandb checkpoint directory: {record_path}")
+    else:
+        # Use the provided path directly
+        sim_interface.manager.start_recording(args.record)
+        print(f"✓ Started recording to: {args.record}")
 
 if torch.cuda.is_available():
     dev = torch.device(f"cuda:{args.gpu_id}")
@@ -431,7 +442,11 @@ finally:
     if args.record and sim_interface.manager.is_recording():
         try:
             sim_interface.manager.stop_recording()
-            print(f"✓ Recording saved to: {args.record}")
+            if args.record == "wandb" and learning_cb.use_wandb:
+                record_path = learning_cb.ckpt_dir / "train.rec"
+                print(f"✓ Recording saved to wandb checkpoint directory: {record_path}")
+            else:
+                print(f"✓ Recording saved to: {args.record}")
         except Exception as e:
             print(f"⚠ Warning: Failed to stop recording: {e}")
 

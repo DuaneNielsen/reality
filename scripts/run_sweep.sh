@@ -6,6 +6,7 @@ set -e
 # Parse arguments and use environment variable or default
 PROJECT="${WANDB_PROJECT:-madrona-escape-room-dev}"
 CACHED=false
+RECORD=false
 TAGS=()
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -17,15 +18,20 @@ while [[ $# -gt 0 ]]; do
             CACHED=true
             shift
             ;;
+        --record)
+            RECORD=true
+            shift
+            ;;
         --tag)
             TAGS+=("$2")
             shift 2
             ;;
         *)
             echo "Unknown argument: $1"
-            echo "Usage: $0 [--project PROJECT_NAME] [--cached] [--tag TAG_NAME]..."
+            echo "Usage: $0 [--project PROJECT_NAME] [--cached] [--record] [--tag TAG_NAME]..."
             echo "  --project: Specify wandb project name"
             echo "  --cached: Keep existing CUDA kernel cache (skip deletion)"
+            echo "  --record: Enable recording for all training runs"
             echo "  --tag: Add a tag to all runs in the sweep (can be used multiple times)"
             echo "Or set WANDB_PROJECT environment variable"
             exit 1
@@ -44,13 +50,22 @@ sed "s/^project:.*/project: $PROJECT/" "$SWEEP_CONFIG" > "$TEMP_SWEEP_CONFIG"
 # Add tags to the command arguments if any tags were provided
 if [[ ${#TAGS[@]} -gt 0 ]]; then
     echo "Adding tags to sweep: ${TAGS[*]}"
-    
+
     # Add each tag as a separate command line argument in the sweep config
     # Insert before the ${args} line
     for tag in "${TAGS[@]}"; do
         sed -i "/- \${args}/i\\  - \"--tag\"\\
   - \"$tag\"" "$TEMP_SWEEP_CONFIG"
     done
+fi
+
+# Add recording argument if --record flag is set
+if [[ "$RECORD" == "true" ]]; then
+    echo "Adding recording to all sweep runs"
+
+    # Add --record argument before the ${args} line
+    sed -i "/- \${args}/i\\  - \"--record\"\\
+  - \"wandb\"" "$TEMP_SWEEP_CONFIG"
 fi
 
 echo "Setting up CUDA kernel cache..."

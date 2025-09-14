@@ -14,29 +14,14 @@ import torch
 from madrona_escape_room_learn import LearningState
 from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
+from wandb_utils import find_checkpoint as find_latest_checkpoint
+
+# Import wandb utilities
+from wandb_utils import find_wandb_run_dir, get_run_object, lookup_run
 
 import madrona_escape_room
 import wandb
 from madrona_escape_room.level_io import load_compiled_levels
-
-
-def find_latest_checkpoint(wandb_run_path):
-    """Find the latest checkpoint in the wandb run directory."""
-    checkpoints_dir = Path(wandb_run_path) / "files" / "checkpoints"
-
-    if not checkpoints_dir.exists():
-        raise FileNotFoundError(f"Checkpoints directory not found: {checkpoints_dir}")
-
-    # Find all .pth files and sort by numerical value
-    checkpoint_files = list(checkpoints_dir.glob("*.pth"))
-    if not checkpoint_files:
-        raise FileNotFoundError(f"No checkpoint files found in {checkpoints_dir}")
-
-    # Sort by numerical value (extract number from filename)
-    checkpoint_files.sort(key=lambda x: int(x.stem))
-    latest_checkpoint = checkpoint_files[-1]
-
-    return latest_checkpoint
 
 
 def run_inference(
@@ -245,29 +230,8 @@ def main():
 
     # Handle lookup option
     if args.lookup:
-        import os
-
-        # Suppress wandb verbose output
-        os.environ["WANDB_SILENT"] = "true"
-
-        api = wandb.Api()
-        runs = api.runs(args.project)
-
-        # Find run by exact name match
-        matching_runs = [run for run in runs if run.name == args.lookup]
-
-        if not matching_runs:
-            # Try partial name match
-            matching_runs = [run for run in runs if args.lookup.lower() in run.name.lower()]
-
-        if not matching_runs:
-            print("NOT_FOUND")
-            return
-
-        if len(matching_runs) == 1:
-            print(matching_runs[0].id)
-        else:
-            print("DUPLICATES")
+        result = lookup_run(args.lookup, args.project)
+        print(result)
         return
 
     # Handle list option
@@ -298,39 +262,14 @@ def main():
     if not args.wandb_run_identifier:
         parser.error("wandb_run_identifier is required unless --list is used")
 
-    # Find the wandb run using API
-    api = wandb.Api()
+    # Get the wandb run object using the utility function
     identifier = args.wandb_run_identifier
+    selected_run = get_run_object(identifier, args.project)
 
-    # Get all runs from the project
-    runs = api.runs(args.project)
-
-    # Try to find run by exact name match first
-    matching_runs = [run for run in runs if run.name == identifier]
-
-    # If no exact match, try by run ID/hash
-    if not matching_runs:
-        matching_runs = [run for run in runs if run.id == identifier]
-
-    # If still no match, try partial name match
-    if not matching_runs:
-        matching_runs = [run for run in runs if identifier.lower() in run.name.lower()]
-
-    if not matching_runs:
-        print(f"Error: No wandb run found matching '{identifier}'")
-        print("Available runs:")
-        for run in runs[:10]:  # Show first 10 runs
-            print(f"  {run.name} ({run.id})")
-        if len(runs) > 10:
-            print(f"  ... and {len(runs) - 10} more runs")
+    if isinstance(selected_run, str) and selected_run.startswith("ERROR"):
+        print(selected_run)
         sys.exit(1)
 
-    if len(matching_runs) > 1:
-        print(f"Warning: Multiple runs found matching '{identifier}', using first one:")
-        for run in matching_runs:
-            print(f"  {run.name} ({run.id})")
-
-    selected_run = matching_runs[0]
     print(f"Using wandb run: {selected_run.name} ({selected_run.id})")
 
     # Extract model config from wandb config
@@ -358,16 +297,18 @@ def main():
             print("Error: No wandb config found and --num-channels not provided")
             sys.exit(1)
 
-    # Convert to local wandb directory path
-    wandb_base = Path("wandb")
-    wandb_run_dirs = list(wandb_base.glob(f"*-{selected_run.id}"))
+    # Convert to local wandb directory path using utility function
+    wandb_run_path_result = find_wandb_run_dir(selected_run.id)
 
-    if not wandb_run_dirs:
+    if wandb_run_path_result == "NOT_FOUND":
         print(f"Error: Local wandb directory not found for run {selected_run.id}")
         print("Make sure you have synced this run locally")
         sys.exit(1)
+    elif wandb_run_path_result.startswith("ERROR:"):
+        print(wandb_run_path_result)
+        sys.exit(1)
 
-    wandb_run_path = wandb_run_dirs[0]
+    wandb_run_path = Path(wandb_run_path_result)
 
     # Load custom level if provided via --level-file, or check checkpoint directory for .lvl file
     compiled_levels = None
@@ -413,33 +354,35 @@ def main():
             )
             args.num_worlds = num_sublevels
 
-    try:
-        latest_checkpoint = find_latest_checkpoint(wandb_run_path)
-        print(f"Latest checkpoint: {latest_checkpoint}")
+    # Find latest checkpoint using utility function
+    latest_checkpoint_result = find_latest_checkpoint(str(wandb_run_path))
 
-        # Create recording path in the same directory as checkpoint
-        recording_path = latest_checkpoint.with_suffix(".rec")
-        print(f"Recording will be saved to: {recording_path}")
-
-        # Run inference directly
-        run_inference(
-            ckpt_path=str(latest_checkpoint),
-            recording_path=str(recording_path),
-            num_worlds=args.num_worlds,
-            num_steps=args.num_steps,
-            gpu_sim=args.gpu_sim,
-            fp16=args.fp16,
-            seed=args.seed,
-            gpu_id=args.gpu_id,
-            num_channels=args.num_channels,
-            separate_value=args.separate_value,
-            sim_seed=args.sim_seed,
-            compiled_levels=compiled_levels,
-        )
-
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
+    if latest_checkpoint_result.startswith("ERROR:"):
+        print(f"Error: {latest_checkpoint_result}")
         sys.exit(1)
+
+    latest_checkpoint = Path(latest_checkpoint_result)
+    print(f"Latest checkpoint: {latest_checkpoint}")
+
+    # Create recording path in the same directory as checkpoint
+    recording_path = latest_checkpoint.with_suffix(".rec")
+    print(f"Recording will be saved to: {recording_path}")
+
+    # Run inference directly
+    run_inference(
+        ckpt_path=str(latest_checkpoint),
+        recording_path=str(recording_path),
+        num_worlds=args.num_worlds,
+        num_steps=args.num_steps,
+        gpu_sim=args.gpu_sim,
+        fp16=args.fp16,
+        seed=args.seed,
+        gpu_id=args.gpu_id,
+        num_channels=args.num_channels,
+        separate_value=args.separate_value,
+        sim_seed=args.sim_seed,
+        compiled_levels=compiled_levels,
+    )
 
 
 if __name__ == "__main__":
