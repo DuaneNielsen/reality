@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Madrona Escape Room Build Script
-# Handles cleaning, building, and rebuilding the project and all submodules
+# Handles cleaning, building, and rebuilding the project with integrated madrona
 
 set -e  # Exit on any error
 
@@ -76,7 +76,7 @@ clean_build_artifacts() {
         rm -rf "$PROJECT_ROOT/build"
     fi
     
-    # Clean madrona submodule build directory
+    # Clean madrona build directory (madrona is now directly integrated)
     if [ -d "$PROJECT_ROOT/external/madrona/build" ]; then
         log_info "Removing madrona build directory: $PROJECT_ROOT/external/madrona/build"
         rm -rf "$PROJECT_ROOT/external/madrona/build"
@@ -109,15 +109,10 @@ clean_build_artifacts() {
         rm -rf "$PROJECT_ROOT/.build_venv"
     fi
     
-    # Clean git untracked files in submodules (but be careful)
+    # Clean git untracked files in remaining submodules (but be careful)
     cd "$PROJECT_ROOT"
-    if [ -d "external/madrona/.git" ]; then
-        log_info "Cleaning untracked files in madrona submodule"
-        cd external/madrona
-        git clean -fd 2>/dev/null || log_warning "Could not clean madrona submodule"
-        cd "$PROJECT_ROOT"
-    fi
-    
+    # Note: madrona is now directly integrated, not a submodule
+
     if [ -d "external/mcp-gdb/.git" ]; then
         log_info "Cleaning untracked files in mcp-gdb submodule"
         cd external/mcp-gdb
@@ -236,11 +231,13 @@ full_build() {
     fi
     
     # Configure with CMake (creates build directory automatically)
+    # Include version hashes needed for madrona toolchain and dependencies
     log_info "Configuring with CMake..."
+    CMAKE_ARGS="-B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMADRONA_DEPS_VERSION=8d57788 -DMADRONA_TOOLCHAIN_VERSION=8c0b55b"
     if [ "${VERBOSE:-false}" = true ]; then
-        cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        cmake $CMAKE_ARGS
     else
-        cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo 2>&1 | grep -E "(error|Error|ERROR|FATAL)" || true
+        cmake $CMAKE_ARGS 2>&1 | grep -E "(error|Error|ERROR|FATAL)" || true
     fi
     
     # Build with make
