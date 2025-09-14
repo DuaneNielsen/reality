@@ -336,7 +336,7 @@ def generate_multi_level_json(output_dir="levels", random_seed=42):
         "levels": levels_data,
         "tileset": shared_tileset,
         "scale": 3.0,
-        "name": "progressive_levels_1_to_20",
+        "name": "progressive_20_levels",
     }
 
     # Save to file
