@@ -17,7 +17,7 @@ parameters:
   num-worlds:
     value: 4096
   num-updates:
-    value: 3000
+    value: 500
   steps-per-update:
     value: 40
   num-bptt-chunks:
@@ -27,11 +27,11 @@ parameters:
   lr:
     value: 0.00038822
   gamma:
-    value: 0.998
+    values: [0.99, 0.9]
   
   # PPO tuning (optimal values)
   entropy-loss-coef:
-    values: [ 0.005, 0.01 ]
+    values: [ 0.001, 0.005, 0.01 ]
   
   # Fixed parameters
   value-loss-coef:
@@ -41,9 +41,9 @@ parameters:
   
   # Random seed for reproducibility
   seed:
-    value: 0
+    values: [0, 1]
   
   # Level files for grid search across all 20 generated levels
   level-file:
     values:
-      - "levels/progressive_levels_1_to_20_multi.lvl"
+      - "levels/progressive_20_levels.lvl"
