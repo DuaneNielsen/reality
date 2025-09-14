@@ -646,10 +646,16 @@ int main(int argc, char *argv[])
                 // Stage 2: Use external parameters from config and level data
                 viewer.setMultiWorldGrid(true, config.world_spacing, config.grid_cols, 
                                        worldWidth, worldHeight);
+                viewer.setExploreMode(false);
                 
+            } else if (config.explore_mode) {
+                viewer.setMultiWorldGrid(false, config.world_spacing, config.grid_cols, 
+                                       worldWidth, worldHeight);
+                viewer.setExploreMode(true);
             } else {
                 viewer.setMultiWorldGrid(false, config.world_spacing, config.grid_cols, 
                                        worldWidth, worldHeight);
+                viewer.setExploreMode(false);
             }
         }
         

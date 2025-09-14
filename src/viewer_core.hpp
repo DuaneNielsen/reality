@@ -73,6 +73,7 @@ public:
         bool start_paused = false;
         float pause_delay_seconds = 0.0f;
         bool multi_world_grid = false;  // Enable multi-world grid layout
+        bool explore_mode = false;      // Enable explore mode (overlay all agents)
         float world_spacing = 1.0f;     // Spacing between worlds
         uint32_t grid_cols = 8;         // Grid columns (configurable)
     };

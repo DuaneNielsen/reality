@@ -144,7 +144,9 @@
       "Bash(git cherry-pick:*)",
       "Bash(./build.sh:*)",
       "Bash(git ls-tree:*)",
-      "Bash(/home/duane/camera_rework/.claude/scripts/repo-status.sh:*)"
+      "Bash(/home/duane/camera_rework/.claude/scripts/repo-status.sh:*)",
+      "Bash(git -C external/madrona diff src/render/shaders/viewer_cull.hlsl)",
+      "Bash(git -C external/madrona diff src/viz/viewer_renderer.cpp)"
     ],
     "deny": []
   },

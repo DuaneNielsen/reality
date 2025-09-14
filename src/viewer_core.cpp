@@ -178,8 +178,23 @@ void ViewerCore::handleInput(int world_idx, const InputEvent& event) {
     }
     
     if (event.key == InputEvent::M && event.type == InputEvent::KeyHit) {
-        config_.multi_world_grid = !config_.multi_world_grid;
-        printf("Multi-world grid: %s\n", config_.multi_world_grid ? "ON" : "OFF");
+        // 3-state cycling: Single -> Multi-Grid -> Explore -> Single
+        if (!config_.multi_world_grid && !config_.explore_mode) {
+            // State 1 -> State 2: Single world -> Multi-world grid
+            config_.multi_world_grid = true;
+            config_.explore_mode = false;
+            printf("Mode: Multi-world grid\n");
+        } else if (config_.multi_world_grid && !config_.explore_mode) {
+            // State 2 -> State 3: Multi-world grid -> Explore mode
+            config_.multi_world_grid = false;
+            config_.explore_mode = true;
+            printf("Mode: Explore (agent overlay)\n");
+        } else {
+            // State 3 -> State 1: Explore mode -> Single world
+            config_.multi_world_grid = false;
+            config_.explore_mode = false;
+            printf("Mode: Single world\n");
+        }
         return;
     }
     
