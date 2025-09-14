@@ -675,14 +675,6 @@ int main(int argc, char *argv[])
             float worldHeight = level->world_max_y - level->world_min_y;
             
             if (config.multi_world_grid) {
-                printf("Multi-world grid DEBUG:\n");
-                printf("  Level dimensions: width=%f, height=%f, scale=%f\n", level->width, level->height, level->world_scale);
-                printf("  Level boundaries: min_x=%f, max_x=%f, min_y=%f, max_y=%f\n", 
-                       level->world_min_x, level->world_max_x, level->world_min_y, level->world_max_y);
-                printf("  Calculated WorldWidth: %f, WorldHeight: %f\n", worldWidth, worldHeight);
-                printf("  Spacing: %f, GridCols: %u\n", config.world_spacing, config.grid_cols);
-                printf("  Num worlds: %u\n", num_worlds);
-                
                 // Stage 2: Use external parameters from config and level data
                 viewer.setMultiWorldGrid(true, config.world_spacing, config.grid_cols, 
                                        worldWidth, worldHeight);
