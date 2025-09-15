@@ -439,7 +439,7 @@ inline void lidarSystem(Engine &ctx,
                 // Scale: Z = length (hit distance / 3.0 since mesh is 3 units long)
                 // X, Y = thin width
                 float ray_length = hit_t / 3.0f;  // Cylinder mesh is 3 units long
-                ctx.get<Scale>(ray_entity) = Diag3x3{0.01f, 0.01f, ray_length};
+                ctx.get<Scale>(ray_entity) = Diag3x3{0.04f, 0.04f, ray_length};
             } else {
                 // Hide rays we're not displaying (no hit or not every 8th)
                 ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};
