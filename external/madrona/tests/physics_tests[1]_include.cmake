@@ -1,0 +1,5 @@
+if(EXISTS "/home/duane/madrona_escape_room/external/madrona/tests/physics_tests[1]_tests.cmake")
+  include("/home/duane/madrona_escape_room/external/madrona/tests/physics_tests[1]_tests.cmake")
+else()
+  add_test(physics_tests_NOT_BUILT physics_tests_NOT_BUILT)
+endif()

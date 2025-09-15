@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import torch
 from madrona_escape_room_learn import LearningState
+from madrona_escape_room_learn.moving_avg import EpisodicEMATracker
 from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
 
@@ -86,8 +87,11 @@ if args.action_dump_path:
 else:
     action_log = None
 
-# Initialize reward tracking
-cumulative_rewards = torch.zeros(args.num_worlds, dtype=torch.float32)
+# Initialize episode tracker
+device = torch.device("cuda" if args.gpu_sim else "cpu")
+episode_tracker = EpisodicEMATracker(num_envs=args.num_worlds, alpha=0.01, device=device)
+
+# Keep detailed tracking for final statistics
 episode_returns = []  # Store completed episode returns
 episode_counts = torch.zeros(args.num_worlds, dtype=torch.int32)
 
@@ -140,21 +144,28 @@ for i in range(args.num_steps):
     step_rewards = rewards[:, 0] if rewards.dim() == 2 else rewards[:, 0, 0]
     step_dones = dones[:, 0] if dones.dim() == 2 else dones[:, 0, 0]
 
-    # Accumulate rewards
-    cumulative_rewards += step_rewards
+    # Update episode tracker
+    completed_episodes = episode_tracker.step_update(step_rewards, step_dones.bool())
 
-    # Check for episode completions
-    done_mask = step_dones > 0
-    if done_mask.any():
-        for world_idx in torch.where(done_mask)[0]:
-            episode_return = cumulative_rewards[world_idx].item()
+    # Process completed episodes for detailed tracking
+    if "completed_episodes" in completed_episodes:
+        completed_data = completed_episodes["completed_episodes"]
+        completed_rewards = completed_data["rewards"]
+        completed_env_indices = completed_data["env_indices"]
+
+        for i, env_idx in enumerate(completed_env_indices):
+            episode_return = completed_rewards[i].item()
             episode_returns.append(episode_return)
-            episode_counts[world_idx] += 1
-            print(f"  Episode completed in world {world_idx}: return = {episode_return:.4f}")
-            cumulative_rewards[world_idx] = 0  # Reset for new episode
+            episode_counts[env_idx] += 1
+            print(f"  Episode completed in world {env_idx}: return = {episode_return:.4f}")
 
     print(f"Step Rewards: {step_rewards.cpu().numpy()}")
-    print(f"Cumulative Rewards: {cumulative_rewards.cpu().numpy()}")
+
+    # Get current episode statistics
+    episode_stats = episode_tracker.get_statistics()
+    print(
+        f"Episode EMA - Reward: {episode_stats['episodes/reward_ema']:.3f}, Length: {episode_stats['episodes/length_ema']:.1f}"
+    )
 
 # Stop recording if it was started
 if args.recording_path:
@@ -169,13 +180,17 @@ if action_log:
 
 # Print final statistics
 print("\n=== Final Statistics ===")
-print(f"Total episodes completed: {len(episode_returns)}")
-if episode_returns:
-    print(f"Average episode return: {np.mean(episode_returns):.4f}")
-    print(f"Std episode return: {np.std(episode_returns):.4f}")
-    print(f"Min episode return: {np.min(episode_returns):.4f}")
-    print(f"Max episode return: {np.max(episode_returns):.4f}")
-    print(f"Episodes per world: {episode_counts.cpu().numpy()}")
+episode_stats = episode_tracker.get_statistics()
+print(f"Total episodes completed: {episode_stats['episodes/completed']}")
+if episode_stats["episodes/completed"] > 0:
+    print(f"Average episode return (EMA): {episode_stats['episodes/reward_ema']:.4f}")
+    print(f"Average episode length (EMA): {episode_stats['episodes/length_ema']:.1f}")
+    print(f"Min episode return: {episode_stats['episodes/reward_min']:.4f}")
+    print(f"Max episode return: {episode_stats['episodes/reward_max']:.4f}")
+    print(f"Min episode length: {episode_stats['episodes/length_min']}")
+    print(f"Max episode length: {episode_stats['episodes/length_max']}")
+    if episode_returns:
+        print(f"Std episode return: {np.std(episode_returns):.4f}")
+        print(f"Episodes per world: {episode_counts.cpu().numpy()}")
 else:
     print("No episodes completed")
-    print(f"Final cumulative rewards: {cumulative_rewards.cpu().numpy()}")

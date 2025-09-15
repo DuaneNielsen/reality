@@ -10,6 +10,7 @@ from madrona_escape_room_learn import (
     profile,
     train,
 )
+from madrona_escape_room_learn.moving_avg import EpisodicEMATracker
 from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
 
@@ -34,15 +35,20 @@ class LearningCallback:
         training_config=None,
         level_file_path=None,
         additional_tags=None,
+        num_worlds=1,
+        device=None,
     ):
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
         self.training_config = training_config or {}
 
-        # Episode reward tracking
-        self.episode_reward_max = float("-inf")
-        self.episode_reward_min = float("inf")
+        # Initialize episodic EMA tracker for episode statistics
+        self.episode_tracker = EpisodicEMATracker(
+            num_envs=num_worlds,
+            alpha=0.01,  # Smooth tracking over ~100 episodes
+            device=device,
+        )
 
         # Initialize wandb
         self.use_wandb = False
@@ -195,11 +201,6 @@ class LearningCallback:
                 # Returns
                 "returns/mean": ppo.returns_mean,
                 "returns/stddev": ppo.returns_stddev,
-                # Episode tracking
-                "episodes/length_ema": update_results.episode_length_ema,
-                "episodes/reward_ema": update_results.episode_reward_ema,
-                "episodes/reward_max": update_results.episode_reward_max,
-                "episodes/reward_min": update_results.episode_reward_min,
                 # Performance metrics
                 "performance/fps": fps,
                 "performance/avg_fps": self.mean_fps,
@@ -207,6 +208,9 @@ class LearningCallback:
                 "performance/memory_reserved_gb": reserved_gb,
                 "performance/memory_current_gb": current_gb,
             }
+
+            # Add episode statistics from tracker
+            wandb_data.update(self.episode_tracker.get_statistics())
 
             # Only log value normalizer stats if normalization is enabled
             if value_normalization_enabled:
@@ -248,11 +252,13 @@ class LearningCallback:
             f"Min: {action_entropy_min:.3f}, Max: {action_entropy_max:.3f}"
         )
         print(f"    Returns          => Avg: {ppo.returns_mean:.3f}, σ: {ppo.returns_stddev:.3f}")
-        print(f"    Episode Length   => EMA: {update_results.episode_length_ema:.1f} steps")
+        # Get episode statistics for console output
+        episode_stats = self.episode_tracker.get_statistics()
+        print(f"    Episode Length   => EMA: {episode_stats['episodes/length_ema']:.1f} steps")
         print(
-            f"    Episode Reward   => EMA: {update_results.episode_reward_ema:.3f}, "
-            f"Max: {update_results.episode_reward_max:.3f}, "
-            f"Min: {update_results.episode_reward_min:.3f}"
+            f"    Episode Reward   => EMA: {episode_stats['episodes/reward_ema']:.3f}, "
+            f"Max: {episode_stats['episodes/reward_max']:.3f}, "
+            f"Min: {episode_stats['episodes/reward_min']:.3f}"
         )
 
         # Only show value normalizer stats if normalization is enabled
@@ -275,6 +281,16 @@ class LearningCallback:
 
         if update_id % 100 == 0:
             learning_state.save(update_idx, self.ckpt_dir / f"{update_id}.pth")
+
+    def update_episode_tracker(self, rewards, dones):
+        """Update the episode tracker with new rewards and done flags."""
+        # Convert to CPU tensors if needed and update tracker
+        if isinstance(rewards, torch.Tensor):
+            rewards = rewards.cpu()
+        if isinstance(dones, torch.Tensor):
+            dones = dones.cpu()
+
+        return self.episode_tracker.step_update(rewards, dones)
 
     def finish(self):
         """Clean up wandb if it was initialized"""
@@ -394,7 +410,15 @@ training_config = {
 }
 
 learning_cb = LearningCallback(
-    ckpt_dir, args.profile_report, training_config, args.level_file, args.tags
+    ckpt_dir,
+    args.profile_report,
+    training_config,
+    args.level_file,
+    args.tags,
+    num_worlds=args.num_worlds,
+    device=torch.device(f"cuda:{args.gpu_id}")
+    if torch.cuda.is_available()
+    else torch.device("cpu"),
 )
 
 # Start recording if requested

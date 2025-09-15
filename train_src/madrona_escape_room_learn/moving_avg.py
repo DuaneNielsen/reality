@@ -114,3 +114,161 @@ class EMANormalizer(nn.Module):
                 normalized_x.to(dtype=torch.float32),
                 self.sigma,
             ).to(dtype=normalized_x.dtype)
+
+
+# Episodic Exponential Moving Average tracker for batch environments
+class EpisodicEMATracker(torch.nn.Module):
+    """
+    Episodic EMA tracker for batch reinforcement learning environments.
+
+    Tracks episode statistics using exponential moving averages across multiple
+    parallel environments. Efficiently handles episode boundaries and provides
+    smooth metrics for training monitoring.
+    """
+
+    def __init__(self, num_envs: int, alpha: float = 0.01, device: torch.device = None):
+        """
+        Initialize the episodic EMA tracker.
+
+        Args:
+            num_envs: Number of parallel environments
+            alpha: EMA decay factor (0 < alpha <= 1). Lower values = more smoothing
+            device: PyTorch device for tensor operations
+
+        Note:
+            Inherits from torch.nn.Module to avoid memory transfers and
+            enable proper device management via registered buffers.
+        """
+        super().__init__()
+
+        self.num_envs = num_envs
+        self.alpha = alpha
+
+        # Per-environment episode accumulators (registered buffers for device handling)
+        self.register_buffer("episode_rewards", torch.zeros(num_envs))
+        self.register_buffer("episode_lengths", torch.zeros(num_envs, dtype=torch.int64))
+
+        # EMA trackers for episode statistics
+        # EMATracker uses decay parameter, so we pass (1-alpha) to get alpha*new + (1-alpha)*old
+        self.ema_reward_tracker = EMATracker(1 - alpha)
+        self.ema_length_tracker = EMATracker(1 - alpha)
+
+        # Episode extremes tracking (registered buffers)
+        self.register_buffer("episode_reward_min", torch.tensor(float("inf")))
+        self.register_buffer("episode_reward_max", torch.tensor(float("-inf")))
+        self.register_buffer("episode_length_min", torch.tensor(float("inf")))
+        self.register_buffer("episode_length_max", torch.tensor(0))
+
+        # Metadata (registered buffers)
+        self.register_buffer("episodes_completed", torch.tensor(0, dtype=torch.int64))
+        self.register_buffer("total_steps", torch.tensor(0, dtype=torch.int64))
+
+        # Move to device if specified
+        if device is not None:
+            self.to(device)
+
+    def step_update(self, rewards: torch.Tensor, dones: torch.Tensor) -> dict:
+        """
+        Update tracker with batch of rewards and done flags.
+
+        Args:
+            rewards: Tensor of shape (N,) containing per-environment rewards
+            dones: Tensor of shape (N,) containing per-environment done flags
+
+        Returns:
+            dict: Statistics for completed episodes (if any)
+        """
+        # Move tensors to device (auto-handled by nn.Module)
+        rewards = rewards.to(self.episode_rewards.device)
+        dones = dones.to(self.episode_rewards.device)
+
+        # Accumulate rewards and increment lengths
+        self.episode_rewards += rewards
+        self.episode_lengths += 1
+        self.total_steps += self.num_envs
+
+        # Find completed episodes
+        completed_mask = dones.bool()
+        completed_indices = torch.where(completed_mask)[0]
+
+        result = {}
+
+        if len(completed_indices) > 0:
+            # Get completed episode data
+            completed_rewards = self.episode_rewards[completed_mask]
+            completed_lengths = self.episode_lengths[completed_mask]
+
+            # Update EMA statistics
+            for reward in completed_rewards:
+                self.ema_reward_tracker.update(reward.item())
+            for length in completed_lengths:
+                self.ema_length_tracker.update(length.item())
+
+            # Update min/max statistics
+            if len(completed_rewards) > 0:
+                batch_reward_min = completed_rewards.min()
+                batch_reward_max = completed_rewards.max()
+                batch_length_min = completed_lengths.min()
+                batch_length_max = completed_lengths.max()
+
+                self.episode_reward_min = torch.min(self.episode_reward_min, batch_reward_min)
+                self.episode_reward_max = torch.max(self.episode_reward_max, batch_reward_max)
+                self.episode_length_min = torch.min(self.episode_length_min, batch_length_min)
+                self.episode_length_max = torch.max(self.episode_length_max, batch_length_max)
+
+            # Update episode count
+            self.episodes_completed += len(completed_indices)
+
+            # Reset completed environments
+            self.episode_rewards[completed_mask] = 0
+            self.episode_lengths[completed_mask] = 0
+
+            # Return completed episode info
+            result["completed_episodes"] = {
+                "count": len(completed_indices),
+                "rewards": completed_rewards.clone(),
+                "lengths": completed_lengths.clone(),
+                "env_indices": completed_indices.clone(),
+            }
+
+        return result
+
+    def get_statistics(self) -> dict:
+        """
+        Get current EMA statistics with wandb-compatible key names.
+
+        Returns:
+            dict: Current smoothed statistics as CPU primitives with wandb key names
+        """
+        return {
+            # Episode tracking (matching wandb log structure from train.py)
+            "episodes/reward_ema": self.ema_reward_tracker.ema.item()
+            if self.ema_reward_tracker.N > 0
+            else 0.0,
+            "episodes/length_ema": self.ema_length_tracker.ema.item()
+            if self.ema_length_tracker.N > 0
+            else 0.0,
+            "episodes/reward_min": self.episode_reward_min.item()
+            if not torch.isinf(self.episode_reward_min)
+            else 0.0,
+            "episodes/reward_max": self.episode_reward_max.item()
+            if not torch.isinf(self.episode_reward_max)
+            else 0.0,
+            "episodes/length_min": int(self.episode_length_min.item())
+            if not torch.isinf(self.episode_length_min)
+            else 0,
+            "episodes/length_max": int(self.episode_length_max.item()),
+            "episodes/completed": self.episodes_completed.item(),
+            "episodes/total_steps": self.total_steps.item(),
+        }
+
+    def reset_env(self, env_indices: torch.Tensor):
+        """
+        Reset specific environments.
+
+        Args:
+            env_indices: Tensor of environment indices to reset
+        """
+        env_indices = env_indices.to(self.episode_rewards.device)
+        self.episode_rewards[env_indices] = 0
+        self.episode_lengths[env_indices] = 0

@@ -1,0 +1,5 @@
+add_test([=[GJK.Solve4SimplexDuplicatePoint]=]  /home/duane/madrona_escape_room/external/madrona/tests/physics_tests [==[--gtest_filter=GJK.Solve4SimplexDuplicatePoint]==] --gtest_also_run_disabled_tests)
+set_tests_properties([=[GJK.Solve4SimplexDuplicatePoint]=]  PROPERTIES WORKING_DIRECTORY /home/duane/madrona_escape_room/external/madrona/tests SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
+add_test([=[GJK.Solve4SimplexAroundOrigin]=]  /home/duane/madrona_escape_room/external/madrona/tests/physics_tests [==[--gtest_filter=GJK.Solve4SimplexAroundOrigin]==] --gtest_also_run_disabled_tests)
+set_tests_properties([=[GJK.Solve4SimplexAroundOrigin]=]  PROPERTIES WORKING_DIRECTORY /home/duane/madrona_escape_room/external/madrona/tests SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
+set(  physics_tests_TESTS GJK.Solve4SimplexDuplicatePoint GJK.Solve4SimplexAroundOrigin)

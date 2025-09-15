@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from madrona_escape_room_learn import LearningState
+from madrona_escape_room_learn.moving_avg import EpisodicEMATracker
 from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
 from wandb_utils import find_checkpoint as find_latest_checkpoint
@@ -80,15 +81,15 @@ def run_inference(
             )
         )
 
-    # Episode tracking by world
+    # Initialize episode tracker
+    device = torch.device("cuda" if gpu_sim else "cpu")
+    episode_tracker = EpisodicEMATracker(num_envs=num_worlds, alpha=0.01, device=device)
+
+    # Keep detailed tracking for per-world analysis
     episode_rewards_by_world = [[] for _ in range(num_worlds)]
     episode_lengths_by_world = [[] for _ in range(num_worlds)]
     all_episode_rewards = []
     all_episode_lengths = []
-
-    # Track cumulative rewards per world (reset when episode completes)
-    cumulative_rewards = torch.zeros(num_worlds, dtype=torch.float32)
-    episode_step_counts = torch.zeros(num_worlds, dtype=torch.int32)
 
     # Start recording
     if recording_path:
@@ -112,35 +113,38 @@ def run_inference(
         step_rewards = rewards[:, 0] if rewards.dim() == 2 else rewards
         step_dones = dones[:, 0] if dones.dim() == 2 else dones
 
-        # Accumulate rewards for all worlds
-        cumulative_rewards += step_rewards
-        episode_step_counts += 1
+        # Update episode tracker
+        completed_episodes = episode_tracker.step_update(step_rewards, step_dones.bool())
 
-        # Check for completed episodes
-        done_mask = step_dones > 0
-        if done_mask.any():
-            for world_idx in torch.where(done_mask)[0]:
-                # Store the cumulative episode reward and length
-                episode_return = cumulative_rewards[world_idx].item()
-                episode_length = episode_step_counts[world_idx].item()
+        # Process completed episodes for detailed per-world tracking
+        if "completed_episodes" in completed_episodes:
+            completed_data = completed_episodes["completed_episodes"]
+            completed_rewards = completed_data["rewards"]
+            completed_lengths = completed_data["lengths"]
+            completed_env_indices = completed_data["env_indices"]
 
-                episode_rewards_by_world[world_idx].append(episode_return)
-                episode_lengths_by_world[world_idx].append(episode_length)
+            for i, env_idx in enumerate(completed_env_indices):
+                episode_return = completed_rewards[i].item()
+                episode_length = completed_lengths[i].item()
+
+                episode_rewards_by_world[env_idx].append(episode_return)
+                episode_lengths_by_world[env_idx].append(episode_length)
                 all_episode_rewards.append(episode_return)
                 all_episode_lengths.append(episode_length)
 
-                # Reset tracking for this world
-                cumulative_rewards[world_idx] = 0.0
-                episode_step_counts[world_idx] = 0
-
         # Print details every 100 steps
         if i % 100 == 0:
-            print(f"Step {i+1}/{num_steps} - Episodes completed: {len(all_episode_rewards)}")
+            episode_stats = episode_tracker.get_statistics()
+            print(
+                f"Step {i+1}/{num_steps} - Episodes completed: {episode_stats['episodes/completed']}"
+            )
             print("Progress:", obs[0])
             print("Compass:", obs[1])
             print("Actions:", actions.cpu().numpy())
             print(f"Step Rewards: {step_rewards.cpu().numpy()}")
-            print(f"Cumulative Rewards: {cumulative_rewards.cpu().numpy()}")
+            print(
+                f"Episode EMA - Reward: {episode_stats['episodes/reward_ema']:.3f}, Length: {episode_stats['episodes/length_ema']:.1f}"
+            )
             print()
 
     # Print episode statistics
