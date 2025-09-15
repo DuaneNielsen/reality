@@ -63,10 +63,10 @@ actions = sim_interface.actions
 dones = sim_interface.dones
 rewards = sim_interface.rewards
 
-# Flatten N, A, ... tensors to N * A, ... for rewards and dones (still per-agent)
-# Actions are now per-world, so no flattening needed
-dones = dones.view(-1, *dones.shape[2:])
-rewards = rewards.view(-1, *rewards.shape[2:])
+# Keep original tensor shapes:
+# - actions: [worlds, 3]
+# - dones: [worlds, 1] (1 agent per world)
+# - rewards: [worlds, 1] (1 agent per world)
 
 cur_rnn_states = []
 
@@ -85,6 +85,11 @@ if args.action_dump_path:
     action_log = open(args.action_dump_path, "wb")
 else:
     action_log = None
+
+# Initialize reward tracking
+cumulative_rewards = torch.zeros(args.num_worlds, dtype=torch.float32)
+episode_returns = []  # Store completed episode returns
+episode_counts = torch.zeros(args.num_worlds, dtype=torch.int32)
 
 # Start recording if recording path is provided
 if args.recording_path:
@@ -105,7 +110,7 @@ for i in range(args.num_steps):
     if action_log:
         actions.numpy().tofile(action_log)
 
-    print()
+    print(f"\n=== Step {i+1}/{args.num_steps} ===")
     print("Progress:", obs[0])
     print("Compass:", obs[1])
     print("Lidar:", obs[2])
@@ -126,8 +131,30 @@ for i in range(args.num_steps):
 
     print("Actions:\n", actions.cpu().numpy())
     print("Values:\n", values.cpu().numpy())
+
+    # Step the simulation
     sim_interface.step()
-    print("Rewards:\n", rewards)
+
+    # Process rewards and episode completions
+    # Rewards and dones are [worlds, 1] when there's 1 agent per world
+    step_rewards = rewards[:, 0] if rewards.dim() == 2 else rewards[:, 0, 0]
+    step_dones = dones[:, 0] if dones.dim() == 2 else dones[:, 0, 0]
+
+    # Accumulate rewards
+    cumulative_rewards += step_rewards
+
+    # Check for episode completions
+    done_mask = step_dones > 0
+    if done_mask.any():
+        for world_idx in torch.where(done_mask)[0]:
+            episode_return = cumulative_rewards[world_idx].item()
+            episode_returns.append(episode_return)
+            episode_counts[world_idx] += 1
+            print(f"  Episode completed in world {world_idx}: return = {episode_return:.4f}")
+            cumulative_rewards[world_idx] = 0  # Reset for new episode
+
+    print(f"Step Rewards: {step_rewards.cpu().numpy()}")
+    print(f"Cumulative Rewards: {cumulative_rewards.cpu().numpy()}")
 
 # Stop recording if it was started
 if args.recording_path:
@@ -139,3 +166,16 @@ if args.recording_path:
 
 if action_log:
     action_log.close()
+
+# Print final statistics
+print("\n=== Final Statistics ===")
+print(f"Total episodes completed: {len(episode_returns)}")
+if episode_returns:
+    print(f"Average episode return: {np.mean(episode_returns):.4f}")
+    print(f"Std episode return: {np.std(episode_returns):.4f}")
+    print(f"Min episode return: {np.min(episode_returns):.4f}")
+    print(f"Max episode return: {np.max(episode_returns):.4f}")
+    print(f"Episodes per world: {episode_counts.cpu().numpy()}")
+else:
+    print("No episodes completed")
+    print(f"Final cumulative rewards: {cumulative_rewards.cpu().numpy()}")
