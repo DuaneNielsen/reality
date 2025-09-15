@@ -62,10 +62,10 @@ def run_inference(
     dones = sim_interface.dones
     rewards = sim_interface.rewards
 
-    # Flatten N, A, ... tensors to N * A, ... for rewards and dones (still per-agent)
-    # Actions are now per-world, so no flattening needed
-    dones = dones.view(-1, *dones.shape[2:])
-    rewards = rewards.view(-1, *rewards.shape[2:])
+    # Keep original tensor shapes:
+    # - actions: [worlds, 3]
+    # - dones: [worlds, 1] (1 agent per world)
+    # - rewards: [worlds, 1] (1 agent per world)
 
     cur_rnn_states = []
 
@@ -86,6 +86,10 @@ def run_inference(
     all_episode_rewards = []
     all_episode_lengths = []
 
+    # Track cumulative rewards per world (reset when episode completes)
+    cumulative_rewards = torch.zeros(num_worlds, dtype=torch.float32)
+    episode_step_counts = torch.zeros(num_worlds, dtype=torch.int32)
+
     # Start recording
     if recording_path:
         try:
@@ -101,43 +105,43 @@ def run_inference(
             action_dists, values, cur_rnn_states = policy(cur_rnn_states, *obs)
             action_dists.best(actions)
 
-        # Check for done episodes
-        done_mask = dones.squeeze(-1).bool() if dones.dim() > 1 else dones.bool()
+        # Step the simulation
+        sim_interface.step()
 
+        # Get step rewards and dones (handle both [worlds, 1] and [worlds] shapes)
+        step_rewards = rewards[:, 0] if rewards.dim() == 2 else rewards
+        step_dones = dones[:, 0] if dones.dim() == 2 else dones
+
+        # Accumulate rewards for all worlds
+        cumulative_rewards += step_rewards
+        episode_step_counts += 1
+
+        # Check for completed episodes
+        done_mask = step_dones > 0
         if done_mask.any():
-            # Store completed episode data - reward at done step is the final episode reward
-            step_rewards = rewards.squeeze(-1) if rewards.dim() > 1 else rewards
-            # Get steps taken from the manager's tensor
-            steps_taken_tensor = sim_interface.manager.steps_taken_tensor().to_torch()
-            steps_taken = (
-                steps_taken_tensor.squeeze(-1)
-                if steps_taken_tensor.dim() > 1
-                else steps_taken_tensor
-            )
+            for world_idx in torch.where(done_mask)[0]:
+                # Store the cumulative episode reward and length
+                episode_return = cumulative_rewards[world_idx].item()
+                episode_length = episode_step_counts[world_idx].item()
 
-            # Store by world
-            for world_idx in range(num_worlds):
-                if done_mask[world_idx]:
-                    reward = step_rewards[world_idx].item()
-                    length = (
-                        steps_taken[world_idx].flatten()[0].item()
-                    )  # Get scalar from flattened tensor
+                episode_rewards_by_world[world_idx].append(episode_return)
+                episode_lengths_by_world[world_idx].append(episode_length)
+                all_episode_rewards.append(episode_return)
+                all_episode_lengths.append(episode_length)
 
-                    episode_rewards_by_world[world_idx].append(reward)
-                    episode_lengths_by_world[world_idx].append(length)
-                    all_episode_rewards.append(reward)
-                    all_episode_lengths.append(length)
+                # Reset tracking for this world
+                cumulative_rewards[world_idx] = 0.0
+                episode_step_counts[world_idx] = 0
 
         # Print details every 100 steps
         if i % 100 == 0:
-            print(f"Step {i}/{num_steps} - Episodes completed: {len(all_episode_rewards)}")
+            print(f"Step {i+1}/{num_steps} - Episodes completed: {len(all_episode_rewards)}")
             print("Progress:", obs[0])
             print("Compass:", obs[1])
             print("Actions:", actions.cpu().numpy())
-            print("Rewards:", rewards)
+            print(f"Step Rewards: {step_rewards.cpu().numpy()}")
+            print(f"Cumulative Rewards: {cumulative_rewards.cpu().numpy()}")
             print()
-
-        sim_interface.step()
 
     # Print episode statistics
     print("\n" + "=" * 60)
@@ -157,8 +161,8 @@ def run_inference(
         reward_std = np.std(all_episode_rewards)
         length_mean = np.mean(all_episode_lengths)
         length_std = np.std(all_episode_lengths)
-        print(f"Reward - Mean: {reward_mean:.3f}, Std: {reward_std:.3f}")
-        print(f"Length - Mean: {length_mean:.3f}, Std: {length_std:.3f}")
+        print(f"Episode Return - Mean: {reward_mean:.3f}, Std: {reward_std:.3f}")
+        print(f"Episode Length - Mean: {length_mean:.3f}, Std: {length_std:.3f}")
         print()
 
         # Per-world statistics
@@ -168,14 +172,14 @@ def run_inference(
                 world_rewards = np.array(episode_rewards_by_world[world_idx])
                 world_lengths = np.array(episode_lengths_by_world[world_idx])
                 print(f"World {world_idx}: {len(world_rewards)} episodes")
-                print(f"  Rewards: {world_rewards}")
-                print(f"  Lengths: {world_lengths}")
+                print(f"  Episode Returns: {world_rewards}")
+                print(f"  Episode Lengths: {world_lengths}")
                 w_reward_mean = np.mean(world_rewards)
                 w_reward_std = np.std(world_rewards)
                 w_length_mean = np.mean(world_lengths)
                 w_length_std = np.std(world_lengths)
-                print(f"  Reward - Mean: {w_reward_mean:.3f}, Std: {w_reward_std:.3f}")
-                print(f"  Length - Mean: {w_length_mean:.3f}, Std: {w_length_std:.3f}")
+                print(f"  Episode Return - Mean: {w_reward_mean:.3f}, Std: {w_reward_std:.3f}")
+                print(f"  Episode Length - Mean: {w_length_mean:.3f}, Std: {w_length_std:.3f}")
                 print()
             else:
                 print(f"World {world_idx}: 0 episodes")
