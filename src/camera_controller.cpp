@@ -244,13 +244,31 @@ void TrackingCameraController::reset() {
 
 void TrackingCameraController::setTarget(const Vector3& targetPos) {
     targetPosition_ = targetPos;
-    
+
     // Initialize smoothed target on first set
     if (firstTargetSet_) {
         smoothedTarget_ = targetPos;
         firstTargetSet_ = false;
     }
-    
+
+}
+
+void TrackingCameraController::setInitialRotationFromAgentTheta(float agentTheta) {
+    // Set coneAngle_ to position camera -90 degrees offset from agent
+    coneAngle_ = agentTheta - consts::math::pi / 2.0f;
+
+    // Force immediate position update without smoothing
+    firstTargetSet_ = true;
+    updateCameraPosition();
+}
+
+void TrackingCameraController::resetToAgent(const madrona::math::Vector3& agentPos) {
+    // Jump camera to agent immediately without smoothing
+    targetPosition_ = agentPos;
+    smoothedTarget_ = agentPos; // Skip smoothing for reset
+
+    // Keep existing camera rotation - only update position
+    updateCameraPosition();
 }
 
 void TrackingCameraController::updateCameraPosition() {

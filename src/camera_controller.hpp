@@ -103,7 +103,11 @@ public:
     
     // Set the target to track
     void setTarget(const madrona::math::Vector3& targetPos);
-    
+
+    // Follow cam enhancements
+    void setInitialRotationFromAgentTheta(float agentTheta);
+    void resetToAgent(const madrona::math::Vector3& agentPos); // Only position, no rotation change
+
     // Configuration
     void setOffset(const madrona::math::Vector3& offset) { offset_ = offset; }
     void setSmoothingFactor(float factor) { smoothingFactor_ = factor; }

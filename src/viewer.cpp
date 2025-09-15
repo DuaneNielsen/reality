@@ -584,7 +584,18 @@ int main(int argc, char *argv[])
         auto currentTime = std::chrono::steady_clock::now();
         float deltaTime = std::chrono::duration<float>(currentTime - lastFrameTime).count();
         lastFrameTime = currentTime;
-        
+
+        // Follow cam state tracking
+        static bool hasInitializedCamera = false;
+        static int32_t lastWorldIdx = -1;
+
+        // Detect world index changes
+        bool worldChanged = (world_idx != lastWorldIdx);
+        if (worldChanged) {
+            lastWorldIdx = world_idx;
+            hasInitializedCamera = false; // Reset initialization for new world
+        }
+
         // Camera mode switching (toggle between FreeFly and Tracking)
         if (input.keyHit(Key::F)) {
             cameraMode = 1 - cameraMode;  // Toggle between 0 and 1
@@ -592,9 +603,19 @@ int main(int argc, char *argv[])
                 currentCamera = freeFlyCamera.get();
             } else {
                 currentCamera = trackingCamera.get();
-                // Initialize tracking camera with current agent position
-                math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
+                // Initialize tracking camera with current agent position for this world
+                math::Vector3 agentPos = mgr.getAgentPosition(world_idx, 0);
                 trackingCamera->setTarget(agentPos);
+
+                // Set initial camera rotation when first entering follow mode or switching worlds
+                if (!hasInitializedCamera) {
+                    auto self_obs = mgr.selfObservationTensor();
+                    const SelfObservation* obs_data = (const SelfObservation*)self_obs.devicePtr();
+                    int32_t idx = world_idx * consts::numAgents + 0;
+                    float agentTheta = obs_data[idx].theta;
+                    trackingCamera->setInitialRotationFromAgentTheta(agentTheta);
+                    hasInitializedCamera = true;
+                }
             }
         }
         
@@ -605,10 +626,25 @@ int main(int argc, char *argv[])
         if (inFreeCameraMode) {
             // Update tracking camera target if in tracking mode
             if (cameraMode == 1) {
-                // Get agent position from manager (tracks first agent in world 0)
-                math::Vector3 agentPos = mgr.getAgentPosition(0, 0);
+                // Get agent position from manager for current world
+                math::Vector3 agentPos = mgr.getAgentPosition(world_idx, 0);
                 trackingCamera->setTarget(agentPos);
-                
+
+                // Check for agent reset or world change
+                static math::Vector3 lastAgentPos = agentPos;
+                static int32_t lastResetWorldIdx = -1;
+
+                float distanceMoved = (agentPos - lastAgentPos).length();
+                bool worldChangedInTracking = (world_idx != lastResetWorldIdx);
+
+                // Reset camera if world changed or agent was reset (large position jump)
+                if (worldChangedInTracking || distanceMoved > 5.0f) {
+                    // Only reset position, keep existing rotation
+                    trackingCamera->resetToAgent(agentPos);
+                    lastResetWorldIdx = world_idx;
+                }
+
+                lastAgentPos = agentPos;
             }
             
             // Build camera input state
