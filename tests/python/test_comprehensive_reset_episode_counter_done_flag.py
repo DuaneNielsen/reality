@@ -566,7 +566,7 @@ class TestCollisionVsStepTermination:
 
             # Reset should override collision termination
             assert done_tensor[collision_world, 0] == 0, "Reset should clear done flag"
-            assert steps_taken[collision_world, 0, 0] == consts.episodeLen, "Steps should be reset"
+            assert steps_taken[collision_world, 0, 0] == 0, "Steps should be 0 after reset"
 
             print(
                 f"✓ Manual reset successfully overrode collision termination for world {collision_world}"
