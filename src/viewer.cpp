@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
         std::cout << "\nKeyboard Controls:\n";
         std::cout << "  R          Reset current world\n";
         std::cout << "  T          Toggle trajectory tracking for current world\n";
-        std::cout << "  L          Toggle lidar ray visualization\n";
+        std::cout << "  L          Toggle lidar ray visualization (all worlds)\n";
         std::cout << "  SPACE      Pause/Resume simulation\n";
         std::cout << "  WASD       Move agent (when in agent view)\n";
         std::cout << "  Q/E        Rotate agent left/right\n";
@@ -472,7 +472,7 @@ int main(int argc, char *argv[])
     std::cout << "\nViewer Controls:\n";
     std::cout << "  R: Reset current world\n";
     std::cout << "  T: Toggle trajectory tracking for current world\n";
-    std::cout << "  L: Toggle lidar ray visualization\n";
+    std::cout << "  L: Toggle lidar ray visualization (all worlds)\n";
     std::cout << "  F: Toggle camera mode (FreeFly/Tracking)\n";
     std::cout << "  WASD: Move camera\n";
     std::cout << "  ZC: Move forward/backward (in camera direction)\n";
@@ -734,8 +734,8 @@ int main(int argc, char *argv[])
         
         // Toggle lidar visualization with 'L' key
         if (input.keyHit(Key::L)) {
-            // Call the actual toggle method on the manager
-            mgr.toggleLidarVisualization(world_idx);
+            // Toggle lidar visualization globally for all worlds
+            mgr.toggleLidarVisualizationGlobal();
         }
     },
     [&viewer_core](CountT world_idx, CountT,

@@ -958,8 +958,47 @@ void Manager::toggleLidarVisualization(uint32_t world_idx)
     }
     
     // Print status message
-    printf("Lidar visualization %s for World %u\n", 
+    printf("Lidar visualization %s for World %u\n",
            (new_control.enabled ? "enabled" : "disabled"), world_idx);
+}
+
+// [GAME_SPECIFIC] Toggle lidar visualization globally for all worlds
+void Manager::toggleLidarVisualizationGlobal()
+{
+    // Get current state from the first world to determine target state
+    auto *first_lidar_vis_ptr = impl_->lidarVisBuffer;
+
+    int32_t current_state;
+    if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+        cudaMemcpy(&current_state, first_lidar_vis_ptr, sizeof(LidarVisControl),
+                   cudaMemcpyDeviceToHost);
+#endif
+    } else {
+        current_state = first_lidar_vis_ptr->enabled;
+    }
+
+    // Toggle the state for all worlds
+    LidarVisControl new_control;
+    new_control.enabled = (current_state == 0) ? 1 : 0;
+
+    // Apply to all worlds
+    for (uint32_t world_idx = 0; world_idx < impl_->cfg.numWorlds; world_idx++) {
+        auto *lidar_vis_ptr = impl_->lidarVisBuffer + world_idx;
+
+        if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+            cudaMemcpy(lidar_vis_ptr, &new_control, sizeof(LidarVisControl),
+                       cudaMemcpyHostToDevice);
+#endif
+        } else {
+            *lidar_vis_ptr = new_control;
+        }
+    }
+
+    // Print status message
+    printf("Lidar visualization %s globally for all %u worlds\n",
+           (new_control.enabled ? "enabled" : "disabled"), impl_->cfg.numWorlds);
 }
 
 // Helper function to log current trajectory state
