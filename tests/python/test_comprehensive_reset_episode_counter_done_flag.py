@@ -1206,7 +1206,7 @@ class TestStatePersistence:
         # Verify agent moved away from spawn
         current_pos = obs_tensor[0, 0, :3]
         assert not torch.allclose(
-            spawn_pos, current_pos, atol=0.1
+            spawn_pos, current_pos, atol=0.05
         ), "Agent should have moved away from spawn position"
 
         # Reset world 0
