@@ -107,15 +107,15 @@ def test_default_level_spawn_position():
 
     # IMPORTANT: Observations are normalized!
     # According to default_level.py:
-    # - spawn is at x=0.0, y=-17.0
+    # - spawn is at x=0.0, y=-14.5
     # - world bounds are x=[-20, 20], y=[-20, 20]
     # - world_length = 40.0
     # Normalized values:
     # - x_norm = (0.0 - (-20.0)) / 40.0 = 0.5
-    # - y_norm = (-17.0 - (-20.0)) / 40.0 = 3.0 / 40.0 = 0.075
+    # - y_norm = (-14.5 - (-20.0)) / 40.0 = 5.5 / 40.0 = 0.1375
 
     expected_x_norm = 0.5
-    expected_y_norm = 0.075
+    expected_y_norm = 0.1375
 
     # Check both worlds spawn at the same position
     for world_idx in range(2):
@@ -193,7 +193,7 @@ def test_dataclass_level_structure():
 
     # Check spawn position
     assert level.spawn_x[0] == 0.0
-    assert level.spawn_y[0] == -17.0
+    assert level.spawn_y[0] == -14.5  # Updated spawn position
     assert level.spawn_facing[0] == 0.0
 
     # Check world boundaries (hardcoded to match C++ default_level.cpp)
