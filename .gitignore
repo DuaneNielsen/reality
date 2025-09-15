@@ -12,7 +12,14 @@ Makefile
 compile_commands.json
 Testing/
 CTestTestfile.cmake
-*.cmake
+# Only ignore generated cmake files, not source cmake files
+DependInfo.cmake
+cmake_clean.cmake
+cmake_clean_target.cmake
+build.make
+flags.make
+link.txt
+progress.make
 !CMakeLists.txt
 .cmake/
 
