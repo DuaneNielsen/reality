@@ -31,7 +31,7 @@ parameters:
   
   # PPO tuning (optimal values)
   entropy-loss-coef:
-    value: [0.01, 0.005, 0.0025]
+    values: [0.01, 0.005, 0.0025]
   
   # Fixed parameters
   value-loss-coef:
