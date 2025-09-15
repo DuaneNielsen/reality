@@ -3,21 +3,49 @@
 # Exit on any error
 set -e
 
+# Default number of steps for inference
+DEFAULT_NUM_STEPS=2000
+
+# Parse command line arguments
+RUN_IDENTIFIER=""
+NUM_STEPS=$DEFAULT_NUM_STEPS
+VIEWER_ARGS=()
+
 # Check if wandb run identifier provided
 if [[ $# -eq 0 ]]; then
-    echo "Usage: $0 <wandb_run_identifier> [viewer_options...]"
+    echo "Usage: $0 <wandb_run_identifier> [options...] [viewer_options...]"
     echo "Run identifier can be:"
     echo "  - Human-friendly name: frosty-sweep-1, cosmic-sweep-63"
     echo "  - Partial name: cosmic-sweep (will lookup exact run hash)"
     echo "  - Run hash: i0jv5zou"
+    echo ""
+    echo "Options:"
+    echo "  --num-steps <N>     Number of steps to record during inference (default: $DEFAULT_NUM_STEPS)"
+    echo ""
     echo "Examples:"
     echo "  $0 cosmic-sweep-63"
-    echo "  $0 i0jv5zou --fps 30"
+    echo "  $0 cosmic-sweep-63 --num-steps 5000"
+    echo "  $0 i0jv5zou --num-steps 1000 --fps 30"
     exit 1
 fi
 
 RUN_IDENTIFIER="$1"
-shift  # Remove first argument, rest are passed to viewer
+shift  # Remove first argument
+
+# Parse remaining arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --num-steps)
+            NUM_STEPS="$2"
+            shift 2
+            ;;
+        *)
+            # All other arguments are passed to viewer
+            VIEWER_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
 
 # Find wandb run directory by hash or name
 echo "Looking for wandb run: $RUN_IDENTIFIER"
@@ -110,14 +138,15 @@ if [[ ! -f "$EXPECTED_REC_FILE" ]]; then
     RUN_HASH=$(basename "$WANDB_RUN_DIR" | sed 's/.*-//')
     
     echo "Running inference to generate recording..."
+    echo "Steps: $NUM_STEPS"
     echo "This may take a few minutes..."
-    
+
     # Run inference using the hash (which will find the run and generate .rec file)
     # Use project from environment variable or default to madrona-escape-room-dev
     PROJECT_NAME="${WANDB_PROJECT:-madrona-escape-room-dev}"
     echo "Using project: $PROJECT_NAME"
     
-    if ! uv run python scripts/infer_from_wandb.py "$RUN_HASH" --num-steps 1000 --project "$PROJECT_NAME"; then
+    if ! uv run python scripts/infer_from_wandb.py "$RUN_HASH" --num-steps "$NUM_STEPS" --project "$PROJECT_NAME"; then
         echo "Error: Failed to run inference"
         exit 1
     fi
@@ -169,4 +198,4 @@ echo "Press Ctrl+C to stop"
 echo
 
 # Launch viewer in replay mode with any additional arguments
-exec ./build/viewer --replay "$LATEST_REC" --auto-reset "$@"
+exec ./build/viewer --replay "$LATEST_REC" --auto-reset "${VIEWER_ARGS[@]}"
