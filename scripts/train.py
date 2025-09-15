@@ -312,6 +312,11 @@ arg_parser.add_argument(
     action="store_true",
     help="Enable value normalization during training",
 )
+arg_parser.add_argument(
+    "--disable-advantage-normalization",
+    action="store_true",
+    help="Disable advantage normalization during training (enabled by default)",
+)
 arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
 arg_parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
 arg_parser.add_argument(
@@ -374,6 +379,7 @@ training_config = {
     "fp16": args.fp16,
     "gpu_sim": args.gpu_sim,
     "value_normalization_enabled": args.enable_value_normalization,
+    "advantage_normalization_enabled": not args.disable_advantage_normalization,
     "exec_mode": "CUDA" if args.gpu_sim else "CPU",
     "level_name": level_name,  # Dynamic level name
     "level_file": args.level_file if args.level_file else None,
@@ -439,6 +445,7 @@ try:
                 num_epochs=2,
                 clip_value_loss=args.clip_value_loss,
             ),
+            normalize_advantages=not args.disable_advantage_normalization,
             normalize_values=args.enable_value_normalization,
             value_normalizer_decay=0.999,
             mixed_precision=args.fp16,
