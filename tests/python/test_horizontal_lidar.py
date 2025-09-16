@@ -165,6 +165,7 @@ class TestHorizontalLidar:
                 print(f"First 10 unique values: {unique_values[:10]}")
                 print(f"Last 10 unique values: {unique_values[-10:]}")
 
+    @pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
     @pytest.mark.ascii_level(LARGE_OPEN_LEVEL)
     @pytest.mark.lidar_128  # Use 128-beam horizontal lidar preset
     def test_128_beam_horizontal_lidar_with_fixture(self, cpu_manager):

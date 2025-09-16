@@ -18,15 +18,14 @@ Primary implementation files:
 ### Test Files
 
 #### C++ Tests
-- `tests/cpp/test_physics.cpp` - Physics system integration tests
-- `tests/cpp/test_collision.cpp` - Collision detection system tests
-- `tests/cpp/test_reset.cpp` - Episode reset system tests
+- `tests/cpp/test_asset_registry.cpp` - Asset loading and registry tests
+- `tests/cpp/test_viewer_core.cpp` - Viewer core functionality tests
 
 #### Python Tests
 - `tests/python/test_bindings.py` - Core simulation behavior validation
-- `tests/python/test_observations.py` - Observation system tests
-- `tests/python/test_reward_system.py` - Reward calculation tests
-- `tests/python/test_reset_behavior.py` - Reset system integration tests
+- `tests/python/test_reward_termination_system.py` - Reward calculation and termination tests
+- `tests/python/test_movement_system.py` - Movement system tests
+- `tests/python/test_compass_tensor.py` - Compass observation system tests
 
 ## Architecture
 
@@ -119,7 +118,7 @@ struct TerminationReason {
 };
 ```
 
-### Core Systems (Task Graph Order)
+### Core Systems
 
 #### movementSystem
 - **Purpose**: Converts discrete actions to physics forces and torques

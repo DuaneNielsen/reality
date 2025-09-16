@@ -86,6 +86,50 @@ class MarkdownHierarchyParser:
 
         return current
 
+    def find_node_by_name(self, target_name: str) -> Optional[Dict]:
+        """Find any node in the tree that matches the target name."""
+
+        def search_recursive(node: Dict) -> Optional[Dict]:
+            # Check if current node title matches (case-insensitive)
+            if node["title"].lower() == target_name.lower():
+                return node
+
+            # Search in children
+            for child in node["children"]:
+                result = search_recursive(child)
+                if result:
+                    return result
+
+            return None
+
+        return search_recursive(self.tree)
+
+    def extract_full_section(self, node: Dict) -> str:
+        """Extract complete section content including all nested subsections."""
+        if not node:
+            return ""
+
+        result = []
+
+        # Add the section title
+        if node["title"] != "root":
+            level_marker = "#" * node["level"]
+            result.append(f"{level_marker} {node['title']}")
+            result.append("")
+
+        # Add the section content
+        for line in node["content"]:
+            result.append(line)
+
+        # Recursively add all child sections
+        for child in node["children"]:
+            child_content = self.extract_full_section(child)
+            if child_content:
+                result.append("")
+                result.append(child_content)
+
+        return "\n".join(result)
+
     def get_specifications(self, node: Dict) -> List[str]:
         """Extract specification bullet points from a section."""
         specs = []
@@ -108,16 +152,8 @@ class MarkdownHierarchyParser:
         return specs
 
 
-def get_spec_content(doc_path: str, section_path: str) -> Optional[str]:
-    """Get specification content for a given test marker."""
-
-    # Handle different path formats
-    if "/" in section_path:
-        # New format: "Implementation/Core Systems/rewardSystem"
-        path_parts = section_path.split("/")
-    else:
-        # Old format: just "rewardSystem" - try to find it
-        path_parts = [section_path]
+def get_spec_content(doc_path: str, section_name: str) -> Optional[str]:
+    """Get specification content for a given test marker using intelligent search."""
 
     # Read the spec file
     spec_file = Path(doc_path)
@@ -130,44 +166,22 @@ def get_spec_content(doc_path: str, section_path: str) -> Optional[str]:
     content = spec_file.read_text()
     parser = MarkdownHierarchyParser(content)
 
-    # Try different path combinations to find the section
-    # First try the exact path
-    section = None
-
-    # For new full path format
-    if len(path_parts) > 1:
-        # Try: Simulation Core Specification -> Implementation -> Core Systems -> systemName
-        section = parser.find_section(
-            "Simulation Core Specification",
-            "Implementation",
-            "Core Systems (Task Graph Order)",
-            path_parts[-1],
-        )
-
-    # For old format or if full path didn't work
-    if not section and len(path_parts) == 1:
-        # Try to find the system directly under Core Systems
-        section = parser.find_section(
-            "Simulation Core Specification",
-            "Implementation",
-            "Core Systems (Task Graph Order)",
-            path_parts[0],
-        )
+    # Use intelligent search to find the section by name
+    section = parser.find_node_by_name(section_name)
 
     if not section:
-        return None
+        return f"Section '{section_name}' not found in {doc_path}"
 
-    # Format the content nicely
-    specs = parser.get_specifications(section)
-    if not specs:
-        return f"Section '{section['title']}' found but no specifications listed."
+    # Extract the complete section content
+    full_content = parser.extract_full_section(section)
 
+    if not full_content.strip():
+        return f"Section '{section_name}' found but no content available."
+
+    # Format the content nicely for display
     result = [f"\n📋 Specification: {section['title']}\n"]
     result.append("─" * 60)
-    for spec in specs[:10]:  # Limit to first 10 specs to avoid clutter
-        result.append(spec)
-    if len(specs) > 10:
-        result.append(f"  ... and {len(specs) - 10} more specifications")
+    result.append(full_content)
     result.append("─" * 60)
 
     return "\n".join(result)

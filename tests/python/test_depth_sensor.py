@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 
+@pytest.mark.spec("docs/specs/sim.md", "collectObservationsSystem")
 @pytest.mark.depth_default
 def test_depth_tensor_basic(cpu_manager):
     """Test that depth tensor is accessible with @depth_default marker"""
@@ -37,6 +38,7 @@ def test_depth_tensor_basic(cpu_manager):
     assert np.any(depth_np > 0), "Should have some non-zero depth values"
 
 
+@pytest.mark.spec("docs/specs/sim.md", "collectObservationsSystem")
 def test_depth_tensor_always_enabled(cpu_manager_with_depth):
     """Test dedicated depth sensor fixture that always enables batch renderer"""
     mgr = cpu_manager_with_depth
@@ -60,6 +62,7 @@ def test_depth_tensor_always_enabled(cpu_manager_with_depth):
     assert np.all(depth_np >= 0)
 
 
+@pytest.mark.spec("docs/specs/sim.md", "collectObservationsSystem")
 @pytest.mark.rgbd_default
 def test_depth_and_rgb_together(cpu_manager):
     """Test that both depth and RGB work together in RGBD mode"""
