@@ -2,13 +2,14 @@
 
 ## Overview
 
-A PyTorch-based tool for tracking episode statistics using exponential moving averages (EMA) in batch environments. Efficiently handles multiple parallel environments and provides smooth, responsive metrics for reinforcement learning training.
+A PyTorch-based tool for tracking episode statistics using exponential moving averages (EMA) in batch environments. Efficiently handles multiple parallel environments and provides smooth, responsive metrics for reinforcement learning training. Supports termination reason tracking to monitor how episodes end over the training process.
 
 ## Core Features
 
 - **Batch Processing**: Handles N parallel environments simultaneously
 - **Episode Tracking**: Accumulates rewards and counts steps until episode termination
 - **EMA Statistics**: Maintains exponential moving averages for smooth metric tracking
+- **Termination Reason Tracking**: Monitors episode termination causes with EMA probability tracking
 - **Performance Optimized**: Streamlined implementation for minimal computational overhead
 - **PyTorch Integration**: Native tensor operations for GPU acceleration
 
@@ -37,13 +38,15 @@ class EpisodicEMATracker(torch.nn.Module):
 
     def step_update(self,
                    rewards: torch.Tensor,
-                   dones: torch.Tensor) -> dict:
+                   dones: torch.Tensor,
+                   termination_reasons: torch.Tensor = None) -> dict:
         """
         Update tracker with batch of rewards and done flags.
 
         Args:
             rewards: Tensor of shape (N,) containing per-environment rewards
             dones: Tensor of shape (N,) containing per-environment done flags
+            termination_reasons: Optional tensor of shape (N,) containing termination reasons for completed episodes
 
         Returns:
             dict: Statistics for completed episodes (if any)
@@ -78,6 +81,11 @@ self.episode_lengths: torch.Tensor  # Shape: (num_envs,)
 self.ema_reward_tracker: EMATracker
 self.ema_length_tracker: EMATracker
 
+# Termination reason tracking (registered buffers)
+self.termination_counts: torch.Tensor      # Shape: (num_termination_reasons,)
+self.total_terminations: torch.Tensor      # Scalar tensor
+self.ema_termination_trackers: torch.nn.ModuleList  # List of EMATracker instances
+
 # Episode extremes tracking (registered buffers)
 # Min/max tracking removed for performance optimization
 
@@ -107,6 +115,10 @@ self.total_steps: torch.Tensor         # Scalar tensor
     # Wandb-compatible key names for direct logging
     "episodes/reward_ema": float,     # Smoothed average episode reward
     "episodes/length_ema": float,     # Smoothed average episode length
+    # Termination reason probability EMAs
+    "episodes/termination_time_limit_prob": float,        # EMA probability of time limit termination
+    "episodes/termination_progress_complete_prob": float, # EMA probability of progress completion
+    "episodes/termination_collision_death_prob": float,   # EMA probability of collision death
     # Min/max tracking removed for performance optimization
     "episodes/completed": int,        # Total episodes completed
     "episodes/total_steps": int       # Total steps across all environments
@@ -125,6 +137,7 @@ ema_new = alpha * new_value + (1 - alpha) * ema_old
 2. **Detect Completion**: Check `dones` tensor for completed episodes
 3. **Update Statistics**: For completed episodes:
    - Update EMA values using batch means for performance
+   - Update termination reason counts and probability EMAs (if provided)
    - Reset accumulators for completed environments
 4. **Return Results**: Provide completed episode information
 
@@ -133,6 +146,20 @@ ema_new = alpha * new_value + (1 - alpha) * ema_old
 - Batch EMA updates using mean of completed episodes
 - Optimized device handling to avoid unnecessary tensor transfers
 - Min/max tracking removed for maximum performance
+
+## Termination Reason Constants
+
+```python
+from enum import IntEnum
+
+class TerminationReason(IntEnum):
+    """
+    Termination reasons for episodes based on reward_termination_system.md
+    """
+    TIME_LIMIT = 0          # Episode ends after 200 steps (episodeLen)
+    PROGRESS_COMPLETE = 1   # Agent reaches normalized_progress >= 1.0
+    COLLISION_DEATH = 2     # Agent dies from collision
+```
 
 ## Usage Examples
 
@@ -147,8 +174,17 @@ for step in range(num_steps):
     actions = policy(observations)
     observations, rewards, dones, infos = env.step(actions)
 
-    # Update tracker
-    completed = tracker.step_update(rewards, dones)
+    # Extract termination reasons from infos (optional)
+    termination_reasons = None
+    if dones.any():
+        # Example: extract from environment info
+        termination_reasons = torch.tensor([
+            info.get('termination_reason', TerminationReason.TIME_LIMIT)
+            for info in infos
+        ])
+
+    # Update tracker with termination reasons
+    completed = tracker.step_update(rewards, dones, termination_reasons)
 
     # Log completed episodes
     if "completed_episodes" in completed:
@@ -158,6 +194,11 @@ for step in range(num_steps):
     if step % 100 == 0:
         episode_stats = tracker.get_statistics()
         wandb.log(episode_stats, step=step)  # Direct logging with wandb-compatible keys
+
+        # New termination probability stats are automatically included:
+        # episodes/termination_time_limit_prob
+        # episodes/termination_progress_complete_prob
+        # episodes/termination_collision_death_prob
 ```
 
 ### Enhanced Tracking with Histograms
@@ -179,8 +220,16 @@ for step in range(num_steps):
     actions = policy(observations)
     observations, rewards, dones, infos = env.step(actions)
 
+    # Extract termination reasons from infos (optional)
+    termination_reasons = None
+    if dones.any():
+        termination_reasons = torch.tensor([
+            info.get('termination_reason', TerminationReason.TIME_LIMIT)
+            for info in infos
+        ])
+
     # Update tracker (both EMA and histograms)
-    completed = tracker.step_update(rewards, dones)
+    completed = tracker.step_update(rewards, dones, termination_reasons)
 
     # Regular EMA logging
     if step % 100 == 0:

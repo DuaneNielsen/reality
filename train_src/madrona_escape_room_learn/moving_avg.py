@@ -1,5 +1,17 @@
+from enum import IntEnum
+
 import torch
 import torch.nn as nn
+
+
+class TerminationReason(IntEnum):
+    """
+    Termination reasons for episodes based on reward_termination_system.md
+    """
+
+    TIME_LIMIT = 0  # Episode ends after 200 steps (episodeLen)
+    PROGRESS_COMPLETE = 1  # Agent reaches normalized_progress >= 1.0
+    COLLISION_DEATH = 2  # Agent dies from collision
 
 
 # Simple Exponential Moving Average tracker for scalar metrics
@@ -161,6 +173,18 @@ class EpisodicEMATracker(torch.nn.Module):
         self.ema_reward_tracker = EMATracker(1 - alpha)
         self.ema_length_tracker = EMATracker(1 - alpha)
 
+        # Termination reason tracking
+        num_termination_reasons = len(TerminationReason)
+        self.register_buffer(
+            "termination_counts", torch.zeros(num_termination_reasons, dtype=torch.int64)
+        )
+        self.register_buffer("total_terminations", torch.tensor(0, dtype=torch.int64))
+
+        # EMA trackers for termination reason probabilities
+        self.ema_termination_trackers = torch.nn.ModuleList(
+            [EMATracker(1 - alpha) for _ in range(num_termination_reasons)]
+        )
+
         # Removed min/max tracking for performance
 
         # Metadata (registered buffers)
@@ -171,13 +195,17 @@ class EpisodicEMATracker(torch.nn.Module):
         if device is not None:
             self.to(device)
 
-    def step_update(self, rewards: torch.Tensor, dones: torch.Tensor) -> dict:
+    def step_update(
+        self, rewards: torch.Tensor, dones: torch.Tensor, termination_reasons: torch.Tensor = None
+    ) -> dict:
         """
         Update tracker with batch of rewards and done flags.
 
         Args:
             rewards: Tensor of shape (N,) containing per-environment rewards
             dones: Tensor of shape (N,) containing per-environment done flags
+            termination_reasons: Optional tensor of shape (N,) containing termination reasons
+                for completed episodes
 
         Returns:
             dict: Statistics for completed episodes (if any)
@@ -219,6 +247,27 @@ class EpisodicEMATracker(torch.nn.Module):
             self.ema_reward_tracker.update(mean_completed_reward)
             self.ema_length_tracker.update(mean_completed_length)
 
+            # Update termination reason tracking
+            if termination_reasons is not None:
+                # Get termination reasons for completed episodes
+                completed_termination_reasons = termination_reasons[completed_mask]
+
+                # Update EMA for termination reason probabilities using batch probabilities
+                for reason_idx in range(len(TerminationReason)):
+                    # Calculate probability for this batch of completed episodes
+                    reason_count = (completed_termination_reasons == reason_idx).sum()
+                    batch_prob = reason_count.float() / num_completed if num_completed > 0 else 0.0
+
+                    # Update EMA with this batch's probability
+                    self.ema_termination_trackers[reason_idx].update(batch_prob)
+
+                # Update cumulative counts for debugging/monitoring
+                for reason_idx in range(len(TerminationReason)):
+                    reason_count = (completed_termination_reasons == reason_idx).sum()
+                    self.termination_counts[reason_idx] += reason_count
+
+                self.total_terminations += num_completed
+
             # Removed min/max updates for performance
 
             # Update episode count
@@ -249,7 +298,8 @@ class EpisodicEMATracker(torch.nn.Module):
         """
         if self.disable:
             return {}
-        return {
+
+        stats = {
             # Episode tracking (matching wandb log structure from train.py)
             "episodes/reward_ema": self.ema_reward_tracker.ema.item()
             if self.ema_reward_tracker.N > 0
@@ -261,6 +311,16 @@ class EpisodicEMATracker(torch.nn.Module):
             "episodes/completed": self.episodes_completed.item(),
             "episodes/total_steps": self.total_steps.item(),
         }
+
+        # Add termination reason probability EMAs using grouping pattern
+        termination_reason_names = ["time_limit", "progress_complete", "collision_death"]
+        for reason_idx, reason_name in enumerate(termination_reason_names):
+            tracker = self.ema_termination_trackers[reason_idx]
+            stats[f"episodes/termination/{reason_name}_prob"] = (
+                tracker.ema.item() if tracker.N > 0 else 0.0
+            )
+
+        return stats
 
     def reset_env(self, env_indices: torch.Tensor):
         """
@@ -393,19 +453,23 @@ class EpisodicEMATrackerWithHistogram(EpisodicEMATracker):
         self.reward_bin_edges = self.reward_histogram.bin_edges
         self.length_bin_edges = self.length_histogram.bin_edges
 
-    def step_update(self, rewards: torch.Tensor, dones: torch.Tensor) -> dict:
+    def step_update(
+        self, rewards: torch.Tensor, dones: torch.Tensor, termination_reasons: torch.Tensor = None
+    ) -> dict:
         """
         Update tracker and histograms with batch of rewards and done flags.
 
         Args:
             rewards: Tensor of shape (N,) containing per-environment rewards
             dones: Tensor of shape (N,) containing per-environment done flags
+            termination_reasons: Optional tensor of shape (N,) containing termination reasons
+                for completed episodes
 
         Returns:
             dict: Statistics for completed episodes (if any) with histogram data
         """
         # Call parent method for EMA tracking
-        result = super().step_update(rewards, dones)
+        result = super().step_update(rewards, dones, termination_reasons)
 
         # Update histograms if episodes completed
         if "completed_episodes" in result:

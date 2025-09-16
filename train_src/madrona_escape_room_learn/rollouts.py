@@ -205,7 +205,17 @@ class RolloutManager:
                             if cur_dones_store.dim() == 2
                             else cur_dones_store[:, 0, 0]
                         )
-                        self.episode_tracker.step_update(step_rewards, step_dones.bool())
+
+                        # Extract termination reasons for completed episodes
+                        step_termination_reasons = (
+                            sim.termination_reasons[:, 0]
+                            if sim.termination_reasons.dim() == 2
+                            else sim.termination_reasons[:, 0, 0]
+                        )
+
+                        self.episode_tracker.step_update(
+                            step_rewards, step_dones.bool(), step_termination_reasons
+                        )
 
                     for rnn_states in rnn_states_cur_in:
                         rnn_states.masked_fill_(cur_dones_store, 0)
