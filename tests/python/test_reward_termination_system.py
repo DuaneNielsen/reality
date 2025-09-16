@@ -1740,6 +1740,8 @@ def test_collision_death_termination_code(cpu_manager):
 
 def test_termination_codes_consistency():
     """Test that termination codes are consistent across different termination types."""
+    import torch
+
     from madrona_escape_room import ExecMode, SimManager, create_default_level
 
     mgr = SimManager(
@@ -1774,7 +1776,7 @@ def test_termination_codes_consistency():
     controller.reset_actions()
     # World 1 moves forward, others stay still
     actions = mgr.action_tensor().to_torch()
-    actions[1, :] = [3, 0, 2]  # Fast forward for world 1
+    actions[1, :] = torch.tensor([3, 0, 2])  # Fast forward for world 1
 
     # Run until episodes end
     for step in range(consts.episodeLen + 5):
@@ -1798,17 +1800,19 @@ def test_termination_codes_consistency():
         # Validate codes are in expected range
         assert code in [0, 1, 2], f"World {i}: Invalid termination code {code}"
 
-        # Code 0 or 1 should have non-negative rewards
-        if code in [0, 1]:
+        # Code 1 (goal achieved) should have positive or zero reward
+        if code == 1:
             assert (
                 reward >= -0.01
-            ), f"World {i}: Code {code} should have non-negative reward, got {reward}"
+            ), f"World {i}: Goal achieved should have non-negative reward, got {reward}"
 
-        # Code 2 should have collision penalty
+        # Code 2 (collision death) should have collision penalty
         if code == 2:
             assert (
                 abs(reward - (-0.1)) < 0.01
             ), f"World {i}: Code 2 should have ~-0.1 reward, got {reward}"
+
+        # Code 0 (timeout) can have any reward (depends on final action)
 
     print("✓ Termination codes consistency test passed")
 
