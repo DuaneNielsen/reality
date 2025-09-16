@@ -21,6 +21,7 @@ struct TrajectoryPoint {
     int32_t compass;  // compass bucket index (0-127)
     float progress;
     float reward;
+    int32_t termination_reason;  // 0=episode_steps_reached, 1=goal_achieved, 2=collision_death
     
     bool operator==(const TrajectoryPoint& other) const {
         const float epsilon = 0.001f;
@@ -33,7 +34,8 @@ struct TrajectoryPoint {
                std::abs(rotation - other.rotation) < epsilon &&
                compass == other.compass &&
                std::abs(progress - other.progress) < epsilon &&
-               std::abs(reward - other.reward) < epsilon;
+               std::abs(reward - other.reward) < epsilon &&
+               termination_reason == other.termination_reason;
     }
 };
 
@@ -53,41 +55,53 @@ public:
             uint32_t remaining = 0;
             int32_t done = 0;
             
-            // Try newest format with compass and reward first
-            if (sscanf(line.c_str(), 
+            // Try newest format with termination reason first
+            if (sscanf(line.c_str(),
+                      "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° compass=%d progress=%f reward=%f done=%d term=%d",
+                      &point.step, &remaining, &point.world, &point.agent,
+                      &point.x, &point.y, &point.z,
+                      &point.rotation, &point.compass, &point.progress, &point.reward, &done, &point.termination_reason) == 13) {
+                points.push_back(point);
+            }
+            // Try format with compass and reward but no termination reason
+            else if (sscanf(line.c_str(),
                       "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° compass=%d progress=%f reward=%f done=%d",
                       &point.step, &remaining, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.compass, &point.progress, &point.reward, &done) == 12) {
+                point.termination_reason = -1;  // Default value for old format
                 points.push_back(point);
             }
             // Try format with compass but no reward (backwards compatibility)
-            else if (sscanf(line.c_str(), 
+            else if (sscanf(line.c_str(),
                       "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° compass=%d progress=%f done=%d",
                       &point.step, &remaining, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.compass, &point.progress, &done) == 11) {
                 point.reward = 0.0f;  // Default reward value for old format
+                point.termination_reason = -1;  // Default termination reason for old format
                 points.push_back(point);
             }
             // Try format without compass
-            else if (sscanf(line.c_str(), 
+            else if (sscanf(line.c_str(),
                       "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° progress=%f done=%d",
                       &point.step, &remaining, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.progress, &done) == 10) {
                 point.compass = -1;  // Default compass value for old format
                 point.reward = 0.0f;  // Default reward value for old format
+                point.termination_reason = -1;  // Default termination reason for old format
                 points.push_back(point);
             }
             // Then try old format
-            else if (sscanf(line.c_str(), 
+            else if (sscanf(line.c_str(),
                       "Step %u: World %d Agent %d: pos=(%f,%f,%f) rot=%f° progress=%f",
                       &point.step, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,
                       &point.rotation, &point.progress) == 8) {
                 point.compass = -1;  // Default compass value for old format
                 point.reward = 0.0f;  // Default reward value for old format
+                point.termination_reason = -1;  // Default termination reason for old format
                 points.push_back(point);
             }
         }

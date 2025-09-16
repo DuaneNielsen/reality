@@ -1026,6 +1026,7 @@ void Manager::logCurrentTrajectoryState()
     auto reward = rewardTensor();
     auto done = doneTensor();
     auto steps_taken = stepsTakenTensor();
+    auto termination_reason = terminationReasonTensor();
     
     // Calculate index for the specific agent
     int32_t idx = impl_->trackWorldIdx * madEscape::consts::numAgents + impl_->trackAgentIdx;
@@ -1037,6 +1038,7 @@ void Manager::logCurrentTrajectoryState()
     const float* reward_data;
     const int32_t* done_data;
     const uint32_t* steps_taken_data;
+    const int32_t* termination_reason_data;
     
     if (impl_->cfg.execMode == ExecMode::CUDA) {
 #ifdef MADRONA_CUDA_SUPPORT
@@ -1047,6 +1049,7 @@ void Manager::logCurrentTrajectoryState()
         static float host_reward;
         static int32_t host_done;
         static uint32_t host_steps_taken;
+        static int32_t host_termination_reason;
         
         cudaMemcpy(&host_obs, 
                   ((const SelfObservation*)self_obs.devicePtr()) + idx,
@@ -1072,13 +1075,18 @@ void Manager::logCurrentTrajectoryState()
                   ((const uint32_t*)steps_taken.devicePtr()) + idx,
                   sizeof(uint32_t),
                   cudaMemcpyDeviceToHost);
-        
+        cudaMemcpy(&host_termination_reason,
+                  ((const int32_t*)termination_reason.devicePtr()) + idx,
+                  sizeof(int32_t),
+                  cudaMemcpyDeviceToHost);
+
         obs_data = &host_obs;
         compass_data = host_compass;
         progress_data = &host_progress;
         reward_data = &host_reward;
         done_data = &host_done;
         steps_taken_data = &host_steps_taken;
+        termination_reason_data = &host_termination_reason;
 #endif
     } else {
         // For CPU, direct access
@@ -1088,6 +1096,7 @@ void Manager::logCurrentTrajectoryState()
         reward_data = ((const float*)reward.devicePtr()) + idx;
         done_data = ((const int32_t*)done.devicePtr()) + idx;
         steps_taken_data = ((const uint32_t*)steps_taken.devicePtr()) + idx;
+        termination_reason_data = ((const int32_t*)termination_reason.devicePtr()) + idx;
     }
     
     // Find the active compass index (one-hot encoding)
@@ -1103,7 +1112,7 @@ void Manager::logCurrentTrajectoryState()
     FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
     uint32_t remaining_display = (*steps_taken_data >= madEscape::consts::episodeLen) ? 0 : (madEscape::consts::episodeLen - *steps_taken_data);
     
-    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f reward=%.3f done=%d\n",
+    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f reward=%.3f done=%d term=%d\n",
             *steps_taken_data,
             remaining_display,
             impl_->trackWorldIdx,
@@ -1115,7 +1124,8 @@ void Manager::logCurrentTrajectoryState()
             compass_index,
             *progress_data,
             *reward_data,
-            *done_data);
+            *done_data,
+            *termination_reason_data);
     fflush(output);
 }
 
