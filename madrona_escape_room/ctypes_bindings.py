@@ -235,6 +235,9 @@ lib.mer_get_reward_tensor.restype = c_int
 lib.mer_get_done_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_done_tensor.restype = c_int
 
+lib.mer_get_termination_reason_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
+lib.mer_get_termination_reason_tensor.restype = c_int
+
 lib.mer_get_self_observation_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_self_observation_tensor.restype = c_int
 

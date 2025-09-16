@@ -128,6 +128,9 @@ class SimManager:
     def done_tensor(self):
         return self._get_tensor(lib.mer_get_done_tensor)
 
+    def termination_reason_tensor(self):
+        return self._get_tensor(lib.mer_get_termination_reason_tensor)
+
     def self_observation_tensor(self):
         return self._get_tensor(lib.mer_get_self_observation_tensor)
 

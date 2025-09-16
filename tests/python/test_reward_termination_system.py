@@ -522,7 +522,9 @@ def test_reward_proportional_to_progress_over_max_y(cpu_manager):
 
 
 def test_episode_terminates_after_200_steps():
-    """SPEC 6: Episode terminates after exactly 200 steps when auto_reset is enabled"""
+    """SPEC 6: Episode terminates after exactly 200 steps when auto_reset is enabled
+    TERMINATION: Should use termination code 0 (episode_steps_reached)
+    """
     from madrona_escape_room import ExecMode, SimManager, create_default_level
     from madrona_escape_room.generated_constants import consts
 
@@ -539,6 +541,16 @@ def test_episode_terminates_after_200_steps():
 
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
+
+    # Skip if termination_reason tensor not available
+    try:
+        termination_tensor = mgr.termination_reason_tensor()
+    except AttributeError:
+        print(
+            "Warning: TerminationReason tensor not available, "
+            "skipping termination code verification"
+        )
+        termination_tensor = None
 
     # Reset world 0
     reset_world(mgr, 0)
@@ -575,6 +587,14 @@ def test_episode_terminates_after_200_steps():
                 f"SPEC VIOLATION: After {consts.episodeLen} steps, should have 0 steps "
                 f"remaining, got {steps_remaining}"
             )
+
+            # Verify termination code 0 (episode_steps_reached)
+            termination_code = termination_tensor.to_numpy()[0, 0]
+            assert termination_code == 0, (
+                f"TERMINATION CODE VIOLATION: Expected code 0 (episode_steps_reached) "
+                f"for step limit termination, got {termination_code}"
+            )
+            print("✓ Correct termination code 0 (episode_steps_reached)")
 
     print(f"✓ Episode correctly terminated after exactly {consts.episodeLen} steps")
 
@@ -1336,10 +1356,22 @@ class TestCollisionTermination:
         assert not east_terminated, "East collision with wall should not terminate episode"
 
     def test_collision_reward_penalty(self, cpu_manager):
-        """Test that collision with DoneOnCollide objects gives -0.1 reward."""
+        """Test that collision with DoneOnCollide objects gives -0.1 reward.
+        TERMINATION: Should use termination code 2 (collision_death)
+        """
         mgr = cpu_manager
         controller = AgentController(mgr)
         observer = ObservationReader(mgr)
+
+        # Check for termination_reason tensor availability
+        try:
+            termination_tensor = mgr.termination_reason_tensor()
+        except AttributeError:
+            print(
+                "Warning: TerminationReason tensor not available, "
+                "skipping termination code verification"
+            )
+            termination_tensor = None
 
         # Reset to ensure clean state
         controller.reset_actions()
@@ -1362,6 +1394,15 @@ class TestCollisionTermination:
                 assert (
                     abs(reward - (-0.1)) < 1e-6
                 ), f"Expected ~-0.1 reward on collision, got {reward}"
+
+                # Verify termination code 2 (collision_death)
+                termination_code = termination_tensor.to_numpy()[0, 0]
+                assert termination_code == 2, (
+                    f"TERMINATION CODE VIOLATION: Expected code 2 (collision_death) "
+                    f"for collision termination, got {termination_code}"
+                )
+                print("✓ Correct termination code 2 (collision_death)")
+
                 print(f"✓ Collision reward test passed: reward = {reward}")
                 return
 
@@ -1462,3 +1503,390 @@ class TestCollisionTermination:
             final_reward >= 0.0
         ), f"Non-terminating collision should not affect final reward, got {final_reward}"
         print(f"✓ Non-terminating collision final reward: {final_reward}")
+
+
+# ================================================================
+# TERMINATION REASON CODE TESTS
+# ================================================================
+
+
+def test_termination_reason_tensor_access(cpu_manager):
+    """Test that termination reason tensor is accessible and has correct shape."""
+    mgr = cpu_manager
+
+    # Check if termination_reason tensor is accessible
+    try:
+        termination_tensor = mgr.termination_reason_tensor()
+        termination_data = termination_tensor.to_torch()
+        print(f"✓ TerminationReason tensor shape: {termination_data.shape}")
+        print(f"  Initial values: {termination_data.numpy()}")
+
+        # Should have shape [num_worlds, 1] for single-agent environment
+        assert (
+            len(termination_data.shape) == 2
+        ), f"Expected 2D tensor, got {len(termination_data.shape)}D"
+        assert termination_data.shape[0] == 4, f"Expected 4 worlds, got {termination_data.shape[0]}"
+        assert (
+            termination_data.shape[1] == 1
+        ), f"Expected 1 agent per world, got {termination_data.shape[1]}"
+
+    except AttributeError:
+        print("✗ TerminationReason tensor not accessible - needs to be added to Python bindings")
+        pytest.skip("TerminationReason tensor not yet available in Python bindings")
+
+
+def test_episode_steps_reached_termination_code(cpu_manager):
+    """Test termination reason code 0 when episode reaches step limit."""
+    mgr = cpu_manager
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Skip if termination_reason tensor not available
+    try:
+        termination_tensor = mgr.termination_reason_tensor()
+    except AttributeError:
+        pytest.skip("TerminationReason tensor not yet available")
+
+    # Reset world 0
+    reset_world(mgr, 0)
+
+    # Keep agent stationary to let episode timeout
+    controller.reset_actions()
+
+    # Run exactly episodeLen steps to trigger step limit termination
+    for step in range(consts.episodeLen):
+        controller.step()
+
+        # Check if episode is done
+        if observer.get_done_flag(0):
+            termination_code = termination_tensor.to_torch()[0, 0].item()
+            print(f"Episode ended at step {step+1} with termination code: {termination_code}")
+
+            if step + 1 == consts.episodeLen:
+                # Should be termination code 0 (episode_steps_reached)
+                assert (
+                    termination_code == 0
+                ), f"Expected termination code 0 for step limit, got {termination_code}"
+                print("✓ Step limit termination code test passed")
+                return
+            else:
+                # Episode ended early (unexpected)
+                pytest.fail(f"Episode ended unexpectedly at step {step+1}")
+
+    # If we get here, episode didn't end at step limit
+    pytest.fail("Episode should have ended at step limit")
+
+
+def test_goal_achieved_termination_code():
+    """Test termination reason code 1 when agent reaches world boundary."""
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
+
+    # Create manager with larger level for goal achievement
+    mgr = SimManager(
+        exec_mode=ExecMode.CPU,
+        gpu_id=0,
+        num_worlds=1,
+        rand_seed=42,
+        enable_batch_renderer=False,
+        auto_reset=False,  # Manual control
+        compiled_levels=create_default_level(),
+    )
+
+    # Skip if termination_reason tensor not available
+    try:
+        termination_tensor = mgr.termination_reason_tensor()
+    except AttributeError:
+        pytest.skip("TerminationReason tensor not yet available")
+
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Reset world 0
+    reset_world(mgr, 0)
+
+    # Move forward quickly to try to reach goal
+    controller.reset_actions()
+    controller.move_forward(world_idx=0, speed=3)  # Fast speed
+
+    max_steps = 300  # Safety limit
+    for step in range(max_steps):
+        controller.step()
+
+        # Check progress
+        max_y_progress = observer.get_max_y_progress(0)
+
+        # Check if episode is done
+        if observer.get_done_flag(0):
+            termination_code = termination_tensor.to_torch()[0, 0].item()
+            print(f"Episode ended at step {step+1} with:")
+            print(f"  Progress: {max_y_progress:.3f}")
+            print(f"  Termination code: {termination_code}")
+
+            # If high progress (>95%), should be goal achieved (code 1)
+            if max_y_progress >= 0.95:
+                assert (
+                    termination_code == 1
+                ), f"Expected termination code 1 for goal achieved, got {termination_code}"
+                print("✓ Goal achieved termination code test passed")
+                return
+            elif step + 1 >= consts.episodeLen:
+                # Hit step limit, should be code 0
+                assert (
+                    termination_code == 0
+                ), f"Expected termination code 0 for step limit, got {termination_code}"
+                print("✓ Step limit reached instead of goal")
+                return
+            else:
+                # Some other termination
+                print(f"Episode ended early with code {termination_code}")
+                return
+
+    pytest.fail("Episode should have ended within step limit")
+
+
+@pytest.mark.json_level(
+    {
+        "ascii": """################################
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............CCCCCC..........#
+#..............C....C..........#
+#..............C.S..C..........#
+#..............C....C..........#
+#..............CCCCCC..........#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+#..............................#
+################################""",
+        "tileset": {
+            "#": {"asset": "wall", "done_on_collision": False},
+            "C": {"asset": "cube", "done_on_collision": True},  # Collision cubes terminate
+            "S": {"asset": "spawn"},
+            ".": {"asset": "empty"},
+        },
+        "scale": 2.5,
+        "name": "collision_termination_test",
+    }
+)
+def test_collision_death_termination_code(cpu_manager):
+    """Test termination reason code 2 when agent collides with terminating object."""
+    mgr = cpu_manager
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Skip if termination_reason tensor not available
+    try:
+        termination_tensor = mgr.termination_reason_tensor()
+    except AttributeError:
+        pytest.skip("TerminationReason tensor not yet available")
+
+    # Reset world 0
+    reset_world(mgr, 0)
+
+    # Move toward collision cube (agent spawns surrounded by cubes)
+    controller.reset_actions()
+    controller.move_forward(world_idx=0, speed=3)  # Fast speed to ensure collision
+
+    max_collision_steps = 15  # Should hit cube quickly
+
+    for step in range(max_collision_steps):
+        controller.step()
+
+        # Check if episode is done
+        if observer.get_done_flag(0):
+            termination_code = termination_tensor.to_torch()[0, 0].item()
+            reward = observer.get_reward(0)
+
+            print(f"Episode ended at step {step+1} with:")
+            print(f"  Termination code: {termination_code}")
+            print(f"  Reward: {reward}")
+
+            # Check for collision death indicators
+            if abs(reward - (-0.1)) < 1e-6:  # Collision penalty
+                assert (
+                    termination_code == 2
+                ), f"Expected termination code 2 for collision death, got {termination_code}"
+                print("✓ Collision death termination code test passed")
+                return
+            else:
+                # Some other termination reason
+                print(
+                    f"Episode ended with different reason: code={termination_code}, reward={reward}"
+                )
+                return
+
+    pytest.fail("Expected collision with terminating cube")
+
+
+def test_termination_codes_consistency():
+    """Test that termination codes are consistent across different termination types."""
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
+
+    mgr = SimManager(
+        exec_mode=ExecMode.CPU,
+        gpu_id=0,
+        num_worlds=3,  # Test multiple worlds
+        rand_seed=42,
+        enable_batch_renderer=False,
+        auto_reset=False,
+        compiled_levels=create_default_level(),
+    )
+
+    # Skip if termination_reason tensor not available
+    try:
+        termination_tensor = mgr.termination_reason_tensor()
+    except AttributeError:
+        pytest.skip("TerminationReason tensor not yet available")
+
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Reset all worlds
+    reset_tensor = mgr.reset_tensor().to_torch()
+    reset_tensor[:] = 1
+    mgr.step()
+    reset_tensor[:] = 0
+
+    # World 0: Let timeout (should be code 0)
+    # World 1: Try for goal (may be code 1 or 0)
+    # World 2: Let timeout (should be code 0)
+
+    controller.reset_actions()
+    # World 1 moves forward, others stay still
+    actions = mgr.action_tensor().to_torch()
+    actions[1, :] = [3, 0, 2]  # Fast forward for world 1
+
+    # Run until episodes end
+    for step in range(consts.episodeLen + 5):
+        mgr.step()
+
+        # Check which worlds are done
+        done_flags = [observer.get_done_flag(i) for i in range(3)]
+
+        if all(done_flags):
+            break
+
+    # Check termination codes
+    termination_codes = termination_tensor.to_torch().numpy()
+    print("Final termination codes:")
+    for i in range(3):
+        code = termination_codes[i, 0]
+        reward = observer.get_reward(i)
+        progress = observer.get_max_y_progress(i)
+        print(f"  World {i}: code={code}, reward={reward:.4f}, progress={progress:.3f}")
+
+        # Validate codes are in expected range
+        assert code in [0, 1, 2], f"World {i}: Invalid termination code {code}"
+
+        # Code 0 or 1 should have non-negative rewards
+        if code in [0, 1]:
+            assert (
+                reward >= -0.01
+            ), f"World {i}: Code {code} should have non-negative reward, got {reward}"
+
+        # Code 2 should have collision penalty
+        if code == 2:
+            assert (
+                abs(reward - (-0.1)) < 0.01
+            ), f"World {i}: Code 2 should have ~-0.1 reward, got {reward}"
+
+    print("✓ Termination codes consistency test passed")
+
+
+def test_termination_reason_export_integration():
+    """Integration test to verify termination reason is properly exported to training code."""
+    from madrona_escape_room import ExecMode, SimManager, create_default_level
+
+    mgr = SimManager(
+        exec_mode=ExecMode.CPU,
+        gpu_id=0,
+        num_worlds=2,
+        rand_seed=42,
+        enable_batch_renderer=False,
+        auto_reset=True,  # Test with auto-reset
+        compiled_levels=create_default_level(),
+    )
+
+    # Skip if termination_reason tensor not available
+    try:
+        termination_tensor = mgr.termination_reason_tensor()
+    except AttributeError:
+        pytest.skip("TerminationReason tensor not yet available")
+
+    controller = AgentController(mgr)
+    observer = ObservationReader(mgr)
+
+    # Reset worlds
+    reset_tensor = mgr.reset_tensor().to_torch()
+    reset_tensor[:] = 1
+    mgr.step()
+    reset_tensor[:] = 0
+
+    termination_history = []
+    episode_count = 0
+    max_episodes = 3
+
+    controller.reset_actions()
+
+    # Run multiple episodes with auto-reset
+    step_count = 0
+    max_total_steps = consts.episodeLen * max_episodes + 10
+
+    while episode_count < max_episodes and step_count < max_total_steps:
+        mgr.step()
+        step_count += 1
+
+        # Check for episode completion in any world
+        for world_idx in range(2):
+            if observer.get_done_flag(world_idx):
+                code = termination_tensor.to_torch()[world_idx, 0].item()
+                reward = observer.get_reward(world_idx)
+
+                termination_history.append(
+                    {
+                        "episode": episode_count,
+                        "world": world_idx,
+                        "step": step_count,
+                        "code": code,
+                        "reward": reward,
+                    }
+                )
+
+                print(
+                    f"Episode {episode_count}, World {world_idx}: code={code}, reward={reward:.4f}"
+                )
+
+                if world_idx == 0:  # Count episodes based on world 0
+                    episode_count += 1
+
+                break
+
+    # Validate we got termination data
+    assert len(termination_history) > 0, "Should have recorded some episode terminations"
+
+    # Validate all codes are valid
+    for entry in termination_history:
+        assert entry["code"] in [0, 1, 2], f"Invalid termination code: {entry['code']}"
+
+    print(f"✓ Recorded {len(termination_history)} episode terminations with valid codes")
+    print("✓ Termination reason export integration test passed")

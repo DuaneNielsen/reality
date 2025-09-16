@@ -76,6 +76,7 @@ MER_EXPORT MER_Result mer_get_reset_tensor(MER_ManagerHandle handle, MER_Tensor*
 MER_EXPORT MER_Result mer_get_action_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_reward_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_done_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
+MER_EXPORT MER_Result mer_get_termination_reason_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_self_observation_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_compass_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_lidar_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);

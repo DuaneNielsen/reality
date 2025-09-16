@@ -790,6 +790,15 @@ Tensor Manager::doneTensor() const
                                });
 }
 
+Tensor Manager::terminationReasonTensor() const
+{
+    return impl_->exportTensor(ExportID::TerminationReason, TensorElementType::Int32,
+                               {
+                                   impl_->cfg.numWorlds,
+                                   1,
+                               });
+}
+
 //[GAME SPECIFIC]
 Tensor Manager::selfObservationTensor() const
 {

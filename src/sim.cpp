@@ -45,6 +45,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerComponent<Reward>();
     registry.registerComponent<Done>();
     registry.registerComponent<CollisionDeath>();
+    registry.registerComponent<TerminationReason>();
     
     // [GAME_SPECIFIC] Escape room specific components
     registry.registerComponent<SelfObservation>();
@@ -88,7 +89,9 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         (uint32_t)ExportID::Reward);
     registry.exportColumn<Agent, Done>(
         (uint32_t)ExportID::Done);
-    
+    registry.exportColumn<Agent, TerminationReason>(
+        (uint32_t)ExportID::TerminationReason);
+
     // [GAME_SPECIFIC] Export escape room observations
     registry.exportColumn<Agent, SelfObservation>(
         (uint32_t)ExportID::SelfObservation);
@@ -276,12 +279,16 @@ static inline float computeZAngle(Quat q)
 // This ensures Progress contains valid values (not sentinel) for tensor export
 inline void initProgressAfterReset(Engine &,
                                    Position pos,
-                                   Progress &progress)
+                                   Progress &progress,
+                                   TerminationReason &termination_reason)
 {
     // Initialize progress with current position after physics has settled
     if (progress.maxY < -999990.0f) {
         progress.maxY = pos.y;
         progress.initialY = pos.y;
+
+        // Only reset termination reason when progress is being initialized (i.e., after reset)
+        termination_reason.code = -1;
     }
 }
 
@@ -472,6 +479,7 @@ inline void rewardSystem(Engine &ctx,
                          Reward &out_reward,
                          Done &done,
                          CollisionDeath &collision_death,
+                         TerminationReason &termination_reason,
                          StepsTaken &steps_taken)
 {
     const CompiledLevel& level = ctx.singleton<CompiledLevel>();
@@ -504,6 +512,7 @@ inline void rewardSystem(Engine &ctx,
                                 (level.world_max_y - progress.initialY);
     if (done.v == 0 && normalized_progress >= 1.0f) {
         done.v = 1;
+        termination_reason.code = 1;  // goal_achieved
     }
 
     // Override with collision penalty if agent died
@@ -518,7 +527,8 @@ inline void agentCollisionSystem(Engine &ctx,
                                 Entity agent_entity,
                                 EntityType agent_type,
                                 Done &done,
-                                CollisionDeath &collision_death)
+                                CollisionDeath &collision_death,
+                                TerminationReason &termination_reason)
 {
     // Only process agents
     if (agent_type != EntityType::Agent) {
@@ -559,6 +569,7 @@ inline void agentCollisionSystem(Engine &ctx,
             if (done_on_collide_ref.valid() && done_on_collide_ref.value().value) {
                 done.v = 1;
                 collision_death.died = 1;  // Mark that agent died from collision
+                termination_reason.code = 2;  // collision_death
             }
         }
     });
@@ -569,12 +580,14 @@ inline void agentCollisionSystem(Engine &ctx,
 // setting done = 1 when the episode limit is reached
 inline void stepTrackerSystem(Engine &,
                               StepsTaken &steps_taken,
-                              Done &done)
+                              Done &done,
+                              TerminationReason &termination_reason)
 {
     uint32_t num_taken = ++steps_taken.t;
     // Done flag is reset by resetAgentPhysics during episode reset
     if (num_taken >= consts::episodeLen) {
         done.v = 1;  // Mark episode as done when step limit is reached
+        termination_reason.code = 0;  // episode_steps_reached
     }
 }
 
@@ -658,7 +671,8 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Entity,
             EntityType,
             Done,
-            CollisionDeath
+            CollisionDeath,
+            TerminationReason
         >>({run_narrowphase});
         
         // Continue with position solver
@@ -707,7 +721,8 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto done_sys = builder.addToGraph<ParallelForNode<Engine,
         stepTrackerSystem,
             StepsTaken,
-            Done
+            Done,
+            TerminationReason
         >>({phys_cleanup});
 
     // [REQUIRED_INTERFACE] Compute reward - only given at episode end
@@ -718,6 +733,7 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Reward,
             Done,
             CollisionDeath,
+            TerminationReason,
             StepsTaken
         >>({done_sys});
 
@@ -748,7 +764,8 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     auto init_progress = builder.addToGraph<ParallelForNode<Engine,
         initProgressAfterReset,
             Position,
-            Progress
+            Progress,
+            TerminationReason
         >>({post_reset_broadphase});
 
     // [REQUIRED_INTERFACE] Finally, collect observations for the next step.

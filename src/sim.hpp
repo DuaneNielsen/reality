@@ -26,6 +26,7 @@ enum class ExportID : uint32_t {
     Action,
     Reward,
     Done,
+    TerminationReason,
     SelfObservation,
     CompassObservation,
     Lidar,
