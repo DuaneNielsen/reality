@@ -22,12 +22,6 @@ Primary implementation files:
 - `tests/python/test_[feature].py` - [What aspects are tested]
 - `tests/python/test_[feature2].py` - [What aspects are tested]
 
-### Test Coverage
-Key behaviors that must be tested:
-- [Critical behavior/invariant to verify]
-- [Edge case to test]
-- [Integration point to validate]
-
 ## Architecture
 
 ### System Integration
