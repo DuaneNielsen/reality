@@ -120,9 +120,3 @@ struct CompiledLevel {
 ```cmake
 # If new source files need to be added to SIMULATOR_SRCS or other targets
 ```
-
-## Migration Notes
-[If modifying existing functionality, describe migration path]
-
-## Future Enhancements
-[Potential improvements and extensibility points]
