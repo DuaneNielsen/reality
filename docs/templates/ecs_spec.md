@@ -39,13 +39,13 @@ Primary implementation files:
 #### Entity-Component Matrix
 [Overview of which components belong to which entity types]
 
-| Component | [Entity1] | [Entity2] | [Entity3] | [Entity4] | Description |
-|-----------|-----------|-----------|-----------|-----------|-------------|
-| [Component1] | ✓ | ✓ | | | [What this component represents] |
-| [Component2] | ✓ | | ✓ | | [What this component represents] |
-| [Component3] | | ✓ | ✓ | | [What this component represents] |
-| [Component4] | ✓ | ✓ | ✓ | ✓ | [What this component represents] |
-| [NewComponent] | | | | ✓ | [What this component represents] |
+| Component | Description | [Entity1] | [Entity2] | [Entity3] | [Entity4] |
+|-----------|-------------|-----------|-----------|-----------|-----------|
+| [Component1] | [What this component represents] | ✓ | ✓ | | |
+| [Component2] | [What this component represents] | ✓ | | ✓ | |
+| [Component3] | [What this component represents] | | ✓ | ✓ | |
+| [Component4] | [What this component represents] | ✓ | ✓ | ✓ | ✓ |
+| [NewComponent] | [What this component represents] | | | | ✓ |
 
 #### Archetype Definitions
 ```cpp
