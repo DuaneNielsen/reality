@@ -37,6 +37,7 @@ class LearningCallback:
         additional_tags=None,
         num_worlds=1,
         device=None,
+        disable_episode_tracker=False,
     ):
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
@@ -61,6 +62,7 @@ class LearningCallback:
                 1.0,
             ],  # Better resolution around actual range
             length_bins=[1, 25, 50, 100, 150, 200, 250],  # Include >200 in case episodes go longer
+            disable=disable_episode_tracker,
         )
 
         # Initialize wandb
@@ -238,32 +240,34 @@ class LearningCallback:
             if update_id % 10 == 0:  # Every 10 updates for testing
                 histogram_data = self.episode_tracker.get_histograms()
 
-                # Use pre-computed bin counts with wandb.Histogram via np_histogram parameter
-                reward_bins = histogram_data["histograms/reward_bin_edges"]
-                length_bins = histogram_data["histograms/length_bin_edges"]
-                reward_counts = histogram_data["histograms/reward_counts"]
-                length_counts = histogram_data["histograms/length_counts"]
+                # Only process histograms if tracker is enabled (histogram_data not empty)
+                if histogram_data:
+                    # Use pre-computed bin counts with wandb.Histogram via np_histogram parameter
+                    reward_bins = histogram_data["histograms/reward_bin_edges"]
+                    length_bins = histogram_data["histograms/length_bin_edges"]
+                    reward_counts = histogram_data["histograms/reward_counts"]
+                    length_counts = histogram_data["histograms/length_counts"]
 
-                # Check if we have any episodes completed
-                total_episodes = self.episode_tracker.get_statistics()["episodes/completed"]
+                    # Check if we have any episodes completed
+                    total_episodes = self.episode_tracker.get_statistics()["episodes/completed"]
 
-                if total_episodes > 0:
-                    # Create numpy histogram tuples (counts, bin_edges)
-                    reward_hist_tuple = (reward_counts, reward_bins)
-                    length_hist_tuple = (length_counts, length_bins)
+                    if total_episodes > 0:
+                        # Create numpy histogram tuples (counts, bin_edges)
+                        reward_hist_tuple = (reward_counts, reward_bins)
+                        length_hist_tuple = (length_counts, length_bins)
 
-                    histogram_wandb_data = {
-                        "episode_rewards_histogram": wandb.Histogram(
-                            np_histogram=reward_hist_tuple
-                        ),
-                        "episode_lengths_histogram": wandb.Histogram(
-                            np_histogram=length_hist_tuple
-                        ),
-                    }
-                    wandb.log(histogram_wandb_data, step=update_id)
+                        histogram_wandb_data = {
+                            "episode_rewards_histogram": wandb.Histogram(
+                                np_histogram=reward_hist_tuple
+                            ),
+                            "episode_lengths_histogram": wandb.Histogram(
+                                np_histogram=length_hist_tuple
+                            ),
+                        }
+                        wandb.log(histogram_wandb_data, step=update_id)
 
-                    # Reset histograms after logging to show only recent episodes
-                    self.episode_tracker.reset_histograms()
+                        # Reset histograms after logging to show only recent episodes
+                        self.episode_tracker.reset_histograms()
 
         # Keep original console output
         if self.use_wandb and wandb.run is not None:
@@ -300,12 +304,11 @@ class LearningCallback:
         print(f"    Returns          => Avg: {ppo.returns_mean:.3f}, σ: {ppo.returns_stddev:.3f}")
         # Get episode statistics
         episode_stats = self.episode_tracker.get_statistics()
-        print(f"    Episode Length   => EMA: {episode_stats['episodes/length_ema']:.1f} steps")
-        print(
-            f"    Episode Reward   => EMA: {episode_stats['episodes/reward_ema']:.3f}, "
-            f"Max: {episode_stats['episodes/reward_max']:.3f}, "
-            f"Min: {episode_stats['episodes/reward_min']:.3f}"
-        )
+        if episode_stats:  # Only print if tracker is enabled
+            print(f"    Episode Length   => EMA: {episode_stats['episodes/length_ema']:.1f} steps")
+            print(f"    Episode Reward   => EMA: {episode_stats['episodes/reward_ema']:.3f}")
+        else:
+            print("    Episode Tracking => DISABLED (remove --disable-episode-tracker to enable)")
 
         # Only show value normalizer stats if normalization is enabled
         value_normalization_enabled = self.training_config.get("value_normalization_enabled", True)
@@ -381,6 +384,11 @@ arg_parser.add_argument(
 )
 arg_parser.add_argument("--seed", type=int, default=0, help="Random seed for reproducibility")
 arg_parser.add_argument("--level-file", type=str, help="Path to compiled .lvl level file")
+arg_parser.add_argument(
+    "--disable-episode-tracker",
+    action="store_true",
+    help="Disable episode tracking for performance testing (disables wandb episode stats)",
+)
 arg_parser.add_argument(
     "--tag", action="append", dest="tags", help="Add tags to wandb run (can be used multiple times)"
 )
@@ -465,6 +473,7 @@ learning_cb = LearningCallback(
     device=torch.device(f"cuda:{args.gpu_id}")
     if torch.cuda.is_available()
     else torch.device("cpu"),
+    disable_episode_tracker=args.disable_episode_tracker,
 )
 
 # Start recording if requested

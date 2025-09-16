@@ -22,7 +22,8 @@ class EMATracker(nn.Module):
             return
 
         self.N.add_(1)
-        self.ema.mul_(self.decay).add_(value * self.one_minus_decay)
+        # Optimized EMA update: ema = decay * ema + (1-decay) * value
+        self.ema.mul_(self.decay).add_(value, alpha=self.one_minus_decay)
 
 
 # Exponential Moving Average mean and variance estimator for
@@ -126,7 +127,9 @@ class EpisodicEMATracker(torch.nn.Module):
     smooth metrics for training monitoring.
     """
 
-    def __init__(self, num_envs: int, alpha: float = 0.01, device: torch.device = None):
+    def __init__(
+        self, num_envs: int, alpha: float = 0.01, device: torch.device = None, disable: bool = False
+    ):
         """
         Initialize the episodic EMA tracker.
 
@@ -134,6 +137,7 @@ class EpisodicEMATracker(torch.nn.Module):
             num_envs: Number of parallel environments
             alpha: EMA decay factor (0 < alpha <= 1). Lower values = more smoothing
             device: PyTorch device for tensor operations
+            disable: If True, disable all tracking for performance testing
 
         Note:
             Inherits from torch.nn.Module to avoid memory transfers and
@@ -143,6 +147,10 @@ class EpisodicEMATracker(torch.nn.Module):
 
         self.num_envs = num_envs
         self.alpha = alpha
+        self.disable = disable
+
+        if self.disable:
+            return
 
         # Per-environment episode accumulators (registered buffers for device handling)
         self.register_buffer("episode_rewards", torch.zeros(num_envs))
@@ -153,11 +161,7 @@ class EpisodicEMATracker(torch.nn.Module):
         self.ema_reward_tracker = EMATracker(1 - alpha)
         self.ema_length_tracker = EMATracker(1 - alpha)
 
-        # Episode extremes tracking (registered buffers)
-        self.register_buffer("episode_reward_min", torch.tensor(float("inf")))
-        self.register_buffer("episode_reward_max", torch.tensor(float("-inf")))
-        self.register_buffer("episode_length_min", torch.tensor(float("inf")))
-        self.register_buffer("episode_length_max", torch.tensor(0))
+        # Removed min/max tracking for performance
 
         # Metadata (registered buffers)
         self.register_buffer("episodes_completed", torch.tensor(0, dtype=torch.int64))
@@ -178,60 +182,63 @@ class EpisodicEMATracker(torch.nn.Module):
         Returns:
             dict: Statistics for completed episodes (if any)
         """
-        # Move tensors to device (auto-handled by nn.Module)
-        rewards = rewards.to(self.episode_rewards.device)
-        dones = dones.to(self.episode_rewards.device)
+        if self.disable:
+            return {}
+
+        # Optimize: avoid device moves if already on correct device
+        if rewards.device != self.episode_rewards.device:
+            rewards = rewards.to(self.episode_rewards.device)
+        if dones.device != self.episode_rewards.device:
+            dones = dones.to(self.episode_rewards.device)
 
         # Accumulate rewards and increment lengths
         self.episode_rewards += rewards
         self.episode_lengths += 1
         self.total_steps += self.num_envs
 
-        # Find completed episodes
+        # Early exit if no episodes completed (most common case)
+        if not dones.any():
+            return {}
+
+        # Find completed episodes - use nonzero for better performance
         completed_mask = dones.bool()
-        completed_indices = torch.where(completed_mask)[0]
+        completed_indices = completed_mask.nonzero(as_tuple=False).squeeze(1)
 
-        result = {}
+        # Get completed episode data
+        completed_rewards = self.episode_rewards[completed_mask]
+        completed_lengths = self.episode_lengths[completed_mask]
 
-        if len(completed_indices) > 0:
-            # Get completed episode data
-            completed_rewards = self.episode_rewards[completed_mask]
-            completed_lengths = self.episode_lengths[completed_mask]
+        # Vectorized EMA updates (completely avoid Python loops and .item() calls)
+        num_completed = len(completed_rewards)
+        if num_completed > 0:
+            # Batch update EMA with mean of completed episodes (much faster)
+            mean_completed_reward = completed_rewards.mean()
+            mean_completed_length = completed_lengths.float().mean()
 
-            # Update EMA statistics
-            for reward in completed_rewards:
-                self.ema_reward_tracker.update(reward.item())
-            for length in completed_lengths:
-                self.ema_length_tracker.update(length.item())
+            # Update EMAs with batch means (single tensor operation)
+            self.ema_reward_tracker.update(mean_completed_reward)
+            self.ema_length_tracker.update(mean_completed_length)
 
-            # Update min/max statistics
-            if len(completed_rewards) > 0:
-                batch_reward_min = completed_rewards.min()
-                batch_reward_max = completed_rewards.max()
-                batch_length_min = completed_lengths.min()
-                batch_length_max = completed_lengths.max()
-
-                self.episode_reward_min = torch.min(self.episode_reward_min, batch_reward_min)
-                self.episode_reward_max = torch.max(self.episode_reward_max, batch_reward_max)
-                self.episode_length_min = torch.min(self.episode_length_min, batch_length_min)
-                self.episode_length_max = torch.max(self.episode_length_max, batch_length_max)
+            # Removed min/max updates for performance
 
             # Update episode count
-            self.episodes_completed += len(completed_indices)
+            self.episodes_completed += num_completed
 
             # Reset completed environments
             self.episode_rewards[completed_mask] = 0
             self.episode_lengths[completed_mask] = 0
 
-            # Return completed episode info
-            result["completed_episodes"] = {
-                "count": len(completed_indices),
-                "rewards": completed_rewards.clone(),
-                "lengths": completed_lengths.clone(),
-                "env_indices": completed_indices.clone(),
+            # Return completed episode info (avoid unnecessary clones)
+            return {
+                "completed_episodes": {
+                    "count": num_completed,
+                    "rewards": completed_rewards,
+                    "lengths": completed_lengths,
+                    "env_indices": completed_indices,
+                }
             }
 
-        return result
+        return {}
 
     def get_statistics(self) -> dict:
         """
@@ -240,6 +247,8 @@ class EpisodicEMATracker(torch.nn.Module):
         Returns:
             dict: Current smoothed statistics as CPU primitives with wandb key names
         """
+        if self.disable:
+            return {}
         return {
             # Episode tracking (matching wandb log structure from train.py)
             "episodes/reward_ema": self.ema_reward_tracker.ema.item()
@@ -248,16 +257,7 @@ class EpisodicEMATracker(torch.nn.Module):
             "episodes/length_ema": self.ema_length_tracker.ema.item()
             if self.ema_length_tracker.N > 0
             else 0.0,
-            "episodes/reward_min": self.episode_reward_min.item()
-            if not torch.isinf(self.episode_reward_min)
-            else 0.0,
-            "episodes/reward_max": self.episode_reward_max.item()
-            if not torch.isinf(self.episode_reward_max)
-            else 0.0,
-            "episodes/length_min": int(self.episode_length_min.item())
-            if not torch.isinf(self.episode_length_min)
-            else 0,
-            "episodes/length_max": int(self.episode_length_max.item()),
+            # Removed min/max statistics for performance
             "episodes/completed": self.episodes_completed.item(),
             "episodes/total_steps": self.total_steps.item(),
         }
@@ -269,6 +269,8 @@ class EpisodicEMATracker(torch.nn.Module):
         Args:
             env_indices: Tensor of environment indices to reset
         """
+        if self.disable:
+            return
         env_indices = env_indices.to(self.episode_rewards.device)
         self.episode_rewards[env_indices] = 0
         self.episode_lengths[env_indices] = 0
@@ -311,8 +313,9 @@ class FastVectorizedHistogram(torch.nn.Module):
         if len(values) == 0:
             return
 
-        # Move values to same device as histogram
-        values = values.to(self.bin_edges.device)
+        # Optimize: avoid device move if already on correct device
+        if values.device != self.bin_edges.device:
+            values = values.to(self.bin_edges.device)
 
         # Find which bin each value belongs to using binary search
         bin_indices = torch.searchsorted(self.bin_edges[1:], values, right=False)
@@ -356,6 +359,7 @@ class EpisodicEMATrackerWithHistogram(EpisodicEMATracker):
         device: torch.device = None,
         reward_bins=None,
         length_bins=None,
+        disable: bool = False,
     ):
         """
         Initialize enhanced tracker with histogram support.
@@ -366,8 +370,12 @@ class EpisodicEMATrackerWithHistogram(EpisodicEMATracker):
             device: PyTorch device for tensor operations
             reward_bins: List of bin edges for reward histogram (e.g., [0, 5, 10, 20, 50, 100])
             length_bins: List of bin edges for length histogram (e.g., [1, 10, 25, 50, 100, 200])
+            disable: If True, disable all tracking for performance testing
         """
-        super().__init__(num_envs, alpha, device)
+        super().__init__(num_envs, alpha, device, disable)
+
+        if self.disable:
+            return
 
         # Default reward bins (adjust based on your reward range)
         if reward_bins is None:
@@ -427,6 +435,8 @@ class EpisodicEMATrackerWithHistogram(EpisodicEMATracker):
         Returns:
             dict: Histogram data with probability distributions, counts, and bin edges
         """
+        if self.disable:
+            return {}
         # Get histogram statistics
         reward_probs = self.reward_histogram.get_probabilities()
         length_probs = self.length_histogram.get_probabilities()
@@ -447,6 +457,8 @@ class EpisodicEMATrackerWithHistogram(EpisodicEMATracker):
 
     def reset_histograms(self):
         """Reset histogram counts while preserving EMA state."""
+        if self.disable:
+            return
         self.reward_histogram.reset()
         self.length_histogram.reset()
 

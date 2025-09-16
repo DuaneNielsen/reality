@@ -697,6 +697,79 @@ class TestEpisodicEMATrackerWithHistogram:
             assert isinstance(stats["episodes/reward_ema"], float)
             assert isinstance(stats["episodes/completed"], int)
 
+    def test_disable_flag_functionality(self):
+        """Test that disable flag prevents all tracking and returns empty dicts."""
+        # Test basic EMA tracker with disable=True
+        disabled_tracker = EpisodicEMATracker(num_envs=4, alpha=0.1, disable=True)
+
+        # Test step_update returns empty dict
+        result = disabled_tracker.step_update(
+            torch.tensor([1.0, 2.0, 3.0, 4.0]), torch.tensor([True, True, True, True])
+        )
+        assert result == {}
+
+        # Test get_statistics returns empty dict
+        stats = disabled_tracker.get_statistics()
+        assert stats == {}
+
+        # Test reset_env does nothing (should not crash)
+        disabled_tracker.reset_env(torch.tensor([0, 1]))
+
+        # Test histogram tracker with disable=True
+        disabled_hist_tracker = EpisodicEMATrackerWithHistogram(num_envs=2, alpha=0.1, disable=True)
+
+        # Test step_update returns empty dict
+        result = disabled_hist_tracker.step_update(
+            torch.tensor([5.0, 10.0]), torch.tensor([True, True])
+        )
+        assert result == {}
+
+        # Test get_statistics returns empty dict
+        stats = disabled_hist_tracker.get_statistics()
+        assert stats == {}
+
+        # Test get_histograms returns empty dict
+        histograms = disabled_hist_tracker.get_histograms()
+        assert histograms == {}
+
+        # Test reset_histograms does nothing (should not crash)
+        disabled_hist_tracker.reset_histograms()
+
+    def test_disable_flag_performance_benefit(self):
+        """Test that disabled tracker provides significant performance benefit."""
+        import time
+
+        num_envs = 100
+        num_steps = 50
+
+        # Test disabled tracker performance
+        disabled_tracker = EpisodicEMATrackerWithHistogram(num_envs=num_envs, disable=True)
+
+        start_time = time.time()
+        for i in range(num_steps):
+            rewards = torch.randn(num_envs) * 0.1
+            dones = torch.rand(num_envs) < 0.1  # 10% done rate
+            disabled_tracker.step_update(rewards, dones)
+            disabled_tracker.get_statistics()
+            disabled_tracker.get_histograms()
+        disabled_time = time.time() - start_time
+
+        # Test enabled tracker performance
+        enabled_tracker = EpisodicEMATrackerWithHistogram(num_envs=num_envs, disable=False)
+
+        start_time = time.time()
+        for i in range(num_steps):
+            rewards = torch.randn(num_envs) * 0.1
+            dones = torch.rand(num_envs) < 0.1  # 10% done rate
+            enabled_tracker.step_update(rewards, dones)
+            enabled_tracker.get_statistics()
+            enabled_tracker.get_histograms()
+        enabled_time = time.time() - start_time
+
+        # Disabled should be significantly faster (at least 10x)
+        speedup = enabled_time / disabled_time
+        assert speedup > 10.0, f"Expected >10x speedup, got {speedup:.1f}x"
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
