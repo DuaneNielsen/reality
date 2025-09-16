@@ -3,6 +3,31 @@
 ## Overview
 [High-level description of the feature/system and its purpose in the Madrona Escape Room simulation]
 
+## Key Files
+
+### Source Code
+Primary implementation files:
+
+- `src/[file1].cpp` - [Purpose/responsibility]
+- `src/[file2].hpp` - [Purpose/responsibility]
+- `src/[file3].cpp` - [Purpose/responsibility]
+
+### Test Files
+
+#### C++ Tests
+- `tests/cpp/test_[feature].cpp` - [What aspects are tested]
+- `tests/cpp/test_[feature2].cpp` - [What aspects are tested]
+
+#### Python Tests
+- `tests/python/test_[feature].py` - [What aspects are tested]
+- `tests/python/test_[feature2].py` - [What aspects are tested]
+
+### Test Coverage
+Key behaviors that must be tested:
+- [Critical behavior/invariant to verify]
+- [Edge case to test]
+- [Integration point to validate]
+
 ## Architecture
 
 ### System Integration
@@ -74,20 +99,6 @@ struct [ComponentName] {
      - [Algorithm or calculation performed]
      - [Edge cases handled]
      - [Performance constraints]
-
-## Testing Strategy
-
-### C++ Unit Tests
-- Test file: `tests/cpp/test_[feature].cpp`
-- Key test cases:
-  - [Test case description]
-  - [Test case description]
-
-### Python Tests
-- Test file: `tests/python/test_[feature].py`
-- Key test cases:
-  - [Test case description]
-  - [Test case description]
 
 ## Performance Considerations
 
