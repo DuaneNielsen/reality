@@ -198,16 +198,11 @@ The visualization system is implemented in [`src/viewer.cpp`](src/viewer.cpp) an
 
 This repository includes comprehensive documentation covering all aspects of development and deployment:
 
-### 🏗️ Architecture
-- [**ECS Architecture**](docs/architecture/ECS_ARCHITECTURE.md) - Madrona's archetype-based ECS design
-- [**Initialization Sequence**](docs/architecture/INITIALIZATION_SEQUENCE.md) - Manager creation and world setup
-- [**Step Sequence**](docs/architecture/STEP_SEQUENCE.md) - Simulation step execution flow
-- [**Collision System**](docs/architecture/COLLISION_SYSTEM.md) - Physics and collision detection
-
 ### 🛠️ Development
 - [**Testing Guide**](docs/development/TESTING_GUIDE.md) - Python testing with pytest
 - [**C++ Testing Guide**](tests/cpp/README.md) - C++ unit tests with GoogleTest
 - [**Performance Testing**](tests/performance/README.md) - Benchmarking and baselines
+- [**Test Framework**](tests/README.md) - Test infrastructure and requirement traceability
 - [**GDB Guide**](docs/development/GDB_GUIDE.md) - Debugging with GDB MCP server
 - [**Level Format**](docs/development/LEVEL_FORMAT.md) - Test-driven level creation
 - [**JSON Level Format**](docs/development/JSON_LEVEL_FORMAT_SUMMARY.md) - JSON-based levels with parameters

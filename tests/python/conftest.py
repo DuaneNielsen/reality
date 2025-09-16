@@ -5,10 +5,16 @@ Provides enhanced fixtures with optional action recording for visualization.
 
 import logging
 import subprocess
+import sys
 from pathlib import Path
 
+# Add tests directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Import the spec plugin
 import pytest
 import torch
+from conftest_spec import *  # noqa: F401, F403
 
 logger = logging.getLogger(__name__)
 

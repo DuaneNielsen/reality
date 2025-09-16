@@ -344,6 +344,7 @@ def test_auto_reset_reward_delivery():
         print(f"  World {world_idx}: No reward for stationary agent (correct incremental behavior)")
 
 
+@pytest.mark.spec("docs/specs/sim.md", "rewardSystem")
 def test_step_zero_reward_is_zero(cpu_manager):
     """SPEC 1: Step 0 reward is always 0"""
     mgr = cpu_manager
@@ -360,6 +361,7 @@ def test_step_zero_reward_is_zero(cpu_manager):
     assert step_0_reward == 0.0, f"SPEC VIOLATION: Step 0 reward should be 0.0, got {step_0_reward}"
 
 
+@pytest.mark.spec("docs/specs/sim.md", "rewardSystem")
 def test_forward_movement_gives_incremental_reward(cpu_manager):
     """SPEC 2: Forward movement gives small incremental reward based on forward progress"""
     mgr = cpu_manager
@@ -396,6 +398,7 @@ def test_forward_movement_gives_incremental_reward(cpu_manager):
         print("No forward progress made - this may be a physics issue")
 
 
+@pytest.mark.spec("docs/specs/sim.md", "rewardSystem")
 def test_backward_movement_gives_no_reward(cpu_manager):
     """SPEC 3: Moving backward after moving forward does not result in reward"""
     mgr = cpu_manager
@@ -436,6 +439,7 @@ def test_backward_movement_gives_no_reward(cpu_manager):
     print(f"Forward Y: {forward_y:.3f}, Final Y: {final_y:.3f}, Max progress: {max_progress:.3f}")
 
 
+@pytest.mark.spec("docs/specs/sim.md", "rewardSystem")
 def test_no_movement_gives_no_reward(cpu_manager):
     """SPEC 4: If agent does not move, no reward is given"""
     mgr = cpu_manager
@@ -521,6 +525,7 @@ def test_reward_proportional_to_progress_over_max_y(cpu_manager):
         )
 
 
+@pytest.mark.spec("docs/specs/sim.md", "stepTrackerSystem")
 def test_episode_terminates_after_200_steps():
     """SPEC 6: Episode terminates after exactly 200 steps when auto_reset is enabled
     TERMINATION: Should use termination code 0 (episode_steps_reached)
@@ -599,6 +604,7 @@ def test_episode_terminates_after_200_steps():
     print(f"✓ Episode correctly terminated after exactly {consts.episodeLen} steps")
 
 
+@pytest.mark.spec("docs/specs/sim.md", "resetSystem")
 def test_auto_reset_after_episode_termination():
     """SPEC 7: When auto_reset is enabled, episodes automatically reset after termination"""
     from madrona_escape_room import ExecMode, SimManager, create_default_level
@@ -1180,6 +1186,7 @@ def test_complete_traversal_yields_unit_reward(cpu_manager):
 class TestCollisionTermination:
     """Test collision-based episode termination with custom per-tile collision flags."""
 
+    @pytest.mark.spec("docs/specs/sim.md", "agentCollisionSystem")
     def test_north_collision_terminates(self, cpu_manager):
         """Test collision with terminating cube (north) ends episode."""
         mgr = cpu_manager
@@ -1355,6 +1362,7 @@ class TestCollisionTermination:
         assert north_terminated, "North collision with cube should terminate episode"
         assert not east_terminated, "East collision with wall should not terminate episode"
 
+    @pytest.mark.spec("docs/specs/sim.md", "agentCollisionSystem")
     def test_collision_reward_penalty(self, cpu_manager):
         """Test that collision with DoneOnCollide objects gives -0.1 reward.
         TERMINATION: Should use termination code 2 (collision_death)
@@ -1688,6 +1696,7 @@ def test_goal_achieved_termination_code():
         "name": "collision_termination_test",
     }
 )
+@pytest.mark.spec("docs/specs/sim.md", "agentCollisionSystem")
 def test_collision_death_termination_code(cpu_manager):
     """Test termination reason code 2 when agent collides with terminating object."""
     mgr = cpu_manager

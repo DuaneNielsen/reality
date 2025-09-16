@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 
+@pytest.mark.spec("docs/specs/sim.md", "compassSystem")
 def test_compass_tensor_basic(cpu_manager):
     """Test that the compass tensor is working correctly"""
 
@@ -43,6 +44,7 @@ def test_compass_tensor_basic(cpu_manager):
         print(f"World {world_idx} - Active compass bucket: {active_bucket}")
 
 
+@pytest.mark.spec("docs/specs/sim.md", "compassSystem")
 def test_compass_tensor_updates_after_step(cpu_manager):
     """Test that compass tensor updates after simulation steps"""
 

@@ -33,6 +33,7 @@ LARGE_OPEN_LEVEL = {
 
 
 @pytest.mark.ascii_level(LARGE_OPEN_LEVEL["ascii"])
+@pytest.mark.spec("docs/specs/sim.md", "movementSystem")
 def test_forward_movement(cpu_manager):
     """Test agent moving forward for entire episode"""
     mgr = cpu_manager

@@ -74,25 +74,25 @@ struct [ComponentName] {
 
 ### Core Systems
 
-1. **[System Name]**
-   - **Purpose**: [What this ECS system does]
-   - **Components Used**: [List of components read/written]
-   - **Task Graph Dependencies**: [Systems this depends on or feeds into]
-   - **Specifications**:
-     - [Specific behavior or requirement]
-     - [Algorithm or calculation performed]
-     - [Edge cases handled]
-     - [Performance constraints]
+#### [System Name]
+- **Purpose**: [What this ECS system does]
+- **Components Used**: [List of components read/written]
+- **Task Graph Dependencies**: [Systems this depends on or feeds into]
+- **Specifications**:
+  - [Specific behavior or requirement]
+  - [Algorithm or calculation performed]
+  - [Edge cases handled]
+  - [Performance constraints]
 
-2. **[System Name]**
-   - **Purpose**: [What this ECS system does]
-   - **Components Used**: [List of components read/written]
-   - **Task Graph Dependencies**: [Systems this depends on or feeds into]
-   - **Specifications**:
-     - [Specific behavior or requirement]
-     - [Algorithm or calculation performed]
-     - [Edge cases handled]
-     - [Performance constraints]
+#### [System Name]
+- **Purpose**: [What this ECS system does]
+- **Components Used**: [List of components read/written]
+- **Task Graph Dependencies**: [Systems this depends on or feeds into]
+- **Specifications**:
+  - [Specific behavior or requirement]
+  - [Algorithm or calculation performed]
+  - [Edge cases handled]
+  - [Performance constraints]
 
 ## Performance Considerations
 

@@ -32,6 +32,8 @@ markers = [
     "rgbd_default: mark test to use default RGB+depth sensor configuration",
     "lidar_128: mark test to use 128-beam horizontal lidar configuration",
     "auto_reset: mark test to enable automatic episode resets",
+    "spec(doc_path, section): link test to specification document and section",
+    "requirement(id): mark test as verifying a specific requirement",
 ]
 
 # Logging configuration
