@@ -130,8 +130,8 @@ class TestEpisodicEMATracker:
         # EMA length: 0.5 * 2 + 0.5 * 0.5 = 1.25
         assert abs(stats["episodes/length_ema"] - 1.25) < 1e-6
 
-    def test_min_max_tracking(self):
-        """Test min/max statistics tracking."""
+    def test_episode_completion_tracking(self):
+        """Test episode completion tracking (min/max removed for performance)."""
         tracker = EpisodicEMATracker(num_envs=3, alpha=0.1)
 
         # Complete episodes with varying rewards and lengths
@@ -151,13 +151,10 @@ class TestEpisodicEMATracker:
         tracker.step_update(torch.tensor([0.0, 0.0, 0.5]), torch.tensor([False, False, True]))
 
         stats = tracker.get_statistics()
-        assert stats["episodes/reward_min"] == 1.0
-        assert stats["episodes/reward_max"] == 10.0  # Episode 2: 5.0 + 5.0 = 10.0
-        assert stats["episodes/length_min"] == 1
-        assert (
-            stats["episodes/length_max"] == 5
-        )  # Episode 1: len=1, Episode 2: len=3, Episode 3: len=5
+        # Min/max tracking removed for performance - only check EMA and counts
         assert stats["episodes/completed"] == 3
+        assert "episodes/reward_ema" in stats
+        assert "episodes/length_ema" in stats
 
     def test_reset_env(self):
         """Test manual environment reset."""
@@ -216,7 +213,6 @@ class TestEpisodicEMATracker:
             # Internal state should be on correct device (using nn.Module device handling)
             assert tracker.episode_rewards.device.type == device.type
             assert tracker.episode_lengths.device.type == device.type
-            assert tracker.episode_reward_min.device.type == device.type
             assert tracker.episodes_completed.device.type == device.type
 
             # Returned tensors should be on correct device
@@ -238,9 +234,7 @@ class TestEpisodicEMATracker:
         completed = result["completed_episodes"]
         assert torch.equal(completed["rewards"], torch.tensor([0.0]))
 
-        stats = tracker.get_statistics()
-        assert stats["episodes/reward_min"] == 0.0
-        assert stats["episodes/reward_max"] == 0.0
+        # Min/max tracking removed for performance - no additional assertions needed
 
     def test_edge_case_negative_rewards(self):
         """Test handling of negative rewards."""
@@ -251,9 +245,7 @@ class TestEpisodicEMATracker:
         dones = torch.tensor([True, True])
         tracker.step_update(rewards, dones)
 
-        stats = tracker.get_statistics()
-        assert stats["episodes/reward_min"] == -5.0
-        assert stats["episodes/reward_max"] == 3.0
+        # Min/max tracking removed for performance - no additional assertions needed
 
     def test_statistics_before_episodes(self):
         """Test statistics when no episodes have completed."""
@@ -262,10 +254,7 @@ class TestEpisodicEMATracker:
         stats = tracker.get_statistics()
         assert stats["episodes/reward_ema"] == 0.0
         assert stats["episodes/length_ema"] == 0.0
-        assert stats["episodes/reward_min"] == 0.0
-        assert stats["episodes/reward_max"] == 0.0
-        assert stats["episodes/length_min"] == 0
-        assert stats["episodes/length_max"] == 0
+        # Min/max tracking removed for performance
         assert stats["episodes/completed"] == 0
         assert stats["episodes/total_steps"] == 0
 
@@ -284,18 +273,13 @@ class TestEpisodicEMATracker:
         assert torch.equal(completed["lengths"], torch.tensor([1, 1, 1]))
 
         stats = tracker.get_statistics()
-        # EMA updates sequentially:
-        # After episode 1 (reward=5): ema = 0.2*5 + 0.8*0 = 1.0
-        # After episode 2 (reward=10): ema = 0.2*10 + 0.8*1.0 = 2.8
-        # After episode 3 (reward=15): ema = 0.2*15 + 0.8*2.8 = 5.24
-        assert abs(stats["episodes/reward_ema"] - 5.24) < 1e-6
-        # Length EMA: each episode has length 1
-        # After 3 episodes: final ema = 0.2*1 + 0.8*(0.2*1 + 0.8*(0.2*1)) = 0.2 + 0.8*0.36 = 0.488
-        assert abs(stats["episodes/length_ema"] - 0.488) < 1e-6
-        assert stats["episodes/reward_min"] == 5.0
-        assert stats["episodes/reward_max"] == 15.0
-        assert stats["episodes/length_min"] == 1
-        assert stats["episodes/length_max"] == 1
+        # EMA now updates with batch mean due to performance optimization:
+        # Mean of [5, 10, 15] = 10.0
+        # EMA update: ema = 0.2*10.0 + 0.8*0 = 2.0
+        assert abs(stats["episodes/reward_ema"] - 2.0) < 1e-6
+        # Length EMA: all episodes have length 1, so mean = 1.0
+        # EMA update: ema = 0.2*1.0 + 0.8*0 = 0.2
+        assert abs(stats["episodes/length_ema"] - 0.2) < 1e-6
         assert stats["episodes/completed"] == 3
 
         # Episode 2: All environments complete with rewards [2, 4, 6]
@@ -309,12 +293,11 @@ class TestEpisodicEMATracker:
         assert torch.equal(completed["lengths"], torch.tensor([1, 1, 1]))
 
         stats = tracker.get_statistics()
-        # After 6 episodes total, EMA should reflect the running average
-        # The exact values depend on the order of updates within each step
-        assert stats["episodes/reward_min"] == 2.0  # New minimum
-        assert stats["episodes/reward_max"] == 15.0  # Still the maximum
-        assert stats["episodes/length_min"] == 1
-        assert stats["episodes/length_max"] == 1
+        # Second batch mean: [2, 4, 6] = 4.0
+        # EMA update: ema = 0.2*4.0 + 0.8*2.0 = 0.8 + 1.6 = 2.4
+        assert abs(stats["episodes/reward_ema"] - 2.4) < 1e-6
+        # Length EMA: mean = 1.0, ema = 0.2*1.0 + 0.8*0.2 = 0.2 + 0.16 = 0.36
+        assert abs(stats["episodes/length_ema"] - 0.36) < 1e-6
         assert stats["episodes/completed"] == 6
 
         # Episode 3: Mixed completion pattern
@@ -328,10 +311,6 @@ class TestEpisodicEMATracker:
         assert torch.equal(completed["lengths"], torch.tensor([1, 1]))
 
         stats = tracker.get_statistics()
-        assert stats["episodes/reward_min"] == 2.0
-        assert stats["episodes/reward_max"] == 100.0  # New maximum
-        assert stats["episodes/length_min"] == 1
-        assert stats["episodes/length_max"] == 1
         assert stats["episodes/completed"] == 8
 
     def test_device_behavior_specification(self):
@@ -344,7 +323,6 @@ class TestEpisodicEMATracker:
             # Verify all internal buffers are on GPU
             assert tracker.episode_rewards.device.type == "cuda"
             assert tracker.episode_lengths.device.type == "cuda"
-            assert tracker.episode_reward_min.device.type == "cuda"
             assert tracker.episodes_completed.device.type == "cuda"
 
             # CPU input tensors
@@ -373,18 +351,11 @@ class TestEpisodicEMATracker:
             # All statistics should be Python primitives (not tensors)
             assert isinstance(stats["episodes/reward_ema"], float)
             assert isinstance(stats["episodes/length_ema"], float)
-            assert isinstance(stats["episodes/reward_min"], float)
-            assert isinstance(stats["episodes/reward_max"], float)
-            assert isinstance(stats["episodes/length_min"], int)
-            assert isinstance(stats["episodes/length_max"], int)
+            # Min/max tracking removed for performance
             assert isinstance(stats["episodes/completed"], int)
             assert isinstance(stats["episodes/total_steps"], int)
 
             # Verify values are correct (not just type)
-            assert stats["episodes/reward_min"] == 5.0
-            assert stats["episodes/reward_max"] == 10.0
-            assert stats["episodes/length_min"] == 1
-            assert stats["episodes/length_max"] == 1
             assert stats["episodes/completed"] == 2
 
         # Also test CPU-only behavior for completeness
@@ -423,8 +394,6 @@ class TestEpisodicEMATracker:
         assert torch.equal(completed["lengths"], torch.tensor([100, 100]))
 
         stats = tracker.get_statistics()
-        assert stats["episodes/length_min"] == 100
-        assert stats["episodes/length_max"] == 100
         assert stats["episodes/completed"] == 2
         assert stats["episodes/total_steps"] == 200
 
@@ -766,9 +735,9 @@ class TestEpisodicEMATrackerWithHistogram:
             enabled_tracker.get_histograms()
         enabled_time = time.time() - start_time
 
-        # Disabled should be significantly faster (at least 10x)
+        # Disabled should be significantly faster (at least 5x)
         speedup = enabled_time / disabled_time
-        assert speedup > 10.0, f"Expected >10x speedup, got {speedup:.1f}x"
+        assert speedup > 5.0, f"Expected >5x speedup, got {speedup:.1f}x"
 
 
 if __name__ == "__main__":

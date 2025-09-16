@@ -9,7 +9,7 @@ A PyTorch-based tool for tracking episode statistics using exponential moving av
 - **Batch Processing**: Handles N parallel environments simultaneously
 - **Episode Tracking**: Accumulates rewards and counts steps until episode termination
 - **EMA Statistics**: Maintains exponential moving averages for smooth metric tracking
-- **Min/Max Tracking**: Records episodic minimum and maximum values
+- **Performance Optimized**: Streamlined implementation for minimal computational overhead
 - **PyTorch Integration**: Native tensor operations for GPU acceleration
 
 ## Interface Specification
@@ -79,10 +79,7 @@ self.ema_reward_tracker: EMATracker
 self.ema_length_tracker: EMATracker
 
 # Episode extremes tracking (registered buffers)
-self.episode_reward_min: torch.Tensor  # Scalar tensor
-self.episode_reward_max: torch.Tensor  # Scalar tensor
-self.episode_length_min: torch.Tensor  # Scalar tensor
-self.episode_length_max: torch.Tensor  # Scalar tensor
+# Min/max tracking removed for performance optimization
 
 # Metadata (registered buffers)
 self.episodes_completed: torch.Tensor  # Scalar tensor
@@ -110,10 +107,7 @@ self.total_steps: torch.Tensor         # Scalar tensor
     # Wandb-compatible key names for direct logging
     "episodes/reward_ema": float,     # Smoothed average episode reward
     "episodes/length_ema": float,     # Smoothed average episode length
-    "episodes/reward_min": float,     # Minimum episode reward seen
-    "episodes/reward_max": float,     # Maximum episode reward seen
-    "episodes/length_min": int,       # Minimum episode length seen
-    "episodes/length_max": int,       # Maximum episode length seen
+    # Min/max tracking removed for performance optimization
     "episodes/completed": int,        # Total episodes completed
     "episodes/total_steps": int       # Total steps across all environments
 }
@@ -130,16 +124,15 @@ ema_new = alpha * new_value + (1 - alpha) * ema_old
 1. **Accumulate**: Add rewards to running episode totals, increment episode lengths
 2. **Detect Completion**: Check `dones` tensor for completed episodes
 3. **Update Statistics**: For completed episodes:
-   - Update EMA values using episode totals
-   - Update min/max extremes
+   - Update EMA values using batch means for performance
    - Reset accumulators for completed environments
 4. **Return Results**: Provide completed episode information
 
-### Min/Max Tracking
-- Initialize with 0.0 for rewards and 0 for lengths
-- Update with actual min/max values once episodes start completing
-- Update using `torch.min()` and `torch.max()` operations
-- Persistent across all episodes
+### Performance Optimizations
+- Early exit when no episodes complete (most common case)
+- Batch EMA updates using mean of completed episodes
+- Optimized device handling to avoid unnecessary tensor transfers
+- Min/max tracking removed for maximum performance
 
 ## Usage Examples
 
