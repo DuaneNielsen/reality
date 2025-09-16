@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 import torch
 from madrona_escape_room_learn import LearningState
-from madrona_escape_room_learn.moving_avg import EpisodicEMATracker
+from madrona_escape_room_learn.moving_avg import EpisodicEMATrackerWithHistogram
 from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
 
@@ -89,7 +89,13 @@ else:
 
 # Initialize episode tracker
 device = torch.device("cuda" if args.gpu_sim else "cpu")
-episode_tracker = EpisodicEMATracker(num_envs=args.num_worlds, alpha=0.01, device=device)
+episode_tracker = EpisodicEMATrackerWithHistogram(
+    num_envs=args.num_worlds,
+    alpha=0.01,
+    device=device,
+    reward_bins=[-1.0, -0.5, -0.2, 0.0, 0.2, 0.5, 1.0],
+    length_bins=[1, 25, 50, 100, 150, 200],
+)
 
 # Keep detailed tracking for final statistics
 episode_returns = []  # Store completed episode returns
@@ -163,9 +169,9 @@ for i in range(args.num_steps):
 
     # Get current episode statistics
     episode_stats = episode_tracker.get_statistics()
-    print(
-        f"Episode EMA - Reward: {episode_stats['episodes/reward_ema']:.3f}, Length: {episode_stats['episodes/length_ema']:.1f}"
-    )
+    reward_ema = episode_stats["episodes/reward_ema"]
+    length_ema = episode_stats["episodes/length_ema"]
+    print(f"Episode EMA - Reward: {reward_ema:.3f}, Length: {length_ema:.1f}")
 
 # Stop recording if it was started
 if args.recording_path:

@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from madrona_escape_room_learn import LearningState
-from madrona_escape_room_learn.moving_avg import EpisodicEMATracker
+from madrona_escape_room_learn.moving_avg import EpisodicEMATrackerWithHistogram
 from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
 from wandb_utils import find_checkpoint as find_latest_checkpoint
@@ -83,7 +83,13 @@ def run_inference(
 
     # Initialize episode tracker
     device = torch.device("cuda" if gpu_sim else "cpu")
-    episode_tracker = EpisodicEMATracker(num_envs=num_worlds, alpha=0.01, device=device)
+    episode_tracker = EpisodicEMATrackerWithHistogram(
+        num_envs=num_worlds,
+        alpha=0.01,
+        device=device,
+        reward_bins=[-1.0, -0.5, -0.2, 0.0, 0.2, 0.5, 1.0],
+        length_bins=[1, 25, 50, 100, 150, 200],
+    )
 
     # Keep detailed tracking for per-world analysis
     episode_rewards_by_world = [[] for _ in range(num_worlds)]
@@ -135,16 +141,15 @@ def run_inference(
         # Print details every 100 steps
         if i % 100 == 0:
             episode_stats = episode_tracker.get_statistics()
-            print(
-                f"Step {i+1}/{num_steps} - Episodes completed: {episode_stats['episodes/completed']}"
-            )
+            episodes_completed = episode_stats["episodes/completed"]
+            print(f"Step {i+1}/{num_steps} - Episodes completed: {episodes_completed}")
             print("Progress:", obs[0])
             print("Compass:", obs[1])
             print("Actions:", actions.cpu().numpy())
             print(f"Step Rewards: {step_rewards.cpu().numpy()}")
-            print(
-                f"Episode EMA - Reward: {episode_stats['episodes/reward_ema']:.3f}, Length: {episode_stats['episodes/length_ema']:.1f}"
-            )
+            reward_ema = episode_stats["episodes/reward_ema"]
+            length_ema = episode_stats["episodes/length_ema"]
+            print(f"Episode EMA - Reward: {reward_ema:.3f}, Length: {length_ema:.1f}")
             print()
 
     # Print episode statistics
@@ -348,9 +353,7 @@ def main():
         else:
             # Multi-level file - use filename for display
             level_name = Path(level_file_to_use).stem
-            print(
-                f"Loaded multi-level file with {num_sublevels} levels from " f"{level_file_to_use}"
-            )
+            print(f"Loaded multi-level file with {num_sublevels} levels from {level_file_to_use}")
             print(f"Using curriculum name: {level_name}")
             print(f"Number of sublevels: {num_sublevels}")
 
@@ -358,7 +361,7 @@ def main():
         if args.num_worlds != num_sublevels:
             print(
                 f"Overriding --num-worlds from {args.num_worlds} to {num_sublevels} "
-                f"to match sublevels"
+                "to match sublevels"
             )
             args.num_worlds = num_sublevels
 

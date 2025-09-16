@@ -272,3 +272,184 @@ class EpisodicEMATracker(torch.nn.Module):
         env_indices = env_indices.to(self.episode_rewards.device)
         self.episode_rewards[env_indices] = 0
         self.episode_lengths[env_indices] = 0
+
+
+# Fast vectorized histogram implementation
+class FastVectorizedHistogram(torch.nn.Module):
+    """
+    Ultra-fast histogram using torch.searchsorted and torch.bincount.
+
+    Uses pre-computed bin edges for maximum efficiency in batch updates.
+    """
+
+    def __init__(self, bin_edges, device=None):
+        """
+        Initialize histogram with pre-defined bin edges.
+
+        Args:
+            bin_edges: List or tensor of bin edge values (e.g., [0, 10, 20, 50, 100])
+            device: PyTorch device for tensor operations
+        """
+        super().__init__()
+        bin_edges = torch.tensor(bin_edges, dtype=torch.float32)
+        bins = torch.zeros(len(bin_edges) - 1, dtype=torch.int64)
+
+        self.register_buffer("bin_edges", bin_edges)
+        self.register_buffer("bins", bins)
+
+        # Move to device if specified
+        if device is not None:
+            self.to(device)
+
+    def update_batch(self, values):
+        """
+        Update histogram with batch of values - fully vectorized.
+
+        Args:
+            values: Tensor of values to add to histogram
+        """
+        if len(values) == 0:
+            return
+
+        # Move values to same device as histogram
+        values = values.to(self.bin_edges.device)
+
+        # Find which bin each value belongs to using binary search
+        bin_indices = torch.searchsorted(self.bin_edges[1:], values, right=False)
+
+        # Clamp to valid range (handle values outside bin edges)
+        bin_indices = torch.clamp(bin_indices, 0, len(self.bins) - 1)
+
+        # Count occurrences of each bin index
+        counts = torch.bincount(bin_indices, minlength=len(self.bins))
+
+        # Add to existing bins
+        self.bins += counts[: len(self.bins)]
+
+    def get_probabilities(self):
+        """Get normalized histogram as probabilities."""
+        total = self.bins.sum()
+        return self.bins.float() / total if total > 0 else self.bins.float()
+
+    def get_counts(self):
+        """Get raw bin counts."""
+        return self.bins.clone()
+
+    def reset(self):
+        """Reset all bin counts to zero."""
+        self.bins.zero_()
+
+
+# Enhanced EMA tracker with histogram support
+class EpisodicEMATrackerWithHistogram(EpisodicEMATracker):
+    """
+    Enhanced episodic EMA tracker that also maintains histograms of episode rewards and lengths.
+
+    Provides detailed distribution analysis alongside EMA statistics for comprehensive
+    episode performance monitoring.
+    """
+
+    def __init__(
+        self,
+        num_envs: int,
+        alpha: float = 0.01,
+        device: torch.device = None,
+        reward_bins=None,
+        length_bins=None,
+    ):
+        """
+        Initialize enhanced tracker with histogram support.
+
+        Args:
+            num_envs: Number of parallel environments
+            alpha: EMA decay factor (0 < alpha <= 1)
+            device: PyTorch device for tensor operations
+            reward_bins: List of bin edges for reward histogram (e.g., [0, 5, 10, 20, 50, 100])
+            length_bins: List of bin edges for length histogram (e.g., [1, 10, 25, 50, 100, 200])
+        """
+        super().__init__(num_envs, alpha, device)
+
+        # Default reward bins (adjust based on your reward range)
+        if reward_bins is None:
+            reward_bins = [0, 1, 5, 10, 20, 50, 100, 200]
+
+        # Default length bins (adjust based on your episode lengths)
+        if length_bins is None:
+            length_bins = [1, 10, 25, 50, 100, 150, 200, 300]
+
+        # Initialize histograms
+        self.reward_histogram = FastVectorizedHistogram(reward_bins, device)
+        self.length_histogram = FastVectorizedHistogram(length_bins, device)
+
+        # Store bin edges for statistics reporting
+        self.reward_bin_edges = self.reward_histogram.bin_edges
+        self.length_bin_edges = self.length_histogram.bin_edges
+
+    def step_update(self, rewards: torch.Tensor, dones: torch.Tensor) -> dict:
+        """
+        Update tracker and histograms with batch of rewards and done flags.
+
+        Args:
+            rewards: Tensor of shape (N,) containing per-environment rewards
+            dones: Tensor of shape (N,) containing per-environment done flags
+
+        Returns:
+            dict: Statistics for completed episodes (if any) with histogram data
+        """
+        # Call parent method for EMA tracking
+        result = super().step_update(rewards, dones)
+
+        # Update histograms if episodes completed
+        if "completed_episodes" in result:
+            completed_data = result["completed_episodes"]
+            completed_rewards = completed_data["rewards"]
+            completed_lengths = completed_data["lengths"]
+
+            # Vectorized histogram updates
+            self.reward_histogram.update_batch(completed_rewards)
+            self.length_histogram.update_batch(completed_lengths.float())
+
+        return result
+
+    def get_statistics(self) -> dict:
+        """
+        Get current EMA statistics (without histogram data).
+
+        Returns:
+            dict: Base EMA statistics from parent class
+        """
+        return super().get_statistics()
+
+    def get_histograms(self) -> dict:
+        """
+        Get histogram distributions and counts.
+
+        Returns:
+            dict: Histogram data with probability distributions, counts, and bin edges
+        """
+        # Get histogram statistics
+        reward_probs = self.reward_histogram.get_probabilities()
+        length_probs = self.length_histogram.get_probabilities()
+        reward_counts = self.reward_histogram.get_counts()
+        length_counts = self.length_histogram.get_counts()
+
+        return {
+            # Probability distributions
+            "histograms/reward_distribution": reward_probs.cpu().numpy(),
+            "histograms/length_distribution": length_probs.cpu().numpy(),
+            # Raw counts for debugging
+            "histograms/reward_counts": reward_counts.cpu().numpy(),
+            "histograms/length_counts": length_counts.cpu().numpy(),
+            # Bin edges for interpretation
+            "histograms/reward_bin_edges": self.reward_bin_edges.cpu().numpy(),
+            "histograms/length_bin_edges": self.length_bin_edges.cpu().numpy(),
+        }
+
+    def reset_histograms(self):
+        """Reset histogram counts while preserving EMA state."""
+        self.reward_histogram.reset()
+        self.length_histogram.reset()
+
+    def reset_env(self, env_indices: torch.Tensor):
+        """Reset specific environments (inherits from parent)."""
+        super().reset_env(env_indices)

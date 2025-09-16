@@ -10,7 +10,7 @@ from madrona_escape_room_learn import (
     profile,
     train,
 )
-from madrona_escape_room_learn.moving_avg import EpisodicEMATracker
+from madrona_escape_room_learn.moving_avg import EpisodicEMATrackerWithHistogram
 from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
 from policy import make_policy, setup_obs
 
@@ -43,11 +43,24 @@ class LearningCallback:
         self.profile_report = profile_report
         self.training_config = training_config or {}
 
-        # Initialize episodic EMA tracker for episode statistics
-        self.episode_tracker = EpisodicEMATracker(
+        # Initialize episode tracker with wider bins to catch any outliers
+        self.episode_tracker = EpisodicEMATrackerWithHistogram(
             num_envs=num_worlds,
-            alpha=0.01,  # Smooth tracking over ~100 episodes
+            alpha=0.01,
             device=device,
+            reward_bins=[
+                -0.2,
+                -0.1,
+                -0.05,
+                0.0,
+                0.1,
+                0.2,
+                0.4,
+                0.6,
+                0.8,
+                1.0,
+            ],  # Better resolution around actual range
+            length_bins=[1, 25, 50, 100, 150, 200, 250],  # Include >200 in case episodes go longer
         )
 
         # Initialize wandb
@@ -212,12 +225,45 @@ class LearningCallback:
             # Add episode statistics from tracker
             wandb_data.update(self.episode_tracker.get_statistics())
 
+            # Note: Legacy episode length EMA would need to be passed through update_result
+
             # Only log value normalizer stats if normalization is enabled
             if value_normalization_enabled:
                 wandb_data["value_normalizer/mu"] = vnorm_mu
                 wandb_data["value_normalizer/sigma"] = vnorm_sigma
 
             wandb.log(wandb_data, step=update_id)
+
+            # Log episode histograms periodically (less frequent due to larger data)
+            if update_id % 10 == 0:  # Every 10 updates for testing
+                histogram_data = self.episode_tracker.get_histograms()
+
+                # Use pre-computed bin counts with wandb.Histogram via np_histogram parameter
+                reward_bins = histogram_data["histograms/reward_bin_edges"]
+                length_bins = histogram_data["histograms/length_bin_edges"]
+                reward_counts = histogram_data["histograms/reward_counts"]
+                length_counts = histogram_data["histograms/length_counts"]
+
+                # Check if we have any episodes completed
+                total_episodes = self.episode_tracker.get_statistics()["episodes/completed"]
+
+                if total_episodes > 0:
+                    # Create numpy histogram tuples (counts, bin_edges)
+                    reward_hist_tuple = (reward_counts, reward_bins)
+                    length_hist_tuple = (length_counts, length_bins)
+
+                    histogram_wandb_data = {
+                        "episode_rewards_histogram": wandb.Histogram(
+                            np_histogram=reward_hist_tuple
+                        ),
+                        "episode_lengths_histogram": wandb.Histogram(
+                            np_histogram=length_hist_tuple
+                        ),
+                    }
+                    wandb.log(histogram_wandb_data, step=update_id)
+
+                    # Reset histograms after logging to show only recent episodes
+                    self.episode_tracker.reset_histograms()
 
         # Keep original console output
         if self.use_wandb and wandb.run is not None:
@@ -252,7 +298,7 @@ class LearningCallback:
             f"Min: {action_entropy_min:.3f}, Max: {action_entropy_max:.3f}"
         )
         print(f"    Returns          => Avg: {ppo.returns_mean:.3f}, σ: {ppo.returns_stddev:.3f}")
-        # Get episode statistics for console output
+        # Get episode statistics
         episode_stats = self.episode_tracker.get_statistics()
         print(f"    Episode Length   => EMA: {episode_stats['episodes/length_ema']:.1f} steps")
         print(
@@ -477,6 +523,7 @@ try:
         policy,
         learning_cb,
         restore_ckpt,
+        episode_tracker=learning_cb.episode_tracker,
     )
 finally:
     # Stop recording if active

@@ -346,7 +346,7 @@ def _update_loop(
         user_cb(update_idx, update_time, update_result, learning_state)
 
 
-def train(dev, sim, cfg, actor_critic, update_cb, restore_ckpt=None):
+def train(dev, sim, cfg, actor_critic, update_cb, restore_ckpt=None, episode_tracker=None):
     print(cfg)
 
     torch.backends.cuda.matmul.allow_tf32 = True
@@ -385,6 +385,7 @@ def train(dev, sim, cfg, actor_critic, update_cb, restore_ckpt=None):
         actor_critic.recurrent_cfg,
         cfg.episode_length_ema_decay,
         cfg.episode_reward_ema_decay,
+        episode_tracker=episode_tracker,
     )
 
     if dev.type == "cuda":

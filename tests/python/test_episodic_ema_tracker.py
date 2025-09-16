@@ -10,7 +10,11 @@ train_src_path = os.path.join(os.path.dirname(__file__), "..", "..", "train_src"
 if train_src_path not in sys.path:
     sys.path.insert(0, train_src_path)
 
-from madrona_escape_room_learn.moving_avg import EpisodicEMATracker
+from madrona_escape_room_learn.moving_avg import (
+    EpisodicEMATracker,
+    EpisodicEMATrackerWithHistogram,
+    FastVectorizedHistogram,
+)
 
 
 class TestEpisodicEMATracker:
@@ -331,7 +335,7 @@ class TestEpisodicEMATracker:
         assert stats["episodes/completed"] == 8
 
     def test_device_behavior_specification(self):
-        """Test that internal processing occurs on module device while statistics return CPU values."""
+        """Test device behavior: processing on module device, statistics return CPU values."""
         if torch.cuda.is_available():
             # Test with GPU device
             device = torch.device("cuda")
@@ -423,6 +427,275 @@ class TestEpisodicEMATracker:
         assert stats["episodes/length_max"] == 100
         assert stats["episodes/completed"] == 2
         assert stats["episodes/total_steps"] == 200
+
+
+class TestFastVectorizedHistogram:
+    """Test suite for FastVectorizedHistogram."""
+
+    def test_histogram_initialization(self):
+        """Test histogram initialization with custom bin edges."""
+        bin_edges = [0, 10, 20, 50, 100]
+        histogram = FastVectorizedHistogram(bin_edges)
+
+        assert len(histogram.bins) == 4  # num_bins = len(edges) - 1
+        assert torch.equal(
+            histogram.bin_edges, torch.tensor([0, 10, 20, 50, 100], dtype=torch.float32)
+        )
+        assert torch.equal(histogram.bins, torch.zeros(4, dtype=torch.int64))
+
+    def test_single_value_update(self):
+        """Test updating histogram with single values."""
+        bin_edges = [0, 10, 20, 50, 100]
+        histogram = FastVectorizedHistogram(bin_edges)
+
+        # Test values in different bins
+        histogram.update_batch(torch.tensor([5.0]))  # Bin 0 (0-10)
+        histogram.update_batch(torch.tensor([15.0]))  # Bin 1 (10-20)
+        histogram.update_batch(torch.tensor([75.0]))  # Bin 3 (50-100)
+
+        expected_counts = torch.tensor([1, 1, 0, 1], dtype=torch.int64)
+        assert torch.equal(histogram.bins, expected_counts)
+
+    def test_batch_update(self):
+        """Test vectorized batch updates."""
+        bin_edges = [0, 10, 20, 50, 100]
+        histogram = FastVectorizedHistogram(bin_edges)
+
+        # Batch update with multiple values
+        values = torch.tensor([5.0, 15.0, 25.0, 75.0, 8.0, 12.0])
+        histogram.update_batch(values)
+
+        # Expected: [5, 8] -> bin 0, [15, 12] -> bin 1, [25] -> bin 2, [75] -> bin 3
+        expected_counts = torch.tensor([2, 2, 1, 1], dtype=torch.int64)
+        assert torch.equal(histogram.bins, expected_counts)
+
+    def test_edge_cases(self):
+        """Test edge cases like empty batches and out-of-range values."""
+        bin_edges = [0, 10, 20, 50, 100]
+        histogram = FastVectorizedHistogram(bin_edges)
+
+        # Empty batch
+        histogram.update_batch(torch.tensor([]))
+        assert torch.equal(histogram.bins, torch.zeros(4, dtype=torch.int64))
+
+        # Out-of-range values (should be clamped)
+        histogram.update_batch(torch.tensor([-5.0, 150.0]))  # Below min, above max
+        expected_counts = torch.tensor(
+            [1, 0, 0, 1], dtype=torch.int64
+        )  # Clamped to first and last bins
+        assert torch.equal(histogram.bins, expected_counts)
+
+    def test_probabilities(self):
+        """Test probability calculation."""
+        bin_edges = [0, 10, 20, 50, 100]
+        histogram = FastVectorizedHistogram(bin_edges)
+
+        # Add some values
+        values = torch.tensor([5.0, 15.0, 15.0, 25.0])  # 1, 2, 0, 1 in bins
+        histogram.update_batch(values)
+
+        probs = histogram.get_probabilities()
+        expected_probs = torch.tensor([1 / 4, 2 / 4, 1 / 4, 0 / 4], dtype=torch.float32)
+        assert torch.allclose(probs, expected_probs)
+
+    def test_reset(self):
+        """Test histogram reset functionality."""
+        bin_edges = [0, 10, 20, 50, 100]
+        histogram = FastVectorizedHistogram(bin_edges)
+
+        # Add some data
+        histogram.update_batch(torch.tensor([5.0, 15.0, 25.0]))
+        assert not torch.equal(histogram.bins, torch.zeros(4, dtype=torch.int64))
+
+        # Reset
+        histogram.reset()
+        assert torch.equal(histogram.bins, torch.zeros(4, dtype=torch.int64))
+
+    def test_device_handling(self):
+        """Test device handling for histogram."""
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            bin_edges = [0, 10, 20, 50, 100]
+            histogram = FastVectorizedHistogram(bin_edges, device=device)
+
+            # Verify histogram is on GPU
+            assert histogram.bin_edges.device.type == "cuda"
+            assert histogram.bins.device.type == "cuda"
+
+            # CPU input should work
+            cpu_values = torch.tensor([5.0, 15.0])
+            histogram.update_batch(cpu_values)
+
+            # Verify histogram was updated
+            assert histogram.bins.sum() == 2
+
+
+class TestEpisodicEMATrackerWithHistogram:
+    """Test suite for EpisodicEMATrackerWithHistogram."""
+
+    def test_initialization_with_default_bins(self):
+        """Test initialization with default bin configurations."""
+        tracker = EpisodicEMATrackerWithHistogram(num_envs=3, alpha=0.1)
+
+        # Check that histograms are initialized
+        assert hasattr(tracker, "reward_histogram")
+        assert hasattr(tracker, "length_histogram")
+
+        # Check default bins
+        assert len(tracker.reward_histogram.bins) == 7  # Default reward bins
+        assert len(tracker.length_histogram.bins) == 7  # Default length bins
+
+    def test_initialization_with_custom_bins(self):
+        """Test initialization with custom bin configurations."""
+        reward_bins = [0, 5, 10, 25, 100]
+        length_bins = [1, 10, 50, 200]
+
+        tracker = EpisodicEMATrackerWithHistogram(
+            num_envs=2, alpha=0.1, reward_bins=reward_bins, length_bins=length_bins
+        )
+
+        assert len(tracker.reward_histogram.bins) == 4  # 5 edges = 4 bins
+        assert len(tracker.length_histogram.bins) == 3  # 4 edges = 3 bins
+        assert torch.equal(tracker.reward_bin_edges, torch.tensor(reward_bins, dtype=torch.float32))
+        assert torch.equal(tracker.length_bin_edges, torch.tensor(length_bins, dtype=torch.float32))
+
+    def test_histogram_updates_on_episode_completion(self):
+        """Test that histograms are updated when episodes complete."""
+        reward_bins = [0, 10, 20, 50, 100]
+        length_bins = [1, 5, 10, 20, 50]
+
+        tracker = EpisodicEMATrackerWithHistogram(
+            num_envs=3, alpha=0.1, reward_bins=reward_bins, length_bins=length_bins
+        )
+
+        # Episode 1: rewards [8, 15, 75] -> bins [0, 1, 3], lengths all 1 -> bin 0
+        tracker.step_update(torch.tensor([8.0, 15.0, 75.0]), torch.tensor([True, True, True]))
+
+        histograms = tracker.get_histograms()
+
+        # Check reward histogram
+        expected_reward_counts = torch.tensor([1, 1, 0, 1], dtype=torch.int64)
+        assert torch.equal(
+            torch.tensor(histograms["histograms/reward_counts"]), expected_reward_counts
+        )
+
+        # Check length histogram (all episodes length 1)
+        expected_length_counts = torch.tensor([3, 0, 0, 0], dtype=torch.int64)
+        assert torch.equal(
+            torch.tensor(histograms["histograms/length_counts"]), expected_length_counts
+        )
+
+    def test_separate_statistics_and_histograms(self):
+        """Test that get_statistics() and get_histograms() return separate data."""
+        tracker = EpisodicEMATrackerWithHistogram(num_envs=2, alpha=0.1)
+
+        # Complete an episode
+        tracker.step_update(torch.tensor([10.0, 20.0]), torch.tensor([True, True]))
+
+        # Get statistics (should be EMA data only)
+        stats = tracker.get_statistics()
+        histogram_keys = [k for k in stats.keys() if k.startswith("histograms/")]
+        assert len(histogram_keys) == 0  # No histogram data in statistics
+
+        # Get histograms (should have histogram data)
+        histograms = tracker.get_histograms()
+        histogram_keys = [k for k in histograms.keys() if k.startswith("histograms/")]
+        assert (
+            len(histogram_keys) == 6
+        )  # Distribution, counts, and bin edges for both reward and length
+
+        # Verify expected keys in histograms
+        expected_keys = {
+            "histograms/reward_distribution",
+            "histograms/length_distribution",
+            "histograms/reward_counts",
+            "histograms/length_counts",
+            "histograms/reward_bin_edges",
+            "histograms/length_bin_edges",
+        }
+        assert set(histograms.keys()) == expected_keys
+
+    def test_histogram_reset_preserves_ema(self):
+        """Test that resetting histograms preserves EMA statistics."""
+        tracker = EpisodicEMATrackerWithHistogram(num_envs=2, alpha=0.2)
+
+        # Complete some episodes
+        tracker.step_update(torch.tensor([10.0, 20.0]), torch.tensor([True, True]))
+        tracker.step_update(torch.tensor([15.0, 25.0]), torch.tensor([True, True]))
+
+        # Get statistics before reset
+        stats_before = tracker.get_statistics()
+        histograms_before = tracker.get_histograms()
+
+        # Reset histograms
+        tracker.reset_histograms()
+
+        # Get statistics after reset
+        stats_after = tracker.get_statistics()
+        histograms_after = tracker.get_histograms()
+
+        # EMA statistics should be preserved
+        assert stats_before["episodes/reward_ema"] == stats_after["episodes/reward_ema"]
+        assert stats_before["episodes/length_ema"] == stats_after["episodes/length_ema"]
+        assert stats_before["episodes/completed"] == stats_after["episodes/completed"]
+
+        # Histogram counts should be reset
+        assert np.sum(histograms_after["histograms/reward_counts"]) == 0
+        assert np.sum(histograms_after["histograms/length_counts"]) == 0
+        assert np.sum(histograms_before["histograms/reward_counts"]) > 0
+        assert np.sum(histograms_before["histograms/length_counts"]) > 0
+
+    def test_long_episodes_histogram_tracking(self):
+        """Test histogram tracking for episodes of varying lengths."""
+        length_bins = [1, 5, 10, 25, 50]
+        tracker = EpisodicEMATrackerWithHistogram(num_envs=3, alpha=0.1, length_bins=length_bins)
+
+        # Create episodes of different lengths
+        # Episode 1: length 1 (immediate completion)
+        tracker.step_update(torch.tensor([1.0, 1.0, 1.0]), torch.tensor([True, False, False]))
+
+        # Episode 2: length 7 (env 1 completes after 6 more steps)
+        for _ in range(6):
+            tracker.step_update(torch.tensor([0.0, 1.0, 1.0]), torch.tensor([False, False, False]))
+        tracker.step_update(torch.tensor([0.0, 1.0, 1.0]), torch.tensor([False, True, False]))
+
+        # Episode 3: length 15 (env 2 completes after 14 more steps)
+        for _ in range(14):
+            tracker.step_update(torch.tensor([0.0, 0.0, 1.0]), torch.tensor([False, False, False]))
+        tracker.step_update(torch.tensor([0.0, 0.0, 1.0]), torch.tensor([False, False, True]))
+
+        histograms = tracker.get_histograms()
+        length_counts = histograms["histograms/length_counts"]
+
+        # Expected: 1 episode in bin 0 (length 1), 1 in bin 1 (length 7), 1 in bin 2 (length 15)
+        expected_counts = np.array([1, 1, 1, 0])  # bins: [1-5), [5-10), [10-25), [25-50)
+        assert np.array_equal(length_counts, expected_counts)
+
+    def test_device_handling_with_histograms(self):
+        """Test device handling for tracker with histograms."""
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            tracker = EpisodicEMATrackerWithHistogram(num_envs=2, alpha=0.1, device=device)
+
+            # Verify histograms are on GPU
+            assert tracker.reward_histogram.bin_edges.device.type == "cuda"
+            assert tracker.length_histogram.bin_edges.device.type == "cuda"
+
+            # CPU inputs should work
+            cpu_rewards = torch.tensor([10.0, 20.0])
+            cpu_dones = torch.tensor([True, True])
+
+            tracker.step_update(cpu_rewards, cpu_dones)
+            histograms = tracker.get_histograms()
+
+            # Verify histograms were updated
+            assert np.sum(histograms["histograms/reward_counts"]) == 2
+            assert np.sum(histograms["histograms/length_counts"]) == 2
+
+            # Statistics should still return CPU values
+            stats = tracker.get_statistics()
+            assert isinstance(stats["episodes/reward_ema"], float)
+            assert isinstance(stats["episodes/completed"], int)
 
 
 if __name__ == "__main__":

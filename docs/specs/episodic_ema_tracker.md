@@ -141,10 +141,12 @@ ema_new = alpha * new_value + (1 - alpha) * ema_old
 - Update using `torch.min()` and `torch.max()` operations
 - Persistent across all episodes
 
-## Usage Example
+## Usage Examples
+
+### Basic EMA Tracking
 
 ```python
-# Initialize tracker
+# Initialize basic tracker
 tracker = EpisodicEMATracker(num_envs=64, alpha=0.01)
 
 # Training loop
@@ -163,6 +165,46 @@ for step in range(num_steps):
     if step % 100 == 0:
         episode_stats = tracker.get_statistics()
         wandb.log(episode_stats, step=step)  # Direct logging with wandb-compatible keys
+```
+
+### Enhanced Tracking with Histograms
+
+```python
+# Initialize enhanced tracker with custom bins
+reward_bins = [0, 5, 10, 20, 50, 100, 200]  # Custom reward ranges
+length_bins = [1, 10, 25, 50, 100, 200]     # Custom length ranges
+
+tracker = EpisodicEMATrackerWithHistogram(
+    num_envs=64,
+    alpha=0.01,
+    reward_bins=reward_bins,
+    length_bins=length_bins
+)
+
+# Training loop
+for step in range(num_steps):
+    actions = policy(observations)
+    observations, rewards, dones, infos = env.step(actions)
+
+    # Update tracker (both EMA and histograms)
+    completed = tracker.step_update(rewards, dones)
+
+    # Regular EMA logging
+    if step % 100 == 0:
+        ema_stats = tracker.get_statistics()
+        wandb.log(ema_stats, step=step)
+
+    # Periodic histogram logging (less frequent due to larger data)
+    if step % 1000 == 0:
+        histogram_data = tracker.get_histograms()
+
+        # Log histograms in wandb-compatible format
+        wandb.log({
+            "episode_rewards": wandb.Histogram(histogram_data["histograms/reward_counts"]),
+            "episode_lengths": wandb.Histogram(histogram_data["histograms/length_counts"]),
+            "reward_distribution": histogram_data["histograms/reward_distribution"],
+            "length_distribution": histogram_data["histograms/length_distribution"]
+        }, step=step)
 ```
 
 ## Performance Considerations
@@ -197,6 +239,117 @@ cpu_dones = torch.tensor([False, True, ...]) # CPU
 result = tracker.step_update(cpu_rewards, cpu_dones)  # Auto device handling
 stats = tracker.get_statistics()  # Returns CPU values for logging
 ```
+
+## Enhanced Histogram Functionality
+
+### FastVectorizedHistogram
+
+An ultra-fast histogram implementation optimized for batch updates:
+
+```python
+class FastVectorizedHistogram(torch.nn.Module):
+    def __init__(self, bin_edges, device=None):
+        """
+        Initialize histogram with pre-defined bin edges.
+
+        Args:
+            bin_edges: List or tensor of bin edge values (e.g., [0, 10, 20, 50, 100])
+            device: PyTorch device for tensor operations
+        """
+
+    def update_batch(self, values):
+        """Vectorized batch update using torch.bincount for maximum efficiency."""
+
+    def get_probabilities(self):
+        """Get normalized histogram as probabilities."""
+
+    def get_counts(self):
+        """Get raw bin counts."""
+
+    def reset(self):
+        """Reset all bin counts to zero."""
+```
+
+### EpisodicEMATrackerWithHistogram
+
+Enhanced tracker that combines EMA statistics with histogram analysis:
+
+```python
+class EpisodicEMATrackerWithHistogram(EpisodicEMATracker):
+    def __init__(self, num_envs: int, alpha: float = 0.01, device: torch.device = None,
+                 reward_bins=None, length_bins=None):
+        """
+        Initialize enhanced tracker with histogram support.
+
+        Args:
+            reward_bins: List of bin edges for reward histogram
+            length_bins: List of bin edges for length histogram
+        """
+
+    def get_statistics(self) -> dict:
+        """Get EMA statistics only (clean separation from histograms)."""
+
+    def get_histograms(self) -> dict:
+        """Get histogram data in wandb-compatible format."""
+
+    def reset_histograms(self):
+        """Reset histogram counts while preserving EMA state."""
+```
+
+### Histogram Data Format
+
+The `get_histograms()` method returns data compatible with `wandb.Histogram`:
+
+```python
+histograms = tracker.get_histograms()
+
+# Direct wandb logging
+wandb.log({
+    "episode_rewards": wandb.Histogram(histograms["histograms/reward_counts"]),
+    "episode_lengths": wandb.Histogram(histograms["histograms/length_counts"])
+}, step=step)
+
+# Or using the distribution arrays
+wandb.log({
+    "reward_distribution": histograms["histograms/reward_distribution"],
+    "length_distribution": histograms["histograms/length_distribution"]
+}, step=step)
+```
+
+#### Returned Keys
+
+```python
+{
+    # Raw counts for wandb.Histogram()
+    "histograms/reward_counts": np.array,     # [n1, n2, n3, ...] bin counts
+    "histograms/length_counts": np.array,     # [n1, n2, n3, ...] bin counts
+
+    # Normalized probability distributions
+    "histograms/reward_distribution": np.array,  # [p1, p2, p3, ...] probabilities
+    "histograms/length_distribution": np.array,  # [p1, p2, p3, ...] probabilities
+
+    # Bin edge information for interpretation
+    "histograms/reward_bin_edges": np.array,     # [0, 10, 20, 50, 100] edges
+    "histograms/length_bin_edges": np.array      # [1, 10, 25, 50, 200] edges
+}
+```
+
+### Default Bin Configurations
+
+**Reward Bins**: `[0, 1, 5, 10, 20, 50, 100, 200]` (7 bins)
+- Captures low, medium, and high reward ranges
+- Logarithmic-like spacing for better resolution at lower values
+
+**Length Bins**: `[1, 10, 25, 50, 100, 150, 200, 300]` (7 bins)
+- Covers short to very long episodes
+- Higher resolution for typical episode lengths (10-100 steps)
+
+### Performance Characteristics
+
+- **O(1) per episode completion** for histogram updates
+- **Vectorized batch processing** handles multiple simultaneous completions
+- **Memory efficient** - only stores bin counts, not individual values
+- **Device agnostic** - automatic CPU/GPU tensor movement
 
 ## Configuration Parameters
 

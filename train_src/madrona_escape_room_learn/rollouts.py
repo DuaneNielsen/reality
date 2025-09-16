@@ -6,7 +6,7 @@ import torch
 from .actor_critic import ActorCritic, RecurrentStateConfig
 from .amp import AMPState
 from .cfg import SimInterface
-from .moving_avg import EMANormalizer, EMATracker
+from .moving_avg import EMANormalizer, EMATracker, EpisodicEMATrackerWithHistogram
 from .profile import profile
 
 
@@ -33,6 +33,7 @@ class RolloutManager:
         recurrent_cfg: RecurrentStateConfig,
         episode_length_ema_decay: float = 0.95,
         episode_reward_ema_decay: float = 0.95,
+        episode_tracker=None,
     ):
         self.dev = dev
         self.steps_per_update = steps_per_update
@@ -122,12 +123,10 @@ class RolloutManager:
         self.rnn_alt_states = tuple(self.rnn_alt_states)
         self.rnn_start_states = tuple(self.rnn_start_states)
 
-        # Episode length and reward EMA tracking
+        # Episode tracking
+        self.episode_tracker = episode_tracker
         self.episode_length_ema = EMATracker(episode_length_ema_decay).to(dev)
         self.episode_reward_ema = EMATracker(episode_reward_ema_decay).to(dev)
-
-        # Track cumulative episode rewards and episode reward max/min from most recent update
-        self.episode_reward_accum = torch.zeros(sim.rewards.shape, dtype=torch.float32, device=dev)
         self.episode_reward_max = 0.0
         self.episode_reward_min = 0.0
 
@@ -191,45 +190,22 @@ class RolloutManager:
                     cur_rewards_store = self.rewards[bptt_chunk, slot]
                     cur_rewards_store.copy_(sim.rewards, non_blocking=True)
 
-                    # Accumulate rewards for episode totals
-                    self.episode_reward_accum += sim.rewards.to(self.episode_reward_accum.dtype)
-
                     cur_dones_store = self.dones[bptt_chunk, slot]
                     cur_dones_store.copy_(sim.dones, non_blocking=True)
 
-                    # Track episode lengths and rewards when episodes complete
-                    done_mask = cur_dones_store.bool()
-                    if done_mask.any():
-                        # Get current steps taken for worlds that just completed
-                        steps_taken = (
-                            sim.manager.steps_taken_tensor()
-                            .to_torch()
-                            .to(self.dev, non_blocking=True)
+                    # Update episode tracker if provided
+                    if self.episode_tracker is not None:
+                        step_rewards = (
+                            cur_rewards_store[:, 0]
+                            if cur_rewards_store.dim() == 2
+                            else cur_rewards_store[:, 0, 0]
                         )
-
-                        # Get episode lengths and rewards for all completed episodes
-                        completed_episodes = done_mask[:, 0]  # Shape: [num_worlds]
-                        if completed_episodes.any():
-                            episode_lengths = steps_taken[
-                                completed_episodes, 0, 0
-                            ]  # Get lengths for completed episodes
-
-                            # Get total accumulated episode rewards for completed episodes
-                            episode_rewards = self.episode_reward_accum[completed_episodes, 0]
-
-                            # Update EMAs with mean of completed episodes (vectorized, no CPU sync)
-                            if len(episode_lengths) > 0:
-                                mean_episode_length = episode_lengths.float().mean()
-                                mean_episode_reward = episode_rewards.float().mean()
-                                self.episode_length_ema.update(mean_episode_length)
-                                self.episode_reward_ema.update(mean_episode_reward)
-
-                                # Track max/min of episode rewards from this update
-                                self.episode_reward_max = episode_rewards.float().max().item()
-                                self.episode_reward_min = episode_rewards.float().min().item()
-
-                            # Reset accumulator for completed episodes
-                            self.episode_reward_accum[completed_episodes] = 0.0
+                        step_dones = (
+                            cur_dones_store[:, 0]
+                            if cur_dones_store.dim() == 2
+                            else cur_dones_store[:, 0, 0]
+                        )
+                        self.episode_tracker.step_update(step_rewards, step_dones.bool())
 
                     for rnn_states in rnn_states_cur_in:
                         rnn_states.masked_fill_(cur_dones_store, 0)
@@ -251,10 +227,6 @@ class RolloutManager:
         with amp.enable(), profile("Bootstrap Values"):
             actor_critic.fwd_critic(self.bootstrap_values, None, self.rnn_end_states, *final_obs)
             self.bootstrap_values = value_normalizer.invert(amp, self.bootstrap_values)
-
-        # Right now this just returns the rollout manager's pointers,
-        # but in the future could return only one set of buffers from a
-        # double buffered store, etc
 
         return Rollouts(
             obs=self.obs,
