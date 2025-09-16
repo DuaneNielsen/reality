@@ -9,7 +9,10 @@ import os
 import struct
 import tempfile
 
+import pytest
 
+
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_roundtrip_basic_consistency(log_and_verify_replay_cpu_manager):
     """Test basic record → replay → verify cycle.
     Fixture automatically records, traces, replays, and verifies trajectory matches."""
@@ -35,6 +38,7 @@ def test_roundtrip_basic_consistency(log_and_verify_replay_cpu_manager):
     # 4. Assert they match exactly
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_roundtrip_observation_consistency(log_and_verify_replay_cpu_manager):
     """Test observation recording with automatic replay verification"""
     mgr = log_and_verify_replay_cpu_manager
@@ -67,6 +71,7 @@ def test_roundtrip_observation_consistency(log_and_verify_replay_cpu_manager):
     # That's it! The fixture will automatically verify replay matches exactly
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_roundtrip_trajectory_file_verification(cpu_manager):
     """Test that trajectory traces match exactly between record and replay by comparing trace files.
     Uses regular cpu_manager to avoid conflicts with debug_cpu_manager."""
@@ -161,6 +166,7 @@ def test_roundtrip_trajectory_file_verification(cpu_manager):
                 os.unlink(path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_roundtrip_trajectory_file_verification_with_debug(
     log_and_verify_replay_cpu_manager,
 ):
@@ -193,6 +199,7 @@ def test_roundtrip_trajectory_file_verification_with_debug(
     print("✓ Debug session created recording and trajectory files")
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_trajectory_file_verification_detects_differences(cpu_manager):
     """Test that our trajectory verification detects when trajectories differ"""
     mgr = cpu_manager
@@ -277,6 +284,7 @@ def test_trajectory_file_verification_detects_differences(cpu_manager):
                 os.unlink(path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_roundtrip_session_replay(log_and_verify_replay_cpu_manager):
     """Test a single record/replay session using automatic verification fixture"""
     mgr = log_and_verify_replay_cpu_manager
@@ -296,6 +304,7 @@ def test_roundtrip_session_replay(log_and_verify_replay_cpu_manager):
     # That's it! The fixture will automatically verify replay matches exactly
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_roundtrip_edge_cases(cpu_manager):
     """Test edge cases in record/replay"""
     mgr = cpu_manager
@@ -366,6 +375,7 @@ def test_roundtrip_edge_cases(cpu_manager):
             os.unlink(empty_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_roundtrip_with_reset(log_and_verify_replay_cpu_manager):
     """Test recording/replay across episode resets with automatic verification"""
     mgr = log_and_verify_replay_cpu_manager
@@ -392,6 +402,7 @@ def test_roundtrip_with_reset(log_and_verify_replay_cpu_manager):
     # That's it! The fixture will automatically verify replay works across resets
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_action_sequence_detailed_validation(cpu_manager):
     """Test detailed action sequence validation with step-by-step verification"""
     mgr = cpu_manager
@@ -485,6 +496,7 @@ def test_action_sequence_detailed_validation(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "loadReplay")
 def test_action_data_corruption_detection(cpu_manager):
     """Test that action data corruption is detected during replay"""
     mgr = cpu_manager
@@ -591,6 +603,7 @@ def test_action_data_corruption_detection(cpu_manager):
                 os.unlink(path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_file_structure_integrity_validation(cpu_manager):
     """Test file structure integrity and boundary verification"""
     mgr = cpu_manager
@@ -692,6 +705,7 @@ def test_file_structure_integrity_validation(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "loadReplay")
 def test_partial_file_replay_handling(cpu_manager):
     """Test handling of partial/incomplete recording files"""
     mgr = cpu_manager

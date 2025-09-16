@@ -25,17 +25,26 @@ while (hypothesis not verified) todo:
 
 ## run test to verify error message
 
-Execute the specific failing test with verbose output to capture the exact error:
+Execute the specific failing test with verbose output to capture the exact error and specification context:
 
-**For detailed error analysis:**
+**For detailed error analysis with spec display:**
 ```bash
-# Run with extended debugging information
+# Run with verbose mode to display specifications on failure
 uv run --group dev pytest tests/python/$ARGUMENTS -vs --tb=long --log-cli-level=DEBUG
 ```
 
-Use the Bash tool to execute these commands and capture the exact error messages, stack traces, and failure details.
+**Key benefits of verbose mode (-v):**
+- Automatically displays relevant specification sections when tests fail
+- Shows @pytest.mark.spec() markers and their documentation
+- Provides immediate context about expected behavior according to specs
 
-Document the specific assertion that failed and the expected vs actual values.
+Use the Bash tool to execute these commands and capture:
+1. Exact error messages and stack traces
+2. Specification sections displayed for failed tests (if marked with @pytest.mark.spec)
+3. Expected vs actual values from assertions
+4. Any traceability information linking test to requirements
+
+Document the specific assertion that failed, the expected vs actual values, and any specification context provided.
 
 ## read test code and create summary
 
@@ -71,9 +80,43 @@ Create a structured summary following this format:
 
 ## validate test premise
 
-**Decision Point:** Determine if the test premise and assertions are correct by comparing against specification.
+**Decision Point:** Determine if the test premise and assertions are correct by leveraging the traceability system.
 
-**Step 1: Locate corresponding spec file**
+**Step 1: Check for existing @pytest.mark.spec() markers**
+
+Examine the test file for traceability markers:
+```tool
+Read(file_path="tests/python/[TEST_FILE].py")
+```
+
+Look for @pytest.mark.spec() decorators that link tests to specifications:
+```python
+@pytest.mark.spec("docs/specs/sim.md", "rewardSystem")
+def test_step_zero_reward_is_zero(cpu_manager):
+```
+
+**Step 2: If @pytest.mark.spec() markers found - Use them directly**
+
+**Extract specification reference:**
+- Spec file: `[SPEC_FILE_PATH]` from marker
+- Section: `[SECTION_NAME]` from marker
+
+**Read the referenced specification:**
+```tool
+Read(file_path="[SPEC_FILE_PATH]")
+```
+
+**Key advantage:** Test already has verified traceability to specification documentation
+
+**Step 3: If NO @pytest.mark.spec() markers found - Legacy approach**
+
+⚠️ **Missing Traceability Markers**
+
+**Test:** $ARGUMENTS
+
+**Issue:** Test lacks @pytest.mark.spec() markers for requirement traceability
+
+**Fallback approach:**
 - Extract test name from failing test path: `tests/python/[TEST_FILE].py`
 - Look for corresponding spec at: `docs/specs/[TEST_FILE_WITHOUT_PREFIX].md`
 - Example: `tests/python/test_reward_termination_system.py` → `docs/specs/reward_termination_system.md`
@@ -83,48 +126,50 @@ Use the Glob tool to check if spec exists:
 Glob(pattern="docs/specs/[TEST_NAME_WITHOUT_TEST_PREFIX].md")
 ```
 
-**Step 2: If spec file NOT found - STOP and work with user**
-```
-❌ **Missing Specification File**
+**Recommendation:** Add proper @pytest.mark.spec() markers to improve traceability
 
-**Test:** $ARGUMENTS
+**Step 4: Validate test against specification**
 
-**Expected spec location:** `docs/specs/[DERIVED_NAME].md`
+**If specification was displayed in verbose test output:**
+- Use the specification context already provided by the test failure
+- Compare failed assertions against the displayed specification requirements
+- Leverage the automatic spec display feature for validation
 
-**Action Required:** Cannot proceed with test validation without corresponding specification.
-
-**Next Steps:**
-1. Work with user to create the specification document
-2. Define expected behavior, requirements, and test criteria
-3. Ensure test aligns with documented specifications
-
-**Please create the specification file before continuing with test debugging.**
-```
-
-**Step 3: If spec file found - validate test against spec**
-
-Use the Read tool to examine both files:
+**If manual spec lookup required:**
+Use the Read tool to examine the specification file:
 ```tool
-Read(file_path="docs/specs/[SPEC_FILE].md")
-Read(file_path="tests/python/[TEST_FILE].py")
+Read(file_path="[SPEC_FILE_PATH]")
 ```
 
 **Validation checklist:**
 - Does the test use proper fixtures (cpu_manager, gpu_manager)?
 - Do the test assertions match the SPEC requirements listed in the specification?
 - Are the test scenarios covering the behaviors defined in the specification?
-- Does the test follow patterns from TESTING_GUIDE.md?
+- Does the test follow patterns from tests/README.md TESTING_GUIDE?
 - Is the test setup appropriate for what's being tested per the spec?
+- Are @pytest.mark.spec() markers present and pointing to correct spec sections?
 
-**Step 4: Compare test assertions to specification requirements**
+**Step 5: Compare test assertions to specification requirements**
 
 For each test assertion, verify it matches a corresponding SPEC requirement:
 - **SPEC 1**: [Requirement from spec] → **Test assertion**: [Corresponding assertion]
 - **SPEC 2**: [Requirement from spec] → **Test assertion**: [Corresponding assertion]
 - **SPEC N**: [Requirement from spec] → **Test assertion**: [Corresponding assertion]
 
-**If test-spec mismatch found:** Work with user to align test with specification
-**If test matches specification:** Proceed to hypothesis formulation
+**Step 6: Handle validation results**
+
+**If test-spec mismatch found:**
+- Work with user to align test with specification
+- Consider updating @pytest.mark.spec() markers if incorrect
+- May need to update either test or specification for consistency
+
+**If test matches specification:**
+- Proceed to hypothesis formulation
+- Test premise is validated against documented requirements
+
+**If specification context was auto-displayed:**
+- Leverage the specification information already shown in test failure output
+- Use this context to inform debugging approach
 
 ## hypothesis not verified
 

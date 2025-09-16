@@ -11,6 +11,7 @@ import torch
 
 
 @pytest.mark.slow
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_gpu_recording_and_replay_complete(request):
     """Test complete GPU recording and replay functionality in one test"""
     # Create a fresh GPU manager to ensure we start at step 0

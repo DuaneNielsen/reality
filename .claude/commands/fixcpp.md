@@ -2,9 +2,11 @@
 
 The cpp test `$ARGUMENTS` is failing and we need to fix it.
 
-Use the following process to fix the test:
+Use the following process to fix the test, leveraging the traceability system when available:
 
 ## 1. Run the test to verify the error message
+
+**For C++ tests with detailed output:**
 
 For cpu tests (with debug output visible):
 
@@ -19,6 +21,21 @@ For gpu tests (with debug output visible):
 ```
 
 **Note:** The `--disable-capture` flag disables GoogleTest's stdout capture, `--gtest_print_time=1` shows execution time, `--gtest_output=json` provides structured output, and `-v` enables verbose output. These flags are essential for debugging failing tests.
+
+**If the C++ test is called from Python (pytest wrapper):**
+
+Run the Python test wrapper with verbose mode to get specification context:
+
+```bash
+# Run Python test that calls C++ code with spec display
+uv run --group dev pytest tests/python/[TEST_FILE].py::[TEST_NAME] -vs --tb=long
+```
+
+**Benefits of Python pytest verbose mode:**
+- Automatically displays relevant specification sections when tests fail
+- Shows @pytest.mark.spec() markers and their documentation
+- Provides immediate context about expected behavior according to specs
+- Links C++ test failures to requirement specifications
 
 
 ## 2. Read the test code and create a summary
@@ -44,11 +61,68 @@ For gpu tests (with debug output visible):
 
 ## 3. Validate Test Premise
 
-**Decision Point:** Is the premise of the test correct?
+**Decision Point:** Is the premise of the test correct by checking against specifications?
 
-- Prompt the user to validate if the test is valid and the assertions are correct
-- If valid, proceed to step 4
-- If not, work with the user to redefine the test
+**Step 1: Check for Python test wrapper with traceability**
+
+Many C++ tests are called through Python pytest wrappers that may have @pytest.mark.spec() markers:
+
+```tool
+Glob(pattern="tests/python/*[RELATED_TEST_NAME]*.py")
+```
+
+If found, examine the Python wrapper for specification links:
+```tool
+Read(file_path="tests/python/[WRAPPER_FILE].py")
+```
+
+Look for @pytest.mark.spec() decorators that provide specification context:
+```python
+@pytest.mark.spec("docs/specs/mgr.md", "Manager")
+def test_cpp_manager_functionality():
+    # Calls C++ test executable
+```
+
+**Step 2: If specification markers found - Use them**
+
+**Extract specification reference:**
+- Spec file: `[SPEC_FILE_PATH]` from marker
+- Section: `[SECTION_NAME]` from marker
+
+**Read the referenced specification:**
+```tool
+Read(file_path="[SPEC_FILE_PATH]")
+```
+
+**Step 3: If no Python wrapper or markers - Legacy validation**
+
+**Direct C++ test validation:**
+- Examine the C++ test code to understand what system/component is being tested
+- Look for related specification documentation in `docs/specs/`
+- Check if the test matches documented behavior requirements
+
+**Step 4: Validate test assertions against specification**
+
+**Validation checklist:**
+- Does the C++ test verify behavior documented in specifications?
+- Are the test assertions consistent with requirement specifications?
+- Does the test follow GoogleTest patterns and best practices?
+- Is the test setup appropriate for what's being tested per the spec?
+
+**Step 5: Handle validation results**
+
+**If test-spec alignment confirmed:**
+- Test premise is valid, proceed to step 4 (hypothesis formulation)
+- C++ implementation should match documented specifications
+
+**If test-spec mismatch found:**
+- Work with user to determine if test or specification needs updating
+- Consider adding @pytest.mark.spec() markers to Python wrappers for better traceability
+
+**If no specification found:**
+- Prompt the user to validate if the test logic and assertions are correct
+- May need to create specification documentation for the tested component
+- Proceed carefully with assumption that test logic represents intended behavior
 
 ## 4. Formulate Working Hypothesis
 

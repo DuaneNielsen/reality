@@ -64,6 +64,7 @@ def create_test_levels():
     return level1, level2, level3
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_multi_level_recording_roundtrip():
     """Test recording and replaying across multiple different levels."""
 
@@ -214,6 +215,7 @@ def test_multi_level_recording_roundtrip():
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "readReplayMetadata")
 def test_multi_level_metadata_storage():
     """Test that recording properly stores metadata for multiple levels."""
 
@@ -262,6 +264,7 @@ def test_multi_level_metadata_storage():
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "loadReplay")
 def test_v3_format_validation():
     """Test that only v3 format files are accepted."""
 

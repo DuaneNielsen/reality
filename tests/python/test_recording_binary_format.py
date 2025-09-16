@@ -8,6 +8,8 @@ import os
 import struct
 import tempfile
 
+import pytest
+
 
 def test_replay_metadata_complete_structure(cpu_manager):
     """Test complete ReplayMetadata structure validation - all 14 fields"""

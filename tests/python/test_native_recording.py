@@ -11,6 +11,7 @@ import tempfile
 import pytest
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_recording_lifecycle(cpu_manager):
     """Test basic recording start/stop cycle"""
     mgr = cpu_manager
@@ -40,6 +41,7 @@ def test_recording_lifecycle(cpu_manager):
 
 
 @pytest.mark.slow
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_gpu_recording_lifecycle(request):
     """Test basic recording start/stop cycle on GPU"""
     # Create a fresh GPU manager to ensure we start at step 0
@@ -91,6 +93,7 @@ def test_gpu_recording_lifecycle(request):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_recording_with_steps(cpu_manager):
     """Test recording with actual simulation steps"""
     mgr = cpu_manager
@@ -136,6 +139,7 @@ def test_recording_with_steps(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_recording_error_handling(cpu_manager):
     """Test error conditions in recording"""
     mgr = cpu_manager
@@ -172,6 +176,7 @@ def test_recording_error_handling(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_recording_file_format(cpu_manager):
     """Test comprehensive recording file format validation - Version 3 complete validation"""
     mgr = cpu_manager
@@ -345,6 +350,7 @@ def test_recording_file_format(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "stopRecording")
 def test_recording_empty_session(cpu_manager):
     """Test recording session with no steps"""
     mgr = cpu_manager
@@ -370,6 +376,7 @@ def test_recording_empty_session(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "isRecording")
 def test_recording_state_persistence(cpu_manager):
     """Test that recording state persists across operations"""
     mgr = cpu_manager
@@ -401,6 +408,7 @@ def test_recording_state_persistence(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_current_format_specification_compliance(cpu_manager):
     """Test current format (version 3) specification compliance and struct layout"""
     mgr = cpu_manager
@@ -482,6 +490,7 @@ def test_current_format_specification_compliance(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "loadReplay")
 def test_format_error_conditions(cpu_manager):
     """Test error condition handling for current format"""
 
@@ -563,6 +572,7 @@ def test_format_error_conditions(cpu_manager):
     print("✓ All error condition tests passed")
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_field_alignment_and_padding(cpu_manager):
     """Test field alignment and padding in current format"""
     mgr = cpu_manager
