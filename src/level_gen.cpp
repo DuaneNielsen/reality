@@ -91,6 +91,60 @@ static void createAgentEntities(Engine &ctx) {
 }
 
 /**
+ * Find a valid spawn position that avoids collisions with all entities.
+ * Uses rejection sampling with configurable exclusion radius.
+ */
+static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius)
+{
+    CompiledLevel& level = ctx.singleton<CompiledLevel>();
+
+    // Use world episode for RNG variation
+    RandKey spawn_key = rand::split_i(ctx.data().rng.randKey(),
+                                       ctx.data().curWorldEpisode);
+
+    const float WALL_MARGIN = 2.0f;
+    const int MAX_ATTEMPTS = 30;
+    float exclusion_sq = exclusion_radius * exclusion_radius;
+
+    for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        // Generate candidate position
+        RandKey attempt_key = rand::split_i(spawn_key, attempt);
+        Vector2 candidate = {
+            rand::sampleUniform(attempt_key) *
+                (level.world_max_x - level.world_min_x - 2*WALL_MARGIN) +
+                level.world_min_x + WALL_MARGIN,
+            rand::sampleUniform(rand::split_i(attempt_key, 1)) *
+                (level.world_max_y - level.world_min_y - 2*WALL_MARGIN) +
+                level.world_min_y + WALL_MARGIN
+        };
+
+        bool valid = true;
+
+        // Check all entities with Position components using ECS query
+        auto position_query = ctx.query<Position>();
+        ctx.iterateQuery(position_query, [&](Position &entity_pos) {
+            // Skip floor (z == 0)
+            if (entity_pos.z < 0.1f) return;
+
+            float dx = candidate.x - entity_pos.x;
+            float dy = candidate.y - entity_pos.y;
+            float dist_sq = dx*dx + dy*dy;
+
+            if (dist_sq < exclusion_sq) {
+                valid = false;
+            }
+        });
+
+        if (valid) {
+            return candidate;
+        }
+    }
+
+    // Fallback: Center position with small offset
+    return Vector2{0.0f, 0.0f};
+}
+
+/**
  * Resets agent physics and positions for a new episode.
  * Called during each episode reset.
  */
@@ -101,34 +155,40 @@ static void resetAgentPhysics(Engine &ctx) {
         Entity agent_entity = ctx.data().agents[i];
         registerRigidBodyEntity(ctx, agent_entity, AssetIDs::AGENT);
 
-        // Use spawn positions from level if available, otherwise use defaults
-        Vector3 pos;
-        if (i < level.num_spawns) {
-            // Use spawn position from level data
-            pos = Vector3 {
-                level.spawn_x[i],
-                level.spawn_y[i],
-                1.0f  // Above ground
-            };
-        } else {
-            // Fallback: place agents in center with slight offset
-            pos = Vector3 {
-                i * consts::rendering::agentSpacing - 1.0f,  // Slight offset between agents
-                0.0f,              // Center of room  
-                1.0f,              // Above ground
-            };
-        }
+        // Comment out old spawn logic
+        // Vector3 pos;
+        // if (i < level.num_spawns) {
+        //     pos = Vector3 {
+        //         level.spawn_x[i],
+        //         level.spawn_y[i],
+        //         1.0f
+        //     };
+        // } else {
+        //     pos = Vector3 {
+        //         i * consts::rendering::agentSpacing - 1.0f,
+        //         0.0f,
+        //         1.0f,
+        //     };
+        // }
+
+        // New: Random spawn with collision avoidance
+        const float EXCLUSION_RADIUS = 3.0f;
+        Vector2 spawn_2d = findValidSpawnPosition(ctx, EXCLUSION_RADIUS);
+        Vector3 pos = Vector3{spawn_2d.x, spawn_2d.y, 1.0f};
 
         ctx.get<Position>(agent_entity) = pos;
-        
-        // Use spawn facing from level data if available
-        float facing_angle = 0.0f;
-        if (i < level.num_spawns) {
-            facing_angle = level.spawn_facing[i];
-        }
+
+        // Comment out fixed facing angle
+        // float facing_angle = 0.0f;
+        // if (i < level.num_spawns) {
+        //     facing_angle = level.spawn_facing[i];
+        // }
+
+        // Random facing
+        float facing_angle = ctx.data().rng.sampleUniform() * 2.0f * math::pi;
         
         ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
-            facing_angle,  // Use facing angle from level data
+            facing_angle,  // Random facing angle
             math::up);
 
         // Initialize Progress with sentinel values - reward system will set them after physics settles
