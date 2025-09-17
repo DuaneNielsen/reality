@@ -3,6 +3,35 @@
 ## Overview
 [Brief description of what this sequence does and why]
 
+```
+[Main Entry Point]
+├─ [Phase 1 Name]
+│  ├─ Step 1: [Step Description]
+│  │  └─ [Key action or initialization]
+│  ├─ Step 2: [Step Description]
+│  │  ├─ [Sub-action 1]
+│  │  └─ [Sub-action 2]
+│  ├─ Step 3: [Step Description] [if conditional/optional]
+│  │  ├─ [Sub-action]
+│  │  └─ [Triggers next phase] ────┐
+│  └─ Step 4: [Step Description]    │
+│     └─ [Completion action]        │
+│                                   │
+├─ [Phase 2 Name] ◄─────────────────┘
+│  ├─ Step 1: [Step Description]
+│  ├─ Step 2: [Step Description]
+│  │  └─ [Triggers sub-phase] ─────────┐
+│  └─ Step 3: [Step Description]       │
+│                                       │
+├─ [Sub-Phase Name] ◄──────────────────┘
+│  ├─ Step 1: [Step Description]
+│  └─ Step 2: [Step Description]
+│
+└─ [Final Phase Name]
+   ├─ Step 1: [Step Description]
+   └─ Step 2: [Step Description]
+```
+
 ## Input
 
 [What data enters this sequence and where it comes from]
