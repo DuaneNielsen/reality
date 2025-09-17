@@ -23,12 +23,16 @@ echo "=== Current Branch ==="
 git branch --show-current
 echo
 
-# Madrona submodule status (if it exists)
-echo "=== Madrona Submodule Status ==="
-if [ -d "external/madrona" ]; then
-    git -C external/madrona status --porcelain 2>/dev/null || echo "Error checking madrona submodule status"
+# Submodule status check
+echo "=== Submodule Status ==="
+if git submodule status | grep -q .; then
+    echo "Active submodules:"
+    git submodule status
+    echo
+    # Check status of each submodule
+    git submodule foreach --quiet 'echo "Submodule $name:"; git status --porcelain || echo "  Error checking status"; echo'
 else
-    echo "No madrona submodule found"
+    echo "No submodules found"
 fi
 echo
 
