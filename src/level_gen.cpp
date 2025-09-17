@@ -546,6 +546,13 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
  * Called after generateLevel() so all entities exist for collision checking.
  */
 static void applyRandomSpawnPositions(Engine &ctx) {
+    CompiledLevel& level = ctx.singleton<CompiledLevel>();
+
+    // Only apply random spawning if flag is set
+    if (!level.spawn_random) {
+        return;
+    }
+
     for (CountT i = 0; i < consts::numAgents; i++) {
         Entity agent_entity = ctx.data().agents[i];
 

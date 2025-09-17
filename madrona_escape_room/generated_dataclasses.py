@@ -56,6 +56,8 @@ class CompiledLevel(NativeEndianCDataMixIn):
     spawn_x: List[float] = field(metadata=meta(ctypes.c_float * 8), default_factory=_make_float_array_8)
     spawn_y: List[float] = field(metadata=meta(ctypes.c_float * 8), default_factory=_make_float_array_8)
     spawn_facing: List[float] = field(metadata=meta(ctypes.c_float * 8), default_factory=_make_float_array_8)
+    spawn_random: bool = field(metadata=meta(ctypes.c_bool), default=False)
+    _pad_209: bytes = field(metadata=meta(ctypes.c_byte * 3), default=b'\x00' * 3)
     object_ids: List[int] = field(metadata=meta(ctypes.c_int32 * 1024), default_factory=_make_int_array_1024)
     tile_x: List[float] = field(metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024)
     tile_y: List[float] = field(metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024)
@@ -107,8 +109,8 @@ class ManagerConfig(NativeEndianCDataMixIn):
 
 
 # Size validation
-assert CompiledLevel.size() == 85200, \
-    f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85200"
+assert CompiledLevel.size() == 85204, \
+    f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85204"
 
 assert ReplayMetadata.size() == 192, \
     f"ReplayMetadata size mismatch: {ReplayMetadata.size()} != 192"

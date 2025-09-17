@@ -380,6 +380,7 @@ struct CompiledLevel {
     int32_t num_spawns;
     float spawn_x[8], spawn_y[8], spawn_z[8];
     float spawn_facing[8];        // Initial agent rotations
+    bool spawn_random;            // Whether to use random spawn positions instead of fixed ones
 
     // Tile data arrays [MAX_TILES = 1024]
     uint32_t object_ids[1024];    // Asset IDs (cube, wall, etc)
@@ -899,15 +900,17 @@ Part of world generation process
   - Set DoneOnCollide component if specified
 
 #### Step 2: Reset Agent Physics and Spawning
-**Function:** `resetAgentPhysics()`
-**Location:** `src/level_gen.cpp:97`
+**Function:** `resetAgentPhysics()` and `applyRandomSpawnPositions()`
+**Location:** `src/level_gen.cpp:97` and `src/level_gen.cpp:548`
 **Purpose:** [GAME_SPECIFIC] Reset agent state for new episode
 
 **Details:**
 - Access CompiledLevel singleton for spawn data
 - For each agent:
   - Register with physics system
-  - Use spawn position from level data (spawn_x, spawn_y)
+  - **Spawn Position Logic**:
+    - If `spawn_random = false`: Use fixed spawn position from level data (spawn_x, spawn_y)
+    - If `spawn_random = true`: Generate random collision-free position using 3-unit exclusion radius
   - Set facing angle from spawn_facing array
   - Initialize Progress with sentinel values (-999999.0f)
   - Reset velocity, forces, and torques to zero
@@ -917,6 +920,14 @@ Part of world generation process
   - Reset collision_death flag to 0
   - Reset reward to 0.0f
   - Initialize compass observation to zeros
+
+**Random Spawn Mechanics** (when `spawn_random = true`):
+- Uses rejection sampling with up to 30 attempts
+- 3.0-unit exclusion radius prevents spawning on/near obstacles
+- Queries all entities with EntityType component to find walls/obstacles
+- Maintains 2.0-unit margin from world boundaries
+- Falls back to origin (0,0) if no valid position found
+- Uses deterministic RNG seeded by episode counter for reproducibility
 
 ### Phase 5: Dynamic Entity Generation
 Final phase of reset sequence

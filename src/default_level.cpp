@@ -252,9 +252,10 @@ int main(int argc, char* argv[]) {
     level1.num_tiles = tile_index;
     levels.push_back(level1);
     
-    // Create second level: Cubes only (no cylinders)
+    // Create second level: Cubes only (no cylinders) with random spawn
     CompiledLevel level2 = createBaseLevelTemplate();
     std::strcpy(level2.level_name, "default_cubes_only");
+    level2.spawn_random = true;  // Enable random spawning for second level
     
     tile_index = 0;
     tile_index = generateWalls(level2, tile_index);

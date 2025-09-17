@@ -220,7 +220,8 @@ namespace madEscape {
         float spawn_x[MAX_SPAWNS];        // Spawn X positions
         float spawn_y[MAX_SPAWNS];        // Spawn Y positions
         float spawn_facing[MAX_SPAWNS];   // Spawn facing angles in radians
-        
+        bool spawn_random;                // Whether to use random spawn positions instead of fixed ones
+
         // Tile data arrays (packed for GPU efficiency)
         int32_t object_ids[MAX_TILES];    // Asset ID for each tile (from AssetIDs namespace)
         float tile_x[MAX_TILES];          // World X position

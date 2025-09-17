@@ -230,9 +230,10 @@ def create_default_levels():
     level1.num_tiles = tile_index
     levels.append(level1)
 
-    # Create second level: Cubes only (no cylinders)
+    # Create second level: Cubes only (no cylinders) with random spawn
     level2 = create_base_level_template()
     level2.level_name = b"default_cubes_only"
+    level2.spawn_random = True  # Enable random spawning for second level
 
     tile_index = 0
     tile_index = generate_walls(level2, tile_index)
