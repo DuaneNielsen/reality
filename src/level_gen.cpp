@@ -119,33 +119,18 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
         };
 
         bool valid = true;
-        int entity_count = 0;
-        int wall_count = 0;
-        int cube_count = 0;
-        int skipped_count = 0;
 
         // Check all entities with Position and EntityType components using ECS query
         auto collision_query = ctx.query<Position, EntityType>();
         ctx.iterateQuery(collision_query, [&](Position &entity_pos, EntityType &entity_type) {
-            entity_count++;
-
             // Skip floor entities (NoEntity type)
             if (entity_type == EntityType::NoEntity) {
-                skipped_count++;
                 return;
             }
 
             // Skip agents (don't collide with self)
             if (entity_type == EntityType::Agent) {
-                skipped_count++;
                 return;
-            }
-
-            // Count different entity types
-            if (entity_type == EntityType::Wall) {
-                wall_count++;
-            } else if (entity_type == EntityType::Cube) {
-                cube_count++;
             }
 
             float dx = candidate.x - entity_pos.x;
@@ -156,26 +141,6 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
                 valid = false;
             }
         });
-
-        // Debug output on first attempt only to avoid spam
-        if (attempt == 0) {
-            printf("DEBUG: Spawn attempt %d at (%.2f, %.2f)\n", attempt, candidate.x, candidate.y);
-            printf("DEBUG: Found %d total entities, %d skipped (floor/agents), %d walls, %d cubes\n",
-                   entity_count, skipped_count, wall_count, cube_count);
-            printf("DEBUG: Exclusion radius: %.2f, valid: %s\n", exclusion_radius, valid ? "true" : "false");
-
-            // Print positions of the first few collision entities for debugging
-            int printed_entities = 0;
-            auto debug_query = ctx.query<Position, EntityType>();
-            ctx.iterateQuery(debug_query, [&](Position &pos, EntityType &type) {
-                if (type != EntityType::NoEntity && type != EntityType::Agent && printed_entities < 5) {
-                    const char* type_name = (type == EntityType::Wall) ? "Wall" :
-                                          (type == EntityType::Cube) ? "Cube" : "Other";
-                    printf("DEBUG: %s entity at (%.2f, %.2f, %.2f)\n", type_name, pos.x, pos.y, pos.z);
-                    printed_entities++;
-                }
-            });
-        }
 
         if (valid) {
             return candidate;
