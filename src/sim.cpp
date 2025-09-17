@@ -490,22 +490,27 @@ inline void rewardSystem(Engine &ctx,
         return;
     }
 
-    // Check if agent made forward progress this step
+    // Update progress tracking for goal detection
     if (pos.y > progress.maxY) {
-        // Calculate incremental reward for forward progress
-        float prev_maxY = progress.maxY;
         progress.maxY = pos.y;
-
-        // Normalize based on total possible progress (from initial to world max)
-        float total_possible_progress = level.world_max_y - progress.initialY;
-        float progress_this_step = pos.y - prev_maxY;
-        float normalized_increment = progress_this_step / total_possible_progress;
-
-        out_reward.v = normalized_increment;
-    } else {
-        // No forward progress = no reward
-        out_reward.v = 0.0f;
     }
+
+    // Progressive reward system (commented out - using simple goal reward instead)
+    // if (pos.y > progress.maxY) {
+    //     // Calculate incremental reward for forward progress
+    //     float prev_maxY = progress.maxY;
+    //     progress.maxY = pos.y;
+    //
+    //     // Normalize based on total possible progress (from initial to world max)
+    //     float total_possible_progress = level.world_max_y - progress.initialY;
+    //     float progress_this_step = pos.y - prev_maxY;
+    //     float normalized_increment = progress_this_step / total_possible_progress;
+    //
+    //     out_reward.v = normalized_increment;
+    // } else {
+    //     // No forward progress = no reward
+    //     out_reward.v = 0.0f;
+    // }
 
     // Check for episode completion - use proper normalization
     float normalized_progress = (progress.maxY - progress.initialY) /
@@ -513,11 +518,14 @@ inline void rewardSystem(Engine &ctx,
     if (done.v == 0 && normalized_progress >= 1.0f) {
         done.v = 1;
         termination_reason.code = 1;  // goal_achieved
+        out_reward.v = 1.0f;  // +1 reward for reaching the goal
+    } else {
+        out_reward.v = 0.0f;  // No reward until goal is reached
     }
 
     // Override with collision penalty if agent died
     if (done.v == 1 && collision_death.died == 1) {
-        out_reward.v = -0.1f;  // Death penalty overrides any progress reward
+        out_reward.v = 0.0f;  // No penalty for collision death (was -0.1f)
     }
 }
 

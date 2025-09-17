@@ -175,7 +175,7 @@ def create_level_grid(obstacles, width=19, height=48):
     return ["".join(row) for row in grid]
 
 
-def create_level_json(level_num, obstacles, name_suffix="gen"):
+def create_level_json(level_num, obstacles, name_suffix="gen", spawn_random=False):
     """
     Create the complete level JSON structure.
 
@@ -183,6 +183,7 @@ def create_level_json(level_num, obstacles, name_suffix="gen"):
         level_num: Level number
         obstacles: List of (x, y, type) tuples
         name_suffix: Suffix for level name
+        spawn_random: Whether to use random spawn positions
 
     Returns:
         Dictionary representing the level JSON
@@ -215,6 +216,7 @@ def create_level_json(level_num, obstacles, name_suffix="gen"):
             ".": {"asset": "empty"},
         },
         "scale": 3.0,
+        "spawn_random": spawn_random,
         "agent_facing": [0],
         "name": f"lvl{level_num}_19x48_{name_suffix}",
     }
@@ -222,7 +224,7 @@ def create_level_json(level_num, obstacles, name_suffix="gen"):
     return level_data
 
 
-def generate_level(level_num, output_dir="levels", random_seed=None):
+def generate_level(level_num, output_dir="levels", random_seed=None, spawn_random=False):
     """
     Generate a single level with progressive difficulty.
 
@@ -230,6 +232,7 @@ def generate_level(level_num, output_dir="levels", random_seed=None):
         level_num: Level number (1-7)
         output_dir: Output directory for level files
         random_seed: Random seed for reproducibility
+        spawn_random: Whether to use random spawn positions
 
     Returns:
         Path to generated level file
@@ -242,7 +245,7 @@ def generate_level(level_num, output_dir="levels", random_seed=None):
     obstacles = assign_obstacle_types(positions)
 
     # Create level JSON
-    level_data = create_level_json(level_num, obstacles)
+    level_data = create_level_json(level_num, obstacles, spawn_random=spawn_random)
 
     # Save to file
     output_path = Path(output_dir) / f"lvl{level_num}_19x48_gen.json"
@@ -255,31 +258,36 @@ def generate_level(level_num, output_dir="levels", random_seed=None):
     return output_path
 
 
-def generate_all_levels(output_dir="levels", random_seed=42):
+def generate_all_levels(output_dir="levels", random_seed=42, spawn_random=False):
     """
     Generate all progressive levels (1-20).
 
     Args:
         output_dir: Output directory for level files
         random_seed: Base random seed for reproducibility
+        spawn_random: Whether to use random spawn positions
     """
     print(f"Generating progressive levels in {output_dir}/")
 
     for level_num in range(1, 21):
         # Use different seed for each level
         level_seed = random_seed + level_num if random_seed else None
-        generate_level(level_num, output_dir, level_seed)
+        generate_level(level_num, output_dir, level_seed, spawn_random)
 
     print("All levels generated successfully!")
 
 
-def generate_multi_level_json(output_dir="levels", random_seed=42):
+def generate_multi_level_json(
+    output_dir="levels", random_seed=42, spawn_random=False, num_levels=20
+):
     """
-    Generate a single multi-level JSON file containing all progressive levels (1-20).
+    Generate a single multi-level JSON file containing all progressive levels.
 
     Args:
         output_dir: Output directory for the multi-level file
         random_seed: Base random seed for reproducibility
+        spawn_random: Whether to use random spawn positions
+        num_levels: Number of levels to generate (default: 20)
 
     Returns:
         Path to generated multi-level file
@@ -287,7 +295,10 @@ def generate_multi_level_json(output_dir="levels", random_seed=42):
     print(f"Generating multi-level JSON file in {output_dir}/")
 
     # Shared name for both filename and internal level name
-    level_name = "progressive_20_levels"
+    if spawn_random:
+        level_name = f"progressive{num_levels}_spawn_random"
+    else:
+        level_name = f"progressive_{num_levels}_levels"
 
     # Shared tileset for all levels
     shared_tileset = {
@@ -317,7 +328,7 @@ def generate_multi_level_json(output_dir="levels", random_seed=42):
     levels_data = []
 
     # Generate each level's ASCII and metadata
-    for level_num in range(1, 21):
+    for level_num in range(1, num_levels + 1):
         # Use different seed for each level
         level_seed = random_seed + level_num if random_seed else None
         num_obstacles = level_num * 10
@@ -339,6 +350,7 @@ def generate_multi_level_json(output_dir="levels", random_seed=42):
         "levels": levels_data,
         "tileset": shared_tileset,
         "scale": 3.0,
+        "spawn_random": spawn_random,
         "name": level_name,
     }
 
@@ -349,7 +361,7 @@ def generate_multi_level_json(output_dir="levels", random_seed=42):
     with open(output_path, "w") as f:
         json.dump(multi_level_data, f, indent=4)
 
-    total_obstacles = sum(level_num * 10 for level_num in range(1, 21))
+    total_obstacles = sum(level_num * 10 for level_num in range(1, num_levels + 1))
     print(
         f"Generated {output_path} with {len(levels_data)} levels and "
         f"{total_obstacles} total obstacles"
@@ -371,6 +383,17 @@ def main():
         action="store_true",
         help="Generate single multi-level JSON file containing all levels",
     )
+    parser.add_argument(
+        "--spawn-random",
+        action="store_true",
+        help="Use random spawn positions instead of fixed spawn points",
+    )
+    parser.add_argument(
+        "--num-levels",
+        type=int,
+        default=20,
+        help="Number of levels to generate for multi-level file (default: 20)",
+    )
 
     args = parser.parse_args()
 
@@ -379,13 +402,13 @@ def main():
         if args.level:
             print("Error: --single and --level cannot be used together")
             sys.exit(1)
-        generate_multi_level_json(args.output_dir, args.seed)
+        generate_multi_level_json(args.output_dir, args.seed, args.spawn_random, args.num_levels)
     elif args.level:
         # Generate single level
-        generate_level(args.level, args.output_dir, args.seed)
+        generate_level(args.level, args.output_dir, args.seed, args.spawn_random)
     else:
         # Generate all levels as separate files
-        generate_all_levels(args.output_dir, args.seed)
+        generate_all_levels(args.output_dir, args.seed, args.spawn_random)
 
 
 if __name__ == "__main__":

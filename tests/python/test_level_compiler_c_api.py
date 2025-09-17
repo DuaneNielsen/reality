@@ -232,6 +232,25 @@ class TestBinaryIO:
             validate_compiled_level(compiled)
 
 
+class TestSpawnRandomFlag:
+    """Test spawn_random flag functionality."""
+
+    def test_spawn_random_flag(self):
+        """Test that spawn_random flag works correctly."""
+        # Test default (False)
+        level_default = compile_ascii_level("###\n#S#\n###")
+        assert not level_default.spawn_random
+
+        # Test explicit True
+        json_level = {
+            "ascii": ["###", "#S#", "###"],
+            "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
+            "spawn_random": True,
+        }
+        level_true = compile_level(json_level)[0]
+        assert level_true.spawn_random
+
+
 class TestEdgeCases:
     """Test edge cases with C API integration."""
 

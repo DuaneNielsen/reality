@@ -22,6 +22,7 @@ Option 1 - Single level with array of strings (recommended):
     },
     "scale": 2.5,              # Optional, default 2.5
     "agent_facing": [0.0],      # Optional, radians for each agent
+    "spawn_random": false,      # Optional, use random spawn positions instead of fixed
     "name": "level_name"        # Optional, default "unknown_level"
 }
 
@@ -53,6 +54,7 @@ Option 2 - Multi-level format with shared tileset:
         ".": {"asset": "empty"}
     },
     "scale": 2.5,              # Optional, default 2.5 (applies to all levels)
+    "spawn_random": false,      # Optional, use random spawn positions for all levels
     "name": "multi_level_set"   # Optional name for the level set
 }
 
@@ -282,6 +284,11 @@ def _validate_multi_level_json(data: Dict) -> None:
         if not isinstance(scale, (int, float)) or scale <= 0:
             raise ValueError(f"Invalid scale: {scale} (must be positive number)")
 
+    if "spawn_random" in data:
+        spawn_random = data["spawn_random"]
+        if not isinstance(spawn_random, bool):
+            raise ValueError(f"Invalid spawn_random: {spawn_random} (must be boolean)")
+
     if "name" in data:
         name = data["name"]
         if not isinstance(name, str):
@@ -342,6 +349,11 @@ def _validate_json_level(data: Dict) -> None:
         for i, angle in enumerate(agent_facing):
             if not isinstance(angle, (int, float)):
                 raise ValueError(f"Invalid agent_facing[{i}]: {angle} (must be number)")
+
+    if "spawn_random" in data:
+        spawn_random = data["spawn_random"]
+        if not isinstance(spawn_random, bool):
+            raise ValueError(f"Invalid spawn_random: {spawn_random} (must be boolean)")
 
     if "name" in data:
         name = data["name"]
@@ -511,6 +523,7 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
     tileset = data["tileset"]
     scale = data.get("scale", 2.5)
     agent_facing = data.get("agent_facing", None)
+    spawn_random = data.get("spawn_random", False)
     level_name = data.get("name", "unknown_level")
 
     # Process tileset to get mappings
@@ -589,6 +602,7 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
 
     # Set spawn data
     level.num_spawns = len(spawns)
+    level.spawn_random = spawn_random
     for i in range(len(spawns)):
         level.spawn_x[i] = spawns[i][0]
         level.spawn_y[i] = spawns[i][1]
@@ -712,6 +726,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
     # Extract shared fields
     shared_tileset = data["tileset"]
     shared_scale = data.get("scale", 2.5)
+    shared_spawn_random = data.get("spawn_random", False)
     level_set_name = data.get("name", "multi_level_set")
 
     compiled_levels = []
@@ -723,6 +738,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
             "ascii": level_data["ascii"],
             "tileset": shared_tileset,
             "scale": shared_scale,
+            "spawn_random": shared_spawn_random,
         }
 
         # Use per-level name if provided, otherwise generate from set name
