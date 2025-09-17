@@ -17,7 +17,7 @@ parameters:
   num-worlds:
     value: 4096
   num-updates:
-    value: 500
+    value: 1000
   steps-per-update:
     value: 40
   num-bptt-chunks:
@@ -37,13 +37,12 @@ parameters:
   value-loss-coef:
     value: 0.5
   num-channels:
-    values: [128, 256, 512, 1024]
+    values: [128, 256, 1024]
   
   # Random seed for reproducibility
   seed:
-    value: 0
+    values: [0, 1, 2 ]
   
   # Level files for grid search across all 20 generated levels
   level-file:
-    values:
-      - "levels/progressive_20_levels.lvl"
+    value: "levels/progressive32_spawn_random.lvl"
