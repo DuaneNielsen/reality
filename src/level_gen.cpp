@@ -119,12 +119,34 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
         };
 
         bool valid = true;
+        int entity_count = 0;
+        int wall_count = 0;
+        int cube_count = 0;
+        int skipped_count = 0;
 
-        // Check all entities with Position components using ECS query
-        auto position_query = ctx.query<Position>();
-        ctx.iterateQuery(position_query, [&](Position &entity_pos) {
-            // Skip floor (z == 0)
-            if (entity_pos.z < 0.1f) return;
+        // Check all entities with Position and EntityType components using ECS query
+        auto collision_query = ctx.query<Position, EntityType>();
+        ctx.iterateQuery(collision_query, [&](Position &entity_pos, EntityType &entity_type) {
+            entity_count++;
+
+            // Skip floor entities (NoEntity type)
+            if (entity_type == EntityType::NoEntity) {
+                skipped_count++;
+                return;
+            }
+
+            // Skip agents (don't collide with self)
+            if (entity_type == EntityType::Agent) {
+                skipped_count++;
+                return;
+            }
+
+            // Count different entity types
+            if (entity_type == EntityType::Wall) {
+                wall_count++;
+            } else if (entity_type == EntityType::Cube) {
+                cube_count++;
+            }
 
             float dx = candidate.x - entity_pos.x;
             float dy = candidate.y - entity_pos.y;
@@ -134,6 +156,26 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
                 valid = false;
             }
         });
+
+        // Debug output on first attempt only to avoid spam
+        if (attempt == 0) {
+            printf("DEBUG: Spawn attempt %d at (%.2f, %.2f)\n", attempt, candidate.x, candidate.y);
+            printf("DEBUG: Found %d total entities, %d skipped (floor/agents), %d walls, %d cubes\n",
+                   entity_count, skipped_count, wall_count, cube_count);
+            printf("DEBUG: Exclusion radius: %.2f, valid: %s\n", exclusion_radius, valid ? "true" : "false");
+
+            // Print positions of the first few collision entities for debugging
+            int printed_entities = 0;
+            auto debug_query = ctx.query<Position, EntityType>();
+            ctx.iterateQuery(debug_query, [&](Position &pos, EntityType &type) {
+                if (type != EntityType::NoEntity && type != EntityType::Agent && printed_entities < 5) {
+                    const char* type_name = (type == EntityType::Wall) ? "Wall" :
+                                          (type == EntityType::Cube) ? "Cube" : "Other";
+                    printf("DEBUG: %s entity at (%.2f, %.2f, %.2f)\n", type_name, pos.x, pos.y, pos.z);
+                    printed_entities++;
+                }
+            });
+        }
 
         if (valid) {
             return candidate;
@@ -155,40 +197,34 @@ static void resetAgentPhysics(Engine &ctx) {
         Entity agent_entity = ctx.data().agents[i];
         registerRigidBodyEntity(ctx, agent_entity, AssetIDs::AGENT);
 
-        // Comment out old spawn logic
-        // Vector3 pos;
-        // if (i < level.num_spawns) {
-        //     pos = Vector3 {
-        //         level.spawn_x[i],
-        //         level.spawn_y[i],
-        //         1.0f
-        //     };
-        // } else {
-        //     pos = Vector3 {
-        //         i * consts::rendering::agentSpacing - 1.0f,
-        //         0.0f,
-        //         1.0f,
-        //     };
-        // }
-
-        // New: Random spawn with collision avoidance
-        const float EXCLUSION_RADIUS = 3.0f;
-        Vector2 spawn_2d = findValidSpawnPosition(ctx, EXCLUSION_RADIUS);
-        Vector3 pos = Vector3{spawn_2d.x, spawn_2d.y, 1.0f};
+        // Use spawn positions from level if available, otherwise use defaults
+        Vector3 pos;
+        if (i < level.num_spawns) {
+            // Use spawn position from level data
+            pos = Vector3 {
+                level.spawn_x[i],
+                level.spawn_y[i],
+                1.0f  // Above ground
+            };
+        } else {
+            // Fallback: place agents in center with slight offset
+            pos = Vector3 {
+                i * consts::rendering::agentSpacing - 1.0f,  // Slight offset between agents
+                0.0f,              // Center of room
+                1.0f,              // Above ground
+            };
+        }
 
         ctx.get<Position>(agent_entity) = pos;
 
-        // Comment out fixed facing angle
-        // float facing_angle = 0.0f;
-        // if (i < level.num_spawns) {
-        //     facing_angle = level.spawn_facing[i];
-        // }
-
-        // Random facing
-        float facing_angle = ctx.data().rng.sampleUniform() * 2.0f * math::pi;
+        // Use spawn facing from level data if available
+        float facing_angle = 0.0f;
+        if (i < level.num_spawns) {
+            facing_angle = level.spawn_facing[i];
+        }
         
         ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
-            facing_angle,  // Random facing angle
+            facing_angle,  // Use facing angle from level data
             math::up);
 
         // Initialize Progress with sentinel values - reward system will set them after physics settles
@@ -541,6 +577,30 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
 }
 
 /**
+ * Apply random spawn positions after level generation is complete.
+ * Called after generateLevel() so all entities exist for collision checking.
+ */
+static void applyRandomSpawnPositions(Engine &ctx) {
+    for (CountT i = 0; i < consts::numAgents; i++) {
+        Entity agent_entity = ctx.data().agents[i];
+
+        // New: Random spawn with collision avoidance
+        const float EXCLUSION_RADIUS = 3.0f;
+        Vector2 spawn_2d = findValidSpawnPosition(ctx, EXCLUSION_RADIUS);
+        Vector3 pos = Vector3{spawn_2d.x, spawn_2d.y, 1.0f};
+
+        ctx.get<Position>(agent_entity) = pos;
+
+        // Random facing
+        float facing_angle = ctx.data().rng.sampleUniform() * 2.0f * math::pi;
+
+        ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
+            facing_angle,  // Random facing angle
+            math::up);
+    }
+}
+
+/**
  * Generates the level-specific entities for this episode.
  * Called from generateWorld() each episode.
  * Uses the compiled level singleton to create tile entities.
@@ -570,6 +630,7 @@ void generateWorld(Engine &ctx)
 {
     resetPersistentEntities(ctx);
     generateLevel(ctx);
+    applyRandomSpawnPositions(ctx);
 }
 
 }
