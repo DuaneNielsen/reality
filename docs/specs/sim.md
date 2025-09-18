@@ -172,23 +172,21 @@ struct TerminationReason {
   - **Reset behavior**: Counter resets to 0 on episode reset
 
 #### rewardSystem
-- **Purpose**: Calculates incremental rewards based on forward progress
+- **Purpose**: Calculates completion-based rewards when agent reaches level goal
 - **Components Used**: Reads: `Position`, `Progress`, `CollisionDeath`, `CompiledLevel`; Writes: `Reward`, `Done`, `TerminationReason`
 - **Task Graph Dependencies**: After stepTrackerSystem, before resetSystem
 - **Specifications**:
   - **Step 0**: Always 0.0 reward (no reward on reset)
-  - **Forward only**: Only Y-axis forward movement gives rewards
-  - **Incremental**: Reward = (new_maxY - old_maxY) / total_possible_progress
-  - **High-water mark**: Progress tracked as maxY, never decreases
-  - **Backward/lateral movement**: No reward (only forward progress counts)
-  - **Stationary agent**: No reward (must move forward to earn rewards)
-  - **Normalization**: Total rewards sum to ~1.0 for complete traversal
-  - **Collision override**: Death penalty -0.1 overrides any progress reward
+  - **Completion only**: Only completion gives rewards (no incremental progress rewards)
+  - **Completion condition**: Reward = 1.0 when agent Y position >= world_max_y
+  - **Non-completion**: 0.0 reward for all other steps
+  - **High-water mark**: Progress tracked as maxY for termination detection
+  - **Movement tracking**: No reward for forward movement until completion
+  - **Collision override**: Death penalty -0.1 overrides any completion reward
   - **Goal achievement termination**:
-    - Occurs when normalized progress >= 1.0
-    - Agent has reached or exceeded world_max_y
+    - Occurs when agent Y position >= world_max_y
     - Sets done=1 and termination_code=1
-    - Total accumulated rewards ≈ 1.0 for complete traversal
+    - Reward = 1.0 for successful completion
     - Represents successful episode completion
 
 #### resetSystem
@@ -922,12 +920,14 @@ Part of world generation process
   - Initialize compass observation to zeros
 
 **Random Spawn Mechanics** (when `spawn_random = true`):
-- Uses rejection sampling with up to 30 attempts
-- 3.0-unit exclusion radius prevents spawning on/near obstacles
-- Queries all entities with EntityType component to find walls/obstacles
-- Maintains 2.0-unit margin from world boundaries
-- Falls back to origin (0,0) if no valid position found
-- Uses deterministic RNG seeded by episode counter for reproducibility
+- Agent must not spawn inside obstacles
+- Agent must spawn within world boundaries
+- Random spawns must be deterministic with same seed
+
+**Replay Spawn Determinism**:
+- Agent spawn positions during replay must be identical to original recording
+- Multiple replay runs of the same recording must produce identical spawn positions
+- Spawn randomization during replay must be deterministic and reproducible
 
 ### Phase 5: Dynamic Entity Generation
 Final phase of reset sequence
@@ -1150,15 +1150,13 @@ Handles agent control, episode tracking, and rewards
 
 #### Step 3: Reward System
 **Function:** `rewardSystem()`
-**Location:** `src/sim.cpp:476`
-**Purpose:** Calculate incremental forward progress rewards
+**Location:** `src/sim.cpp`
+**Purpose:** Calculate completion-based rewards when agent reaches goal
 
 **Details:**
-- Skip if progress not initialized (sentinel -999999.0f)
-- Reward = (new_maxY - old_maxY) / total_possible_progress
-- Only forward Y movement gives positive reward
-- Goal reached when normalized_progress >= 1.0
-- Collision death overrides with -0.1 penalty
+- Implements completion-only reward system
+- Tracks agent progress toward level goal
+- Handles collision death penalty override
 
 ### Phase 3: Episode Management
 Handles episode resets and world regeneration

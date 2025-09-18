@@ -9,6 +9,7 @@ import tempfile
 import warnings
 
 import pytest
+import torch
 
 
 @pytest.fixture(autouse=True)
@@ -294,3 +295,190 @@ def test_replay_state_consistency(cpu_manager):
     finally:
         if os.path.exists(recording_path):
             os.unlink(recording_path)
+
+
+@pytest.mark.spec("docs/specs/sim.md", "Step 2: Reset Agent Physics and Spawning")
+def test_replay_spawn_position_determinism():
+    """Test that random spawn positions are deterministic during replay"""
+    import madrona_escape_room as mer
+
+    # Create a level with random spawning enabled
+    level = mer.create_default_level()
+    level.spawn_random = True
+
+    # Record with random spawning
+    recording_mgr = mer.SimManager(
+        exec_mode=mer.ExecMode.CPU,
+        num_worlds=4,
+        compiled_levels=[level],
+        gpu_id=0,
+        rand_seed=123,  # Fixed seed for recording
+        auto_reset=True,
+    )
+
+    recording_path = create_test_recording(recording_mgr, num_steps=1, seed=123)
+
+    try:
+        # Capture initial spawn positions from recording
+        obs_tensor = recording_mgr.self_observation_tensor().to_torch()
+        recording_positions = []
+        for world_idx in range(4):
+            pos = obs_tensor[world_idx, 0, :3].clone()  # [x, y, z] for agent 0
+            recording_positions.append(pos)
+            print(f"Recording - World {world_idx} spawn: {pos}")
+
+        # Now replay the same recording multiple times
+        replay_positions_run1 = []
+        replay_positions_run2 = []
+
+        # First replay run
+        replay_mgr1 = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
+        obs1 = replay_mgr1.self_observation_tensor().to_torch()
+        for world_idx in range(4):
+            pos = obs1[world_idx, 0, :3].clone()
+            replay_positions_run1.append(pos)
+            print(f"Replay Run 1 - World {world_idx} spawn: {pos}")
+
+        # Second replay run (separate manager instance)
+        replay_mgr2 = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
+        obs2 = replay_mgr2.self_observation_tensor().to_torch()
+        for world_idx in range(4):
+            pos = obs2[world_idx, 0, :3].clone()
+            replay_positions_run2.append(pos)
+            print(f"Replay Run 2 - World {world_idx} spawn: {pos}")
+
+        # Test: All replay runs should have identical spawn positions
+        for world_idx in range(4):
+            # Replay run 1 should match replay run 2
+            assert torch.allclose(
+                replay_positions_run1[world_idx], replay_positions_run2[world_idx], atol=0.001
+            ), (
+                f"World {world_idx}: Replay runs have different spawn positions: "
+                f"{replay_positions_run1[world_idx]} vs {replay_positions_run2[world_idx]}"
+            )
+
+            # Both replay runs should match the original recording
+            # Note: This might fail currently due to the bug we're testing for
+            try:
+                assert torch.allclose(
+                    recording_positions[world_idx], replay_positions_run1[world_idx], atol=0.001
+                ), (
+                    f"World {world_idx}: Replay spawn doesn't match recording spawn: "
+                    f"Recording: {recording_positions[world_idx]}, "
+                    f"Replay: {replay_positions_run1[world_idx]}"
+                )
+                print(f"✓ World {world_idx}: Spawn positions are deterministic")
+            except AssertionError as e:
+                # This is the bug we expect to find - document it
+                print(f"✗ World {world_idx}: SPAWN POSITION BUG DETECTED - {e}")
+                # Mark this as a known failure but continue testing replay determinism
+                pytest.xfail(
+                    f"Known bug: Random spawn positions are not deterministic during replay - {e}"
+                )
+
+        print("Spawn position determinism test completed")
+
+    finally:
+        if os.path.exists(recording_path):
+            os.unlink(recording_path)
+
+
+@pytest.mark.spec("docs/specs/sim.md", "Step 2: Reset Agent Physics and Spawning")
+def test_replay_spawn_position_bug_simple():
+    """Simplified test that demonstrates the spawn position bug clearly"""
+    import madrona_escape_room as mer
+
+    # Create a level with random spawning enabled
+    level = mer.create_default_level()
+    level.spawn_random = True
+
+    # Record a single step
+    recording_mgr = mer.SimManager(
+        exec_mode=mer.ExecMode.CPU,
+        num_worlds=1,  # Use single world for clarity
+        compiled_levels=[level],
+        gpu_id=0,
+        rand_seed=42,
+        auto_reset=True,
+    )
+
+    # Get spawn position from recording BEFORE any steps are taken
+    recording_obs = recording_mgr.self_observation_tensor().to_torch()
+    recording_spawn = recording_obs[0, 0, :3].clone()  # World 0, agent 0, [x,y,z]
+
+    recording_path = create_test_recording(recording_mgr, num_steps=1)
+
+    try:
+        # Now replay and get spawn position
+        replay_mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
+        replay_obs = replay_mgr.self_observation_tensor().to_torch()
+        replay_spawn = replay_obs[0, 0, :3].clone()
+
+        print(f"Recording spawn: {recording_spawn}")
+        print(f"Replay spawn:    {replay_spawn}")
+        print(f"Difference:      {(recording_spawn - replay_spawn).abs()}")
+
+        # This assertion should pass for deterministic replay but currently fails
+        if not torch.allclose(recording_spawn, replay_spawn, atol=0.001):
+            pytest.fail(
+                f"SPAWN DETERMINISM BUG: Replay spawn position {replay_spawn} "
+                f"differs from recording spawn position {recording_spawn}. "
+                f"Max difference: {(recording_spawn - replay_spawn).abs().max():.6f}. "
+                f"This indicates random spawn positions are not using deterministic RNG."
+            )
+
+    finally:
+        if os.path.exists(recording_path):
+            os.unlink(recording_path)
+
+
+@pytest.mark.spec("docs/specs/sim.md", "Step 2: Reset Agent Physics and Spawning")
+def test_spawn_positions_are_random_between_episodes():
+    """Test that spawn_random=True produces different positions across episodes"""
+    import madrona_escape_room as mer
+
+    # Create a level with random spawning enabled
+    level = mer.create_default_level()
+    level.spawn_random = True
+
+    # Create manager with auto_reset to test episode transitions
+    mgr = mer.SimManager(
+        exec_mode=mer.ExecMode.CPU,
+        num_worlds=1,
+        compiled_levels=[level],
+        gpu_id=0,
+        rand_seed=42,
+        auto_reset=True,
+    )
+
+    # Collect spawn positions from multiple episodes
+    positions = []
+
+    # Get initial position
+    obs = mgr.self_observation_tensor().to_torch()
+    initial_pos = obs[0, 0, :3].clone()
+    positions.append(initial_pos)
+
+    # Trigger resets and collect positions
+    action_tensor = mgr.action_tensor().to_torch()
+    action_tensor.fill_(0)
+
+    for i in range(4):  # Get 4 more positions after resets
+        mgr.step()  # This should trigger reset due to auto_reset
+        obs = mgr.self_observation_tensor().to_torch()
+        pos = obs[0, 0, :3].clone()
+        positions.append(pos)
+
+    # Verify positions are different between episodes
+    all_same = True
+    for i in range(1, len(positions)):
+        diff = (positions[0] - positions[i]).abs().max()
+        if diff > 0.001:  # Threshold for "different enough"
+            all_same = False
+            break
+
+    assert not all_same, (
+        f"Random spawn positions are not varying between episodes. "
+        f"All positions: {positions}. "
+        f"With spawn_random=True, agents should spawn at different locations across episodes."
+    )

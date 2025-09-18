@@ -98,7 +98,8 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
 {
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
 
-    // Use world episode for RNG variation
+    // Use world episode for RNG variation - this ensures different spawns per episode
+    // but deterministic replay when using the same episode number
     RandKey spawn_key = rand::split_i(ctx.data().rng.randKey(),
                                        ctx.data().curWorldEpisode);
 

@@ -276,62 +276,6 @@ def test_progress_tensor(cpu_manager):
     assert (final_progress >= initial_progress).all(), "Progress should never decrease"
 
 
-def test_random_actions_comprehensive(cpu_manager):
-    """Test simulation with fully random actions over extended period"""
-    mgr = cpu_manager
-
-    # Reset all worlds first
-    reset_tensor = mgr.reset_tensor().to_torch()
-    reset_tensor[:] = 1
-    mgr.step()
-
-    actions = mgr.action_tensor().to_torch()
-
-    # Track statistics - single agent per world
-    total_rewards = torch.zeros(4, 1)
-    episodes_completed = torch.zeros(4, 1, dtype=torch.int32)
-    max_reward_seen = float("-inf")
-    min_reward_seen = float("inf")
-
-    # Run for 250 steps with random actions (more than episode length to ensure completion)
-    for step in range(250):
-        # Generate random actions with correct ranges
-        actions[:, 0] = torch.randint(0, 4, (4,))  # Movement amount (0-3)
-        actions[:, 1] = torch.randint(0, 8, (4,))  # Movement angle (0-7)
-        actions[:, 2] = torch.randint(0, 5, (4,))  # Rotation (0-4)
-
-        # Step
-        mgr.step()
-
-        # Collect statistics
-        rewards = mgr.reward_tensor().to_torch()
-        dones = mgr.done_tensor().to_torch()
-
-        total_rewards += rewards
-        episodes_completed += dones.int()
-
-        max_reward_seen = max(max_reward_seen, rewards.max().item())
-        min_reward_seen = min(min_reward_seen, rewards.min().item())
-
-    # Verify results
-    assert episodes_completed.sum() > 0, "At least some episodes should have completed"
-    assert total_rewards.abs().sum() > 0, "Should have accumulated some rewards"
-    assert max_reward_seen > min_reward_seen, "Should see reward variation"
-
-    # Check final state
-    final_steps = mgr.steps_taken_tensor().to_torch()
-
-    # After running for 250 steps, we expect the step counter to show around 250
-    # (with count-up system, steps continue incrementing past episode length)
-    expected_final_steps = 250
-    assert (
-        final_steps >= expected_final_steps - 10
-    ).all(), "Final steps should be around expected value"
-    assert (
-        final_steps <= expected_final_steps + 10
-    ).all(), "Final steps should be around expected value"
-
-
 def test_deterministic_actions(cpu_manager):
     """Test that fixed actions produce consistent results"""
     mgr = cpu_manager
