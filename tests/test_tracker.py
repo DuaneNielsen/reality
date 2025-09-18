@@ -158,7 +158,9 @@ class TestTracker:
 
         return overall_status, all_individual_results
 
-    def run_python_tests(self) -> Tuple[str, List[Tuple[str, str]], Dict[str, int]]:
+    def run_python_tests(
+        self,
+    ) -> Tuple[str, List[Tuple[str, str]], Dict[str, int], List[str], List[str]]:
         """Run Python tests and return status, individual results, and counts."""
         if self.stress_tests:
             test_type = "stress"
@@ -215,16 +217,27 @@ class TestTracker:
 
             # Parse individual test results
             individual_results = []
+            xfail_tests = []
+            xpass_tests = []
             seen_tests = set()  # Track to avoid duplicates
 
             for line in result.stdout.split("\n"):
-                # Match format: tests/python/file.py::test_name PASSED/FAILED/ERROR [XX%]
-                # OR: tests/python/file.py::Class::test_name PASSED/FAILED/ERROR [XX%]
+                # Match format: tests/python/file.py::test_name PASSED/FAILED/ERROR/XFAIL/XPASS
+                # OR: tests/python/file.py::Class::test_name PASSED/FAILED/ERROR/XFAIL/XPASS [XX%]
                 if match := re.search(
-                    r"^(tests/python/[^:]+::[^\s]+)\s+(PASSED|FAILED|ERROR)", line
+                    r"^(tests/python/[^:]+::[^\s]+)\s+(PASSED|FAILED|ERROR|XFAIL|XPASS)", line
                 ):
                     test_name = match.group(1)
-                    status = "PASS" if match.group(2) == "PASSED" else "FAIL"
+                    status_raw = match.group(2)
+
+                    if status_raw == "XFAIL":
+                        xfail_tests.append(test_name)
+                        status = "XFAIL"
+                    elif status_raw == "XPASS":
+                        xpass_tests.append(test_name)
+                        status = "XPASS"
+                    else:
+                        status = "PASS" if status_raw == "PASSED" else "FAIL"
 
                     # Avoid duplicates (can happen with ERROR + FAILED for same test)
                     if test_name not in seen_tests:
@@ -232,11 +245,11 @@ class TestTracker:
                         seen_tests.add(test_name)
 
             # Parse summary counts from the last line
-            counts = {"pass": 0, "fail": 0, "skip": 0}
+            counts = {"pass": 0, "fail": 0, "skip": 0, "xfail": 0, "xpass": 0}
             output_text = result.stdout + result.stderr
 
             # Look for summary line:
-            # "33 failed, 167 passed, 7 skipped, 11 deselected, 6 errors in 8.26s"
+            # "33 failed, 167 passed, 7 skipped, 2 xfailed, 1 xpassed, 11 deselected"
             for line in output_text.split("\n"):
                 if re.search(r"\d+.*passed.*in.*s", line):  # Final summary line
                     if match := re.search(r"(\d+)\s+passed", line):
@@ -245,14 +258,18 @@ class TestTracker:
                         counts["fail"] = int(match.group(1))
                     if match := re.search(r"(\d+)\s+skipped", line):
                         counts["skip"] = int(match.group(1))
+                    if match := re.search(r"(\d+)\s+xfailed", line):
+                        counts["xfail"] = int(match.group(1))
+                    if match := re.search(r"(\d+)\s+xpassed", line):
+                        counts["xpass"] = int(match.group(1))
                     break
 
             overall_status = "PASS" if result.returncode == 0 else "FAIL"
-            return overall_status, individual_results, counts
+            return overall_status, individual_results, counts, xfail_tests, xpass_tests
 
         except Exception as e:
             print(f"Error running Python tests: {e}")
-            return "ERROR", [], {"pass": 0, "fail": 0, "skip": 0}
+            return "ERROR", [], {"pass": 0, "fail": 0, "skip": 0, "xfail": 0, "xpass": 0}, [], []
 
     def analyze_newly_broken_tests(self, current_failed: List[str]) -> List[str]:
         """Find tests that were passing before but are failing now."""
@@ -335,7 +352,7 @@ class TestTracker:
 
         # Run tests
         cpp_status, cpp_tests = self.run_cpp_tests()
-        py_status, py_tests, py_counts = self.run_python_tests()
+        py_status, py_tests, py_counts, xfail_tests, xpass_tests = self.run_python_tests()
 
         # Analyze newly broken tests
         current_failed = [name for name, status in py_tests if status == "FAIL"]
@@ -355,10 +372,14 @@ class TestTracker:
             f"({len([t for t in cpp_tests if t[1] == 'PASS'])} passed, "
             f"{len([t for t in cpp_tests if t[1] == 'FAIL'])} failed)"
         )
+        xfail_xpass_str = ""
+        if py_counts["xfail"] > 0 or py_counts["xpass"] > 0:
+            xfail_xpass_str = f", {py_counts['xfail']} xfailed, {py_counts['xpass']} xpassed"
+
         print(
             f"   Python: {py_status} "
             f"({py_counts['pass']} passed, {py_counts['fail']} failed, "
-            f"{py_counts['skip']} skipped)"
+            f"{py_counts['skip']} skipped{xfail_xpass_str})"
         )
         print(f"   Overall: {overall_status}")
 
@@ -377,6 +398,19 @@ class TestTracker:
             print(f"\n📋 Failed Python tests ({len(failed_tests)} total):")
             for test in failed_tests:  # Show ALL failed tests
                 print(f"     - {test}")
+
+        # Show xfail and xpass tests
+        if xfail_tests:
+            print(f"\n⚠️  Expected Failures (xfail): {len(xfail_tests)} tests")
+            for test in xfail_tests:
+                print(f"   - ⚠️ `{test}` - Known issue")
+
+        if xpass_tests:
+            print(f"\n🎉 Unexpected Passes (xpass): {len(xpass_tests)} tests")
+            for test in xpass_tests:
+                print(
+                    f"   - 🎉 `{test}` - Previously failing test now passes (remove xfail marker)"
+                )
 
         # Show newly broken tests
         if newly_broken:

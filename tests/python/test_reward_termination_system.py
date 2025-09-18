@@ -39,7 +39,7 @@ TEST_LEVEL_SOUTH_SPAWN = """
 """
 
 
-@pytest.mark.skip(reason="Reward system changed to completion-only, test needs update")
+@pytest.mark.xfail(reason="Reward system changed to completion-only, test needs update")
 @pytest.mark.ascii_level(TEST_LEVEL_SOUTH_SPAWN)
 def test_forward_movement_reward(cpu_manager):
     """Test incremental reward for consistent forward movement"""
@@ -150,7 +150,7 @@ TEST_LEVEL_WITH_WALLS = """
 """
 
 
-@pytest.mark.skip(reason="Reward system changed to completion-only, test needs update")
+@pytest.mark.xfail(reason="Reward system changed to completion-only, test needs update")
 @pytest.mark.ascii_level(TEST_LEVEL_WITH_WALLS)
 def test_reward_normalization(cpu_manager):
     """Test that incremental rewards sum to normalized total progress"""
@@ -363,7 +363,7 @@ def test_step_zero_reward_is_zero(cpu_manager):
     assert step_0_reward == 0.0, f"SPEC VIOLATION: Step 0 reward should be 0.0, got {step_0_reward}"
 
 
-@pytest.mark.skip(reason="Reward system changed to completion-only, test needs update")
+@pytest.mark.xfail(reason="Reward system changed to completion-only, test needs update")
 @pytest.mark.spec("docs/specs/sim.md", "rewardSystem")
 def test_forward_movement_gives_incremental_reward(cpu_manager):
     """SPEC 2: Forward movement gives small incremental reward based on forward progress"""
@@ -475,7 +475,7 @@ def test_no_movement_gives_no_reward(cpu_manager):
     print(f"✓ Stationary agent correctly received 0 reward for {20} steps")
 
 
-@pytest.mark.skip(reason="Reward system changed to completion-only, test needs update")
+@pytest.mark.xfail(reason="Reward system changed to completion-only, test needs update")
 def test_reward_proportional_to_progress_over_max_y(cpu_manager):
     """SPEC 5: Reward amount is proportional to forward progress divided by max_y of level"""
     mgr = cpu_manager
@@ -825,7 +825,7 @@ def test_multiple_episode_cycles_with_auto_reset():
         "name": "collision_chamber_with_cubes",
     }
 )
-@pytest.mark.skip(reason="Reward system changed to completion-only, test needs update")
+@pytest.mark.xfail(reason="Reward system changed to completion-only, test needs update")
 @pytest.mark.auto_reset
 def test_collision_auto_reset_step_zero_reward(cpu_manager):
     """Test that step 0 reward is 0 after collision-induced auto-reset"""
@@ -1367,7 +1367,7 @@ class TestCollisionTermination:
         assert north_terminated, "North collision with cube should terminate episode"
         assert not east_terminated, "East collision with wall should not terminate episode"
 
-    @pytest.mark.skip(reason="Reward system changed to completion-only, test needs update")
+    @pytest.mark.xfail(reason="Reward system changed to completion-only, test needs update")
     @pytest.mark.spec("docs/specs/sim.md", "agentCollisionSystem")
     def test_collision_reward_penalty(self, cpu_manager):
         """Test that collision with DoneOnCollide objects gives -0.1 reward.
@@ -1423,7 +1423,7 @@ class TestCollisionTermination:
         # If we reach here, collision didn't occur
         assert False, "Collision should have occurred with terminating cube"
 
-    @pytest.mark.skip(reason="Reward system changed to completion-only, test needs update")
+    @pytest.mark.xfail(reason="Reward system changed to completion-only, test needs update")
     def test_normal_episode_end_vs_collision_rewards(self, cpu_manager):
         """Test that normal episode timeout gives progress reward, collision gives -0.1."""
         mgr = cpu_manager
