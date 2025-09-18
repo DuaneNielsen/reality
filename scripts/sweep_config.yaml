@@ -17,7 +17,7 @@ parameters:
   num-worlds:
     value: 4096
   num-updates:
-    value: 1000
+    value: 10000
   steps-per-update:
     value: 40
   num-bptt-chunks:
@@ -31,13 +31,13 @@ parameters:
   
   # PPO tuning (optimal values)
   entropy-loss-coef:
-    values: [0.01, 0.005, 0.0025]
+    value: 0.005
   
   # Fixed parameters
   value-loss-coef:
     value: 0.5
   num-channels:
-    values: [128, 256, 1024]
+    value: 1024
   
   # Random seed for reproducibility
   seed:
