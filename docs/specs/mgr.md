@@ -432,6 +432,28 @@ struct Impl {
 **Error Handling:**
 - None - always returns valid tensor
 
+### Replay Determinism Guarantees
+
+#### Fundamental Guarantee
+Given the same initial seed and action sequence, replay MUST produce:
+- Identical episode lengths
+- Identical reset points (same step numbers)
+- Identical entity positions at every step
+- Identical observations and rewards
+- Bit-for-bit identical simulation state
+
+#### Requirements for Determinism
+1. **PRNG Consistency**: Use only the initial seed - no reseeding or external randomness
+2. **Action Fidelity**: Apply recorded actions at exact step indices
+3. **Reset Detection**: Episode termination conditions must be purely deterministic
+4. **No Hidden State**: All simulation state must derive from seed + actions
+
+#### Verification
+Determinism can be verified by:
+- Recording trajectory during original run
+- Replaying with same seed + actions
+- Comparing trajectories - they must match exactly
+
 ### Recording/Replay
 
 #### startRecording (Python: start_recording)
@@ -452,6 +474,7 @@ struct Impl {
 - Embeds compiled levels in recording file (v3 format)
 - Updates metadata incrementally for crash recovery
 - File format: [Metadata][Levels][Actions]
+- **Determinism Note**: Recording only captures seed + actions. Full determinism is guaranteed by the simulation's PRNG.
 - **Version 3 Metadata structure** (192 bytes total):
   - `magic`: uint32_t (4 bytes) - Magic number for validation
   - `version`: uint32_t (4 bytes) - Format version (currently 3)
@@ -536,6 +559,7 @@ struct Impl {
 - Updates action tensors with recorded values
 - Maintains exact action reproduction for deterministic replay
 - Must be called before step() to load actions for that step
+- **Determinism Guarantee**: Maintains deterministic PRNG sequence - no reseeding occurs during replay
 - Supports round-trip verification:
   - Record session → Replay session → Compare trajectories
   - Action sequences match exactly during replay

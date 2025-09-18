@@ -10,9 +10,9 @@ using namespace madrona::phys;
 
 // Door-related constants removed - no longer needed
 
-static inline float randInRangeCentered(Engine &ctx, float range)
+static inline float randInRangeCentered(RandKey key, float range)
 {
-    return ctx.data().rng.sampleUniform() * range - range / 2.f;
+    return rand::sampleUniform(key) * range - range / 2.f;
 }
 
 // Commented out - currently unused but may be useful in future
@@ -93,28 +93,31 @@ static void createAgentEntities(Engine &ctx) {
 /**
  * Find a valid spawn position that avoids collisions with all entities.
  * Uses rejection sampling with configurable exclusion radius.
+ * Uses deterministic sub-keys based on agent index for reproducible results.
  */
-static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius)
+static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius, CountT agent_idx)
 {
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
-
-    // Use world episode for RNG variation - this ensures different spawns per episode
-    // but deterministic replay when using the same episode number
-    RandKey spawn_key = rand::split_i(ctx.data().rng.randKey(),
-                                       ctx.data().curWorldEpisode);
 
     const float WALL_MARGIN = 2.0f;
     const int MAX_ATTEMPTS = 30;
     float exclusion_sq = exclusion_radius * exclusion_radius;
 
+    // Create deterministic spawn base key for this agent using episode RNG key
+    // Use the same pattern as in sim.cpp:144-145 to ensure identical base key
+    RandKey episode_key = rand::split_i(ctx.data().initRandKey,
+                                       ctx.data().curWorldEpisode - 1, // -1 because episode was already incremented
+                                       (uint32_t)ctx.worldID().idx);
+    RandKey spawn_base_key = rand::split_i(episode_key, 500u + agent_idx, 0u);
+
     for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        // Generate candidate position
-        RandKey attempt_key = rand::split_i(spawn_key, attempt);
+        // Generate candidate position using deterministic sub-keys
+        RandKey attempt_key = rand::split_i(spawn_base_key, attempt, 0u);
         Vector2 candidate = {
             rand::sampleUniform(attempt_key) *
                 (level.world_max_x - level.world_min_x - 2*WALL_MARGIN) +
                 level.world_min_x + WALL_MARGIN,
-            rand::sampleUniform(rand::split_i(attempt_key, 1)) *
+            rand::sampleUniform(rand::split_i(attempt_key, 0u, 1u)) *
                 (level.world_max_y - level.world_min_y - 2*WALL_MARGIN) +
                 level.world_min_y + WALL_MARGIN
         };
@@ -472,42 +475,49 @@ static void generateFromCompiled(Engine &ctx, CompiledLevel* level)
                 Diag3x3 scale = {level->tile_scale_x[i], level->tile_scale_y[i], level->tile_scale_z[i]};
                 float z = level->tile_z[i];
                 
-                // Apply position randomization if specified
+                // Apply randomization using deterministic sub-keys based on tile index
                 Vector3 position{x, y, z};
+                // Create deterministic tile key based on tile index for consistent randomization
+                // Use the same episode key pattern as spawn generation
+                RandKey episode_key = rand::split_i(ctx.data().initRandKey,
+                                                   ctx.data().curWorldEpisode - 1, // -1 because episode was already incremented
+                                                   (uint32_t)ctx.worldID().idx);
+                RandKey tile_base_key = rand::split_i(episode_key, 2000u + (uint32_t)i, 0u);
+
                 if (level->tile_rand_x[i] > 0.0f) {
-                    position.x += randInRangeCentered(ctx, level->tile_rand_x[i]);
+                    position.x += randInRangeCentered(rand::split_i(tile_base_key, 0u, 0u), level->tile_rand_x[i]);
                 }
                 if (level->tile_rand_y[i] > 0.0f) {
-                    position.y += randInRangeCentered(ctx, level->tile_rand_y[i]);
+                    position.y += randInRangeCentered(rand::split_i(tile_base_key, 1u, 0u), level->tile_rand_y[i]);
                 }
                 if (level->tile_rand_z[i] > 0.0f) {
-                    position.z += randInRangeCentered(ctx, level->tile_rand_z[i]);
+                    position.z += randInRangeCentered(rand::split_i(tile_base_key, 2u, 0u), level->tile_rand_z[i]);
                 }
-                
+
                 // Apply rotation randomization if specified
                 Quat rotation = level->tile_rotation[i];
                 if (level->tile_rand_rot_z[i] > 0.0f) {
                     // Apply random Z-axis rotation
-                    float randomAngle = randInRangeCentered(ctx, level->tile_rand_rot_z[i]);
+                    float randomAngle = randInRangeCentered(rand::split_i(tile_base_key, 3u, 0u), level->tile_rand_rot_z[i]);
                     Quat randomRot = Quat::angleAxis(randomAngle, math::up);
                     rotation = randomRot * rotation; // Combine rotations
                 }
-                
+
                 // Apply scale randomization if specified (as percentage of base scale)
                 if (level->tile_rand_scale_x[i] > 0.0f) {
-                    float variation = randInRangeCentered(ctx, level->tile_rand_scale_x[i]);
+                    float variation = randInRangeCentered(rand::split_i(tile_base_key, 4u, 0u), level->tile_rand_scale_x[i]);
                     scale.d0 *= (1.0f + variation);
                     // Ensure scale doesn't go negative or too small
                     if (scale.d0 < 0.1f) scale.d0 = 0.1f;
                 }
                 if (level->tile_rand_scale_y[i] > 0.0f) {
-                    float variation = randInRangeCentered(ctx, level->tile_rand_scale_y[i]);
+                    float variation = randInRangeCentered(rand::split_i(tile_base_key, 5u, 0u), level->tile_rand_scale_y[i]);
                     scale.d1 *= (1.0f + variation);
                     // Ensure scale doesn't go negative or too small
                     if (scale.d1 < 0.1f) scale.d1 = 0.1f;
                 }
                 if (level->tile_rand_scale_z[i] > 0.0f) {
-                    float variation = randInRangeCentered(ctx, level->tile_rand_scale_z[i]);
+                    float variation = randInRangeCentered(rand::split_i(tile_base_key, 6u, 0u), level->tile_rand_scale_z[i]);
                     scale.d2 *= (1.0f + variation);
                     // Ensure scale doesn't go negative or too small
                     if (scale.d2 < 0.1f) scale.d2 = 0.1f;
@@ -559,13 +569,18 @@ static void applyRandomSpawnPositions(Engine &ctx) {
 
         // New: Random spawn with collision avoidance
         const float EXCLUSION_RADIUS = 3.0f;
-        Vector2 spawn_2d = findValidSpawnPosition(ctx, EXCLUSION_RADIUS);
+        Vector2 spawn_2d = findValidSpawnPosition(ctx, EXCLUSION_RADIUS, i);
         Vector3 pos = Vector3{spawn_2d.x, spawn_2d.y, 1.0f};
 
         ctx.get<Position>(agent_entity) = pos;
 
-        // Random facing
-        float facing_angle = ctx.data().rng.sampleUniform() * 2.0f * math::pi;
+        // Random facing using deterministic sub-key for agent i
+        // Use the same episode key pattern as spawn generation
+        RandKey episode_key = rand::split_i(ctx.data().initRandKey,
+                                           ctx.data().curWorldEpisode - 1, // -1 because episode was already incremented
+                                           (uint32_t)ctx.worldID().idx);
+        RandKey facing_key = rand::split_i(episode_key, 1000u + i, 0u);
+        float facing_angle = rand::sampleUniform(facing_key) * 2.0f * math::pi;
 
         ctx.get<Rotation>(agent_entity) = Quat::angleAxis(
             facing_angle,  // Random facing angle

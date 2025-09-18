@@ -97,6 +97,13 @@ struct LidarRayEntity : madrona::Archetype<
 > {};
 ```
 
+#### Determinism Invariants
+- **Single PRNG Chain**: All randomness derives from the initial seed through a single deterministic PRNG
+- **No External Entropy**: No time-based seeds, system randomness, or other non-deterministic inputs
+- **Reproducible Resets**: Episode resets must occur at identical steps given the same seed + actions
+- **Deterministic Spawns**: Random spawn positions must use the simulation's PRNG exclusively
+- **Replay Guarantee**: Given the same seed and action sequence, the simulation MUST produce identical results
+
 #### Component Definitions
 ```cpp
 // Action component - discrete agent controls
@@ -861,13 +868,14 @@ Executes immediately after cleanup
 #### Step 2: Initialize RNG
 **Function:** `initWorld()`
 **Location:** `src/sim.cpp:144`
-**Purpose:** [BOILERPLATE] Create unique random seed for episode
+**Purpose:** [BOILERPLATE] Advance PRNG deterministically for episode
 
 **Details:**
 - Increment curWorldEpisode counter
 - Combine episode counter with world ID
-- Create new RNG instance with unique seed
-- Ensures deterministic but varied generation
+- Advance PRNG deterministically using episode counter and world ID (no external entropy)
+- Ensures deterministic but varied generation across episodes
+- **Determinism Requirement**: Uses only the global seed - no time-based or external randomness
 
 #### Step 3: Generate World
 **Function:** `generateWorld()`
@@ -919,15 +927,18 @@ Part of world generation process
   - Reset reward to 0.0f
   - Initialize compass observation to zeros
 
-**Random Spawn Mechanics** (when `spawn_random = true`):
-- Agent must not spawn inside obstacles
-- Agent must spawn within world boundaries
-- Random spawns must be deterministic with same seed
+**Random Spawn Determinism Requirements** (when `spawn_random = true`):
+- **PRNG Only**: Must use ONLY the simulation's PRNG (no std::random_device or time-based seeds)
+- **Collision Avoidance**: Agent must not spawn inside obstacles
+- **Boundary Constraints**: Agent must spawn within world boundaries
+- **Seed Consistency**: Given the same global seed, spawn positions MUST be identical across runs
+- **Unbroken Chain**: The PRNG sequence must not be broken or reseeded during episodes
 
 **Replay Spawn Determinism**:
-- Agent spawn positions during replay must be identical to original recording
-- Multiple replay runs of the same recording must produce identical spawn positions
-- Spawn randomization during replay must be deterministic and reproducible
+- **Bit-Identical Positions**: Replay runs must produce bit-identical spawn positions to the original
+- **No External Randomness**: All spawn randomization must derive from the deterministic PRNG
+- **Multiple Replays**: Multiple replay runs of the same recording must produce identical spawn positions
+- **PRNG Sequence Integrity**: Spawn randomization must not disturb the deterministic PRNG sequence
 
 ### Phase 5: Dynamic Entity Generation
 Final phase of reset sequence

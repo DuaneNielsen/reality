@@ -21,10 +21,12 @@ if [[ $# -eq 0 ]]; then
     echo ""
     echo "Options:"
     echo "  --num-steps <N>     Number of steps to record during inference (default: $DEFAULT_NUM_STEPS)"
+    echo "  --paused            Start viewer in paused mode"
     echo ""
     echo "Examples:"
     echo "  $0 cosmic-sweep-63"
     echo "  $0 cosmic-sweep-63 --num-steps 5000"
+    echo "  $0 cosmic-sweep-63 --paused"
     echo "  $0 i0jv5zou --num-steps 1000 --fps 30"
     exit 1
 fi
@@ -38,6 +40,10 @@ while [[ $# -gt 0 ]]; do
         --num-steps)
             NUM_STEPS="$2"
             shift 2
+            ;;
+        --paused)
+            VIEWER_ARGS+=("--pause")
+            shift
             ;;
         *)
             # All other arguments are passed to viewer
@@ -194,6 +200,10 @@ fi
 
 echo "Starting viewer in replay mode..."
 echo "Recording: $(basename "$LATEST_REC")"
+# Check if --pause is in VIEWER_ARGS
+if [[ " ${VIEWER_ARGS[*]} " =~ " --pause " ]]; then
+    echo "Viewer will start PAUSED - press SPACE to begin playback"
+fi
 echo "Press Ctrl+C to stop"
 echo
 

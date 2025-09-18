@@ -11,11 +11,22 @@
    ## Test Results Summary
 
    ### ✅ C++ Tests: X/X passed
-   ### ❌ Python Tests: X passed, X failed, X skipped
+   ### ❌ Python Tests: X passed, X failed, X skipped, X xfailed, X xpassed
 
    **Failed Tests:**
    - ❌ `test_file.py::test_name` - Brief error description
    - ❌ `test_file.py::test_name` - Brief error description
+
+   **Expected Failures (xfail):**
+   - ⚠️ `test_file.py::test_name` - Known issue description
+
+   **Unexpected Passes (xpass):**
+   - 🎉 `test_file.py::test_name` - Previously failing test now passes (remove xfail marker)
+
+   **Note on Test States:**
+   - **xfail**: Test is expected to fail due to known bugs/limitations - shows as ⚠️
+   - **xpass**: Test was marked to fail but unexpectedly passed - shows as 🎉 (indicates bug fix)
+   - When xpass occurs, remove the `pytest.xfail()` or `@pytest.mark.xfail` marker
 
    **Reproduction:**
    ```bash
@@ -27,7 +38,7 @@
    ## Test Results Summary
 
    ### ✅ C++ Tests: 18/18 passed
-   ### ❌ Python Tests: 145 passed, 4 failed, 15 skipped
+   ### ❌ Python Tests: 145 passed, 4 failed, 15 skipped, 2 xfailed, 1 xpassed
 
    **Failed Tests:**
    - ❌ `test_bindings.py::test_deterministic_actions` - Position comparison failure
