@@ -493,13 +493,18 @@ class LearningCallback:
             length_ema = eval_metrics.get("eval/episodes/length_ema", 0)
             print(
                 f"Evaluation completed. Episodes: {episodes}, "
-                f"Reward EMA: {reward_ema:.3f}, Length EMA: {length_ema:.1f}"
+                f"Reward EMA: {reward_ema:.2f}, Length EMA: {length_ema:.2f}"
             )
 
-            # Debug: Print all eval metrics
+            # Debug: Print eval metrics (format histograms nicely)
             print("Debug - All eval metrics:")
             for key, value in eval_metrics.items():
-                print(f"  {key}: {value}")
+                if "histogram" in key and "distribution" in key:
+                    print(f"  {key}: [wandb.Histogram]")
+                elif isinstance(value, float):
+                    print(f"  {key}: {value:.4f}")
+                else:
+                    print(f"  {key}: {value}")
 
             if self.use_wandb:
                 wandb.log(eval_metrics, step=update_id)
