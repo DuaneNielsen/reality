@@ -1,9 +1,12 @@
 import argparse
 import shutil
+import sys
+import tempfile
 from pathlib import Path
 
 import torch
 from madrona_escape_room_learn import (
+    LearningState,
     PPOConfig,
     SimInterface,
     TrainConfig,
@@ -18,6 +21,10 @@ import madrona_escape_room
 from madrona_escape_room.generated_constants import ExecMode
 from madrona_escape_room.level_io import load_compiled_levels
 
+# Import inference functionality for evaluation
+sys.path.insert(0, str(Path(__file__).parent))
+from inference_core import InferenceConfig, InferenceRunner
+
 # Optional wandb import
 try:
     import wandb
@@ -25,6 +32,115 @@ try:
     WANDB_AVAILABLE = True
 except ImportError:
     WANDB_AVAILABLE = False
+
+
+class EvaluationRunner:
+    """Handles periodic evaluation during training using inference infrastructure"""
+
+    def __init__(
+        self, training_config, eval_worlds, eval_steps, exec_mode, gpu_id, compiled_levels=None
+    ):
+        """Initialize evaluation runner - always runs on CPU to avoid device conflicts"""
+        self.training_config = training_config
+        self.eval_worlds = eval_worlds
+        self.eval_steps = eval_steps
+        # Force CPU execution for evaluation regardless of training device
+        self.exec_mode = madrona_escape_room.ExecMode.CPU
+        self.gpu_id = gpu_id  # Not used since we force CPU
+        self.compiled_levels = compiled_levels
+
+        # Create evaluation config template - always CPU
+        self.eval_config_template = InferenceConfig(
+            ckpt_path="",  # Will be set for each evaluation
+            num_worlds=eval_worlds,
+            num_steps=eval_steps,
+            exec_mode=madrona_escape_room.ExecMode.CPU,  # Always CPU for evaluation
+            gpu_id=0,  # Not used for CPU mode
+            sim_seed=0,  # Fixed seed for deterministic evaluation
+            # Model settings - will be updated based on training config
+            num_channels=training_config.get("num_channels", 256),
+            separate_value=training_config.get("separate_value", False),
+            fp16=False,  # Disable FP16 for CPU evaluation
+            # Level settings
+            compiled_levels=compiled_levels,
+            # Tracking settings - enable for full statistics on CPU
+            track_episodes=True,
+            ema_alpha=0.1,  # Higher alpha for faster convergence in short eval runs
+            reward_bins=[-2.0, -1.0, -0.5, -0.2, 0.0, 0.2, 0.5, 1.0, 2.0, 5.0],  # Wider range
+            length_bins=[1, 50, 100, 150, 200, 250, 300],  # Include longer episodes
+            # Enable some verbose output for debugging
+            verbose=True,
+            print_interval=500,  # Print every 500 steps during eval
+            print_probs=False,
+        )
+
+    def run_evaluation(self, checkpoint_path, record_path=None):
+        """Run evaluation using existing checkpoint and return metrics dictionary"""
+        try:
+            # Create a copy of the config for this evaluation run
+            eval_config = InferenceConfig(
+                ckpt_path=checkpoint_path,
+                num_worlds=self.eval_config_template.num_worlds,
+                num_steps=self.eval_config_template.num_steps,
+                exec_mode=madrona_escape_room.ExecMode.CPU,  # Force CPU to avoid device conflicts
+                gpu_id=self.eval_config_template.gpu_id,
+                sim_seed=self.eval_config_template.sim_seed,
+                num_channels=self.eval_config_template.num_channels,
+                separate_value=self.eval_config_template.separate_value,
+                fp16=self.eval_config_template.fp16,
+                compiled_levels=self.eval_config_template.compiled_levels,
+                track_episodes=self.eval_config_template.track_episodes,
+                ema_alpha=self.eval_config_template.ema_alpha,
+                verbose=self.eval_config_template.verbose,
+                print_interval=self.eval_config_template.print_interval,
+                print_probs=self.eval_config_template.print_probs,
+                recording_path=record_path,  # Add recording support
+            )
+
+            # Create and run inference
+            runner = InferenceRunner(eval_config)
+            episode_tracker, _ = runner.run_steps()
+
+            # Get evaluation statistics
+            eval_stats = episode_tracker.get_statistics()
+
+            # Add eval prefix to all metrics
+            eval_metrics = {}
+            for key, value in eval_stats.items():
+                eval_metrics[f"eval/{key}"] = value
+
+            # Also get histograms if available
+            hist_data = episode_tracker.get_histograms()
+            if hist_data:
+                for key, value in hist_data.items():
+                    # Convert histogram arrays to wandb.Histogram objects for proper visualization
+                    if key.endswith("_distribution"):
+                        # Get corresponding bin edges
+                        bin_key = key.replace("_distribution", "_bin_edges")
+                        if bin_key in hist_data:
+                            bin_edges = hist_data[bin_key]
+                            # Create wandb histogram from probability distribution
+                            eval_metrics[f"eval/{key}"] = wandb.Histogram(
+                                np_histogram=(value, bin_edges)
+                            )
+                        else:
+                            # Fallback: just log as raw array if no bin edges
+                            eval_metrics[f"eval/{key}"] = value
+                    elif key.endswith("_bin_edges"):
+                        # Skip bin edges as they're used above for distribution histograms
+                        continue
+                    else:
+                        # For counts and other data, log as-is
+                        eval_metrics[f"eval/{key}"] = value
+
+            return eval_metrics
+
+        except Exception as e:
+            print(f"Warning: Evaluation failed: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return {}
 
 
 class LearningCallback:
@@ -38,17 +154,30 @@ class LearningCallback:
         num_worlds=1,
         device=None,
         disable_episode_tracker=False,
+        evaluation_runner=None,
+        eval_interval=100,
+        checkpoint_interval=100,
+        record_inference=False,
     ):
         self.mean_fps = 0
         self.ckpt_dir = ckpt_dir
         self.profile_report = profile_report
         self.training_config = training_config or {}
+        self.device = device  # Store device for evaluation
+
+        # Evaluation setup
+        self.evaluation_runner = evaluation_runner
+        self.eval_interval = eval_interval
+        self.checkpoint_interval = checkpoint_interval
+        self.record_inference = record_inference
+        self.last_eval_update = 0
 
         # Initialize episode tracker with wider bins to catch any outliers
+        # Use the same device as training process
         self.episode_tracker = EpisodicEMATrackerWithHistogram(
             num_envs=num_worlds,
             alpha=0.01,
-            device=device,
+            device=device,  # Match training device
             reward_bins=[
                 -0.2,
                 -0.1,
@@ -84,7 +213,7 @@ class LearningCallback:
                     tags.extend(additional_tags)
 
                 wandb.init(
-                    project="madrona-escape-room",
+                    project="madrona-escape-room-dev",
                     config=training_config or {},
                     tags=tags,
                 )
@@ -123,6 +252,9 @@ class LearningCallback:
         update_id = update_idx + 1
         fps = args.num_worlds * args.steps_per_update / update_time
         self.mean_fps += (fps - self.mean_fps) / update_id
+
+        # Note: Evaluation now happens after checkpoint saving (see below)
+        eval_metrics = {}
 
         # Always calculate performance metrics for wandb
         reserved_gb = (
@@ -227,6 +359,10 @@ class LearningCallback:
             # Add episode statistics from tracker
             wandb_data.update(self.episode_tracker.get_statistics())
 
+            # Add evaluation metrics if available
+            if eval_metrics:
+                wandb_data.update(eval_metrics)
+
             # Note: Legacy episode length EMA would need to be passed through update_result
 
             # Only log value normalizer stats if normalization is enabled
@@ -328,8 +464,48 @@ class LearningCallback:
             )
             profile.report()
 
-        if update_id % 100 == 0:
-            learning_state.save(update_idx, self.ckpt_dir / f"{update_id}.pth")
+        # Save checkpoint and run evaluation
+        if update_id % self.checkpoint_interval == 0:
+            checkpoint_path = self.ckpt_dir / f"{update_id}.pth"
+            learning_state.save(update_idx, checkpoint_path)
+            self._run_evaluation_if_enabled(update_id, checkpoint_path)
+
+    def _run_evaluation_if_enabled(self, update_id, checkpoint_path):
+        """Run evaluation if enabled and ready"""
+        if not self.evaluation_runner or update_id < self.checkpoint_interval:
+            return
+
+        print(f"\nRunning evaluation at update {update_id}...")
+
+        # Create recording path if recording is enabled
+        record_path = None
+        if self.record_inference:
+            record_path = checkpoint_path.parent / f"eval_{update_id}.rec"
+            print(f"Recording evaluation to: {record_path}")
+
+        eval_metrics = self.evaluation_runner.run_evaluation(
+            str(checkpoint_path), str(record_path) if record_path else None
+        )
+
+        if eval_metrics:
+            episodes = eval_metrics.get("eval/episodes/completed", 0)
+            reward_ema = eval_metrics.get("eval/episodes/reward_ema", 0)
+            length_ema = eval_metrics.get("eval/episodes/length_ema", 0)
+            print(
+                f"Evaluation completed. Episodes: {episodes}, "
+                f"Reward EMA: {reward_ema:.3f}, Length EMA: {length_ema:.1f}"
+            )
+
+            # Debug: Print all eval metrics
+            print("Debug - All eval metrics:")
+            for key, value in eval_metrics.items():
+                print(f"  {key}: {value}")
+
+            if self.use_wandb:
+                wandb.log(eval_metrics, step=update_id)
+        else:
+            print("Evaluation returned no metrics!")
+        print()
 
     def update_episode_tracker(self, rewards, dones):
         """Update the episode tracker with new rewards and done flags."""
@@ -398,6 +574,42 @@ arg_parser.add_argument(
     help="Enable recording and save to specified filepath (e.g., training_run.bin)",
 )
 
+# Evaluation arguments
+arg_parser.add_argument(
+    "--eval-interval",
+    type=int,
+    default=100,
+    help="Run evaluation every N training updates (default: 100)",
+)
+arg_parser.add_argument(
+    "--eval-steps",
+    type=int,
+    default=2000,
+    help="Number of simulation steps per evaluation (default: 2000)",
+)
+arg_parser.add_argument(
+    "--eval-worlds",
+    type=int,
+    default=None,
+    help="Number of worlds for evaluation (default: same as training)",
+)
+arg_parser.add_argument(
+    "--disable-eval",
+    action="store_true",
+    help="Disable periodic evaluation during training",
+)
+arg_parser.add_argument(
+    "--checkpoint-interval",
+    type=int,
+    default=100,
+    help="Save checkpoint every N training updates (default: 100)",
+)
+arg_parser.add_argument(
+    "--record-inference",
+    action="store_true",
+    help="Record evaluation runs for debugging (creates .rec files)",
+)
+
 args = arg_parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -461,7 +673,40 @@ training_config = {
     else "train.rec"
     if args.record
     else None,
+    # Evaluation settings
+    "evaluation_enabled": not args.disable_eval,
+    "eval_interval": args.eval_interval,
+    "eval_steps": args.eval_steps,
+    "eval_worlds": args.eval_worlds or args.num_worlds,
+    "checkpoint_interval": args.checkpoint_interval,
 }
+
+# Set up evaluation runner if evaluation is enabled
+evaluation_runner = None
+if not args.disable_eval:
+    eval_worlds = args.eval_worlds or args.num_worlds
+    evaluation_runner = EvaluationRunner(
+        training_config=training_config,
+        eval_worlds=eval_worlds,
+        eval_steps=args.eval_steps,
+        exec_mode=exec_mode,
+        gpu_id=args.gpu_id,
+        compiled_levels=compiled_levels,
+    )
+    print(
+        f"✓ Evaluation enabled (CPU-only): {eval_worlds} worlds, "
+        f"{args.eval_steps} steps, every {args.eval_interval} updates"
+    )
+else:
+    print("✓ Evaluation disabled")
+
+# Device for episode tracker should match simulation execution mode
+if exec_mode == ExecMode.CUDA:
+    episode_tracker_device = (
+        torch.device(f"cuda:{args.gpu_id}") if torch.cuda.is_available() else torch.device("cpu")
+    )
+else:
+    episode_tracker_device = torch.device("cpu")
 
 learning_cb = LearningCallback(
     ckpt_dir,
@@ -470,10 +715,12 @@ learning_cb = LearningCallback(
     args.level_file,
     args.tags,
     num_worlds=args.num_worlds,
-    device=torch.device(f"cuda:{args.gpu_id}")
-    if torch.cuda.is_available()
-    else torch.device("cpu"),
+    device=episode_tracker_device,
     disable_episode_tracker=args.disable_episode_tracker,
+    evaluation_runner=evaluation_runner,
+    eval_interval=args.eval_interval,
+    checkpoint_interval=args.checkpoint_interval,
+    record_inference=args.record_inference,
 )
 
 # Start recording if requested

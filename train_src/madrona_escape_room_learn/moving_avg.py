@@ -312,13 +312,13 @@ class EpisodicEMATracker(torch.nn.Module):
             "episodes/total_steps": self.total_steps.item(),
         }
 
-        # Add termination reason probability EMAs using flat key format
+        # Add termination reason probabilities using actual counts (not EMA)
         termination_reason_names = ["time_limit", "progress_complete", "collision_death"]
+        total_terminations = self.total_terminations.item()
         for reason_idx, reason_name in enumerate(termination_reason_names):
-            tracker = self.ema_termination_trackers[reason_idx]
-            stats[f"episodes/termination_{reason_name}_prob"] = (
-                tracker.ema.item() if tracker.N > 0 else 0.0
-            )
+            count = self.termination_counts[reason_idx].item()
+            prob = count / total_terminations if total_terminations > 0 else 0.0
+            stats[f"episodes/termination_{reason_name}_prob"] = prob
 
         return stats
 

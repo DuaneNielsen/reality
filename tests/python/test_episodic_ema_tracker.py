@@ -1055,5 +1055,87 @@ class TestTerminationReasonTracking:
             assert key in stats, f"Missing expected key: {key}"
 
 
+def test_circular_movement_termination_tracking():
+    """Test termination reason tracking for agent driving in circles hitting time limits."""
+    # Use 5 episodes of exactly 200 steps each = 1000 total steps
+    tracker = EpisodicEMATracker(num_envs=1, alpha=0.1)
+
+    completed_episodes = 0
+    total_steps = 0
+
+    # Simulate 5 complete episodes of 200 steps each
+    for episode in range(5):
+        # Each episode: 200 steps with zero rewards, then time limit termination
+        for step in range(200):
+            rewards = torch.tensor([0.0])  # No reward
+
+            if step == 199:  # Last step of episode
+                dones = torch.tensor([True])
+                termination_reasons = torch.tensor([TerminationReason.TIME_LIMIT])
+            else:
+                dones = torch.tensor([False])
+                termination_reasons = torch.tensor(
+                    [TerminationReason.TIME_LIMIT]
+                )  # Not used when done=False
+
+            result = tracker.step_update(rewards, dones, termination_reasons)
+            total_steps += 1
+
+            if "completed_episodes" in result:
+                completed_episodes += result["completed_episodes"]["count"]
+
+                # Verify the completed episode has correct properties
+                assert torch.equal(result["completed_episodes"]["rewards"], torch.tensor([0.0]))
+                assert torch.equal(result["completed_episodes"]["lengths"], torch.tensor([200]))
+                assert torch.equal(result["completed_episodes"]["env_indices"], torch.tensor([0]))
+
+    # Verify totals
+    assert total_steps == 1000, f"Expected 1000 total steps, got {total_steps}"
+    assert completed_episodes == 5, f"Expected 5 completed episodes, got {completed_episodes}"
+
+    # Get final statistics
+    stats = tracker.get_statistics()
+
+    # Verify episode counts and averages
+    assert stats["episodes/completed"] == 5
+    assert stats["episodes/total_steps"] == 1000
+    assert abs(stats["episodes/reward_ema"] - 0.0) < 1e-6  # All episodes had 0 reward
+
+    # Calculate expected EMA for length (all episodes are 200 steps)
+    # EMA formula: ema = decay * ema + (1-decay) * value
+    # With decay=0.9, (1-decay)=0.1, and all values=200:
+    # Episode 1: ema = 0.9 * 0 + 0.1 * 200 = 20
+    # Episode 2: ema = 0.9 * 20 + 0.1 * 200 = 18 + 20 = 38
+    # Episode 3: ema = 0.9 * 38 + 0.1 * 200 = 34.2 + 20 = 54.2
+    # Episode 4: ema = 0.9 * 54.2 + 0.1 * 200 = 48.78 + 20 = 68.78
+    # Episode 5: ema = 0.9 * 68.78 + 0.1 * 200 = 61.902 + 20 = 81.902
+    expected_length_ema = 81.902
+    assert (
+        abs(stats["episodes/length_ema"] - expected_length_ema) < 0.1
+    ), f"Expected length EMA ~{expected_length_ema}, got {stats['episodes/length_ema']}"
+
+    # CRITICAL TEST: All episodes terminated due to TIME_LIMIT
+    # With count-based probabilities: 5 TIME_LIMIT episodes out of 5 total = 100%
+    assert (
+        abs(stats["episodes/termination_time_limit_prob"] - 1.0) < 1e-6
+    ), f"Expected TIME_LIMIT prob=1.0, got {stats['episodes/termination_time_limit_prob']}"
+    assert abs(stats["episodes/termination_progress_complete_prob"] - 0.0) < 1e-6, (
+        f"Expected PROGRESS_COMPLETE prob=0.0, "
+        f"got {stats['episodes/termination_progress_complete_prob']}"
+    )
+    assert abs(stats["episodes/termination_collision_death_prob"] - 0.0) < 1e-6, (
+        f"Expected COLLISION_DEATH prob=0.0, "
+        f"got {stats['episodes/termination_collision_death_prob']}"
+    )
+
+    print(f"Circular movement test completed: {completed_episodes} episodes, {total_steps} steps")
+    print(
+        f"Termination probabilities - "
+        f"TIME_LIMIT: {stats['episodes/termination_time_limit_prob']:.3f}, "
+        f"PROGRESS_COMPLETE: {stats['episodes/termination_progress_complete_prob']:.3f}, "
+        f"COLLISION_DEATH: {stats['episodes/termination_collision_death_prob']:.3f}"
+    )
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
