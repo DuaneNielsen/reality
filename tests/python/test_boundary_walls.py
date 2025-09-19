@@ -12,8 +12,8 @@ from madrona_escape_room.level_compiler import compile_level
 class TestBoundaryWalls:
     """Test automatic boundary wall generation functionality"""
 
-    def test_auto_boundary_walls_enabled_by_default(self):
-        """Test that auto_boundary_walls is enabled by default"""
+    def test_auto_boundary_walls_disabled_by_default(self):
+        """Test that auto_boundary_walls is disabled by default for backward compatibility"""
         level_json = {
             "ascii": ["S....", ".....", ".....", "....."],
             "tileset": {"S": {"asset": "spawn"}, ".": {"asset": "empty"}},
@@ -23,20 +23,11 @@ class TestBoundaryWalls:
         compiled_levels = compile_level(level_json)
         level = compiled_levels[0]
 
-        # Should have auto_boundary_walls enabled by default
-        assert level.auto_boundary_walls
+        # Should have auto_boundary_walls disabled by default
+        assert not level.auto_boundary_walls
 
-        # Should have 4 boundary walls + 4 corner blocks added (at the end of the tile list)
-        # Original level has no tiles (just spawn and empty), so boundary walls should be tiles 0-7
-        assert level.num_tiles == 8
-
-        # All 8 tiles should be walls (4 boundary walls + 4 corner blocks)
-        for i in range(8):
-            assert level.object_ids[i] == AssetIDs.WALL
-            assert level.tile_entity_type[i] == EntityType.Wall
-            assert level.tile_response_type[i] == ResponseType.Static
-            assert level.tile_persistent[i]
-            assert not level.tile_render_only[i]
+        # Should have no tiles (no walls, no obstacles)
+        assert level.num_tiles == 0
 
     def test_auto_boundary_walls_disabled(self):
         """Test that auto_boundary_walls can be disabled"""
@@ -240,17 +231,17 @@ class TestBoundaryWalls:
 
     def test_backward_compatibility(self):
         """Test that existing levels without auto_boundary_walls still work"""
-        # Test that levels without the auto_boundary_walls field default to True
+        # Test that levels without the auto_boundary_walls field default to False
         level_json = {
             "ascii": ["S...", "....", "...."],
             "tileset": {"S": {"asset": "spawn"}, ".": {"asset": "empty"}},
             "scale": 2.0,
-            # Note: no auto_boundary_walls field - should default to True
+            # Note: no auto_boundary_walls field - should default to False
         }
 
         compiled_levels = compile_level(level_json)
         level = compiled_levels[0]
 
-        # Should default to True and add boundary walls
-        assert level.auto_boundary_walls
-        assert level.num_tiles == 8  # 4 boundary walls + 4 corner blocks
+        # Should default to False and not add boundary walls
+        assert not level.auto_boundary_walls
+        assert level.num_tiles == 0  # No boundary walls added

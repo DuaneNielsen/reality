@@ -666,8 +666,8 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
     agent_facing = data.get("agent_facing", None)
     spawn_random = data.get("spawn_random", False)
     auto_boundary_walls = data.get(
-        "auto_boundary_walls", True
-    )  # Default to True for automatic boundary walls
+        "auto_boundary_walls", False
+    )  # Default to False for backward compatibility
     level_name = data.get("name", "unknown_level")
 
     # Process tileset to get mappings
@@ -877,7 +877,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
     shared_tileset = data["tileset"]
     shared_scale = data.get("scale", 2.5)
     shared_spawn_random = data.get("spawn_random", False)
-    shared_auto_boundary_walls = data.get("auto_boundary_walls", True)
+    shared_auto_boundary_walls = data.get("auto_boundary_walls", False)
     level_set_name = data.get("name", "multi_level_set")
 
     compiled_levels = []
