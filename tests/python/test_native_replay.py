@@ -316,23 +316,26 @@ def test_replay_spawn_position_determinism():
         auto_reset=True,
     )
 
-    recording_path = create_test_recording(recording_mgr, num_steps=1, seed=123)
+    # Capture initial spawn positions from recording BEFORE any steps
+    obs_tensor = recording_mgr.self_observation_tensor().to_torch()
+    recording_positions = []
+    for world_idx in range(4):
+        pos = obs_tensor[world_idx, 0, :3].clone()  # [x, y, z] for agent 0
+        recording_positions.append(pos)
+        print(f"Recording - World {world_idx} spawn: {pos}")
+
+    # Now create the recording (this will step the simulation)
+    num_steps = 1
+    recording_path = create_test_recording(recording_mgr, num_steps=num_steps, seed=123)
 
     try:
-        # Capture initial spawn positions from recording
-        obs_tensor = recording_mgr.self_observation_tensor().to_torch()
-        recording_positions = []
-        for world_idx in range(4):
-            pos = obs_tensor[world_idx, 0, :3].clone()  # [x, y, z] for agent 0
-            recording_positions.append(pos)
-            print(f"Recording - World {world_idx} spawn: {pos}")
-
         # Now replay the same recording multiple times
         replay_positions_run1 = []
         replay_positions_run2 = []
 
         # First replay run
         replay_mgr1 = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
+
         obs1 = replay_mgr1.self_observation_tensor().to_torch()
         for world_idx in range(4):
             pos = obs1[world_idx, 0, :3].clone()
@@ -358,23 +361,14 @@ def test_replay_spawn_position_determinism():
             )
 
             # Both replay runs should match the original recording
-            # Note: This might fail currently due to the bug we're testing for
-            try:
-                assert torch.allclose(
-                    recording_positions[world_idx], replay_positions_run1[world_idx], atol=0.001
-                ), (
-                    f"World {world_idx}: Replay spawn doesn't match recording spawn: "
-                    f"Recording: {recording_positions[world_idx]}, "
-                    f"Replay: {replay_positions_run1[world_idx]}"
-                )
-                print(f"✓ World {world_idx}: Spawn positions are deterministic")
-            except AssertionError as e:
-                # This is the bug we expect to find - document it
-                print(f"✗ World {world_idx}: SPAWN POSITION BUG DETECTED - {e}")
-                # Mark this as a known failure but continue testing replay determinism
-                pytest.xfail(
-                    f"Known bug: Random spawn positions are not deterministic during replay - {e}"
-                )
+            assert torch.allclose(
+                recording_positions[world_idx], replay_positions_run1[world_idx], atol=0.001
+            ), (
+                f"World {world_idx}: Replay spawn doesn't match recording spawn: "
+                f"Recording: {recording_positions[world_idx]}, "
+                f"Replay: {replay_positions_run1[world_idx]}"
+            )
+            print(f"✓ World {world_idx}: Spawn positions are deterministic")
 
         print("Spawn position determinism test completed")
 

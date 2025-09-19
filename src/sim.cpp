@@ -303,14 +303,14 @@ inline void collectObservationsSystem(Engine &ctx,
 {
     // Get world boundaries from the compiled level singleton
     const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-    
+
     // Normalize positions based on actual world boundaries
     // Use the appropriate axis range for each dimension
     float world_width = level.world_max_x - level.world_min_x;
     float world_length = level.world_max_y - level.world_min_y;
     float world_height = level.world_max_z - level.world_min_z;
-    
-    
+
+
     // Normalize each position using its corresponding axis range
     self_obs.globalX = (pos.x - level.world_min_x) / world_width;
     self_obs.globalY = (pos.y - level.world_min_y) / world_length;

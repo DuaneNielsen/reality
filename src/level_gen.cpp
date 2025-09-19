@@ -105,10 +105,16 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
 
     // Create deterministic spawn base key for this agent using episode RNG key
     // Use the same pattern as in sim.cpp:144-145 to ensure identical base key
+    printf("[SPAWN DEBUG] World %d Agent %ld: initRandKey=%lx, curWorldEpisode=%ld\n",
+           ctx.worldID().idx, agent_idx, ctx.data().initRandKey, ctx.data().curWorldEpisode);
     RandKey episode_key = rand::split_i(ctx.data().initRandKey,
                                        ctx.data().curWorldEpisode - 1, // -1 because episode was already incremented
                                        (uint32_t)ctx.worldID().idx);
+    printf("[SPAWN DEBUG] World %d Agent %ld: episode_key=%lx\n",
+           ctx.worldID().idx, agent_idx, episode_key);
     RandKey spawn_base_key = rand::split_i(episode_key, 500u + agent_idx, 0u);
+    printf("[SPAWN DEBUG] World %d Agent %ld: spawn_base_key=%lx\n",
+           ctx.worldID().idx, agent_idx, spawn_base_key);
 
     for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         // Generate candidate position using deterministic sub-keys
@@ -564,6 +570,11 @@ static void applyRandomSpawnPositions(Engine &ctx) {
         return;
     }
 
+    printf("[APPLY_SPAWN DEBUG] World %d: Starting random spawn with initRandKey=%lx, curWorldEpisode=%ld\n",
+           ctx.worldID().idx, ctx.data().initRandKey, ctx.data().curWorldEpisode);
+    printf("[EPISODE_STEP DEBUG] World %d: Episode %ld at spawn time\n",
+           ctx.worldID().idx, ctx.data().curWorldEpisode);
+
     for (CountT i = 0; i < consts::numAgents; i++) {
         Entity agent_entity = ctx.data().agents[i];
 
@@ -571,6 +582,9 @@ static void applyRandomSpawnPositions(Engine &ctx) {
         const float EXCLUSION_RADIUS = 3.0f;
         Vector2 spawn_2d = findValidSpawnPosition(ctx, EXCLUSION_RADIUS, i);
         Vector3 pos = Vector3{spawn_2d.x, spawn_2d.y, 1.0f};
+
+        printf("[APPLY_SPAWN DEBUG] World %d Agent %ld: Final spawn position = (%.4f, %.4f, %.4f) [Episode %ld]\n",
+               ctx.worldID().idx, i, pos.x, pos.y, pos.z, ctx.data().curWorldEpisode);
 
         ctx.get<Position>(agent_entity) = pos;
 
