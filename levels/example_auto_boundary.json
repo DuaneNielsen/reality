@@ -1,0 +1,36 @@
+{
+    "ascii": [
+        "S.........",
+        "..........",
+        "....C.....",
+        "..........",
+        "....O.....",
+        "..........",
+        "..C.......",
+        "..........",
+        "..........",
+        ".......C.."
+    ],
+    "scale": 2.5,
+    "agent_facing": [
+        1.5708
+    ],
+    "_comment": "Example level demonstrating automatic boundary walls - no need for '#' perimeter",
+    "auto_boundary_walls": true,
+    "tileset": {
+        "C": {
+            "asset": "cube",
+            "done_on_collision": true
+        },
+        "O": {
+            "asset": "cylinder",
+            "done_on_collision": true
+        },
+        "S": {
+            "asset": "spawn"
+        },
+        ".": {
+            "asset": "empty"
+        }
+    }
+}

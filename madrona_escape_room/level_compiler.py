@@ -289,6 +289,13 @@ def _validate_multi_level_json(data: Dict) -> None:
         if not isinstance(spawn_random, bool):
             raise ValueError(f"Invalid spawn_random: {spawn_random} (must be boolean)")
 
+    if "auto_boundary_walls" in data:
+        auto_boundary_walls = data["auto_boundary_walls"]
+        if not isinstance(auto_boundary_walls, bool):
+            raise ValueError(
+                f"Invalid auto_boundary_walls: {auto_boundary_walls} (must be boolean)"
+            )
+
     if "name" in data:
         name = data["name"]
         if not isinstance(name, str):
@@ -354,6 +361,13 @@ def _validate_json_level(data: Dict) -> None:
         spawn_random = data["spawn_random"]
         if not isinstance(spawn_random, bool):
             raise ValueError(f"Invalid spawn_random: {spawn_random} (must be boolean)")
+
+    if "auto_boundary_walls" in data:
+        auto_boundary_walls = data["auto_boundary_walls"]
+        if not isinstance(auto_boundary_walls, bool):
+            raise ValueError(
+                f"Invalid auto_boundary_walls: {auto_boundary_walls} (must be boolean)"
+            )
 
     if "name" in data:
         name = data["name"]
@@ -508,6 +522,133 @@ def compile_ascii_level(
     return compiled_levels[0]  # Always single level for this function
 
 
+def _add_boundary_walls(
+    level: "CompiledLevel", start_index: int, width: int, height: int, scale: float
+) -> int:
+    """
+    Add 4 boundary walls and 4 corner blocks around the level perimeter.
+
+    Args:
+        level: CompiledLevel to add walls to
+        start_index: Starting tile index for boundary walls
+        width: Level width in tiles
+        height: Level height in tiles
+        scale: World units per tile
+
+    Returns:
+        Number of boundary tiles added (4 walls + 4 corners = 8)
+
+    Raises:
+        ValueError: If not enough space for boundary walls and corners
+    """
+    from .ctypes_bindings import get_physics_asset_object_id
+
+    # Check if we have space for 4 boundary walls + 4 corner blocks
+    if start_index + 8 > MAX_TILES:
+        raise ValueError(
+            f"Not enough space for boundary walls and corners: "
+            f"need {start_index + 8} tiles but max is {MAX_TILES}"
+        )
+
+    wall_id = get_physics_asset_object_id("wall")
+    wall_thickness = 1.0  # Wall thickness in world units
+    wall_height = 2.0  # Standard wall height
+
+    # Calculate world boundaries
+    world_width = width * scale
+    world_height = height * scale
+    world_min_x = level.world_min_x
+    world_max_x = level.world_max_x
+    world_min_y = level.world_min_y
+    world_max_y = level.world_max_y
+
+    # Position walls so their inner edge aligns with world boundaries
+    # Wall center should be offset by half the wall thickness outside the boundaries
+    wall_half_thickness = wall_thickness / 2.0
+
+    # Boundary wall configurations: (position_x, position_y, scale_x, scale_y, scale_z)
+    boundary_walls = [
+        # North wall (top): spans full width, inner edge at max_y
+        (0.0, world_max_y + wall_half_thickness, world_width, wall_thickness, wall_height),
+        # South wall (bottom): spans full width, inner edge at min_y
+        (0.0, world_min_y - wall_half_thickness, world_width, wall_thickness, wall_height),
+        # East wall (right): spans full height, inner edge at max_x
+        (world_max_x + wall_half_thickness, 0.0, wall_thickness, world_height, wall_height),
+        # West wall (left): spans full height, inner edge at min_x
+        (world_min_x - wall_half_thickness, 0.0, wall_thickness, world_height, wall_height),
+    ]
+
+    # Add each boundary wall
+    for i, (pos_x, pos_y, scale_x, scale_y, scale_z) in enumerate(boundary_walls):
+        tile_idx = start_index + i
+
+        # Set tile properties
+        level.object_ids[tile_idx] = wall_id
+        level.tile_x[tile_idx] = pos_x
+        level.tile_y[tile_idx] = pos_y
+        level.tile_z[tile_idx] = 0.0
+        level.tile_scale_x[tile_idx] = scale_x
+        level.tile_scale_y[tile_idx] = scale_y
+        level.tile_scale_z[tile_idx] = scale_z
+        level.tile_persistent[tile_idx] = True  # Boundary walls persist across episodes
+        level.tile_render_only[tile_idx] = False  # Boundary walls have physics
+        level.tile_done_on_collide[tile_idx] = False  # Walls don't end episode
+        level.tile_entity_type[tile_idx] = 2  # EntityType::Wall
+        level.tile_response_type[tile_idx] = 2  # ResponseType::Static
+        level.tile_rotation[tile_idx] = (1.0, 0.0, 0.0, 0.0)  # Identity quaternion
+
+        # No randomization for boundary walls (they need to be precise)
+        level.tile_rand_x[tile_idx] = 0.0
+        level.tile_rand_y[tile_idx] = 0.0
+        level.tile_rand_z[tile_idx] = 0.0
+        level.tile_rand_rot_z[tile_idx] = 0.0
+        level.tile_rand_scale_x[tile_idx] = 0.0
+        level.tile_rand_scale_y[tile_idx] = 0.0
+        level.tile_rand_scale_z[tile_idx] = 0.0
+
+    # Add corner blocks at the intersections of boundary walls
+    corner_positions = [
+        # Northeast corner
+        (world_max_x + wall_half_thickness, world_max_y + wall_half_thickness),
+        # Northwest corner
+        (world_min_x - wall_half_thickness, world_max_y + wall_half_thickness),
+        # Southeast corner
+        (world_max_x + wall_half_thickness, world_min_y - wall_half_thickness),
+        # Southwest corner
+        (world_min_x - wall_half_thickness, world_min_y - wall_half_thickness),
+    ]
+
+    # Add each corner block
+    for i, (pos_x, pos_y) in enumerate(corner_positions):
+        tile_idx = start_index + 4 + i  # After the 4 boundary walls
+
+        # Set tile properties for corner blocks
+        level.object_ids[tile_idx] = wall_id  # Use wall asset for corners too
+        level.tile_x[tile_idx] = pos_x
+        level.tile_y[tile_idx] = pos_y
+        level.tile_z[tile_idx] = 0.0
+        level.tile_scale_x[tile_idx] = wall_thickness  # Square corner blocks
+        level.tile_scale_y[tile_idx] = wall_thickness
+        level.tile_scale_z[tile_idx] = wall_height
+        level.tile_persistent[tile_idx] = True  # Corner blocks persist across episodes
+        level.tile_render_only[tile_idx] = False  # Corner blocks have physics
+        level.tile_done_on_collide[tile_idx] = False  # Corners don't end episode
+        level.tile_entity_type[tile_idx] = 2  # EntityType::Wall
+        level.tile_response_type[tile_idx] = 2  # ResponseType::Static
+        level.tile_rotation[tile_idx] = (1.0, 0.0, 0.0, 0.0)  # Identity quaternion
+
+        # No randomization for corner blocks (they need to be precise)
+        level.tile_rand_x[tile_idx] = 0.0
+        level.tile_rand_y[tile_idx] = 0.0
+        level.tile_rand_z[tile_idx] = 0.0
+        level.tile_rand_rot_z[tile_idx] = 0.0
+        level.tile_rand_scale_x[tile_idx] = 0.0
+        level.tile_rand_scale_y[tile_idx] = 0.0
+        level.tile_rand_scale_z[tile_idx] = 0.0
+
+    return 8  # 4 boundary walls + 4 corner blocks
+
+
 def _compile_single_level(data: Dict) -> CompiledLevel:
     """
     Internal function to compile a single level from validated JSON data.
@@ -524,6 +665,9 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
     scale = data.get("scale", 2.5)
     agent_facing = data.get("agent_facing", None)
     spawn_random = data.get("spawn_random", False)
+    auto_boundary_walls = data.get(
+        "auto_boundary_walls", True
+    )  # Default to True for automatic boundary walls
     level_name = data.get("name", "unknown_level")
 
     # Process tileset to get mappings
@@ -603,6 +747,7 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
     # Set spawn data
     level.num_spawns = len(spawns)
     level.spawn_random = spawn_random
+    level.auto_boundary_walls = auto_boundary_walls
     for i in range(len(spawns)):
         level.spawn_x[i] = spawns[i][0]
         level.spawn_y[i] = spawns[i][1]
@@ -666,6 +811,11 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
         # Identity quaternion for rotation (w, x, y, z)
         level.tile_rotation[i] = (1.0, 0.0, 0.0, 0.0)
 
+    # Add automatic boundary walls and corners if enabled
+    if auto_boundary_walls:
+        tiles_added = _add_boundary_walls(level, len(tiles), width, height, scale)
+        level.num_tiles = len(tiles) + tiles_added
+
     return level
 
 
@@ -727,6 +877,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
     shared_tileset = data["tileset"]
     shared_scale = data.get("scale", 2.5)
     shared_spawn_random = data.get("spawn_random", False)
+    shared_auto_boundary_walls = data.get("auto_boundary_walls", True)
     level_set_name = data.get("name", "multi_level_set")
 
     compiled_levels = []
@@ -739,6 +890,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
             "tileset": shared_tileset,
             "scale": shared_scale,
             "spawn_random": shared_spawn_random,
+            "auto_boundary_walls": shared_auto_boundary_walls,
         }
 
         # Use per-level name if provided, otherwise generate from set name
