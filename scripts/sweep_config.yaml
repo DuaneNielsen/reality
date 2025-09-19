@@ -5,6 +5,10 @@ command:
   - run
   - python
   - ${program}
+  - "--eval-worlds"
+  - "32"
+  - "--eval-steps" 
+  - "1000"
   - "--clip-value-loss"
   - "--fp16"
   - "--gpu-sim"

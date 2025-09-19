@@ -9,7 +9,7 @@ A PyTorch-based tool for tracking episode statistics using exponential moving av
 - **Batch Processing**: Handles N parallel environments simultaneously
 - **Episode Tracking**: Accumulates rewards and counts steps until episode termination
 - **EMA Statistics**: Maintains exponential moving averages for smooth metric tracking
-- **Termination Reason Tracking**: Monitors episode termination causes with EMA probability tracking
+- **Termination Reason Tracking**: Monitors episode termination causes with count-based probability tracking
 - **Performance Optimized**: Streamlined implementation for minimal computational overhead
 - **PyTorch Integration**: Native tensor operations for GPU acceleration
 
@@ -84,7 +84,7 @@ self.ema_length_tracker: EMATracker
 # Termination reason tracking (registered buffers)
 self.termination_counts: torch.Tensor      # Shape: (num_termination_reasons,)
 self.total_terminations: torch.Tensor      # Scalar tensor
-self.ema_termination_trackers: torch.nn.ModuleList  # List of EMATracker instances
+# Note: EMA termination trackers kept for backward compatibility but not used in statistics
 
 # Episode extremes tracking (registered buffers)
 # Min/max tracking removed for performance optimization
@@ -115,10 +115,10 @@ self.total_steps: torch.Tensor         # Scalar tensor
     # Wandb-compatible key names for direct logging
     "episodes/reward_ema": float,     # Smoothed average episode reward
     "episodes/length_ema": float,     # Smoothed average episode length
-    # Termination reason probability EMAs
-    "episodes/termination_time_limit_prob": float,        # EMA probability of time limit termination
-    "episodes/termination_progress_complete_prob": float, # EMA probability of progress completion
-    "episodes/termination_collision_death_prob": float,   # EMA probability of collision death
+    # Termination reason probabilities (count-based, not EMA)
+    "episodes/termination_time_limit_prob": float,        # Count-based probability of time limit termination
+    "episodes/termination_progress_complete_prob": float, # Count-based probability of progress completion
+    "episodes/termination_collision_death_prob": float,   # Count-based probability of collision death
     # Min/max tracking removed for performance optimization
     "episodes/completed": int,        # Total episodes completed
     "episodes/total_steps": int       # Total steps across all environments
@@ -137,7 +137,7 @@ ema_new = alpha * new_value + (1 - alpha) * ema_old
 2. **Detect Completion**: Check `dones` tensor for completed episodes
 3. **Update Statistics**: For completed episodes:
    - Update EMA values using batch means for performance
-   - Update termination reason counts and probability EMAs (if provided)
+   - Update termination reason counts for probability calculation (if provided)
    - Reset accumulators for completed environments
 4. **Return Results**: Provide completed episode information
 

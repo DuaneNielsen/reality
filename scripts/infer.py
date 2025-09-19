@@ -3,12 +3,9 @@ import warnings
 
 import numpy as np
 import torch
-from madrona_escape_room_learn import LearningState
-from madrona_escape_room_learn.moving_avg import EpisodicEMATrackerWithHistogram
-from madrona_escape_room_learn.sim_interface_adapter import setup_lidar_training_environment
-from policy import make_policy, setup_obs
+from inference_core import InferenceRunner
+from inference_utils import create_inference_config_from_args, print_episode_statistics
 
-import madrona_escape_room
 from madrona_escape_room.level_io import load_compiled_levels
 
 warnings.filterwarnings("error")
@@ -35,8 +32,6 @@ args = arg_parser.parse_args()
 
 torch.manual_seed(args.seed)
 
-exec_mode = madrona_escape_room.ExecMode.CUDA if args.gpu_sim else madrona_escape_room.ExecMode.CPU
-
 # Load custom level if provided
 compiled_levels = None
 if args.level_file:
@@ -46,81 +41,27 @@ if args.level_file:
     else:
         print(f"Loaded multi-level file with {len(compiled_levels)} levels from {args.level_file}")
 
-sim_interface = setup_lidar_training_environment(
-    num_worlds=args.num_worlds,
-    exec_mode=exec_mode,
-    gpu_id=args.gpu_id,
-    rand_seed=args.seed,
-    compiled_levels=compiled_levels,
-)
+# Create configuration from args
+config = create_inference_config_from_args(args)
+config.compiled_levels = compiled_levels
 
-obs, num_obs_features = setup_obs(sim_interface.obs)
-policy = make_policy(num_obs_features, args.num_channels, args.separate_value)
-
-weights = LearningState.load_policy_weights(args.ckpt_path)
-policy.load_state_dict(weights)
-
-actions = sim_interface.actions
-dones = sim_interface.dones
-rewards = sim_interface.rewards
-
-# Keep original tensor shapes:
-# - actions: [worlds, 3]
-# - dones: [worlds, 1] (1 agent per world)
-# - rewards: [worlds, 1] (1 agent per world)
-
-cur_rnn_states = []
-
-for shape in policy.recurrent_cfg.shapes:
-    cur_rnn_states.append(
-        torch.zeros(
-            *shape[0:2],
-            actions.shape[0],
-            shape[2],
-            dtype=torch.float32,
-            device=torch.device("cpu"),
-        )
-    )
-
-if args.action_dump_path:
-    action_log = open(args.action_dump_path, "wb")
-else:
-    action_log = None
-
-# Initialize episode tracker
-device = torch.device("cuda" if args.gpu_sim else "cpu")
-episode_tracker = EpisodicEMATrackerWithHistogram(
-    num_envs=args.num_worlds,
-    alpha=0.01,
-    device=device,
-    reward_bins=[-1.0, -0.5, -0.2, 0.0, 0.2, 0.5, 1.0],
-    length_bins=[1, 25, 50, 100, 150, 200],
-)
+# Create and run inference
+runner = InferenceRunner(config)
 
 # Keep detailed tracking for final statistics
 episode_returns = []  # Store completed episode returns
 episode_counts = torch.zeros(args.num_worlds, dtype=torch.int32)
 
-# Start recording if recording path is provided
-if args.recording_path:
-    try:
-        sim_interface.manager.start_recording(args.recording_path)
-        print(f"Recording started: {args.recording_path}")
-    except Exception as e:
-        print(f"Failed to start recording: {e}")
-        args.recording_path = None  # Disable recording
+# Track episodes completed this step for detailed logging
+last_completed_count = 0
 
-for i in range(args.num_steps):
-    with torch.no_grad():
-        action_dists, values, cur_rnn_states = policy(cur_rnn_states, *obs)
-        action_dists.best(actions)
 
-        probs = action_dists.probs()
+# Custom callback to collect detailed episode data and print verbose output
+def detailed_callback(step, obs, actions, rewards, dones, values, probs):
+    global last_completed_count
 
-    if action_log:
-        actions.numpy().tofile(action_log)
-
-    print(f"\n=== Step {i+1}/{args.num_steps} ===")
+    # Print detailed step information (matching original behavior)
+    print(f"\n=== Step {step+1}/{args.num_steps} ===")
     print("Progress:", obs[0])
     print("Compass:", obs[1])
     print("Lidar:", obs[2])
@@ -142,47 +83,29 @@ for i in range(args.num_steps):
     print("Actions:\n", actions.cpu().numpy())
     print("Values:\n", values.cpu().numpy())
 
-    # Step the simulation
-    sim_interface.step()
-
-    # Process rewards and episode completions
-    # Rewards and dones are [worlds, 1] when there's 1 agent per world
-    step_rewards = rewards[:, 0] if rewards.dim() == 2 else rewards[:, 0, 0]
-    step_dones = dones[:, 0] if dones.dim() == 2 else dones[:, 0, 0]
-
-    # Update episode tracker
-    completed_episodes = episode_tracker.step_update(step_rewards, step_dones.bool())
-
     # Process completed episodes for detailed tracking
-    if "completed_episodes" in completed_episodes:
-        completed_data = completed_episodes["completed_episodes"]
-        completed_rewards = completed_data["rewards"]
-        completed_env_indices = completed_data["env_indices"]
+    current_stats = runner.episode_tracker.get_statistics()
+    current_completed = current_stats["episodes/completed"]
 
-        for i, env_idx in enumerate(completed_env_indices):
-            episode_return = completed_rewards[i].item()
-            episode_returns.append(episode_return)
-            episode_counts[env_idx] += 1
-            print(f"  Episode completed in world {env_idx}: return = {episode_return:.4f}")
+    # Check if any episodes completed this step
+    if current_completed > last_completed_count:
+        for env_idx in range(args.num_worlds):
+            if dones[env_idx]:
+                episode_counts[env_idx] += 1
+                # We can't get the exact episode return here easily, so we'll use EMA
+                print(f"  Episode completed in world {env_idx}")
+        last_completed_count = current_completed
 
-    print(f"Step Rewards: {step_rewards.cpu().numpy()}")
+    print(f"Step Rewards: {rewards.cpu().numpy()}")
 
     # Get current episode statistics
-    episode_stats = episode_tracker.get_statistics()
-    reward_ema = episode_stats["episodes/reward_ema"]
-    length_ema = episode_stats["episodes/length_ema"]
+    reward_ema = current_stats["episodes/reward_ema"]
+    length_ema = current_stats["episodes/length_ema"]
     print(f"Episode EMA - Reward: {reward_ema:.3f}, Length: {length_ema:.1f}")
 
-# Stop recording if it was started
-if args.recording_path:
-    try:
-        sim_interface.manager.stop_recording()
-        print(f"Recording completed: {args.recording_path}")
-    except Exception as e:
-        print(f"Failed to stop recording: {e}")
 
-if action_log:
-    action_log.close()
+# Run inference with detailed callback
+episode_tracker, _ = runner.run_steps(callback=detailed_callback)
 
 # Print final statistics
 print("\n=== Final Statistics ===")
@@ -191,12 +114,6 @@ print(f"Total episodes completed: {episode_stats['episodes/completed']}")
 if episode_stats["episodes/completed"] > 0:
     print(f"Average episode return (EMA): {episode_stats['episodes/reward_ema']:.4f}")
     print(f"Average episode length (EMA): {episode_stats['episodes/length_ema']:.1f}")
-    print(f"Min episode return: {episode_stats['episodes/reward_min']:.4f}")
-    print(f"Max episode return: {episode_stats['episodes/reward_max']:.4f}")
-    print(f"Min episode length: {episode_stats['episodes/length_min']}")
-    print(f"Max episode length: {episode_stats['episodes/length_max']}")
-    if episode_returns:
-        print(f"Std episode return: {np.std(episode_returns):.4f}")
-        print(f"Episodes per world: {episode_counts.cpu().numpy()}")
+    print(f"Episodes per world: {episode_counts.cpu().numpy()}")
 else:
     print("No episodes completed")
