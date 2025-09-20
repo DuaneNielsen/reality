@@ -95,6 +95,12 @@ struct RenderOnlyEntity : madrona::Archetype<
 struct LidarRayEntity : madrona::Archetype<
     Position, Rotation, Scale, ObjectID
 > {};
+
+struct TargetEntity : madrona::Archetype<
+    Position, Rotation, Scale, ObjectID,
+    Velocity, MotionParams, TargetTag,
+    madrona::render::Renderable
+> {};
 ```
 
 #### Determinism Invariants
@@ -122,6 +128,19 @@ struct Progress {
 // Termination reason codes
 struct TerminationReason {
     int32_t code;  // -1: not terminated, 0: steps, 1: goal, 2: collision
+};
+
+// Target entity identification
+struct TargetTag {
+    int32_t id;  // Target identifier (0 = primary target)
+};
+
+// Custom motion parameters
+struct MotionParams {
+    float omega_x, omega_y;    // Harmonic frequencies
+    float center_x, center_y, center_z;  // Equilibrium position
+    float mass;                // Mass for dynamics
+    int32_t motion_type;       // 0=static, 1=harmonic
 };
 ```
 
@@ -241,15 +260,16 @@ struct TerminationReason {
   - **Uninitialized handling**: Returns 0.0 for maxY if progress not initialized
 
 #### compassSystem
-- **Purpose**: Computes one-hot encoding of agent facing direction
-- **Components Used**: Reads: `Rotation`; Writes: `CompassObservation`
+- **Purpose**: Computes one-hot encoding pointing toward target entity
+- **Components Used**: Reads: `Entity`, `Position`, `TargetTag`; Writes: `CompassObservation`
 - **Task Graph Dependencies**: After collectObservations, parallel with lidar
 - **Specifications**:
+  - **Target tracking**: Points toward primary target (TargetTag.id == 0)
+  - **Fallback behavior**: Uses agent rotation if no target found
+  - **Angle calculation**: `atan2f(target.y - agent.y, target.x - agent.x)`
   - **128 buckets**: Full 360° coverage with 2.8125° per bucket
   - **Encoding formula**: bucket = (64 - int(theta_radians / 2π * 128)) % 128
   - **One-hot**: Single 1.0 value, rest 0.0
-  - **Angle wrapping**: Handles -π to π range correctly
-  - **North alignment**: Bucket 64 represents forward (0 radians)
 
 #### lidarSystem
 - **Purpose**: Casts 128 rays for depth perception observations
@@ -263,6 +283,16 @@ struct TerminationReason {
   - **No hit**: Returns 0.0 when ray doesn't hit anything
   - **GPU parallelism**: 128 threads (4 warps) trace rays simultaneously
   - **Visualization**: Optional display of every 8th ray (16 total) when enabled
+
+#### customMotionSystem
+- **Purpose**: Applies custom equations of motion to target entities
+- **Components Used**: Reads: `MotionParams`; Writes: `Position`, `Velocity`
+- **Task Graph Dependencies**: After movementSystem, before physics broadphase
+- **Specifications**:
+  - **Motion types**: 0=static, 1=harmonic oscillator (extensible via templates)
+  - **Timestep**: `dt = consts::deltaT / consts::numPhysicsSubsteps`
+  - **Physics isolation**: Target entities not registered with physics system
+  - **NVRTC compatibility**: Template specializations with runtime switch
 
 ## Performance Considerations
 
