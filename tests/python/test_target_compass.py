@@ -7,6 +7,13 @@ import numpy as np
 import pytest
 
 
+@pytest.mark.json_level(
+    {
+        "ascii": ["####", "#S.#", "####"],
+        "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
+        "targets": [{"position": [2.0, 2.0, 1.0], "motion_type": "static"}],
+    }
+)
 @pytest.mark.spec("docs/specs/sim.md", "compassSystem")
 def test_compass_points_to_target(cpu_manager):
     """Test that compass points toward target entity, not agent rotation"""
@@ -23,11 +30,11 @@ def test_compass_points_to_target(cpu_manager):
     # Get normalized position and denormalize to world coordinates
     norm_pos = observer.get_normalized_position(0, agent_idx=0)
 
-    # Default level boundaries (from default_level.py)
-    world_min_x = -20.0
-    world_max_x = 20.0
-    world_min_y = -20.0
-    world_max_y = 20.0
+    # Small test level boundaries (4x3 ASCII level)
+    world_min_x = -5.0
+    world_max_x = 5.0
+    world_min_y = -3.75
+    world_max_y = 3.75
     world_width = world_max_x - world_min_x
     world_length = world_max_y - world_min_y
 
@@ -36,13 +43,13 @@ def test_compass_points_to_target(cpu_manager):
     agent_pos_y = norm_pos[1] * world_length + world_min_y
     agent_pos = np.array([agent_pos_x, agent_pos_y, norm_pos[2]])
 
-    # Find which compass bucket is active (should point toward target at [5, 10, 1])
+    # Find which compass bucket is active (should point toward target at [2, 2, 1])
     compass_buckets = compass[0, 0, :]  # world 0, agent 0, all 128 buckets
     active_bucket = np.argmax(compass_buckets)
 
     # Calculate expected angle to target
-    # Target is at [5, 10, 1], agent typically starts around [0, 0, 1]
-    target_pos = np.array([5.0, 10.0, 1.0])
+    # Target is at [2, 2, 1], agent starts at (-1.25, 0, ...)
+    target_pos = np.array([2.0, 2.0, 1.0])
 
     dx = target_pos[0] - agent_pos[0]
     dy = target_pos[1] - agent_pos[1]
@@ -70,6 +77,13 @@ def test_compass_points_to_target(cpu_manager):
     )
 
 
+@pytest.mark.json_level(
+    {
+        "ascii": ["####", "#S.#", "####"],
+        "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
+        "targets": [{"position": [2.0, 2.0, 1.0], "motion_type": "static"}],
+    }
+)
 @pytest.mark.spec("docs/specs/sim.md", "compassSystem")
 def test_compass_updates_with_agent_movement(cpu_manager):
     """Test that compass direction updates as agent moves relative to target"""
@@ -114,6 +128,13 @@ def test_compass_updates_with_agent_movement(cpu_manager):
     )
 
 
+@pytest.mark.json_level(
+    {
+        "ascii": ["####", "#S.#", "####"],
+        "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
+        "targets": [{"position": [2.0, 2.0, 1.0], "motion_type": "static"}],
+    }
+)
 @pytest.mark.spec("docs/specs/sim.md", "customMotionSystem")
 def test_target_entity_exists(cpu_manager):
     """Test that target entity is created and positioned correctly"""
@@ -130,9 +151,9 @@ def test_target_entity_exists(cpu_manager):
     # Target should provide compass direction (non-zero max)
     assert max_value > 0, "No compass direction found - target entity may not exist"
 
-    # Verify compass points in expected direction for static target at [5, 10, 1]
+    # Verify compass points in expected direction for static target at [2, 2, 1]
     agent_pos = obs[0, 0, :3]
-    target_pos = np.array([5.0, 10.0, 1.0])
+    target_pos = np.array([2.0, 2.0, 1.0])
 
     # Basic sanity check - target should be northeast of typical spawn
     assert target_pos[0] > agent_pos[0], "Target should be east of agent spawn"
