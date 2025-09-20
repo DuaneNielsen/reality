@@ -77,6 +77,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerArchetype<PhysicsEntity>();
     registry.registerArchetype<RenderOnlyEntity>();
     registry.registerArchetype<LidarRayEntity>();
+    registry.registerArchetype<CompassIndicatorEntity>();
     registry.registerArchetype<TargetEntity>();
 
     // [REQUIRED_INTERFACE] Export reset control
@@ -384,6 +385,105 @@ inline void compassSystem(Engine& ctx,
 
     // Set the computed bucket to 1.0
     compass_obs.compass[compass_bucket] = 1.0f;
+}
+
+// [GAME_SPECIFIC] Compass indicator visualization system
+inline void compassIndicatorSystem(Engine& ctx,
+                                   Entity agent_entity,
+                                   Position& agent_pos)
+{
+    // Find agent index by comparing entity against stored agent entities
+    int32_t agent_idx = -1;
+    for (int32_t i = 0; i < consts::numAgents; i++) {
+        if (ctx.data().agents[i] == agent_entity) {
+            agent_idx = i;
+            break;
+        }
+    }
+
+    // Skip if agent not found or rendering disabled
+    if (agent_idx == -1 || !ctx.data().enableRender) {
+        return;
+    }
+
+    // Get the compass indicator entity for this agent
+    Entity indicator_entity = ctx.data().compassIndicators[agent_idx];
+
+    // Find target position
+    bool found_target = false;
+    Position target_pos = Vector3::zero();
+
+    // Query for target - NVRTC safe iteration
+    auto target_query = ctx.query<Position, TargetTag>();
+    ctx.iterateQuery(target_query, [&](Position& pos, TargetTag& tag) {
+        if (tag.id == 0) { // Primary target
+            target_pos = pos;
+            found_target = true;
+        }
+    });
+
+    if (!found_target) {
+        // Hide indicator when no target
+        ctx.get<Scale>(indicator_entity) = Diag3x3{0, 0, 0};
+        return;
+    }
+
+    // Calculate direction to target
+    float dx = target_pos.x - agent_pos.x;
+    float dy = target_pos.y - agent_pos.y;
+    float distance = sqrtf(dx * dx + dy * dy);
+
+    if (distance < 0.1f) {
+        // Hide indicator when very close to target
+        ctx.get<Scale>(indicator_entity) = Diag3x3{0, 0, 0};
+        return;
+    }
+
+    // Normalize direction
+    Vector3 direction = Vector3{dx, dy, 0} / distance;
+
+    // Position indicator 1.5 units from agent (slightly offset from agent body)
+    Vector3 indicator_pos = agent_pos + direction * 1.5f;
+
+    // Set indicator position (slightly above ground)
+    ctx.get<Position>(indicator_entity) = Vector3{indicator_pos.x, indicator_pos.y, agent_pos.z + 0.5f};
+
+    // Calculate rotation to align cylinder horizontally with direction
+    // We want the cylinder to point horizontally toward the target
+    // Default cylinder mesh extends along Z axis, we want it to point along the horizontal XY plane
+    Vector3 default_dir = Vector3{1, 0, 0};  // Point along +X axis by default
+    Vector3 target_dir = Vector3{dx, dy, 0}.normalize();  // Horizontal direction
+
+    Quat rotation;
+
+    // Calculate angle between default direction and target direction
+    float dot = default_dir.dot(target_dir);
+    Vector3 cross = default_dir.cross(target_dir);
+
+    if (cross.length2() > 0.001f) {
+        // Normal case: create rotation
+        float angle = acosf(fmaxf(-1.0f, fminf(1.0f, dot)));
+        Vector3 axis = cross.normalize();
+        rotation = Quat::angleAxis(angle, axis);
+    } else if (dot < 0) {
+        // Target direction opposite to default
+        rotation = Quat::angleAxis(math::pi, Vector3{0, 0, 1});  // Rotate 180° around Z
+    } else {
+        // Target direction aligned with default
+        rotation = Quat{1, 0, 0, 0};
+    }
+
+    // Apply additional rotation to make cylinder horizontal (rotate 90° around Y to lay it flat)
+    Quat horizontal_rotation = Quat::angleAxis(math::pi / 2.0f, Vector3{0, 1, 0});
+    rotation = rotation * horizontal_rotation;
+
+    ctx.get<Rotation>(indicator_entity) = rotation;
+
+    // Set scale: 2.0 units length, thicker than lidar rays
+    // Z = length (2.0 / 3.0 since mesh is 3 units long)
+    // X, Y = width (0.15 for visibility)
+    float indicator_length = 2.0f / 3.0f;  // Cylinder mesh is 3 units long
+    ctx.get<Scale>(indicator_entity) = Diag3x3{0.15f, 0.15f, indicator_length};
 }
 
 // [GAME_SPECIFIC] Template-based custom equation of motion (NVRTC-compatible)
@@ -893,6 +993,13 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             Position,
             CompassObservation
         >>({collect_obs});
+
+    // [GAME_SPECIFIC] Update compass indicator visualization
+    auto compass_indicator_sys = builder.addToGraph<ParallelForNode<Engine,
+        compassIndicatorSystem,
+            Entity,
+            Position
+        >>({compass_sys});
 
     // [GAME_SPECIFIC] The lidar system
 #ifdef MADRONA_GPU_MODE

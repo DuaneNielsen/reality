@@ -115,6 +115,9 @@ struct Sim : public madrona::WorldBase {
     // Lidar ray visualization entities
     Entity lidarRays[consts::numAgents][consts::numLidarSamples];
 
+    // Compass direction indicator entities (one per agent)
+    Entity compassIndicators[consts::numAgents];
+
     // Target entity that compass points toward
     Entity targetEntity;
 

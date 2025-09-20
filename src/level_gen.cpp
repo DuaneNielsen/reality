@@ -406,6 +406,26 @@ static void createLidarRayEntities(Engine &ctx)
 }
 
 /**
+ * Helper function to create compass indicator visualization entities.
+ * Creates one compass indicator entity per agent to show direction to target.
+ * Entities are initially hidden and will be positioned/oriented by the compass indicator system.
+ */
+static void createCompassIndicatorEntities(Engine &ctx)
+{
+    // Create compass indicator entities for visualization
+    for (int32_t agent_idx = 0; agent_idx < consts::numAgents; agent_idx++) {
+        Entity indicator = ctx.makeRenderableEntity<CompassIndicatorEntity>();
+        ctx.data().compassIndicators[agent_idx] = indicator;
+
+        // Initially hidden (scale to zero)
+        ctx.get<Position>(indicator) = Vector3{0, 0, -1000};  // Off-screen
+        ctx.get<Rotation>(indicator) = Quat{1, 0, 0, 0};
+        ctx.get<Scale>(indicator) = Diag3x3{0, 0, 0};  // Hidden
+        ctx.get<ObjectID>(indicator) = ObjectID{(int32_t)AssetIDs::COMPASS_INDICATOR};
+    }
+}
+
+/**
  * Entry point #1: Called ONCE at simulation startup from Sim constructor.
  * Creates all entities that persist for the entire simulation lifetime.
  */
@@ -422,6 +442,9 @@ void createPersistentEntities(Engine &ctx)
 
     // Create lidar ray visualization entities
     createLidarRayEntities(ctx);
+
+    // Create compass indicator visualization entities
+    createCompassIndicatorEntities(ctx);
 
     // Create target entity for compass tracking
     createTargetEntity(ctx);

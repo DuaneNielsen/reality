@@ -16,6 +16,7 @@ namespace AssetIDs {
     constexpr uint32_t CYLINDER = 8;
     constexpr uint32_t LIDAR_RAY = 9;
     constexpr uint32_t TARGET = 10;
+    constexpr uint32_t COMPASS_INDICATOR = 11;
 
     constexpr uint32_t DYNAMIC_START = 32;
     constexpr uint32_t MAX_ASSETS = 256;

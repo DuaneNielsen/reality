@@ -186,6 +186,13 @@ namespace madEscape {
     > {};
 
     // [GAME_SPECIFIC]
+    // Archetype for compass direction indicator visualization
+    struct CompassIndicatorEntity : public madrona::Archetype<
+        Position, Rotation, Scale, ObjectID,
+        madrona::render::Renderable
+    > {};
+
+    // [GAME_SPECIFIC]
     // Target identification component
     struct TargetTag {
         int32_t id;  // Allow multiple targets

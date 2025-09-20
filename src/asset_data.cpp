@@ -34,6 +34,7 @@ namespace AssetMaterials {
         { "cylinder", {0.0f, 1.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Cyan
         { "lidar_ray", {0.0f, 1.0f, 0.0f, 0.5f}, -1, 0.8f, 0.2f },  // Semi-transparent green
         { "target", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },  // Red target
+        { "compass_indicator", {0.3f, 0.7f, 1.0f, 0.8f}, -1, 0.8f, 0.2f },  // Light blue, semi-transparent
     };
 }
 
@@ -50,6 +51,7 @@ static constexpr uint32_t AXIS_Z_MATERIALS[] = { 8 };
 static constexpr uint32_t CYLINDER_MATERIALS[] = { 9 };
 static constexpr uint32_t LIDAR_RAY_MATERIALS[] = { 10 };
 static constexpr uint32_t TARGET_MATERIALS[] = { 11 };
+static constexpr uint32_t COMPASS_INDICATOR_MATERIALS[] = { 12 };
 
 // Physics property constants
 namespace PhysicsProps {
@@ -237,6 +239,23 @@ const AssetInfo ASSET_TABLE[AssetIDs::MAX_ASSETS] = {
         .constrainRotationXY = false,
         .meshPath = "cube_render.obj",  // Reuse cube mesh, will scale it small and spherical
         .materialIndices = TARGET_MATERIALS,
+        .numMaterialIndices = 1,
+        .numMeshes = 1,
+    },
+
+    // [11] = COMPASS_INDICATOR (light blue cylinder pointing to target)
+    {
+        .name = "compass_indicator",
+        .id = AssetIDs::COMPASS_INDICATOR,
+        .hasPhysics = false,
+        .hasRender = true,
+        .assetType = AssetInfo::FILE_MESH,
+        .filepath = nullptr,
+        .inverseMass = 0.f,
+        .friction = { 0.f, 0.f },
+        .constrainRotationXY = false,
+        .meshPath = "cylinder_render.obj",  // Reuse cylinder mesh, will scale appropriately
+        .materialIndices = COMPASS_INDICATOR_MATERIALS,
         .numMaterialIndices = 1,
         .numMeshes = 1,
     },
