@@ -284,10 +284,49 @@ static void createFloorPlane(Engine &ctx)
  * Creates 3 colored boxes representing XYZ axes for visual reference.
  * Called once from createPersistentEntities() during initialization.
  */
+/**
+ * Helper function to create a target entity that the compass points toward.
+ * Creates a small red sphere that uses custom motion equations.
+ * Called once from createPersistentEntities() during initialization.
+ */
+static void createTargetEntity(Engine &ctx)
+{
+    Entity target = ctx.makeRenderableEntity<TargetEntity>();
+
+    // Set initial position (offset from origin for visibility)
+    ctx.get<Position>(target) = Vector3{5.0f, 10.0f, 1.0f};
+    ctx.get<Rotation>(target) = Quat{1, 0, 0, 0};
+    ctx.get<Scale>(target) = Diag3x3{0.3f, 0.3f, 0.3f}; // Small sphere
+    ctx.get<ObjectID>(target) = ObjectID{(int32_t)AssetIDs::TARGET};
+
+    // Initialize velocity to zero
+    ctx.get<Velocity>(target) = {
+        Vector3::zero(),
+        Vector3::zero(),
+    };
+
+    // Set motion parameters (start static for testing)
+    MotionParams& params = ctx.get<MotionParams>(target);
+    params.omega_x = 0.0f;      // Static for now
+    params.omega_y = 0.0f;      // Static for now
+    params.center_x = 5.0f;     // Center position
+    params.center_y = 10.0f;    // Center position
+    params.center_z = 1.0f;     // Center position
+    params.mass = 1.0f;         // Unit mass
+    params.motion_type = 0;     // Static motion
+
+    // Set target identification
+    TargetTag& tag = ctx.get<TargetTag>(target);
+    tag.id = 0; // Primary target
+
+    // Store reference for easy access
+    ctx.data().targetEntity = target;
+}
+
 static void createOriginMarkerGizmo(Engine &ctx)
 {
     using namespace madEscape::consts::rendering::gizmo;
-    
+
     // Box 0: Red box along X axis
     ctx.data().originMarkerBoxes[0] = ctx.makeRenderableEntity<RenderOnlyEntity>();
     ctx.get<Position>(ctx.data().originMarkerBoxes[0]) = Vector3{axisMarkerOffset, 0, 0};  // Offset along X
@@ -349,6 +388,9 @@ void createPersistentEntities(Engine &ctx)
 
     // Create lidar ray visualization entities
     createLidarRayEntities(ctx);
+
+    // Create target entity for compass tracking
+    createTargetEntity(ctx);
 
     // Phase 1.1: Old border walls removed
 

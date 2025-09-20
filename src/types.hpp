@@ -185,6 +185,37 @@ namespace madEscape {
         madrona::render::Renderable
     > {};
 
+    // [GAME_SPECIFIC]
+    // Target identification component
+    struct TargetTag {
+        int32_t id;  // Allow multiple targets
+    };
+
+    // [GAME_SPECIFIC]
+    // Parameters for custom equation of motion
+    struct MotionParams {
+        float omega_x;     // Harmonic frequency X
+        float omega_y;     // Harmonic frequency Y
+        float center_x;    // Equilibrium position X
+        float center_y;    // Equilibrium position Y
+        float center_z;    // Equilibrium position Z
+        float mass;        // Mass for equation dynamics
+        int32_t motion_type; // 0=static, 1=harmonic, 2=circular, etc.
+    };
+
+    // [GAME_SPECIFIC]
+    // Target entity archetype - reuses physics components but NOT registered with physics
+    struct TargetEntity : public madrona::Archetype<
+        Position,          // Reuse standard position
+        Rotation,          // Reuse standard rotation
+        Scale,             // Reuse standard scale
+        ObjectID,          // For rendering
+        Velocity,          // Our custom system will update this
+        MotionParams,      // Custom motion parameters
+        TargetTag,         // Identifies as target
+        madrona::render::Renderable
+    > {};
+
 
     // [GAME_SPECIFIC] Phase 2: Test-Driven Level System
     // Tile types removed - now using object_ids with AssetIDs

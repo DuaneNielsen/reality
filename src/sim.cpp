@@ -56,6 +56,10 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerComponent<EntityType>();
     registry.registerComponent<DoneOnCollide>();
 
+    // [GAME_SPECIFIC] Target entity components
+    registry.registerComponent<TargetTag>();
+    registry.registerComponent<MotionParams>();
+
     // [REQUIRED_INTERFACE] Reset singleton - every episodic env needs this
     registry.registerSingleton<WorldReset>();
     
@@ -73,6 +77,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerArchetype<PhysicsEntity>();
     registry.registerArchetype<RenderOnlyEntity>();
     registry.registerArchetype<LidarRayEntity>();
+    registry.registerArchetype<TargetEntity>();
 
     // [REQUIRED_INTERFACE] Export reset control
     registry.exportSingleton<WorldReset>(
@@ -325,36 +330,110 @@ inline void collectObservationsSystem(Engine &ctx,
     self_obs.theta = angleObs(computeZAngle(rot));
 }
 
-// [GAME_SPECIFIC] Computes compass one-hot encoding from agent rotation
-// Updates the CompassObservation with a one-hot encoding of the agent's facing direction
-inline void compassSystem(Engine &,
-                          Rotation rot,
-                          CompassObservation &compass_obs)
+// [GAME_SPECIFIC] Computes compass one-hot encoding pointing toward target
+// Updates the CompassObservation with a one-hot encoding pointing to the target entity
+inline void compassSystem(Engine& ctx,
+                          Entity agent_entity,
+                          Position& agent_pos,
+                          CompassObservation& compass_obs)
 {
-    // Get world theta angle in radians
-    float theta_radians = computeZAngle(rot);
-    
+    // Find first target entity
+    bool found_target = false;
+    Position target_pos = Vector3::zero();
+
+    // Query for target - NVRTC safe iteration
+    auto target_query = ctx.query<Position, TargetTag>();
+    ctx.iterateQuery(target_query, [&](Position& pos, TargetTag& tag) {
+        if (tag.id == 0) { // Primary target
+            target_pos = pos;
+            found_target = true;
+        }
+    });
+
+    float theta_radians;
+
+    if (!found_target) {
+        // Fallback to agent rotation if no target
+        Rotation rot = ctx.get<Rotation>(agent_entity);
+        theta_radians = computeZAngle(rot);
+    } else {
+        // Calculate angle to target
+        float dx = target_pos.x - agent_pos.x;
+        float dy = target_pos.y - agent_pos.y;
+        theta_radians = atan2f(dy, dx);
+    }
+
     // Apply compass equation: (64 - int(theta_in_radians / (2*pi))) % 128
     // This maps [-pi, pi] to compass buckets 0-127
     constexpr float two_pi = 2.0f * math::pi;
-    
+
     // Normalize theta to [0, 2*pi) range first
     while (theta_radians < 0) theta_radians += two_pi;
     while (theta_radians >= two_pi) theta_radians -= two_pi;
-    
+
     // Apply the compass formula
     int compass_bucket = (64 - (int)(theta_radians / two_pi * 128)) % 128;
-    
+
     // Ensure bucket is in valid range [0, 127]
     if (compass_bucket < 0) compass_bucket += 128;
-    
+
     // Zero out all compass values
     for (int i = 0; i < 128; i++) {
         compass_obs.compass[i] = 0.0f;
     }
-    
+
     // Set the computed bucket to 1.0
     compass_obs.compass[compass_bucket] = 1.0f;
+}
+
+// [GAME_SPECIFIC] Template-based custom equation of motion (NVRTC-compatible)
+template<int MotionType>
+inline void applyMotionEquation(
+    float dt,
+    Position& pos,
+    Velocity& vel,
+    const MotionParams& params);
+
+// Static motion specialization
+template<>
+inline void applyMotionEquation<0>(
+    float dt, Position& pos, Velocity& vel, const MotionParams& params) {
+    vel.linear = Vector3::zero();
+    vel.angular = Vector3::zero();
+}
+
+// Harmonic oscillator specialization
+template<>
+inline void applyMotionEquation<1>(
+    float dt, Position& pos, Velocity& vel, const MotionParams& params) {
+    // F = -k*(x - x0) = m*a
+    // a = -(omega^2)*(x - x0)
+    Vector3 center = {params.center_x, params.center_y, params.center_z};
+    Vector3 displacement = pos - center;
+    Vector3 accel;
+    accel.x = -params.omega_x * params.omega_x * displacement.x;
+    accel.y = -params.omega_y * params.omega_y * displacement.y;
+    accel.z = 0; // Keep on plane
+
+    // Update velocity and position (Verlet integration)
+    vel.linear += accel * dt;
+    pos += vel.linear * dt;
+}
+
+// [GAME_SPECIFIC] Custom motion system for target entities
+inline void customMotionSystem(Engine& ctx,
+    Position& pos,
+    Velocity& vel,
+    const MotionParams& params)
+{
+    float dt = consts::deltaT / consts::numPhysicsSubsteps;
+
+    // Runtime dispatch (NVRTC-safe)
+    switch(params.motion_type) {
+        case 0: applyMotionEquation<0>(dt, pos, vel, params); break;
+        case 1: applyMotionEquation<1>(dt, pos, vel, params); break;
+        default: applyMotionEquation<0>(dt, pos, vel, params); break;
+    }
 }
 
 // [GAME_SPECIFIC] Launches consts::numLidarSamples per agent.
@@ -634,9 +713,17 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
             ExternalTorque
         >>({});
 
+    // [GAME_SPECIFIC] Apply custom motion equations to target entities
+    auto custom_motion_sys = builder.addToGraph<ParallelForNode<Engine,
+        customMotionSystem,
+            Position,
+            Velocity,
+            MotionParams
+        >>({move_sys});
+
     // [BOILERPLATE] Build BVH for broadphase / raycasting
     auto broadphase_setup_sys = phys::PhysicsSystem::setupBroadphaseTasks(
-        builder, {move_sys});
+        builder, {custom_motion_sys});
 
     // Custom physics setup to expose ContactConstraints
     // We inline the XPBD substep loop to insert collision detection after narrowphase
@@ -788,7 +875,8 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     // [GAME_SPECIFIC] Update compass observations
     auto compass_sys = builder.addToGraph<ParallelForNode<Engine,
         compassSystem,
-            Rotation,
+            Entity,
+            Position,
             CompassObservation
         >>({collect_obs});
 

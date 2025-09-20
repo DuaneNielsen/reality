@@ -30,7 +30,7 @@ namespace AssetMaterials {
         float metallic;
     };
     
-    constexpr size_t NUM_MATERIALS = 11;
+    constexpr size_t NUM_MATERIALS = 12;
     extern const MaterialDescriptor MATERIALS[NUM_MATERIALS];
 }
 

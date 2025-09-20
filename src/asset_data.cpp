@@ -33,6 +33,7 @@ namespace AssetMaterials {
         { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Blue
         { "cylinder", {0.0f, 1.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Cyan
         { "lidar_ray", {0.0f, 1.0f, 0.0f, 0.5f}, -1, 0.8f, 0.2f },  // Semi-transparent green
+        { "target", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },  // Red target
     };
 }
 
@@ -48,6 +49,7 @@ static constexpr uint32_t AXIS_Y_MATERIALS[] = { 7 };
 static constexpr uint32_t AXIS_Z_MATERIALS[] = { 8 };
 static constexpr uint32_t CYLINDER_MATERIALS[] = { 9 };
 static constexpr uint32_t LIDAR_RAY_MATERIALS[] = { 10 };
+static constexpr uint32_t TARGET_MATERIALS[] = { 11 };
 
 // Physics property constants
 namespace PhysicsProps {
@@ -221,7 +223,24 @@ const AssetInfo ASSET_TABLE[AssetIDs::MAX_ASSETS] = {
         .numMaterialIndices = 1,
         .numMeshes = 1,
     },
-    
+
+    // [10] = TARGET (small red sphere for compass tracking)
+    {
+        .name = "target",
+        .id = AssetIDs::TARGET,
+        .hasPhysics = false,  // NOT registered with physics - uses custom motion
+        .hasRender = true,
+        .assetType = AssetInfo::FILE_MESH,
+        .filepath = nullptr,  // No physics mesh needed
+        .inverseMass = 0.f,   // Not used since hasPhysics = false
+        .friction = { 0.f, 0.f },
+        .constrainRotationXY = false,
+        .meshPath = "cube_render.obj",  // Reuse cube mesh, will scale it small and spherical
+        .materialIndices = TARGET_MATERIALS,
+        .numMaterialIndices = 1,
+        .numMeshes = 1,
+    },
+
     // Rest of the array will be zero-initialized
 };
 

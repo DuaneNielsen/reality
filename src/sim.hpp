@@ -114,7 +114,10 @@ struct Sim : public madrona::WorldBase {
     
     // Lidar ray visualization entities
     Entity lidarRays[consts::numAgents][consts::numLidarSamples];
-    
+
+    // Target entity that compass points toward
+    Entity targetEntity;
+
     // Persistent level entities that survive across episodes
     static constexpr CountT MAX_PERSISTENT_TILES = 256;  // Reasonable limit for persistent entities
     Entity persistentLevelEntities[MAX_PERSISTENT_TILES];
