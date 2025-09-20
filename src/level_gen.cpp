@@ -292,7 +292,8 @@ static void decodeHarmonicParams(const float* target_params, int32_t target_idx,
     params.center_y = target_params[base_idx + 3];   // center_y
     params.center_z = target_params[base_idx + 4];   // center_z
     params.mass = target_params[base_idx + 5];       // mass
-    // params[6] and params[7] are reserved for future use
+    params.phase_x = target_params[base_idx + 6];    // phase_x
+    params.phase_y = target_params[base_idx + 7];    // phase_y
 }
 
 /**

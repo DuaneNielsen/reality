@@ -139,10 +139,11 @@ struct TargetTag {
 
 // Custom motion parameters
 struct MotionParams {
-    float omega_x, omega_y;    // Harmonic frequencies
-    float center_x, center_y, center_z;  // Equilibrium position
-    float mass;                // Mass for dynamics
-    int32_t motion_type;       // 0=static, 1=harmonic
+    float omega_x, omega_y;    // Motion parameters: omega_x=speed, omega_y=unused
+    float center_x, center_y, center_z;  // Center point of motion
+    float mass;                // Mass for dynamics (unused)
+    float phase_x, phase_y;    // Amplitude parameters: phase_x=X amplitude, phase_y=Y amplitude
+    int32_t motion_type;       // 0=static, 1=figure-8
 };
 ```
 
@@ -291,7 +292,10 @@ struct MotionParams {
 - **Components Used**: Reads: `MotionParams`; Writes: `Position`, `Velocity`
 - **Task Graph Dependencies**: After movementSystem, before physics broadphase
 - **Specifications**:
-  - **Motion types**: 0=static, 1=harmonic oscillator (extensible via templates)
+  - **Motion types**: 0=static, 1=figure-8 oscillator (extensible via templates)
+  - **Figure-8 motion**: Uses parametric equations x=A*cos(ωt), y=B*sin(2ωt) for Lissajous curves
+  - **Parameter mapping**: omega_x=speed, phase_x=X amplitude, phase_y=Y amplitude
+  - **Time source**: Accesses simulation time via agent StepsTaken component
   - **Timestep**: `dt = consts::deltaT / consts::numPhysicsSubsteps`
   - **Physics isolation**: Target entities not registered with physics system
   - **NVRTC compatibility**: Template specializations with runtime switch

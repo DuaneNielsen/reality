@@ -23,7 +23,25 @@ Option 1 - Single level with array of strings (recommended):
     "scale": 2.5,              # Optional, default 2.5
     "agent_facing": [0.0],      # Optional, radians for each agent
     "spawn_random": false,      # Optional, use random spawn positions instead of fixed
-    "name": "level_name"        # Optional, default "unknown_level"
+    "name": "level_name",       # Optional, default "unknown_level"
+    "targets": [               # Optional, list of moving target entities
+        {
+            "position": [x, y, z],  # Required, target initial position
+            "motion_type": "static", # Required, "static" or "figure8"
+        },
+        {
+            "position": [x, y, z],   # Required, target initial position
+            "motion_type": "figure8", # Required, "static" or "figure8"
+            "params": {              # Required for figure8 motion
+                "omega_x": 1.0,      # Speed control (rad/s)
+                "omega_y": 6.0,      # Unused (legacy)
+                "center": [x, y, z], # Center point of figure-8
+                "mass": 1.0,         # Unused (legacy)
+                "phase_x": 10.0,     # X-axis amplitude
+                "phase_y": 10.0      # Y-axis amplitude
+            }
+        }
+    ]
 }
 
 Option 2 - Multi-level format with shared tileset:
@@ -256,7 +274,7 @@ def _validate_targets(targets: List[Dict]) -> None:
             raise ValueError(f"Target {i} 'motion_type' must be a string")
 
         # Validate motion types
-        valid_motion_types = ["static", "harmonic"]
+        valid_motion_types = ["static", "figure8"]
         if motion_type not in valid_motion_types:
             raise ValueError(
                 f"Target {i} invalid motion_type '{motion_type}', "
@@ -264,9 +282,9 @@ def _validate_targets(targets: List[Dict]) -> None:
             )
 
         # Validate parameters based on motion type
-        if motion_type == "harmonic":
+        if motion_type == "figure8":
             if "params" not in target:
-                raise ValueError(f"Target {i} with motion_type 'harmonic' must have 'params' field")
+                raise ValueError(f"Target {i} with motion_type 'figure8' must have 'params' field")
 
             params = target["params"]
             if not isinstance(params, dict):
@@ -275,13 +293,20 @@ def _validate_targets(targets: List[Dict]) -> None:
             required_params = ["omega_x", "omega_y", "center", "mass"]
             for param in required_params:
                 if param not in params:
-                    raise ValueError(f"Target {i} harmonic params missing '{param}' field")
+                    raise ValueError(f"Target {i} figure8 params missing '{param}' field")
 
             # Validate numeric parameters
             for param in ["omega_x", "omega_y", "mass"]:
                 value = params[param]
                 if not isinstance(value, (int, float)):
                     raise ValueError(f"Target {i} params['{param}'] must be a number")
+
+            # Validate optional phase parameters (default to 0.0 if not provided)
+            for param in ["phase_x", "phase_y"]:
+                if param in params:
+                    value = params[param]
+                    if not isinstance(value, (int, float)):
+                        raise ValueError(f"Target {i} params['{param}'] must be a number")
 
             # Validate center array
             center = params["center"]
@@ -808,10 +833,10 @@ def _process_targets(level: CompiledLevel, targets: List[Dict]) -> None:
         motion_type = target["motion_type"]
         if motion_type == "static":
             level.target_motion_type[i] = 0
-        elif motion_type == "harmonic":
+        elif motion_type == "figure8":
             level.target_motion_type[i] = 1
 
-            # Set harmonic parameters (flattened array)
+            # Set figure8 parameters (flattened array)
             params = target["params"]
             base_idx = i * 8
             level.target_params[base_idx + 0] = float(params["omega_x"])  # omega_x
@@ -820,7 +845,8 @@ def _process_targets(level: CompiledLevel, targets: List[Dict]) -> None:
             level.target_params[base_idx + 3] = float(params["center"][1])  # center_y
             level.target_params[base_idx + 4] = float(params["center"][2])  # center_z
             level.target_params[base_idx + 5] = float(params["mass"])  # mass
-            # slots 6 and 7 remain 0.0 for future use
+            level.target_params[base_idx + 6] = float(params.get("phase_x", 0.0))  # phase_x
+            level.target_params[base_idx + 7] = float(params.get("phase_y", 0.0))  # phase_y
         else:
             raise ValueError(f"Unknown motion_type: {motion_type}")
 

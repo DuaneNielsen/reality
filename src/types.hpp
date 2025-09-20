@@ -200,6 +200,8 @@ namespace madEscape {
         float center_y;    // Equilibrium position Y
         float center_z;    // Equilibrium position Z
         float mass;        // Mass for equation dynamics
+        float phase_x;     // Phase offset X (for figure-8 motion)
+        float phase_y;     // Phase offset Y (for figure-8 motion)
         int32_t motion_type; // 0=static, 1=harmonic, 2=circular, etc.
     };
 

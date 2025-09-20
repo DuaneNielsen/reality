@@ -389,6 +389,7 @@ inline void compassSystem(Engine& ctx,
 // [GAME_SPECIFIC] Template-based custom equation of motion (NVRTC-compatible)
 template<int MotionType>
 inline void applyMotionEquation(
+    Engine& ctx,
     float dt,
     Position& pos,
     Velocity& vel,
@@ -397,27 +398,40 @@ inline void applyMotionEquation(
 // Static motion specialization
 template<>
 inline void applyMotionEquation<0>(
-    float dt, Position& pos, Velocity& vel, const MotionParams& params) {
+    Engine& ctx, float dt, Position& pos, Velocity& vel, const MotionParams& params) {
     vel.linear = Vector3::zero();
     vel.angular = Vector3::zero();
 }
 
-// Harmonic oscillator specialization
+// Figure-8 oscillator specialization - parameterized figure-8 motion
 template<>
 inline void applyMotionEquation<1>(
-    float dt, Position& pos, Velocity& vel, const MotionParams& params) {
-    // F = -k*(x - x0) = m*a
-    // a = -(omega^2)*(x - x0)
-    Vector3 center = {params.center_x, params.center_y, params.center_z};
-    Vector3 displacement = pos - center;
-    Vector3 accel;
-    accel.x = -params.omega_x * params.omega_x * displacement.x;
-    accel.y = -params.omega_y * params.omega_y * displacement.y;
-    accel.z = 0; // Keep on plane
+    Engine& ctx, float dt, Position& pos, Velocity& vel, const MotionParams& params) {
+    // Access simulation time through agent's StepsTaken component
+    Entity agent = ctx.data().agents[0];  // Use first agent for timing
+    StepsTaken steps_taken = ctx.get<StepsTaken>(agent);
+    float t = steps_taken.t * consts::deltaT;  // Convert steps to time
 
-    // Update velocity and position (Verlet integration)
-    vel.linear += accel * dt;
-    pos += vel.linear * dt;
+    Vector3 center = {params.center_x, params.center_y, params.center_z};
+
+    // Parameterized figure-8: x = amp_x * cos(speed * t), y = amp_y * sin(2 * speed * t)
+    float speed = params.omega_x;  // Use omega_x as speed control
+    float amp_x = params.phase_x;  // Use phase_x as X amplitude
+    float amp_y = params.phase_y;  // Use phase_y as Y amplitude
+
+    float x_motion = cosf(speed * t);
+    float y_motion = sinf(2.0f * speed * t);
+
+    // Set position directly for figure-8
+    pos.x = center.x + amp_x * x_motion;
+    pos.y = center.y + amp_y * y_motion;
+    pos.z = center.z;
+
+    // Calculate velocity from position derivative
+    // dx/dt = -amp_x * speed * sin(speed * t), dy/dt = amp_y * 2 * speed * cos(2 * speed * t)
+    vel.linear.x = -amp_x * speed * sinf(speed * t);
+    vel.linear.y = amp_y * 2.0f * speed * cosf(2.0f * speed * t);
+    vel.linear.z = 0.0f;
 }
 
 // [GAME_SPECIFIC] Custom motion system for target entities
@@ -430,9 +444,9 @@ inline void customMotionSystem(Engine& ctx,
 
     // Runtime dispatch (NVRTC-safe)
     switch(params.motion_type) {
-        case 0: applyMotionEquation<0>(dt, pos, vel, params); break;
-        case 1: applyMotionEquation<1>(dt, pos, vel, params); break;
-        default: applyMotionEquation<0>(dt, pos, vel, params); break;
+        case 0: applyMotionEquation<0>(ctx, dt, pos, vel, params); break;
+        case 1: applyMotionEquation<1>(ctx, dt, pos, vel, params); break;
+        default: applyMotionEquation<0>(ctx, dt, pos, vel, params); break;
     }
 }
 
