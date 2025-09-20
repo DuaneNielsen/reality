@@ -54,6 +54,9 @@ Examples:
   # Compile all JSON levels in default directory
   python3 compile_levels.py
 
+  # Compile a single specific file
+  python3 compile_levels.py --file levels/my_level.json
+
   # Force recompilation of all levels
   python3 compile_levels.py --force
 
@@ -93,6 +96,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--file",
+        type=Path,
+        help="Compile a single specific file (can be relative or absolute path)",
+    )
+
+    parser.add_argument(
         "--force",
         "-f",
         action="store_true",
@@ -124,6 +133,47 @@ def main():
     """Main compilation script"""
     args = parse_arguments()
 
+    # Handle single file compilation
+    if args.file:
+        input_file = args.file
+        if not input_file.is_absolute():
+            # If relative path, make it relative to current working directory
+            input_file = Path.cwd() / input_file
+
+        if not input_file.exists():
+            print(f"Error: File not found: {input_file}")
+            sys.exit(1)
+
+        if not input_file.suffix == ".json":
+            print(f"Error: File must be a JSON file: {input_file}")
+            sys.exit(1)
+
+        # Determine output directory
+        if args.output_dir:
+            output_dir = args.output_dir
+            output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir = input_file.parent
+
+        output_file = output_dir / (input_file.stem + ".lvl")
+
+        print(f"Compiling single file: {input_file}")
+        print("=" * 60)
+
+        if args.dry_run:
+            print(f"DRY RUN: Would compile {input_file.name} -> {output_file.name}")
+        else:
+            success = compile_level_file(input_file, output_file, args.verbose)
+            if success:
+                print("=" * 60)
+                print("✓ Single file compilation successful!")
+            else:
+                print("=" * 60)
+                print("✗ Single file compilation failed!")
+                sys.exit(1)
+        return
+
+    # Original batch compilation logic
     # Determine input directory
     if args.input_dir:
         levels_dir = args.input_dir

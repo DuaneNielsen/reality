@@ -296,6 +296,14 @@ def _validate_multi_level_json(data: Dict) -> None:
                 f"Invalid auto_boundary_walls: {auto_boundary_walls} (must be boolean)"
             )
 
+    if "boundary_wall_offset" in data:
+        boundary_wall_offset = data["boundary_wall_offset"]
+        if not isinstance(boundary_wall_offset, (int, float)) or boundary_wall_offset < 0:
+            raise ValueError(
+                f"Invalid boundary_wall_offset: {boundary_wall_offset} "
+                "(must be non-negative number)"
+            )
+
     if "name" in data:
         name = data["name"]
         if not isinstance(name, str):
@@ -367,6 +375,14 @@ def _validate_json_level(data: Dict) -> None:
         if not isinstance(auto_boundary_walls, bool):
             raise ValueError(
                 f"Invalid auto_boundary_walls: {auto_boundary_walls} (must be boolean)"
+            )
+
+    if "boundary_wall_offset" in data:
+        boundary_wall_offset = data["boundary_wall_offset"]
+        if not isinstance(boundary_wall_offset, (int, float)) or boundary_wall_offset < 0:
+            raise ValueError(
+                f"Invalid boundary_wall_offset: {boundary_wall_offset} "
+                "(must be non-negative number)"
             )
 
     if "name" in data:
@@ -523,7 +539,12 @@ def compile_ascii_level(
 
 
 def _add_boundary_walls(
-    level: "CompiledLevel", start_index: int, width: int, height: int, scale: float
+    level: "CompiledLevel",
+    start_index: int,
+    width: int,
+    height: int,
+    scale: float,
+    boundary_wall_offset: float = 0.0,
 ) -> int:
     """
     Add 4 boundary walls and 4 corner blocks around the level perimeter.
@@ -534,6 +555,8 @@ def _add_boundary_walls(
         width: Level width in tiles
         height: Level height in tiles
         scale: World units per tile
+        boundary_wall_offset: Additional offset distance beyond calculated world boundaries
+            (default 0.0)
 
     Returns:
         Number of boundary tiles added (4 walls + 4 corners = 8)
@@ -562,20 +585,26 @@ def _add_boundary_walls(
     world_min_y = level.world_min_y
     world_max_y = level.world_max_y
 
-    # Position walls so their inner edge aligns with world boundaries
-    # Wall center should be offset by half the wall thickness outside the boundaries
+    # Position walls so their inner edge aligns with world boundaries + offset
+    # Wall center should be offset by half the wall thickness + boundary_wall_offset
+    # outside the boundaries
     wall_half_thickness = wall_thickness / 2.0
+    total_offset = wall_half_thickness + boundary_wall_offset
+
+    # Walls need to be extended by 2 * boundary_wall_offset to span the full level boundaries
+    extended_width = world_width + (2.0 * boundary_wall_offset)
+    extended_height = world_height + (2.0 * boundary_wall_offset)
 
     # Boundary wall configurations: (position_x, position_y, scale_x, scale_y, scale_z)
     boundary_walls = [
-        # North wall (top): spans full width, inner edge at max_y
-        (0.0, world_max_y + wall_half_thickness, world_width, wall_thickness, wall_height),
-        # South wall (bottom): spans full width, inner edge at min_y
-        (0.0, world_min_y - wall_half_thickness, world_width, wall_thickness, wall_height),
-        # East wall (right): spans full height, inner edge at max_x
-        (world_max_x + wall_half_thickness, 0.0, wall_thickness, world_height, wall_height),
-        # West wall (left): spans full height, inner edge at min_x
-        (world_min_x - wall_half_thickness, 0.0, wall_thickness, world_height, wall_height),
+        # North wall (top): spans extended width, inner edge at max_y + boundary_wall_offset
+        (0.0, world_max_y + total_offset, extended_width, wall_thickness, wall_height),
+        # South wall (bottom): spans extended width, inner edge at min_y - boundary_wall_offset
+        (0.0, world_min_y - total_offset, extended_width, wall_thickness, wall_height),
+        # East wall (right): spans extended height, inner edge at max_x + boundary_wall_offset
+        (world_max_x + total_offset, 0.0, wall_thickness, extended_height, wall_height),
+        # West wall (left): spans extended height, inner edge at min_x - boundary_wall_offset
+        (world_min_x - total_offset, 0.0, wall_thickness, extended_height, wall_height),
     ]
 
     # Add each boundary wall
@@ -609,13 +638,13 @@ def _add_boundary_walls(
     # Add corner blocks at the intersections of boundary walls
     corner_positions = [
         # Northeast corner
-        (world_max_x + wall_half_thickness, world_max_y + wall_half_thickness),
+        (world_max_x + total_offset, world_max_y + total_offset),
         # Northwest corner
-        (world_min_x - wall_half_thickness, world_max_y + wall_half_thickness),
+        (world_min_x - total_offset, world_max_y + total_offset),
         # Southeast corner
-        (world_max_x + wall_half_thickness, world_min_y - wall_half_thickness),
+        (world_max_x + total_offset, world_min_y - total_offset),
         # Southwest corner
-        (world_min_x - wall_half_thickness, world_min_y - wall_half_thickness),
+        (world_min_x - total_offset, world_min_y - total_offset),
     ]
 
     # Add each corner block
@@ -627,7 +656,7 @@ def _add_boundary_walls(
         level.tile_x[tile_idx] = pos_x
         level.tile_y[tile_idx] = pos_y
         level.tile_z[tile_idx] = 0.0
-        level.tile_scale_x[tile_idx] = wall_thickness  # Square corner blocks
+        level.tile_scale_x[tile_idx] = wall_thickness  # Square corner blocks (unchanged)
         level.tile_scale_y[tile_idx] = wall_thickness
         level.tile_scale_z[tile_idx] = wall_height
         level.tile_persistent[tile_idx] = True  # Corner blocks persist across episodes
@@ -668,6 +697,7 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
     auto_boundary_walls = data.get(
         "auto_boundary_walls", False
     )  # Default to False for backward compatibility
+    boundary_wall_offset = data.get("boundary_wall_offset", 0.0)  # Default to 0.0
     level_name = data.get("name", "unknown_level")
 
     # Process tileset to get mappings
@@ -813,7 +843,9 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
 
     # Add automatic boundary walls and corners if enabled
     if auto_boundary_walls:
-        tiles_added = _add_boundary_walls(level, len(tiles), width, height, scale)
+        tiles_added = _add_boundary_walls(
+            level, len(tiles), width, height, scale, boundary_wall_offset
+        )
         level.num_tiles = len(tiles) + tiles_added
 
     return level
@@ -878,6 +910,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
     shared_scale = data.get("scale", 2.5)
     shared_spawn_random = data.get("spawn_random", False)
     shared_auto_boundary_walls = data.get("auto_boundary_walls", False)
+    shared_boundary_wall_offset = data.get("boundary_wall_offset", 0.0)
     level_set_name = data.get("name", "multi_level_set")
 
     compiled_levels = []
@@ -891,6 +924,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
             "scale": shared_scale,
             "spawn_random": shared_spawn_random,
             "auto_boundary_walls": shared_auto_boundary_walls,
+            "boundary_wall_offset": shared_boundary_wall_offset,
         }
 
         # Use per-level name if provided, otherwise generate from set name

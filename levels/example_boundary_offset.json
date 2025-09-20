@@ -1,0 +1,24 @@
+{
+    "ascii": [
+        "...........",
+        ".S......C..",
+        "...........",
+        "...####....",
+        "...........",
+        ".O......O..",
+        "..........."
+    ],
+    "tileset": {
+        "#": {"asset": "wall", "done_on_collision": false},
+        "C": {"asset": "cube", "done_on_collision": true},
+        "O": {"asset": "cylinder", "done_on_collision": true},
+        "S": {"asset": "spawn"},
+        ".": {"asset": "empty"}
+    },
+    "scale": 2.5,
+    "auto_boundary_walls": true,
+    "boundary_wall_offset": 1.0,
+    "agent_facing": [0.0],
+    "spawn_random": false,
+    "name": "boundary_offset_demo"
+}

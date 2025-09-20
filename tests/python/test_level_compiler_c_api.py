@@ -26,12 +26,14 @@ from madrona_escape_room.level_compiler import (
 class TestCAPIIntegration:
     """Test C API integration for MAX_TILES constant."""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "Configuration")
     def test_max_tiles_c_api_value(self):
         """Test that MAX_TILES_C_API returns expected value."""
         # Should be 1024 based on CompiledLevel::MAX_TILES
         assert MAX_TILES_C_API == 1024
         assert limits.maxTiles == 1024
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "Configuration")
     def test_max_tiles_consistency(self):
         """Test that MAX_TILES_C_API matches direct C API call."""
         direct_call = limits.maxTiles
@@ -44,6 +46,7 @@ class TestCAPIIntegration:
 class TestLevelSizeValidation:
     """Test level size validation against C API limits."""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "Invariants")
     def test_level_within_limits(self):
         """Test that levels within limits compile successfully."""
         # Small level that should work fine
@@ -60,6 +63,7 @@ class TestLevelSizeValidation:
         assert 28 <= MAX_TILES_C_API
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "Invariants")
     def test_maximum_size_level(self):
         """Test level at exactly the maximum size."""
         # Create a 32x32 level (1024 tiles exactly)
@@ -80,6 +84,7 @@ class TestLevelSizeValidation:
         assert compiled.width * compiled.height == MAX_TILES_C_API
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_level")
     def test_oversized_level_rejected(self):
         """Test that levels exceeding MAX_TILES_C_API are rejected."""
         # Create a 33x33 level (1089 tiles > 1024)
@@ -99,6 +104,7 @@ class TestLevelSizeValidation:
         with pytest.raises(ValueError, match=r"Level too large.*1089 tiles > 1024 max"):
             compile_ascii_level(oversized_level)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_level")
     def test_64x64_level_rejected(self):
         """Test that maximum dimension levels are correctly rejected when too large."""
         # 64x64 = 4096 tiles, which exceeds 1024
@@ -122,6 +128,7 @@ class TestLevelSizeValidation:
 class TestArraySizing:
     """Test that compiled levels have correct array sizes."""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "CompiledLevel")
     def test_compiled_arrays_correct_size(self):
         """Test that compiled level arrays are sized to MAX_TILES_C_API."""
         level = """
@@ -140,6 +147,7 @@ class TestArraySizing:
         assert compiled.width * compiled.height == 15  # 5x3
         assert compiled.width * compiled.height < MAX_TILES_C_API
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "CompiledLevel")
     def test_unused_array_slots_zero(self):
         """Test that unused array slots are properly zeroed."""
         level = """
@@ -161,6 +169,7 @@ class TestArraySizing:
 class TestBinaryIO:
     """Test binary I/O with C API-sized arrays."""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "CompiledLevel")
     def test_binary_roundtrip_c_api_arrays(self):
         """Test that binary save/load works with C API-sized arrays."""
         level = """
@@ -204,6 +213,7 @@ class TestBinaryIO:
             finally:
                 os.unlink(f.name)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "validate_compiled_level")
     def test_validation_accepts_c_api_arrays(self):
         """Test that validation accepts arrays sized to MAX_TILES_C_API."""
         level = """
@@ -216,6 +226,7 @@ class TestBinaryIO:
         # Should not raise - arrays are correctly sized to MAX_TILES_C_API
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "validate_compiled_level")
     def test_validation_rejects_wrong_sized_arrays(self):
         """Test that validation rejects arrays not sized to MAX_TILES_C_API."""
         level = """
@@ -235,6 +246,7 @@ class TestBinaryIO:
 class TestSpawnRandomFlag:
     """Test spawn_random flag functionality."""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Level Format (Single Level)")
     def test_spawn_random_flag(self):
         """Test that spawn_random flag works correctly."""
         # Test default (False)
@@ -254,6 +266,7 @@ class TestSpawnRandomFlag:
 class TestEdgeCases:
     """Test edge cases with C API integration."""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "Invariants")
     def test_minimum_size_level(self):
         """Test minimum possible level size (3x3)."""
         level = """
@@ -270,6 +283,7 @@ class TestEdgeCases:
         assert len(compiled.object_ids) == MAX_TILES_C_API
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "Invariants")
     def test_exact_square_root_size(self):
         """Test levels at exact square root of MAX_TILES_C_API."""
         # 32x32 = 1024 exactly
@@ -282,6 +296,7 @@ class TestEdgeCases:
         assert compiled.width * compiled.height == MAX_TILES_C_API
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "Invariants")
     def test_rectangular_at_limit(self):
         """Test rectangular level at the size limit."""
         # 64x16 = 1024 exactly
@@ -298,6 +313,7 @@ class TestEdgeCases:
         assert compiled.width * compiled.height == 1024
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "Configuration")
     def test_fallback_when_c_api_unavailable(self):
         """Test fallback behavior when C API is not available."""
         # This test verifies that limits.maxTiles provides the correct constant

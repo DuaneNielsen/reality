@@ -18,6 +18,7 @@ from madrona_escape_room.level_compiler import (
 class TestLevelCompiler:
     """Test the level_compiler module"""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_ascii_level")
     def test_simple_room_compilation(self):
         """Test compiling a simple room"""
         level = """######
@@ -42,6 +43,7 @@ class TestLevelCompiler:
 
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_ascii_level")
     def test_level_with_obstacles(self):
         """Test compiling a level with cube obstacles"""
         level = """########
@@ -68,6 +70,7 @@ class TestLevelCompiler:
 
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_ascii_level")
     def test_error_cases(self):
         """Test error handling for invalid levels"""
 
@@ -87,6 +90,7 @@ class TestLevelCompiler:
 #SX#
 ####""")
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_multi_level")
     def test_multi_level_compilation(self):
         """Test compiling multi-level JSON format"""
         multi_level = {
@@ -141,6 +145,7 @@ class TestLevelCompiler:
         assert compiled_levels2[0].width == compiled_levels[0].width
         assert compiled_levels2[1].width == compiled_levels[1].width
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_multi_level")
     def test_multi_level_validation_errors(self):
         """Test multi-level format validation errors"""
 
@@ -166,6 +171,7 @@ class TestLevelCompiler:
 class TestCTypesIntegration:
     """Test integration with ctypes bindings"""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "CompiledLevel")
     def test_dataclass_to_ctypes_conversion(self):
         """Test that CompiledLevel dataclass works with ctypes"""
         level = """####
@@ -193,6 +199,7 @@ class TestCTypesIntegration:
             assert abs(compiled.tile_x[i]) < 0.001
             assert abs(compiled.tile_y[i]) < 0.001
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "validate_compiled_level")
     def test_compiled_level_validation(self):
         """Test compiled level validation"""
         level = """######
@@ -205,6 +212,7 @@ class TestCTypesIntegration:
         # Should not raise any exception
         validate_compiled_level(compiled)
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_ascii_level")
     def test_multiple_level_compilation(self):
         """Test compiling multiple levels"""
         level1 = """####
@@ -232,6 +240,7 @@ class TestCTypesIntegration:
 class TestManagerIntegration:
     """Test integration with SimManager (requires built C API)"""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "System Integration")
     def test_manager_creation_with_ascii_level(self, cpu_manager):
         """Test creating manager with ASCII level"""
         # Note: SimManager doesn't yet support custom levels via level_ascii parameter
@@ -249,6 +258,7 @@ class TestManagerIntegration:
         for _ in range(3):
             cpu_manager.step()
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "System Integration")
     def test_multiple_worlds_same_level(self, cpu_manager):
         """Test multiple worlds with same ASCII level"""
         level = """######
@@ -264,6 +274,7 @@ class TestManagerIntegration:
         for _ in range(2):
             cpu_manager.step()
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "System Integration")
     def test_backward_compatibility(self, cpu_manager):
         """Test that SimManager still works without level_ascii"""
         # Should work without level_ascii (uses default level)
@@ -276,6 +287,7 @@ class TestManagerIntegration:
 class TestJSONLevelFormat:
     """Test JSON level format with parameters"""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Level Format (Single Level)")
     def test_json_level_with_agent_facing(self):
         """Test JSON level with agent facing angles"""
         import math
@@ -308,6 +320,7 @@ class TestJSONLevelFormat:
         for i in range(2, 8):
             assert compiled.spawn_facing[i] == 0.0
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Level Format (Single Level)")
     def test_json_level_without_facing(self):
         """Test JSON level without agent_facing defaults to 0"""
         json_level = {
@@ -328,6 +341,7 @@ class TestJSONLevelFormat:
         # Should default to facing forward (0.0)
         assert compiled.spawn_facing[0] == 0.0
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "System Integration")
     def test_json_level_in_sim_manager(self, cpu_manager):
         """Test using JSON level with SimManager"""
         import math
@@ -361,6 +375,7 @@ class TestJSONLevelFormat:
 class TestDoneOnCollisionFlags:
     """Test done_on_collision flag support in level compiler"""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Level Format (Single Level)")
     def test_explicit_done_on_collision_flags(self):
         """Test that done_on_collision flags are set correctly via JSON"""
         json_level = {
@@ -420,6 +435,7 @@ class TestDoneOnCollisionFlags:
         assert cubes_correct == json_level["ascii"].count("C")
         assert cylinders_correct == json_level["ascii"].count("O")
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_ascii_level")
     def test_default_tileset_done_on_collision(self):
         """Test that default tileset sets done_on_collision correctly"""
         ascii_level = """####O####
@@ -452,6 +468,7 @@ class TestDoneOnCollisionFlags:
             elif obj_id == cylinder_id:
                 assert done_flag, "Cylinder missing done_on_collide=True flag"
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Level Format (Single Level)")
     def test_mixed_collision_flags(self):
         """Test level with mixed collision behavior"""
         json_level = {
@@ -486,6 +503,7 @@ class TestDoneOnCollisionFlags:
         # Only cubes should have done_on_collide = True
         assert collision_tiles == cube_count == 2
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Level Format (Single Level)")
     def test_validation_of_done_on_collision_type(self):
         """Test that done_on_collision must be a boolean"""
         json_level = {
@@ -502,9 +520,128 @@ class TestDoneOnCollisionFlags:
             compile_level(json_level)
 
 
+class TestBoundaryWallOffset:
+    """Test boundary_wall_offset flag functionality"""
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "BoundaryWallGeneration")
+    def test_boundary_wall_offset_default_zero(self):
+        """Test that boundary_wall_offset defaults to 0.0"""
+        json_level = {
+            "ascii": ["####", "#S.#", "####"],
+            "tileset": {
+                "#": {"asset": "wall"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "auto_boundary_walls": True,
+        }
+
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]
+
+        # Should work with default offset of 0.0
+        assert compiled.auto_boundary_walls is True
+        assert compiled.num_tiles > 0  # Should have boundary walls added
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "BoundaryWallGeneration")
+    def test_boundary_wall_offset_specified(self):
+        """Test that boundary_wall_offset can be specified"""
+        json_level = {
+            "ascii": ["####", "#S.#", "####"],
+            "tileset": {
+                "#": {"asset": "wall"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "auto_boundary_walls": True,
+            "boundary_wall_offset": 1.5,
+        }
+
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]
+
+        # Should compile successfully with custom offset
+        assert compiled.auto_boundary_walls is True
+        assert compiled.num_tiles > 0  # Should have boundary walls added
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "BoundaryWallGeneration")
+    def test_boundary_wall_offset_validation(self):
+        """Test validation of boundary_wall_offset parameter"""
+        # Test negative offset rejection
+        json_level = {
+            "ascii": ["####", "#S.#", "####"],
+            "tileset": {
+                "#": {"asset": "wall"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "auto_boundary_walls": True,
+            "boundary_wall_offset": -1.0,  # Invalid negative offset
+        }
+
+        with pytest.raises(ValueError, match="Invalid boundary_wall_offset.*must be non-negative"):
+            compile_level(json_level)
+
+        # Test non-numeric offset rejection
+        json_level["boundary_wall_offset"] = "invalid"
+        with pytest.raises(ValueError, match="Invalid boundary_wall_offset.*must be non-negative"):
+            compile_level(json_level)
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Multi-Level Format")
+    def test_boundary_wall_offset_multi_level(self):
+        """Test boundary_wall_offset in multi-level format"""
+        multi_level = {
+            "levels": [
+                {"ascii": ["####", "#S.#", "####"], "name": "level_1"},
+                {"ascii": ["######", "#S..C#", "######"], "name": "level_2"},
+            ],
+            "tileset": {
+                "#": {"asset": "wall"},
+                "C": {"asset": "cube"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "auto_boundary_walls": True,
+            "boundary_wall_offset": 2.0,
+        }
+
+        compiled_levels = compile_multi_level(multi_level)
+
+        # Both levels should have boundary walls with offset
+        assert len(compiled_levels) == 2
+        for level in compiled_levels:
+            assert level.auto_boundary_walls is True
+            assert level.num_tiles > 0  # Should have boundary walls added
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "BoundaryWallGeneration")
+    def test_boundary_wall_offset_without_auto_walls(self):
+        """Test that boundary_wall_offset is ignored when auto_boundary_walls is False"""
+        json_level = {
+            "ascii": ["####", "#S.#", "####"],
+            "tileset": {
+                "#": {"asset": "wall"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"},
+            },
+            "auto_boundary_walls": False,  # Walls disabled
+            "boundary_wall_offset": 5.0,  # Should be ignored
+        }
+
+        compiled_levels = compile_level(json_level)
+        compiled = compiled_levels[0]
+
+        # Should compile successfully even with offset when walls are disabled
+        assert compiled.auto_boundary_walls is False
+        # Number of tiles should only be from the ASCII art, not boundary walls
+        # Count all "#" characters in all rows (walls don't include spawn points or empty spaces)
+        expected_tiles = sum(row.count("#") for row in json_level["ascii"])
+        assert compiled.num_tiles == expected_tiles
+
+
 class TestEndToEndIntegration:
     """Test the complete end-to-end system"""
 
+    @pytest.mark.spec("docs/specs/level_compiler.md", "System Integration")
     def test_complete_pipeline(self, cpu_manager):
         """Test complete pipeline from ASCII to simulation"""
         # Define a more complex level
