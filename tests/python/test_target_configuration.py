@@ -35,16 +35,23 @@ def test_static_target_compilation():
 
 
 @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Level Format (Single Level)")
-def test_harmonic_target_compilation():
-    """Test compilation of a harmonic oscillator target."""
+def test_figure8_target_compilation():
+    """Test compilation of a figure-8 oscillator target."""
     level_json = {
         "ascii": ["####", "#S.#", "####"],
         "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
         "targets": [
             {
                 "position": [10.0, 5.0, 1.0],
-                "motion_type": "harmonic",
-                "params": {"omega_x": 1.5, "omega_y": 2.0, "center": [12.0, 7.0, 1.5], "mass": 0.8},
+                "motion_type": "figure8",
+                "params": {
+                    "omega_x": 1.5,
+                    "omega_y": 2.0,
+                    "center": [12.0, 7.0, 1.5],
+                    "mass": 0.8,
+                    "phase_x": 10.0,
+                    "phase_y": 5.0,
+                },
             }
         ],
     }
@@ -57,17 +64,17 @@ def test_harmonic_target_compilation():
     assert level.target_x[0] == 10.0
     assert level.target_y[0] == 5.0
     assert level.target_z[0] == 1.0
-    assert level.target_motion_type[0] == 1  # Harmonic
+    assert level.target_motion_type[0] == 1  # Figure-8
 
-    # Check harmonic parameters (flattened array)
+    # Check figure-8 parameters (flattened array)
     assert level.target_params[0] == 1.5  # omega_x
     assert level.target_params[1] == 2.0  # omega_y
     assert level.target_params[2] == 12.0  # center_x
     assert level.target_params[3] == 7.0  # center_y
     assert level.target_params[4] == 1.5  # center_z
     assert level.target_params[5] == 0.8  # mass
-    assert level.target_params[6] == 0.0  # unused
-    assert level.target_params[7] == 0.0  # unused
+    assert level.target_params[6] == 10.0  # phase_x
+    assert level.target_params[7] == 5.0  # phase_y
 
 
 @pytest.mark.spec("docs/specs/level_compiler.md", "JSON Level Format (Single Level)")
@@ -80,8 +87,15 @@ def test_multiple_targets_compilation():
             {"position": [0.0, 0.0, 1.0], "motion_type": "static"},
             {
                 "position": [5.0, 5.0, 2.0],
-                "motion_type": "harmonic",
-                "params": {"omega_x": 3.0, "omega_y": 1.0, "center": [5.0, 5.0, 2.0], "mass": 2.0},
+                "motion_type": "figure8",
+                "params": {
+                    "omega_x": 3.0,
+                    "omega_y": 1.0,
+                    "center": [5.0, 5.0, 2.0],
+                    "mass": 2.0,
+                    "phase_x": 8.0,
+                    "phase_y": 12.0,
+                },
             },
             {"position": [-3.0, 7.0, 0.5], "motion_type": "static"},
         ],
@@ -99,7 +113,7 @@ def test_multiple_targets_compilation():
     assert level.target_z[0] == 1.0
     assert level.target_motion_type[0] == 0
 
-    # Check second target (harmonic)
+    # Check second target (figure-8)
     assert level.target_x[1] == 5.0
     assert level.target_y[1] == 5.0
     assert level.target_z[1] == 2.0
@@ -131,12 +145,14 @@ def test_targets_in_multi_level_format():
         "targets": [
             {
                 "position": [10.0, 10.0, 1.0],
-                "motion_type": "harmonic",
+                "motion_type": "figure8",
                 "params": {
                     "omega_x": 1.0,
                     "omega_y": 1.0,
                     "center": [10.0, 10.0, 1.0],
                     "mass": 1.0,
+                    "phase_x": 5.0,
+                    "phase_y": 7.0,
                 },
             }
         ],
@@ -153,7 +169,7 @@ def test_targets_in_multi_level_format():
     # Second level should have shared target
     level2 = compiled_levels[1]
     assert level2.num_targets == 1
-    assert level2.target_motion_type[0] == 1  # Harmonic
+    assert level2.target_motion_type[0] == 1  # Figure-8
 
 
 @pytest.mark.spec("docs/specs/level_compiler.md", "validate_compiled_level")
@@ -224,20 +240,20 @@ def test_targets_validation_errors():
             }
         )
 
-    # Test harmonic without params
+    # Test figure8 without params
     with pytest.raises(
-        ValueError, match="Target 0 with motion_type 'harmonic' must have 'params' field"
+        ValueError, match="Target 0 with motion_type 'figure8' must have 'params' field"
     ):
         compile_level(
             {
                 "ascii": ["###", "#S#", "###"],
                 "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
-                "targets": [{"position": [1.0, 2.0, 3.0], "motion_type": "harmonic"}],
+                "targets": [{"position": [1.0, 2.0, 3.0], "motion_type": "figure8"}],
             }
         )
 
-    # Test harmonic with missing params
-    with pytest.raises(ValueError, match="Target 0 harmonic params missing 'omega_x' field"):
+    # Test figure8 with missing params
+    with pytest.raises(ValueError, match="Target 0 figure8 params missing 'omega_x' field"):
         compile_level(
             {
                 "ascii": ["###", "#S#", "###"],
@@ -245,7 +261,7 @@ def test_targets_validation_errors():
                 "targets": [
                     {
                         "position": [1.0, 2.0, 3.0],
-                        "motion_type": "harmonic",
+                        "motion_type": "figure8",
                         "params": {"omega_y": 1.0},
                     }
                 ],
