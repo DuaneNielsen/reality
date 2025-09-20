@@ -20,6 +20,10 @@ def _make_float_array_1024():
     """Factory for 1024-element float array"""
     return [0.0] * 1024
 
+def _make_float_array_64():
+    """Factory for 64-element float array"""
+    return [0.0] * 64
+
 def _make_float_array_8():
     """Factory for 8-element float array"""
     return [0.0] * 8
@@ -31,6 +35,10 @@ def _make_int_array_1024():
 def _make_int_array_7():
     """Factory for 7-element int array"""
     return [0] * 7
+
+def _make_int_array_8():
+    """Factory for 8-element int array"""
+    return [0] * 8
 
 def _make_quat_array_1024():
     """Factory for 1024-element quaternion array (identity quaternions)"""
@@ -79,6 +87,12 @@ class CompiledLevel(NativeEndianCDataMixIn):
     tile_rand_scale_x: List[float] = field(metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024)
     tile_rand_scale_y: List[float] = field(metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024)
     tile_rand_scale_z: List[float] = field(metadata=meta(ctypes.c_float * 1024), default_factory=_make_float_array_1024)
+    num_targets: int = field(metadata=meta(ctypes.c_int32), default=0)
+    target_x: List[float] = field(metadata=meta(ctypes.c_float * 8), default_factory=_make_float_array_8)
+    target_y: List[float] = field(metadata=meta(ctypes.c_float * 8), default_factory=_make_float_array_8)
+    target_z: List[float] = field(metadata=meta(ctypes.c_float * 8), default_factory=_make_float_array_8)
+    target_motion_type: List[int] = field(metadata=meta(ctypes.c_int32 * 8), default_factory=_make_int_array_8)
+    target_params: List[float] = field(metadata=meta(ctypes.c_float * 64), default_factory=_make_float_array_64)
 
 @dataclass
 class ReplayMetadata(NativeEndianCDataMixIn):
@@ -110,8 +124,8 @@ class ManagerConfig(NativeEndianCDataMixIn):
 
 
 # Size validation
-assert CompiledLevel.size() == 85204, \
-    f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85204"
+assert CompiledLevel.size() == 85592, \
+    f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85592"
 
 assert ReplayMetadata.size() == 192, \
     f"ReplayMetadata size mismatch: {ReplayMetadata.size()} != 192"

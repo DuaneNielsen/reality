@@ -32,6 +32,16 @@ def create_base_level_template():
     level.spawn_y[0] = -14.5  # Moved forward by 2.5 units from -17.0
     level.spawn_facing[0] = 0.0
 
+    # Initialize target fields (no targets in default level)
+    level.num_targets = 0
+    for i in range(8):  # MAX_TARGETS
+        level.target_x[i] = 0.0
+        level.target_y[i] = 0.0
+        level.target_z[i] = 0.0
+        level.target_motion_type[i] = 0
+    for i in range(64):  # MAX_TARGETS * 8 = 64 total params
+        level.target_params[i] = 0.0
+
     return level
 
 

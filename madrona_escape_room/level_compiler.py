@@ -85,6 +85,7 @@ from .generated_dataclasses import CompiledLevel
 # Constants
 MAX_TILES = limits.maxTiles
 MAX_SPAWNS = limits.maxSpawns
+MAX_TARGETS = limits.maxTargets
 MAX_GRID_SIZE = limits.maxGridSize
 MAX_LEVEL_NAME_LENGTH = limits.maxLevelNameLength
 
@@ -215,6 +216,83 @@ def _validate_tileset(tileset: Dict) -> None:
                 )
 
 
+def _validate_targets(targets: List[Dict]) -> None:
+    """
+    Validate targets array in JSON level definition.
+
+    Args:
+        targets: List of target dictionaries
+
+    Raises:
+        ValueError: If targets array is invalid
+    """
+    if not isinstance(targets, list):
+        raise ValueError("'targets' field must be a list")
+
+    if len(targets) > MAX_TARGETS:
+        raise ValueError(f"Too many targets: {len(targets)} > {MAX_TARGETS} max")
+
+    for i, target in enumerate(targets):
+        if not isinstance(target, dict):
+            raise ValueError(f"Target {i} must be a dictionary")
+
+        # Required fields
+        if "position" not in target:
+            raise ValueError(f"Target {i} must have 'position' field")
+
+        position = target["position"]
+        if not isinstance(position, list) or len(position) != 3:
+            raise ValueError(f"Target {i} 'position' must be [x, y, z] array")
+
+        for j, coord in enumerate(position):
+            if not isinstance(coord, (int, float)):
+                raise ValueError(f"Target {i} position[{j}] must be a number")
+
+        if "motion_type" not in target:
+            raise ValueError(f"Target {i} must have 'motion_type' field")
+
+        motion_type = target["motion_type"]
+        if not isinstance(motion_type, str):
+            raise ValueError(f"Target {i} 'motion_type' must be a string")
+
+        # Validate motion types
+        valid_motion_types = ["static", "harmonic"]
+        if motion_type not in valid_motion_types:
+            raise ValueError(
+                f"Target {i} invalid motion_type '{motion_type}', "
+                f"must be one of: {valid_motion_types}"
+            )
+
+        # Validate parameters based on motion type
+        if motion_type == "harmonic":
+            if "params" not in target:
+                raise ValueError(f"Target {i} with motion_type 'harmonic' must have 'params' field")
+
+            params = target["params"]
+            if not isinstance(params, dict):
+                raise ValueError(f"Target {i} 'params' must be a dictionary")
+
+            required_params = ["omega_x", "omega_y", "center", "mass"]
+            for param in required_params:
+                if param not in params:
+                    raise ValueError(f"Target {i} harmonic params missing '{param}' field")
+
+            # Validate numeric parameters
+            for param in ["omega_x", "omega_y", "mass"]:
+                value = params[param]
+                if not isinstance(value, (int, float)):
+                    raise ValueError(f"Target {i} params['{param}'] must be a number")
+
+            # Validate center array
+            center = params["center"]
+            if not isinstance(center, list) or len(center) != 3:
+                raise ValueError(f"Target {i} params['center'] must be [x, y, z] array")
+
+            for j, coord in enumerate(center):
+                if not isinstance(coord, (int, float)):
+                    raise ValueError(f"Target {i} params center[{j}] must be a number")
+
+
 def _validate_multi_level_json(data: Dict) -> None:
     """
     Validate multi-level JSON data structure.
@@ -275,6 +353,13 @@ def _validate_multi_level_json(data: Dict) -> None:
             if len(name) > MAX_LEVEL_NAME_LENGTH:
                 raise ValueError(f"Level {i} name too long: {len(name)} > {MAX_LEVEL_NAME_LENGTH}")
 
+        # Validate per-level targets (optional)
+        if "targets" in level:
+            try:
+                _validate_targets(level["targets"])
+            except ValueError as e:
+                raise ValueError(f"Level {i} targets validation failed: {e}")
+
     # Validate shared tileset
     _validate_tileset(data["tileset"])
 
@@ -308,6 +393,10 @@ def _validate_multi_level_json(data: Dict) -> None:
         name = data["name"]
         if not isinstance(name, str):
             raise ValueError("'name' field must be a string")
+
+    # Validate shared targets (optional)
+    if "targets" in data:
+        _validate_targets(data["targets"])
 
 
 def _validate_json_level(data: Dict) -> None:
@@ -391,6 +480,10 @@ def _validate_json_level(data: Dict) -> None:
             raise ValueError("'name' field must be a string")
         if len(name) > MAX_LEVEL_NAME_LENGTH:
             raise ValueError(f"Level name too long: {len(name)} > {MAX_LEVEL_NAME_LENGTH}")
+
+    # Validate targets field (optional)
+    if "targets" in data:
+        _validate_targets(data["targets"])
 
 
 def _process_tileset(tileset: Dict) -> Tuple[Dict[str, int], Dict[str, Dict]]:
@@ -678,6 +771,60 @@ def _add_boundary_walls(
     return 8  # 4 boundary walls + 4 corner blocks
 
 
+def _process_targets(level: CompiledLevel, targets: List[Dict]) -> None:
+    """
+    Process targets configuration and populate CompiledLevel target arrays.
+
+    Args:
+        level: CompiledLevel struct to populate
+        targets: List of target dictionaries from JSON
+
+    Raises:
+        ValueError: If target processing fails
+    """
+    level.num_targets = len(targets)
+
+    # Initialize all target arrays to zero/default values
+    for i in range(MAX_TARGETS):
+        level.target_x[i] = 0.0
+        level.target_y[i] = 0.0
+        level.target_z[i] = 0.0
+        level.target_motion_type[i] = 0  # Static by default
+
+        # Clear all parameter slots (flattened array)
+        base_idx = i * 8
+        for j in range(8):
+            level.target_params[base_idx + j] = 0.0
+
+    # Process each target
+    for i, target in enumerate(targets):
+        # Set position
+        position = target["position"]
+        level.target_x[i] = float(position[0])
+        level.target_y[i] = float(position[1])
+        level.target_z[i] = float(position[2])
+
+        # Set motion type
+        motion_type = target["motion_type"]
+        if motion_type == "static":
+            level.target_motion_type[i] = 0
+        elif motion_type == "harmonic":
+            level.target_motion_type[i] = 1
+
+            # Set harmonic parameters (flattened array)
+            params = target["params"]
+            base_idx = i * 8
+            level.target_params[base_idx + 0] = float(params["omega_x"])  # omega_x
+            level.target_params[base_idx + 1] = float(params["omega_y"])  # omega_y
+            level.target_params[base_idx + 2] = float(params["center"][0])  # center_x
+            level.target_params[base_idx + 3] = float(params["center"][1])  # center_y
+            level.target_params[base_idx + 4] = float(params["center"][2])  # center_z
+            level.target_params[base_idx + 5] = float(params["mass"])  # mass
+            # slots 6 and 7 remain 0.0 for future use
+        else:
+            raise ValueError(f"Unknown motion_type: {motion_type}")
+
+
 def _compile_single_level(data: Dict) -> CompiledLevel:
     """
     Internal function to compile a single level from validated JSON data.
@@ -699,6 +846,7 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
     )  # Default to False for backward compatibility
     boundary_wall_offset = data.get("boundary_wall_offset", 0.0)  # Default to 0.0
     level_name = data.get("name", "unknown_level")
+    targets = data.get("targets", [])  # Default to empty list
 
     # Process tileset to get mappings
     char_to_tile, char_to_props = _process_tileset(tileset)
@@ -841,6 +989,9 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
         # Identity quaternion for rotation (w, x, y, z)
         level.tile_rotation[i] = (1.0, 0.0, 0.0, 0.0)
 
+    # Process targets configuration
+    _process_targets(level, targets)
+
     # Add automatic boundary walls and corners if enabled
     if auto_boundary_walls:
         tiles_added = _add_boundary_walls(
@@ -936,6 +1087,12 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
         # Use per-level agent_facing if provided
         if "agent_facing" in level_data:
             single_level_json["agent_facing"] = level_data["agent_facing"]
+
+        # Handle targets - use per-level targets if provided, otherwise use shared targets
+        if "targets" in level_data:
+            single_level_json["targets"] = level_data["targets"]
+        elif "targets" in data:
+            single_level_json["targets"] = data["targets"]
 
         # Compile this individual level using the internal function
         compiled_level = _compile_single_level(single_level_json)

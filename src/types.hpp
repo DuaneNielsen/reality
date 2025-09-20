@@ -228,6 +228,7 @@ namespace madEscape {
     struct CompiledLevel {
         static constexpr int32_t MAX_TILES = consts::limits::maxTiles;  // From consts.hpp
         static constexpr int32_t MAX_SPAWNS = consts::limits::maxSpawns;  // From consts.hpp
+        static constexpr int32_t MAX_TARGETS = consts::limits::maxTargets;  // From consts.hpp
         static constexpr int32_t MAX_LEVEL_NAME_LENGTH = consts::limits::maxLevelNameLength;  // From consts.hpp
         
         // Header fields (matching MER_CompiledLevel layout)
@@ -279,6 +280,18 @@ namespace madEscape {
         float tile_rand_scale_x[MAX_TILES]; // Random X scale variation range
         float tile_rand_scale_y[MAX_TILES]; // Random Y scale variation range
         float tile_rand_scale_z[MAX_TILES]; // Random Z scale variation range
+
+        // Target data arrays (configurable chase rabbit entities)
+        int32_t num_targets;              // Number of targets in level
+        float target_x[MAX_TARGETS];      // Target X positions in world space
+        float target_y[MAX_TARGETS];      // Target Y positions in world space
+        float target_z[MAX_TARGETS];      // Target Z positions in world space
+        int32_t target_motion_type[MAX_TARGETS]; // Motion equation type (0=static, 1=harmonic, etc.)
+        float target_params[MAX_TARGETS * 8]; // Flattened parameter array: target_params[target_idx * 8 + param_idx]
+        // Interpretation based on motion_type:
+        // Static (0): No params used
+        // Harmonic (1): [0]=omega_x, [1]=omega_y, [2]=center_x, [3]=center_y, [4]=center_z, [5]=mass
+        // Future types can define their own parameter layouts
     };
 
     // [GAME_SPECIFIC]

@@ -49,7 +49,19 @@ CompiledLevel createBaseLevelTemplate() {
     level.spawn_x[0] = 0.0f;
     level.spawn_y[0] = -14.5f;  // Moved forward by 2.5 units from -17.0
     level.spawn_facing[0] = 0.0f;
-    
+
+    // Initialize target fields (no targets in default level)
+    level.num_targets = 0;
+    for (int i = 0; i < CompiledLevel::MAX_TARGETS; i++) {
+        level.target_x[i] = 0.0f;
+        level.target_y[i] = 0.0f;
+        level.target_z[i] = 0.0f;
+        level.target_motion_type[i] = 0;
+    }
+    for (int i = 0; i < CompiledLevel::MAX_TARGETS * 8; i++) {
+        level.target_params[i] = 0.0f;
+    }
+
     return level;
 }
 

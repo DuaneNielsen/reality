@@ -280,47 +280,80 @@ static void createFloorPlane(Engine &ctx)
 }
 
 /**
- * Helper function to create the origin marker gizmo.
- * Creates 3 colored boxes representing XYZ axes for visual reference.
- * Called once from createPersistentEntities() during initialization.
+ * Simple decoder for harmonic motion parameters from flattened array.
+ * Converts target_params[target_idx * 8 + param_idx] to MotionParams structure.
  */
+static void decodeHarmonicParams(const float* target_params, int32_t target_idx, MotionParams& params)
+{
+    int32_t base_idx = target_idx * 8;
+    params.omega_x = target_params[base_idx + 0];    // omega_x
+    params.omega_y = target_params[base_idx + 1];    // omega_y
+    params.center_x = target_params[base_idx + 2];   // center_x
+    params.center_y = target_params[base_idx + 3];   // center_y
+    params.center_z = target_params[base_idx + 4];   // center_z
+    params.mass = target_params[base_idx + 5];       // mass
+    // params[6] and params[7] are reserved for future use
+}
+
 /**
- * Helper function to create a target entity that the compass points toward.
- * Creates a small red sphere that uses custom motion equations.
+ * Helper function to create target entities from CompiledLevel configuration.
+ * Creates configurable chase rabbit targets with custom motion equations.
  * Called once from createPersistentEntities() during initialization.
  */
 static void createTargetEntity(Engine &ctx)
 {
-    Entity target = ctx.makeRenderableEntity<TargetEntity>();
+    CompiledLevel& level = ctx.singleton<CompiledLevel>();
 
-    // Set initial position (offset from origin for visibility)
-    ctx.get<Position>(target) = Vector3{5.0f, 10.0f, 1.0f};
-    ctx.get<Rotation>(target) = Quat{1, 0, 0, 0};
-    ctx.get<Scale>(target) = Diag3x3{0.3f, 0.3f, 0.3f}; // Small sphere
-    ctx.get<ObjectID>(target) = ObjectID{(int32_t)AssetIDs::TARGET};
+    // Create targets based on CompiledLevel configuration
+    for (int32_t i = 0; i < level.num_targets && i < CompiledLevel::MAX_TARGETS; i++) {
+        Entity target = ctx.makeRenderableEntity<TargetEntity>();
 
-    // Initialize velocity to zero
-    ctx.get<Velocity>(target) = {
-        Vector3::zero(),
-        Vector3::zero(),
-    };
+        // Set position from configuration
+        ctx.get<Position>(target) = Vector3{
+            level.target_x[i],
+            level.target_y[i],
+            level.target_z[i]
+        };
+        ctx.get<Rotation>(target) = Quat{1, 0, 0, 0};
+        ctx.get<Scale>(target) = Diag3x3{0.3f, 0.3f, 0.3f}; // Small sphere
+        ctx.get<ObjectID>(target) = ObjectID{(int32_t)AssetIDs::TARGET};
 
-    // Set motion parameters (start static for testing)
-    MotionParams& params = ctx.get<MotionParams>(target);
-    params.omega_x = 0.0f;      // Static for now
-    params.omega_y = 0.0f;      // Static for now
-    params.center_x = 5.0f;     // Center position
-    params.center_y = 10.0f;    // Center position
-    params.center_z = 1.0f;     // Center position
-    params.mass = 1.0f;         // Unit mass
-    params.motion_type = 0;     // Static motion
+        // Initialize velocity to zero
+        ctx.get<Velocity>(target) = {
+            Vector3::zero(),
+            Vector3::zero(),
+        };
 
-    // Set target identification
-    TargetTag& tag = ctx.get<TargetTag>(target);
-    tag.id = 0; // Primary target
+        // Set motion parameters from configuration
+        MotionParams& params = ctx.get<MotionParams>(target);
+        params.motion_type = level.target_motion_type[i];
 
-    // Store reference for easy access
-    ctx.data().targetEntity = target;
+        if (params.motion_type == 0) {
+            // Static motion
+            params.omega_x = 0.0f;
+            params.omega_y = 0.0f;
+            params.center_x = level.target_x[i];
+            params.center_y = level.target_y[i];
+            params.center_z = level.target_z[i];
+            params.mass = 1.0f;
+        } else if (params.motion_type == 1) {
+            // Harmonic motion - decode parameters from flattened array
+            decodeHarmonicParams(level.target_params, i, params);
+        } else {
+            // Unknown motion type - default to static
+            params.omega_x = 0.0f;
+            params.omega_y = 0.0f;
+            params.center_x = level.target_x[i];
+            params.center_y = level.target_y[i];
+            params.center_z = level.target_z[i];
+            params.mass = 1.0f;
+            params.motion_type = 0; // Force to static
+        }
+
+        // Set target identification
+        TargetTag& tag = ctx.get<TargetTag>(target);
+        tag.id = i; // Target index
+    }
 }
 
 static void createOriginMarkerGizmo(Engine &ctx)

@@ -265,6 +265,7 @@ namespace limits {
     // Array dimensions for compiled levels
     inline constexpr int32_t maxTiles = 1024;           // Maximum tiles in a level (32x32 grid)
     inline constexpr int32_t maxSpawns = 8;             // Maximum spawn points in a level
+    inline constexpr int32_t maxTargets = 8;            // Maximum target entities in a level
     
     // String buffer sizes
     inline constexpr int32_t maxNameLength = 64;        // sim_name, level_name buffer size

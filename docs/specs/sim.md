@@ -48,28 +48,30 @@ The simulation integrates with:
 #### Entity-Component Matrix
 Overview of which components belong to which entity types:
 
-| Component | Description | Agent | PhysicsEntity | RenderOnlyEntity | LidarRayEntity |
-|-----------|-------------|-------|---------------|------------------|----------------|
-| Position | World position | ✓ | ✓ | ✓ | ✓ |
-| Rotation | Orientation quaternion | ✓ | ✓ | ✓ | ✓ |
-| Scale | Entity scale | ✓ | ✓ | ✓ | ✓ |
-| ObjectID | Rendering object ID | ✓ | ✓ | ✓ | ✓ |
-| Velocity | Linear and angular velocity | ✓ | ✓ | | |
-| ResponseType | Physics response (Dynamic/Static) | ✓ | ✓ | | |
-| ExternalForce | Applied forces | ✓ | | | |
-| ExternalTorque | Applied torques | ✓ | | | |
-| Action | Agent control input | ✓ | | | |
-| Reward | RL reward signal | ✓ | | | |
-| Done | Episode termination flag | ✓ | | | |
-| CollisionDeath | Collision termination tracker | ✓ | | | |
-| TerminationReason | Termination code | ✓ | | | |
-| SelfObservation | Agent position/progress obs | ✓ | | | |
-| CompassObservation | 128-bucket direction encoding | ✓ | | | |
-| Lidar | 128-sample depth array | ✓ | | | |
-| Progress | Forward progress tracking | ✓ | | | |
-| StepsTaken | Episode step counter | ✓ | | | |
-| EntityType | Entity classification | ✓ | ✓ | | |
-| DoneOnCollide | Triggers episode end on collision | | ✓ | | |
+| Component | Description | Agent | PhysicsEntity | RenderOnlyEntity | LidarRayEntity | TargetEntity |
+|-----------|-------------|-------|---------------|------------------|----------------|--------------|
+| Position | World position | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Rotation | Orientation quaternion | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Scale | Entity scale | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ObjectID | Rendering object ID | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Velocity | Linear and angular velocity | ✓ | ✓ | | | ✓ |
+| ResponseType | Physics response (Dynamic/Static) | ✓ | ✓ | | | |
+| ExternalForce | Applied forces | ✓ | | | | |
+| ExternalTorque | Applied torques | ✓ | | | | |
+| Action | Agent control input | ✓ | | | | |
+| Reward | RL reward signal | ✓ | | | | |
+| Done | Episode termination flag | ✓ | | | | |
+| CollisionDeath | Collision termination tracker | ✓ | | | | |
+| TerminationReason | Termination code | ✓ | | | | |
+| SelfObservation | Agent position/progress obs | ✓ | | | | |
+| CompassObservation | 128-bucket direction encoding | ✓ | | | | |
+| Lidar | 128-sample depth array | ✓ | | | | |
+| Progress | Forward progress tracking | ✓ | | | | |
+| StepsTaken | Episode step counter | ✓ | | | | |
+| EntityType | Entity classification | ✓ | ✓ | | | |
+| DoneOnCollide | Triggers episode end on collision | | ✓ | | | |
+| MotionParams | Motion configuration | | | | | ✓ |
+| TargetTag | Target entity identifier | | | | | ✓ |
 
 #### Archetype Definitions
 ```cpp

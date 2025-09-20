@@ -85,13 +85,25 @@ struct CompiledLevel {
     float tile_rand_scale_x[MAX_TILES];  // X-scale randomization range
     float tile_rand_scale_y[MAX_TILES];  // Y-scale randomization range
     float tile_rand_scale_z[MAX_TILES];  // Z-scale randomization range
+
+    // Target configuration for chase rabbit entities
+    int32_t num_targets;                 // Number of targets in level
+    float target_x[MAX_TARGETS];         // Target X positions in world space
+    float target_y[MAX_TARGETS];         // Target Y positions in world space
+    float target_z[MAX_TARGETS];         // Target Z positions in world space
+    int32_t target_motion_type[MAX_TARGETS]; // Motion equation type (0=static, 1=harmonic)
+    float target_params[MAX_TARGETS][8]; // Generic parameter array for motion equations
+    // Parameter interpretation based on motion_type:
+    // Static (0): No params used
+    // Harmonic (1): [0]=omega_x, [1]=omega_y, [2]=center_x, [3]=center_y, [4]=center_z, [5]=mass
 };
 ```
 
 **Key Points:**
 - Fixed-size arrays enable efficient C API interop and GPU memory layout
 - World coordinates calculated from grid coordinates with configurable scale factor
-- Supports up to 1024 tiles and 8 spawn points per level (see `generated_constants.py`)
+- Supports up to 1024 tiles, 8 spawn points, and 8 target entities per level (see `generated_constants.py`)
+- Target entities use configurable motion equations with generic parameter arrays for future extensibility
 
 ### Supporting Structures
 
@@ -109,6 +121,22 @@ struct CompiledLevel {
     "spawn_random": false,
     "auto_boundary_walls": false,
     "boundary_wall_offset": 0.5,
+    "targets": [
+        {
+            "position": [5.0, 10.0, 1.0],
+            "motion_type": "static"
+        },
+        {
+            "position": [10.0, 5.0, 1.0],
+            "motion_type": "harmonic",
+            "params": {
+                "omega_x": 1.0,
+                "omega_y": 0.5,
+                "center": [10.0, 5.0, 1.0],
+                "mass": 1.0
+            }
+        }
+    ],
     "name": "level_name"
 }
 ```
@@ -122,7 +150,13 @@ struct CompiledLevel {
         {
             "ascii": ["###", "#S#", "###"],
             "name": "level_1",
-            "agent_facing": [0.0]
+            "agent_facing": [0.0],
+            "targets": [
+                {
+                    "position": [5.0, 10.0, 1.0],
+                    "motion_type": "static"
+                }
+            ]
         }
     ],
     "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
@@ -130,6 +164,18 @@ struct CompiledLevel {
     "spawn_random": false,
     "auto_boundary_walls": true,
     "boundary_wall_offset": 0.5,
+    "targets": [
+        {
+            "position": [0.0, 0.0, 1.0],
+            "motion_type": "harmonic",
+            "params": {
+                "omega_x": 2.0,
+                "omega_y": 1.5,
+                "center": [0.0, 0.0, 1.0],
+                "mass": 1.0
+            }
+        }
+    ],
     "name": "curriculum_set"
 }
 ```
