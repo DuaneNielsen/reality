@@ -291,6 +291,23 @@ static void decodeHarmonicParams(const float* target_params, int32_t target_idx,
 }
 
 /**
+ * Simple decoder for circular motion parameters from flattened array.
+ * Converts target_params[target_idx * 8 + param_idx] to MotionParams structure.
+ */
+static void decodeCircularParams(const float* target_params, int32_t target_idx, MotionParams& params)
+{
+    int32_t base_idx = target_idx * 8;
+    params.omega_x = target_params[base_idx + 0];    // angular_velocity
+    params.omega_y = target_params[base_idx + 1];    // randomize_flag
+    params.center_x = target_params[base_idx + 2];   // center_x
+    params.center_y = target_params[base_idx + 3];   // center_y
+    params.center_z = target_params[base_idx + 4];   // center_z
+    params.mass = target_params[base_idx + 5];       // direction (will be randomized if needed)
+    params.phase_x = target_params[base_idx + 6];    // radius
+    params.phase_y = target_params[base_idx + 7];    // initial_angle (will be randomized if needed)
+}
+
+/**
  * Helper function to create target entities from CompiledLevel configuration.
  * Creates configurable chase rabbit targets with custom motion equations.
  * Called once from createPersistentEntities() during initialization.
@@ -334,6 +351,9 @@ static void createTargetEntity(Engine &ctx)
         } else if (params.motion_type == 1) {
             // Harmonic motion - decode parameters from flattened array
             decodeHarmonicParams(level.target_params, i, params);
+        } else if (params.motion_type == 2) {
+            // Circular motion - decode parameters from flattened array
+            decodeCircularParams(level.target_params, i, params);
         } else {
             // Unknown motion type - default to static
             params.omega_x = 0.0f;
@@ -480,6 +500,36 @@ void createPersistentEntities(Engine &ctx)
 }
 
 /**
+ * Resets target entities with randomization for a new episode.
+ * Called from resetPersistentEntities() each episode.
+ * Applies deterministic randomization to circular motion targets if randomize flag is set.
+ */
+static void resetTargets(Engine &ctx) {
+    CompiledLevel& level = ctx.singleton<CompiledLevel>();
+
+    // Query for all target entities using ECS
+    auto target_query = ctx.query<MotionParams, TargetTag>();
+    ctx.iterateQuery(target_query, [&](MotionParams& params, TargetTag& tag) {
+        // Only randomize circular motion targets with randomize flag set
+        if (params.motion_type == 2 && params.omega_y > 0.0f) {
+            // Create deterministic episode key using same pattern as spawn generation
+            RandKey episode_key = rand::split_i(ctx.data().initRandKey,
+                                               ctx.data().curWorldEpisode - 1, // -1 because episode was already incremented
+                                               (uint32_t)ctx.worldID().idx);
+            RandKey target_base_key = rand::split_i(episode_key, 3000u + tag.id, 0u);
+
+            // Randomize initial angle (0 to 2π)
+            float random_initial_angle = rand::sampleUniform(rand::split_i(target_base_key, 0u, 0u)) * 2.0f * math::pi;
+            params.phase_y = random_initial_angle;
+
+            // Randomize direction (clockwise vs counter-clockwise)
+            float random_direction_val = rand::sampleUniform(rand::split_i(target_base_key, 1u, 0u));
+            params.mass = (random_direction_val < 0.5f) ? -1.0f : 1.0f;  // -1 = clockwise, 1 = counter-clockwise
+        }
+    });
+}
+
+/**
  * Resets persistent entities for a new episode.
  * Called from generateWorld() at the start of each episode.
  * 
@@ -525,6 +575,9 @@ static void resetPersistentEntities(Engine &ctx)
 
      // Reset agent physics and positions for the new episode
      resetAgentPhysics(ctx);
+
+     // Reset targets with randomization for the new episode
+     resetTargets(ctx);
 }
 
 

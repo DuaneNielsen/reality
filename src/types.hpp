@@ -200,16 +200,20 @@ namespace madEscape {
 
     // [GAME_SPECIFIC]
     // Parameters for custom equation of motion
+    // Parameter interpretation depends on motion_type:
+    // Static (0): No parameters used
+    // Figure-8 (1): omega_x=speed, phase_x=X_amplitude, phase_y=Y_amplitude
+    // Circular (2): omega_x=angular_velocity, omega_y=randomize_flag, phase_x=radius, phase_y=initial_angle, mass=direction
     struct MotionParams {
-        float omega_x;     // Harmonic frequency X
-        float omega_y;     // Harmonic frequency Y
-        float center_x;    // Equilibrium position X
-        float center_y;    // Equilibrium position Y
-        float center_z;    // Equilibrium position Z
-        float mass;        // Mass for equation dynamics
-        float phase_x;     // Phase offset X (for figure-8 motion)
-        float phase_y;     // Phase offset Y (for figure-8 motion)
-        int32_t motion_type; // 0=static, 1=harmonic, 2=circular, etc.
+        float omega_x;     // Motion parameter 1: frequency/speed/angular_velocity
+        float omega_y;     // Motion parameter 2: frequency/randomize_flag/unused
+        float center_x;    // Center position X for all motion types
+        float center_y;    // Center position Y for all motion types
+        float center_z;    // Center position Z for all motion types
+        float mass;        // Dynamics parameter: mass/direction_multiplier
+        float phase_x;     // Amplitude/radius parameter
+        float phase_y;     // Phase/initial_angle parameter
+        int32_t motion_type; // 0=static, 1=figure8, 2=circular, etc.
     };
 
     // [GAME_SPECIFIC]

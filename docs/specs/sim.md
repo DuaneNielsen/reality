@@ -292,13 +292,22 @@ struct MotionParams {
 - **Components Used**: Reads: `MotionParams`; Writes: `Position`, `Velocity`
 - **Task Graph Dependencies**: After movementSystem, before physics broadphase
 - **Specifications**:
-  - **Motion types**: 0=static, 1=figure-8 oscillator (extensible via templates)
+  - **Motion types**: 0=static, 1=figure-8 oscillator, 2=circular motion (extensible via templates)
   - **Figure-8 motion**: Uses parametric equations x=A*cos(ωt), y=B*sin(2ωt) for Lissajous curves
-  - **Parameter mapping**: omega_x=speed, phase_x=X amplitude, phase_y=Y amplitude
+  - **Circular motion**: Uses parametric equations x=center_x+radius*cos(θ), y=center_y+radius*sin(θ) where θ=initial_angle+direction*angular_velocity*t
+  - **Parameter mapping**:
+    - Figure-8: omega_x=speed, phase_x=X amplitude, phase_y=Y amplitude
+    - Circular: omega_x=angular_velocity, omega_y=randomize_flag, phase_x=radius, phase_y=initial_angle, mass=direction
   - **Time source**: Accesses simulation time via agent StepsTaken component
   - **Timestep**: `dt = consts::deltaT / consts::numPhysicsSubsteps`
   - **Physics isolation**: Target entities not registered with physics system
   - **NVRTC compatibility**: Template specializations with runtime switch
+  - **Circular motion randomization**:
+    - When omega_y=1.0 (randomize flag enabled), initial_angle and direction are randomized each episode
+    - Uses deterministic PRNG with episode key pattern: `rand::split_i(episode_key, 3000u + target_id, 0u)`
+    - Initial angle randomized from 0 to 2π radians
+    - Direction randomized to ±1.0 (clockwise/counter-clockwise)
+    - Randomization applied during `resetTargets()` called from `resetPersistentEntities()`
 
 ## Performance Considerations
 
@@ -1228,6 +1237,7 @@ Handles episode resets and world regeneration
 **Details:**
 - `resetPersistentEntities()`: Re-register persistent tiles with physics
 - `resetAgentPhysics()`: Place agents at spawn positions from CompiledLevel
+- `resetTargets()`: Apply randomization to circular motion targets if randomize flag enabled
 - `generateLevel()`: Create non-persistent tiles with randomization
 - Initialize Progress with sentinel values
 

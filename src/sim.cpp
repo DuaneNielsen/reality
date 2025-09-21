@@ -534,6 +534,42 @@ inline void applyMotionEquation<1>(
     vel.linear.z = 0.0f;
 }
 
+// Circular motion specialization - parameterized circular motion
+template<>
+inline void applyMotionEquation<2>(
+    Engine& ctx, float dt, Position& pos, Velocity& vel, const MotionParams& params) {
+    // Access simulation time through agent's StepsTaken component
+    Entity agent = ctx.data().agents[0];  // Use first agent for timing
+    StepsTaken steps_taken = ctx.get<StepsTaken>(agent);
+    float t = steps_taken.t * consts::deltaT;  // Convert steps to time
+
+    Vector3 center = {params.center_x, params.center_y, params.center_z};
+
+    // Circular motion parameters
+    float angular_velocity = params.omega_x;  // Use omega_x as angular velocity (rad/s)
+    float radius = params.phase_x;  // Use phase_x as radius
+    float initial_angle = params.phase_y;  // Use phase_y as initial angle offset
+
+    // Direction multiplier: 1 for counter-clockwise, -1 for clockwise
+    // Stored in mass field during randomization setup
+    float direction = (params.mass > 0.0f) ? 1.0f : -1.0f;
+
+    // Calculate current angle: initial_angle + direction * angular_velocity * time
+    float current_angle = initial_angle + direction * angular_velocity * t;
+
+    // Set position for circular motion: center + radius * (cos(angle), sin(angle))
+    pos.x = center.x + radius * cosf(current_angle);
+    pos.y = center.y + radius * sinf(current_angle);
+    pos.z = center.z;
+
+    // Calculate velocity from position derivative
+    // dx/dt = -radius * angular_velocity * direction * sin(angle)
+    // dy/dt = radius * angular_velocity * direction * cos(angle)
+    vel.linear.x = -radius * angular_velocity * direction * sinf(current_angle);
+    vel.linear.y = radius * angular_velocity * direction * cosf(current_angle);
+    vel.linear.z = 0.0f;
+}
+
 // [GAME_SPECIFIC] Custom motion system for target entities
 inline void customMotionSystem(Engine& ctx,
     Position& pos,
@@ -546,6 +582,7 @@ inline void customMotionSystem(Engine& ctx,
     switch(params.motion_type) {
         case 0: applyMotionEquation<0>(ctx, dt, pos, vel, params); break;
         case 1: applyMotionEquation<1>(ctx, dt, pos, vel, params); break;
+        case 2: applyMotionEquation<2>(ctx, dt, pos, vel, params); break;
         default: applyMotionEquation<0>(ctx, dt, pos, vel, params); break;
     }
 }

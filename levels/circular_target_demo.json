@@ -1,0 +1,52 @@
+{
+    "ascii": [
+        "........",
+        "........",
+        "........",
+        "........",
+        "........",
+        "........",
+        "...S....",
+        "........"
+    ],
+    "tileset": {
+        "S": {"asset": "spawn"},
+        ".": {"asset": "empty"}
+    },
+    "name": "Circular Target Demo",
+    "width": 8,
+    "height": 8,
+    "scale": 4.0,
+    "spawn_random": false,
+    "auto_boundary_walls": true,
+    "spawns": [
+        [0.0, -12.0]
+    ],
+    "agent_facing": [0.0],
+    "targets": [
+        {
+            "position": [12.0, 0.0, 1.0],
+            "motion_type": "circular",
+            "params": {
+                "angular_velocity": 1.0,
+                "center": [0.0, 0.0, 1.0],
+                "radius": 12.0,
+                "randomize": 0.0,
+                "direction": 1.0,
+                "initial_angle": 0.0
+            }
+        },
+        {
+            "position": [0.0, -8.0, 1.0],
+            "motion_type": "circular",
+            "params": {
+                "angular_velocity": 2.0,
+                "center": [0.0, -8.0, 1.0],
+                "radius": 4.0,
+                "randomize": 1.0,
+                "direction": -1.0,
+                "initial_angle": 1.57
+            }
+        }
+    ]
+}

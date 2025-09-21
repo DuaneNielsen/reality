@@ -274,7 +274,7 @@ def _validate_targets(targets: List[Dict]) -> None:
             raise ValueError(f"Target {i} 'motion_type' must be a string")
 
         # Validate motion types
-        valid_motion_types = ["static", "figure8"]
+        valid_motion_types = ["static", "figure8", "circular"]
         if motion_type not in valid_motion_types:
             raise ValueError(
                 f"Target {i} invalid motion_type '{motion_type}', "
@@ -307,6 +307,52 @@ def _validate_targets(targets: List[Dict]) -> None:
                     value = params[param]
                     if not isinstance(value, (int, float)):
                         raise ValueError(f"Target {i} params['{param}'] must be a number")
+
+            # Validate center array
+            center = params["center"]
+            if not isinstance(center, list) or len(center) != 3:
+                raise ValueError(f"Target {i} params['center'] must be [x, y, z] array")
+
+            for j, coord in enumerate(center):
+                if not isinstance(coord, (int, float)):
+                    raise ValueError(f"Target {i} params center[{j}] must be a number")
+
+        elif motion_type == "circular":
+            if "params" not in target:
+                raise ValueError(f"Target {i} with motion_type 'circular' must have 'params' field")
+
+            params = target["params"]
+            if not isinstance(params, dict):
+                raise ValueError(f"Target {i} 'params' must be a dictionary")
+
+            required_params = ["angular_velocity", "center", "radius"]
+            for param in required_params:
+                if param not in params:
+                    raise ValueError(f"Target {i} circular params missing '{param}' field")
+
+            # Validate required numeric parameters
+            for param in ["angular_velocity", "radius"]:
+                value = params[param]
+                if not isinstance(value, (int, float)):
+                    raise ValueError(f"Target {i} params['{param}'] must be a number")
+                if param == "radius" and value <= 0:
+                    raise ValueError(f"Target {i} params['radius'] must be positive")
+                if param == "angular_velocity" and value == 0:
+                    raise ValueError(f"Target {i} params['angular_velocity'] must be non-zero")
+
+            # Validate optional parameters
+            for param in ["randomize", "direction", "initial_angle"]:
+                if param in params:
+                    value = params[param]
+                    if not isinstance(value, (int, float)):
+                        raise ValueError(f"Target {i} params['{param}'] must be a number")
+                    if param == "randomize" and value not in [0.0, 1.0]:
+                        raise ValueError(f"Target {i} params['randomize'] must be 0.0 or 1.0")
+                    if param == "direction" and value not in [-1.0, 1.0]:
+                        raise ValueError(
+                            f"Target {i} params['direction'] must be -1.0 (clockwise) "
+                            f"or 1.0 (counter-clockwise)"
+                        )
 
             # Validate center array
             center = params["center"]
@@ -847,6 +893,26 @@ def _process_targets(level: CompiledLevel, targets: List[Dict]) -> None:
             level.target_params[base_idx + 5] = float(params["mass"])  # mass
             level.target_params[base_idx + 6] = float(params.get("phase_x", 0.0))  # phase_x
             level.target_params[base_idx + 7] = float(params.get("phase_y", 0.0))  # phase_y
+        elif motion_type == "circular":
+            level.target_motion_type[i] = 2
+
+            # Set circular parameters (flattened array)
+            params = target["params"]
+            base_idx = i * 8
+            level.target_params[base_idx + 0] = float(params["angular_velocity"])  # omega_x
+            level.target_params[base_idx + 1] = float(
+                params.get("randomize", 0.0)
+            )  # omega_y (randomize flag)
+            level.target_params[base_idx + 2] = float(params["center"][0])  # center_x
+            level.target_params[base_idx + 3] = float(params["center"][1])  # center_y
+            level.target_params[base_idx + 4] = float(params["center"][2])  # center_z
+            level.target_params[base_idx + 5] = float(
+                params.get("direction", 1.0)
+            )  # mass (direction: 1=ccw, -1=cw)
+            level.target_params[base_idx + 6] = float(params["radius"])  # phase_x (radius)
+            level.target_params[base_idx + 7] = float(
+                params.get("initial_angle", 0.0)
+            )  # phase_y (initial angle)
         else:
             raise ValueError(f"Unknown motion_type: {motion_type}")
 
