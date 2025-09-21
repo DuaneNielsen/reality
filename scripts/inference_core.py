@@ -305,8 +305,8 @@ class InferenceRunner:
         )
 
         if self.config.print_probs:
-            print("Progress:", obs[0])
-            print("Compass:", obs[1])
+            print("Compass:", obs[0])
+            print("Lidar:", obs[1])
             print("Actions:", actions.cpu().numpy())
             print(f"Step Rewards: {rewards.cpu().numpy()}")
 

@@ -171,23 +171,14 @@ def create_minimal_sim_interface(manager: madrona_escape_room.SimManager) -> Sim
 
 
 def create_lidar_sim_interface(manager: madrona_escape_room.SimManager) -> SimInterface:
-    """Create SimInterface with lidar, compass and progress sensors."""
+    """Create SimInterface with lidar and compass sensors only."""
 
-    # Get the full self observation tensor
-    self_obs_full = manager.self_observation_tensor().to_torch()  # [worlds, agents, 5]
-
-    # Extract just the progress indicator (maxY reached)
-    progress_tensor = self_obs_full[
-        :, :, SelfObsIndex.PROGRESS : SelfObsIndex.PROGRESS + 1
-    ]  # [worlds, agents, 1]
-
-    # Get lidar tensor - now single-channel distance values only
+    # Get lidar tensor - single-channel distance values only
     lidar_tensor = manager.lidar_tensor().to_torch()  # [worlds, agents, 128] - distance only
 
     return SimInterface(
         step=manager.step,
         obs=[
-            progress_tensor,  # [worlds, agents, 1] - just progress
             manager.compass_tensor().to_torch(),  # [worlds, agents, 128]
             lidar_tensor,  # [worlds, agents, 128] - lidar distance only
         ],

@@ -17,51 +17,27 @@ from madrona_escape_room_learn.rnn import LSTM
 
 
 def setup_obs(obs_list):
-    """Setup observations from tensor list. Supports minimal and lidar setups."""
+    """Setup observations from tensor list. Supports compass+lidar setup."""
     if len(obs_list) == 2:
-        # Minimal setup: [progress, compass]
-        progress_tensor, compass_tensor = obs_list
+        # Current setup: [compass, lidar]
+        compass_tensor, lidar_tensor = obs_list
 
-        N, A = progress_tensor.shape[0:2]
+        N, A = compass_tensor.shape[0:2]
         batch_size = N * A
 
         # Reshape tensors to batch format
         obs_tensors = [
-            progress_tensor.view(batch_size, *progress_tensor.shape[2:]),  # [batch, 1]
             compass_tensor.view(batch_size, *compass_tensor.shape[2:]),  # [batch, 128]
+            lidar_tensor.view(batch_size, *lidar_tensor.shape[2:]),  # [batch, 128]
         ]
 
-        # Calculate total features: 1 (progress) + 128 (compass)
-        num_obs_features = 1 + 128  # = 129
-
-        return obs_tensors, num_obs_features
-
-    elif len(obs_list) == 3:
-        # Full setup: [progress, compass, lidar/depth]
-        progress_tensor, compass_tensor, sensor_tensor = obs_list
-
-        N, A = progress_tensor.shape[0:2]
-        batch_size = N * A
-
-        # Sensor tensor is either lidar depth [worlds, agents, 128, 1] or depth image
-        # Both need to be flattened to [batch, features]
-        sensor_reshaped = sensor_tensor.view(batch_size, -1)
-        sensor_features = sensor_reshaped.shape[-1]
-
-        # Reshape all tensors to batch format
-        obs_tensors = [
-            progress_tensor.view(batch_size, *progress_tensor.shape[2:]),  # [batch, 1]
-            compass_tensor.view(batch_size, *compass_tensor.shape[2:]),  # [batch, 128]
-            sensor_reshaped,  # [batch, sensor_features]
-        ]
-
-        # Calculate total features
-        num_obs_features = 1 + 128 + sensor_features
+        # Calculate total features: 128 (compass) + 128 (lidar)
+        num_obs_features = 128 + 128  # = 256
 
         return obs_tensors, num_obs_features
 
     else:
-        raise ValueError(f"Expected 2 or 3 observation tensors, got {len(obs_list)}")
+        raise ValueError(f"Expected 2 observation tensors (compass + lidar), got {len(obs_list)}")
 
 
 def process_obs(*obs_tensors):

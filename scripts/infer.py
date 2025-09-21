@@ -62,9 +62,8 @@ def detailed_callback(step, obs, actions, rewards, dones, values, probs):
 
     # Print detailed step information (matching original behavior)
     print(f"\n=== Step {step+1}/{args.num_steps} ===")
-    print("Progress:", obs[0])
-    print("Compass:", obs[1])
-    print("Lidar:", obs[2])
+    print("Compass:", obs[0])
+    print("Lidar:", obs[1])
 
     print("Move Amount Probs")
     print(" ", np.array_str(probs[0][0].cpu().numpy(), precision=2, suppress_small=True))

@@ -203,8 +203,8 @@ def main():
             stats = runner.episode_tracker.get_statistics()
             episodes_completed = stats["episodes/completed"]
             print(f"Step {step+1}/{config.num_steps} - Episodes completed: {episodes_completed}")
-            print("Progress:", obs[0])
-            print("Compass:", obs[1])
+            print("Compass:", obs[0])
+            print("Lidar:", obs[1])
             print("Actions:", actions.cpu().numpy())
             print(f"Step Rewards: {rewards.cpu().numpy()}")
             reward_ema = stats["episodes/reward_ema"]

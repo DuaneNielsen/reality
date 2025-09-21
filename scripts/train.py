@@ -57,9 +57,11 @@ class EvaluationRunner:
             exec_mode=madrona_escape_room.ExecMode.CPU,  # Always CPU for evaluation
             gpu_id=0,  # Not used for CPU mode
             sim_seed=0,  # Fixed seed for deterministic evaluation
-            # Model settings - will be updated based on training config
-            num_channels=training_config.get("num_channels", 256),
-            separate_value=training_config.get("separate_value", False),
+            # Model settings - use model_kwargs structure
+            model_kwargs={
+                "num_channels": training_config.get("num_channels", 256),
+                "separate_value": training_config.get("separate_value", False),
+            },
             fp16=False,  # Disable FP16 for CPU evaluation
             # Level settings
             compiled_levels=compiled_levels,
@@ -85,8 +87,7 @@ class EvaluationRunner:
                 exec_mode=madrona_escape_room.ExecMode.CPU,  # Force CPU to avoid device conflicts
                 gpu_id=self.eval_config_template.gpu_id,
                 sim_seed=self.eval_config_template.sim_seed,
-                num_channels=self.eval_config_template.num_channels,
-                separate_value=self.eval_config_template.separate_value,
+                model_kwargs=self.eval_config_template.model_kwargs,
                 fp16=self.eval_config_template.fp16,
                 compiled_levels=self.eval_config_template.compiled_levels,
                 track_episodes=self.eval_config_template.track_episodes,
@@ -746,7 +747,7 @@ else:
     dev = torch.device("cpu")
 
 
-# Setup observations from [progress, compass, lidar] tensor list
+# Setup observations from [compass, lidar] tensor list
 obs, num_obs_features = setup_obs(sim_interface.obs)
 policy = make_policy(num_obs_features, args.num_channels, args.separate_value)
 
