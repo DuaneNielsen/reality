@@ -51,6 +51,11 @@ def main():
     parser.add_argument(
         "--lookup", type=str, help="Look up run hash for given human readable name and exit"
     )
+    parser.add_argument(
+        "--recording-path",
+        type=str,
+        help="Custom path for recording file (overrides default .rec name)",
+    )
 
     args = parser.parse_args()
 
@@ -174,11 +179,16 @@ def main():
 
     print(f"Using checkpoint: {config.ckpt_path}")
 
-    # Create recording path in the same directory as checkpoint
-    ckpt_path = Path(config.ckpt_path)
-    recording_path = ckpt_path.with_suffix(".rec")
-    config.recording_path = str(recording_path)
-    print(f"Recording will be saved to: {recording_path}")
+    # Create recording path - use custom path if provided, otherwise default to checkpoint.rec
+    if args.recording_path:
+        recording_path = Path(args.recording_path)
+        config.recording_path = str(recording_path)
+        print(f"Recording will be saved to: {recording_path} (custom path)")
+    else:
+        ckpt_path = Path(config.ckpt_path)
+        recording_path = ckpt_path.with_suffix(".rec")
+        config.recording_path = str(recording_path)
+        print(f"Recording will be saved to: {recording_path} (default path)")
 
     # Set up for detailed output like infer_from_wandb.py
     config.verbose = True
