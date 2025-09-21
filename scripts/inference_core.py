@@ -13,43 +13,70 @@ from madrona_escape_room_learn.moving_avg import EpisodicEMATrackerWithHistogram
 import madrona_escape_room
 
 
-@dataclass
 class InferenceConfig:
     """Configuration for inference runs"""
 
-    # Required settings
-    ckpt_path: str
-    num_worlds: int = 4
-    num_steps: int = 1000
+    def __init__(
+        self,
+        ckpt_path: str,
+        compiled_levels: List,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        # Optional simulation settings
+        num_worlds: int = 4,
+        num_steps: int = 1000,
+        exec_mode: madrona_escape_room.ExecMode = madrona_escape_room.ExecMode.CPU,
+        gpu_id: int = 0,
+        sim_seed: int = 0,
+        fp16: bool = False,
+        # Optional level settings
+        level_file: Optional[str] = None,
+        # Optional output settings
+        recording_path: Optional[str] = None,
+        action_dump_path: Optional[str] = None,
+        # Optional tracking settings
+        track_episodes: bool = True,
+        ema_alpha: float = 0.01,
+        reward_bins: Optional[List[float]] = None,
+        length_bins: Optional[List[int]] = None,
+        # Optional display settings
+        verbose: bool = True,
+        print_interval: int = 100,
+        print_probs: bool = False,
+    ):
+        # Required settings
+        self.ckpt_path = ckpt_path
+        self.compiled_levels = compiled_levels
 
-    # Simulation settings
-    exec_mode: madrona_escape_room.ExecMode = madrona_escape_room.ExecMode.CPU
-    gpu_id: int = 0
-    sim_seed: int = 0
+        # Model settings - store as dict to pass through
+        self.model_kwargs = model_kwargs or {}
 
-    # Model settings
-    num_channels: int = 256
-    separate_value: bool = False
-    fp16: bool = False
+        # Simulation settings
+        self.num_worlds = num_worlds
+        self.num_steps = num_steps
+        self.exec_mode = exec_mode
+        self.gpu_id = gpu_id
+        self.sim_seed = sim_seed
+        self.fp16 = fp16
 
-    # Level settings
-    level_file: Optional[str] = None
-    compiled_levels: Optional[List] = None
+        # Level settings
+        self.level_file = level_file
 
-    # Output settings
-    recording_path: Optional[str] = None
-    action_dump_path: Optional[str] = None
+        # Output settings
+        self.recording_path = recording_path
+        self.action_dump_path = action_dump_path
 
-    # Tracking settings
-    track_episodes: bool = True
-    ema_alpha: float = 0.01
-    reward_bins: List[float] = field(default_factory=lambda: [-1.0, -0.5, -0.2, 0.0, 0.2, 0.5, 1.0])
-    length_bins: List[int] = field(default_factory=lambda: [1, 25, 50, 100, 150, 200])
+        # Tracking settings
+        self.track_episodes = track_episodes
+        self.ema_alpha = ema_alpha
+        self.reward_bins = (
+            reward_bins if reward_bins is not None else [-1.0, -0.5, -0.2, 0.0, 0.2, 0.5, 1.0]
+        )
+        self.length_bins = length_bins if length_bins is not None else [1, 25, 50, 100, 150, 200]
 
-    # Display settings
-    verbose: bool = True
-    print_interval: int = 100
-    print_probs: bool = False
+        # Display settings
+        self.verbose = verbose
+        self.print_interval = print_interval
+        self.print_probs = print_probs
 
 
 class InferenceRunner:
@@ -87,9 +114,7 @@ class InferenceRunner:
         self._obs, num_obs_features = setup_obs(self.sim_interface.obs)
 
         # Create and load policy
-        self.policy = make_policy(
-            num_obs_features, self.config.num_channels, self.config.separate_value
-        )
+        self.policy = make_policy(num_obs_features, **self.config.model_kwargs)
 
         weights = LearningState.load_policy_weights(self.config.ckpt_path)
         self.policy.load_state_dict(weights)

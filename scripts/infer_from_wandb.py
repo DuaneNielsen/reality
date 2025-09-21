@@ -90,33 +90,79 @@ def main():
 
     # Create config from wandb run
     try:
+        # Get the wandb run to extract model parameters
+        from wandb_utils import find_wandb_run_dir, get_run_object
+
+        from madrona_escape_room.level_io import load_compiled_levels
+
+        run = get_run_object(args.wandb_run_identifier, args.project)
+        if isinstance(run, str) and run.startswith("ERROR"):
+            raise ValueError(run)
+
+        # Build model kwargs dict - extract from wandb config and override with command line
+        model_kwargs = {}
+
+        # Get from wandb config
+        if hasattr(run, "config"):
+            if "num_channels" in run.config:
+                model_kwargs["num_channels"] = run.config["num_channels"]
+            if "separate_value" in run.config:
+                model_kwargs["separate_value"] = run.config["separate_value"]
+
+        # Override with command line args if provided
+        if args.num_channels is not None:
+            model_kwargs["num_channels"] = args.num_channels
+        if args.separate_value:
+            model_kwargs["separate_value"] = args.separate_value
+
+        # Determine level file - command line override takes precedence
+        level_file = None
+        compiled_levels = []
+        num_worlds = args.num_worlds  # Use command line value
+
+        if args.level_file:
+            # Use command line override
+            level_file = args.level_file
+            compiled_levels = load_compiled_levels(level_file)
+            # Override num_worlds to match level file unless explicitly set
+            if args.num_worlds == 4:  # default value
+                num_worlds = len(compiled_levels)
+        else:
+            # Use default from wandb directory
+            run_dir_result = find_wandb_run_dir(run.id)
+            if run_dir_result != "NOT_FOUND" and not run_dir_result.startswith("ERROR:"):
+                run_dir = Path(run_dir_result)
+                checkpoints_dir = run_dir / "files" / "checkpoints"
+                if checkpoints_dir.exists():
+                    lvl_files = list(checkpoints_dir.glob("*.lvl"))
+                    if lvl_files:
+                        level_file = str(lvl_files[0])
+                        compiled_levels = load_compiled_levels(level_file)
+                        # Override num_worlds to match level file unless explicitly set
+                        if args.num_worlds == 4:  # default value
+                            num_worlds = len(compiled_levels)
+
+        # Build overrides with resolved values
+        overrides = {
+            "model_kwargs": model_kwargs,
+            "level_file": level_file,
+            "compiled_levels": compiled_levels,
+            "num_worlds": num_worlds,
+            "num_steps": args.num_steps,
+            "exec_mode": "CUDA" if args.gpu_sim else "CPU",
+            "gpu_id": args.gpu_id,
+            "sim_seed": args.sim_seed,
+            "fp16": args.fp16,
+        }
+
         config = create_inference_config_from_wandb(
             args.wandb_run_identifier,
             args.project,
-            overrides={
-                "num_worlds": args.num_worlds,
-                "num_steps": args.num_steps,
-                "exec_mode": "CUDA" if args.gpu_sim else "CPU",
-                "gpu_id": args.gpu_id,
-                "sim_seed": args.sim_seed,
-                "fp16": args.fp16,
-                "separate_value": args.separate_value,
-                "level_file": args.level_file,
-                "num_channels": args.num_channels,
-            },
+            overrides=overrides,
         )
     except ValueError as e:
         print(f"Error: {e}")
         sys.exit(1)
-
-    # Apply any explicit overrides
-    if args.num_channels is not None:
-        config.num_channels = args.num_channels
-        print(f"Overriding num_channels to: {args.num_channels}")
-
-    if args.separate_value:
-        config.separate_value = True
-        print("Overriding separate_value to: True")
 
     # Set exec_mode properly
     import madrona_escape_room
@@ -158,8 +204,7 @@ def main():
 
     # Create and run inference
     runner = InferenceRunner(config)
-    print(f"Using num_channels: {config.num_channels}")
-    print(f"Using separate_value: {config.separate_value}")
+    print(f"Model kwargs: {config.model_kwargs}")
 
     # Run inference
     episode_tracker, _ = runner.run_steps(callback=detailed_wandb_callback)

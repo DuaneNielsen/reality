@@ -60,13 +60,25 @@ def create_inference_config_from_wandb(
     if isinstance(run, str) and run.startswith("ERROR"):
         raise ValueError(run)
 
-    # Extract model config from wandb
-    config = InferenceConfig(ckpt_path="")  # Will be set below
+    # Extract configuration from overrides
+    model_kwargs = overrides.get("model_kwargs", {}) if overrides else {}
+    compiled_levels = overrides.get("compiled_levels", []) if overrides else []
+    level_file = overrides.get("level_file") if overrides else None
+    num_worlds = overrides.get("num_worlds", 4) if overrides else 4
+    num_steps = overrides.get("num_steps", 1000) if overrides else 1000
+    exec_mode_str = overrides.get("exec_mode", "CPU") if overrides else "CPU"
+    gpu_id = overrides.get("gpu_id", 0) if overrides else 0
+    sim_seed = overrides.get("sim_seed", 0) if overrides else 0
+    fp16 = overrides.get("fp16", False) if overrides else False
 
-    if hasattr(run, "config"):
-        wb_config = run.config
-        config.num_channels = wb_config.get("num_channels", 256)
-        config.separate_value = wb_config.get("separate_value", False)
+    # Convert exec_mode string to enum
+    import madrona_escape_room
+
+    exec_mode = (
+        madrona_escape_room.ExecMode.CUDA
+        if exec_mode_str == "CUDA"
+        else madrona_escape_room.ExecMode.CPU
+    )
 
     # Find wandb run directory
     run_dir_result = find_wandb_run_dir(run.id)
@@ -79,26 +91,20 @@ def create_inference_config_from_wandb(
     ckpt_result = find_checkpoint(str(run_dir))
     if ckpt_result.startswith("ERROR:"):
         raise ValueError(ckpt_result)
-    config.ckpt_path = ckpt_result
 
-    # Look for level file in checkpoint directory
-    checkpoints_dir = run_dir / "files" / "checkpoints"
-    if checkpoints_dir.exists():
-        lvl_files = list(checkpoints_dir.glob("*.lvl"))
-        if lvl_files:
-            level_file = str(lvl_files[0])
-            config.level_file = level_file
-            config.compiled_levels = load_compiled_levels(level_file)
-
-            # Adjust num_worlds to match sublevels
-            num_sublevels = len(config.compiled_levels)
-            config.num_worlds = num_sublevels
-
-    # Apply overrides
-    if overrides:
-        for key, value in overrides.items():
-            if hasattr(config, key):
-                setattr(config, key, value)
+    # Create config with proper constructor
+    config = InferenceConfig(
+        ckpt_path=ckpt_result,
+        compiled_levels=compiled_levels,
+        model_kwargs=model_kwargs,
+        num_worlds=num_worlds,
+        num_steps=num_steps,
+        exec_mode=exec_mode,
+        gpu_id=gpu_id,
+        sim_seed=sim_seed,
+        fp16=fp16,
+        level_file=level_file,
+    )
 
     return config
 

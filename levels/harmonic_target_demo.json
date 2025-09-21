@@ -37,8 +37,8 @@
       "position": [5.0, 2.5, 1.5],
       "motion_type": "figure8",
       "params": {
-        "omega_x": 1.0,
-        "omega_y": 6.0,
+        "omega_x": 0.2,
+        "omega_y": 1.2,
         "center": [0.0, 0.0, 1.5],
         "mass": 1.0,
         "phase_x": 20.0,
