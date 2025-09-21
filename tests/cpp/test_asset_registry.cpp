@@ -97,8 +97,8 @@ TEST_F(AssetRegistryTest, AssetCounts) {
     // Count physics assets (cube, wall, agent, plane, cylinder)
     EXPECT_EQ(Assets::getPhysicsAssetCount(), 5);
     
-    // Count render assets (cube, wall, agent, plane, axis_x, axis_y, axis_z, cylinder, lidar_ray, target)
-    EXPECT_EQ(Assets::getRenderAssetCount(), 10);
+    // Count render assets (cube, wall, agent, plane, axis_x, axis_y, axis_z, cylinder, lidar_ray, target, compass_indicator)
+    EXPECT_EQ(Assets::getRenderAssetCount(), 11);
 }
 
 TEST_F(AssetRegistryTest, AssetProperties) {
