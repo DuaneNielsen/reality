@@ -201,19 +201,20 @@ struct MotionParams {
   - **Reset behavior**: Counter resets to 0 on episode reset
 
 #### rewardSystem
-- **Purpose**: Calculates completion-based rewards when agent reaches level goal
-- **Components Used**: Reads: `Position`, `Progress`, `CollisionDeath`, `CompiledLevel`; Writes: `Reward`, `Done`, `TerminationReason`
+- **Purpose**: Calculates completion-based rewards when agent reaches target entity
+- **Components Used**: Reads: `Position`, `Progress`, `CollisionDeath`, `TargetTag`, `CompiledLevel`; Writes: `Reward`, `Done`, `TerminationReason`
 - **Task Graph Dependencies**: After stepTrackerSystem, before resetSystem
 - **Specifications**:
   - **Step 0**: Always 0.0 reward (no reward on reset)
   - **Completion only**: Only completion gives rewards (no incremental progress rewards)
-  - **Completion condition**: Reward = 1.0 when agent Y position >= world_max_y
+  - **Completion condition**: Reward = 1.0 when agent is within 1.0 world units of target position
+  - **Target selection**: Uses primary target (TargetTag.id == 0) for distance calculation
+  - **Distance calculation**: Euclidean distance in 3D space between agent and target positions
   - **Non-completion**: 0.0 reward for all other steps
-  - **High-water mark**: Progress tracked as maxY for termination detection
-  - **Movement tracking**: No reward for forward movement until completion
-  - **Collision override**: Death penalty -0.1 overrides any completion reward
+  - **Progress tracking**: Progress.maxY repurposed to track closest distance to target achieved
+  - **No target fallback**: If no target exists, no reward is given (0.0 reward)
   - **Goal achievement termination**:
-    - Occurs when agent Y position >= world_max_y
+    - Occurs when agent distance to target <= 1.0 world units
     - Sets done=1 and termination_code=1
     - Reward = 1.0 for successful completion
     - Represents successful episode completion

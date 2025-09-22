@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test reward system for Madrona Escape Room.
-Tests that rewards are given incrementally as the agent makes forward progress.
+Tests that rewards are given when agent reaches target entity.
 """
 
 import json
@@ -17,32 +17,36 @@ from madrona_escape_room.generated_constants import consts
 torch.manual_seed(42)
 np.random.seed(42)
 
-# Define level with spawn at southernmost center position
-TEST_LEVEL_SOUTH_SPAWN = """
-################################
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#..............................#
-#...............S..............#
-################################
-"""
+# Define level with agent spawn and target for completion testing
+TEST_LEVEL_WITH_TARGET = {
+    "ascii": [
+        "############",
+        "#..........#",
+        "#..........#",
+        "#..........#",
+        "#..........#",
+        "#..........#",
+        "#..........#",
+        "#..........#",
+        "#....S.....#",
+        "############",
+    ],
+    "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
+    "scale": 1.0,
+    "targets": [
+        {
+            "position": [5.0, 2.0, 1.0],  # Target north of spawn
+            "motion_type": "static",
+        }
+    ],
+    "name": "reward_termination_test",
+}
 
 
-@pytest.mark.skip(reason="Reward system changed to completion-only, test needs update")
-@pytest.mark.ascii_level(TEST_LEVEL_SOUTH_SPAWN)
-def test_forward_movement_reward(cpu_manager):
-    """Test incremental reward for consistent forward movement"""
+@pytest.mark.spec("docs/specs/sim.md", "rewardSystem")
+@pytest.mark.json_level(TEST_LEVEL_WITH_TARGET)
+def test_target_completion_reward(cpu_manager):
+    """Test completion reward when agent reaches target entity"""
     mgr = cpu_manager
     controller = AgentController(mgr)
     observer = ObservationReader(mgr)
@@ -57,75 +61,65 @@ def test_forward_movement_reward(cpu_manager):
     # Reset world 0
     reset_world(mgr, 0)
 
-    # Move forward at moderate speed
+    # Agent spawns at (10.0, 5.0), target at (10.0, 15.0) = 10 units away
+    # Move forward toward target
     controller.reset_actions()
-    controller.move_forward(world_idx=0, speed=1.5)
-
-    # Track initial position
-    initial_y = observer.get_position(0)[1]
-    print(f"Starting Y position: {initial_y:.2f}")
 
     total_rewards = 0.0
-    prev_y = initial_y
-    rewards_received = 0
+    completion_found = False
 
-    # Run for 190 steps
-    for i in range(190):
+    # Run until completion or step limit
+    for step in range(150):
+        controller.move_forward(world_idx=0, speed=consts.action.move_amount.FAST)
         controller.step()
 
-        # Check for incremental rewards
         reward = observer.get_reward(0)
-        current_y = observer.get_position(0)[1]
+        done = observer.get_done_flag(0)
+        pos = observer.get_normalized_position(0)
 
-        if reward > 0.0:
-            rewards_received += 1
-            total_rewards += reward
-            print(
-                f"Step {i+1}: Y={current_y:.2f} "
-                f"(moved {current_y - prev_y:.3f}), reward={reward:.6f}"
-            )
-            prev_y = current_y
+        total_rewards += reward
 
-        # Print progress every 50 steps
-        if i % 50 == 0:
-            pos = observer.get_position(0)
-            max_y = observer.get_max_y_progress(0)
+        # Print progress every 25 steps
+        if step % 25 == 0:
+            print(f"Step {step}: Position={pos}, Reward={reward}, Done={done}")
+
+        # Check for completion
+        if done:
+            termination_reason = observer.get_termination_reason(0)
             print(
-                f"Step {i}: X={pos[0]:.2f}, Y={pos[1]:.2f}, "
-                f"Max Y progress={max_y:.3f}, Total rewards={total_rewards:.6f}"
+                f"Episode completed at step {step}: reward={reward}, "
+                f"termination={termination_reason}"
             )
 
-    # Final steps to complete episode
-    for _ in range(10):
-        controller.step()
-        reward = observer.get_reward(0)
-        if reward > 0.0:
-            total_rewards += reward
-            rewards_received += 1
+            if termination_reason == 1:  # Goal achieved (target reached)
+                completion_found = True
+                assert reward == 1.0, f"Expected +1.0 reward for target completion, got {reward}"
+                break
+            elif termination_reason == 0:  # Step limit reached
+                print("Episode ended due to step limit, not target completion")
+                break
 
-    # Check final state
-    final_pos = observer.get_position(0)
-    max_y_progress = observer.get_max_y_progress(0)
+        # Should have no reward until completion
+        if not done:
+            assert (
+                reward == 0.0
+            ), f"Expected 0.0 reward before target completion, got {reward} at step {step}"
 
     print("\nFinal state:")
-    y_movement = final_pos[1] - initial_y
-    print(f"  Position: X={final_pos[0]:.2f}, Y={final_pos[1]:.2f} (moved Y by {y_movement:.2f})")
-    print(f"  Max Y progress: {max_y_progress:.3f}")
     print(f"  Total rewards accumulated: {total_rewards:.6f}")
-    print(f"  Number of steps with rewards: {rewards_received}")
+    print(f"  Completion found: {completion_found}")
 
-    # Verify incremental reward system
-    assert rewards_received > 0, "Should receive incremental rewards during movement"
-    assert total_rewards > 0.0, "Should accumulate positive rewards for forward movement"
-    assert observer.get_done_flag(0), "Episode should be done"
-    assert observer.get_steps_remaining(0) == 0, "Steps should be exhausted"
-
-    # The total accumulated rewards should be roughly equal to the normalized progress
-    # (allowing for small numerical differences)
-    expected_total = max_y_progress
-    assert (
-        abs(total_rewards - expected_total) < 0.01
-    ), f"Total rewards {total_rewards:.6f} should match progress {expected_total:.6f}"
+    # The new target-based reward system should either:
+    # 1. Give exactly 1.0 reward upon target completion, OR
+    # 2. Give 0.0 reward if target was never reached (timeout)
+    if completion_found:
+        assert (
+            total_rewards == 1.0
+        ), f"Expected exactly 1.0 total reward for completion, got {total_rewards}"
+    else:
+        assert (
+            total_rewards == 0.0
+        ), f"Expected 0.0 total reward without completion, got {total_rewards}"
 
 
 # Define custom level with walls that limit forward progress

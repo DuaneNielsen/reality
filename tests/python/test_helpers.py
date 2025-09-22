@@ -176,6 +176,18 @@ class ObservationReader:
         episode_length = 200  # consts::episodeLen from consts.hpp
         return max(0, episode_length - int(steps_taken[world_idx, agent_idx, 0].item()))
 
+    def get_termination_reason(self, world_idx: int, agent_idx: int = 0) -> int:
+        """Get termination reason code
+
+        Returns:
+            -1: Not terminated (episode still running)
+             0: Episode steps reached (hit 200-step limit)
+             1: Goal achieved (reached target/world_max_y)
+             2: Collision death (hit DoneOnCollide=true entity)
+        """
+        termination_tensor = self.mgr.termination_reason_tensor().to_torch()
+        return int(termination_tensor[world_idx, agent_idx].item())
+
     def print_agent_state(self, world_idx: int, agent_idx: int = 0):
         """Print current agent state for debugging"""
         pos = self.get_position(world_idx, agent_idx)

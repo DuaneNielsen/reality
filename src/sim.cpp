@@ -702,7 +702,7 @@ inline void lidarSystem(Engine &ctx,
 }
 
 // [REQUIRED_INTERFACE] Computes reward for each agent - every environment needs a reward system
-// [GAME_SPECIFIC] Provides incremental rewards for forward progress
+// [GAME_SPECIFIC] Provides completion rewards when agent reaches target entity
 inline void rewardSystem(Engine &ctx,
                          Position pos,
                          Progress &progress,
@@ -712,50 +712,60 @@ inline void rewardSystem(Engine &ctx,
                          TerminationReason &termination_reason,
                          StepsTaken &steps_taken)
 {
-    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-
-    // Skip reward calculation if progress is not yet initialized (sentinel values)
-    if (progress.maxY < -999990.0f || progress.initialY < -999990.0f) {
+    // Step 0 check: Always 0.0 reward on reset step
+    if (steps_taken.t == 0) {
         out_reward.v = 0.0f;
         return;
     }
 
-    // Update progress tracking for goal detection
-    if (pos.y > progress.maxY) {
-        progress.maxY = pos.y;
+    // Find primary target entity (TargetTag.id == 0)
+    bool found_target = false;
+    Position target_pos = Vector3::zero();
+
+    // Query for target - NVRTC safe iteration
+    auto target_query = ctx.query<Position, TargetTag>();
+    ctx.iterateQuery(target_query, [&](Position& tpos, TargetTag& tag) {
+        if (tag.id == 0) { // Primary target
+            target_pos = tpos;
+            found_target = true;
+        }
+    });
+
+    // No target fallback - give no reward
+    if (!found_target) {
+        out_reward.v = 0.0f;
+        return;
     }
 
-    // Progressive reward system (commented out - using simple goal reward instead)
-    // if (pos.y > progress.maxY) {
-    //     // Calculate incremental reward for forward progress
-    //     float prev_maxY = progress.maxY;
-    //     progress.maxY = pos.y;
-    //
-    //     // Normalize based on total possible progress (from initial to world max)
-    //     float total_possible_progress = level.world_max_y - progress.initialY;
-    //     float progress_this_step = pos.y - prev_maxY;
-    //     float normalized_increment = progress_this_step / total_possible_progress;
-    //
-    //     out_reward.v = normalized_increment;
-    // } else {
-    //     // No forward progress = no reward
-    //     out_reward.v = 0.0f;
-    // }
+    // Calculate Euclidean distance to target
+    Vector3 agent_pos = Vector3{pos.x, pos.y, pos.z};
+    Vector3 target_position = Vector3{target_pos.x, target_pos.y, target_pos.z};
+    Vector3 diff = agent_pos - target_position;
+    float distance_to_target = diff.length();
 
-    // Check for episode completion - use proper normalization
-    float normalized_progress = (progress.maxY - progress.initialY) /
-                                (level.world_max_y - progress.initialY);
-    if (done.v == 0 && normalized_progress >= 1.0f) {
+    // Debug: Print distance to target every 10 steps
+    if (steps_taken.t % 10 == 0) {
+        printf("World %d Step %d: Agent pos (%.2f, %.2f, %.2f), Target pos (%.2f, %.2f, %.2f), Distance: %.3f\n",
+               ctx.worldID().idx, steps_taken.t,
+               agent_pos.x, agent_pos.y, agent_pos.z,
+               target_position.x, target_position.y, target_position.z,
+               distance_to_target);
+    }
+
+    // Check for episode completion - within 3.0 world units of target
+    if (done.v == 0 && distance_to_target <= 3.0f) {
         done.v = 1;
         termination_reason.code = 1;  // goal_achieved
-        out_reward.v = 1.0f;  // +1 reward for reaching the goal
+        out_reward.v = 1.0f;  // +1 reward for reaching the target
+        printf("World %d: TARGET REACHED! Distance: %.3f, Reward: %.1f\n",
+               ctx.worldID().idx, distance_to_target, out_reward.v);
     } else {
-        out_reward.v = 0.0f;  // No reward until goal is reached
+        out_reward.v = 0.0f;  // No reward until target is reached
     }
 
     // Override with collision penalty if agent died
     if (done.v == 1 && collision_death.died == 1) {
-        out_reward.v = 0.0f;  // No penalty for collision death (was -0.1f)
+        out_reward.v = -0.1f;  // Collision death penalty overrides completion reward
     }
 }
 
