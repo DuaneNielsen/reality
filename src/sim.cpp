@@ -338,18 +338,20 @@ inline void compassSystem(Engine& ctx,
                           Position& agent_pos,
                           CompassObservation& compass_obs)
 {
-    // Find first target entity
+    // Find primary target entity using stored targets array
     bool found_target = false;
     Position target_pos = Vector3::zero();
 
-    // Query for target - NVRTC safe iteration
-    auto target_query = ctx.query<Position, TargetTag>();
-    ctx.iterateQuery(target_query, [&](Position& pos, TargetTag& tag) {
+    // Iterate through stored target entities
+    for (CountT i = 0; i < ctx.data().numTargets; i++) {
+        Entity target = ctx.data().targets[i];
+        TargetTag& tag = ctx.get<TargetTag>(target);
         if (tag.id == 0) { // Primary target
-            target_pos = pos;
+            target_pos = ctx.get<Position>(target);
             found_target = true;
+            break;
         }
-    });
+    }
 
     float theta_radians;
 
@@ -409,18 +411,20 @@ inline void compassIndicatorSystem(Engine& ctx,
     // Get the compass indicator entity for this agent
     Entity indicator_entity = ctx.data().compassIndicators[agent_idx];
 
-    // Find target position
+    // Find target position using stored targets array
     bool found_target = false;
     Position target_pos = Vector3::zero();
 
-    // Query for target - NVRTC safe iteration
-    auto target_query = ctx.query<Position, TargetTag>();
-    ctx.iterateQuery(target_query, [&](Position& pos, TargetTag& tag) {
+    // Iterate through stored target entities
+    for (CountT i = 0; i < ctx.data().numTargets; i++) {
+        Entity target = ctx.data().targets[i];
+        TargetTag& tag = ctx.get<TargetTag>(target);
         if (tag.id == 0) { // Primary target
-            target_pos = pos;
+            target_pos = ctx.get<Position>(target);
             found_target = true;
+            break;
         }
-    });
+    }
 
     if (!found_target) {
         // Hide indicator when no target
@@ -722,14 +726,16 @@ inline void rewardSystem(Engine &ctx,
     bool found_target = false;
     Position target_pos = Vector3::zero();
 
-    // Query for target - NVRTC safe iteration
-    auto target_query = ctx.query<Position, TargetTag>();
-    ctx.iterateQuery(target_query, [&](Position& tpos, TargetTag& tag) {
+    // Iterate through stored target entities
+    for (CountT i = 0; i < ctx.data().numTargets; i++) {
+        Entity target = ctx.data().targets[i];
+        TargetTag& tag = ctx.get<TargetTag>(target);
         if (tag.id == 0) { // Primary target
-            target_pos = tpos;
+            target_pos = ctx.get<Position>(target);
             found_target = true;
+            break;
         }
-    });
+    }
 
     // No target fallback - give no reward
     if (!found_target) {

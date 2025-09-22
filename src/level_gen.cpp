@@ -316,9 +316,12 @@ static void createTargetEntity(Engine &ctx)
 {
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
 
+    // Initialize target count
+    ctx.data().numTargets = level.num_targets;
+
     // Create targets based on CompiledLevel configuration
     for (int32_t i = 0; i < level.num_targets && i < CompiledLevel::MAX_TARGETS; i++) {
-        Entity target = ctx.makeRenderableEntity<TargetEntity>();
+        Entity target = ctx.data().targets[i] = ctx.makeRenderableEntity<TargetEntity>();
 
         // Set position from configuration
         ctx.get<Position>(target) = Vector3{
@@ -507,9 +510,12 @@ void createPersistentEntities(Engine &ctx)
 static void resetTargets(Engine &ctx) {
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
 
-    // Query for all target entities using ECS
-    auto target_query = ctx.query<MotionParams, TargetTag>();
-    ctx.iterateQuery(target_query, [&](MotionParams& params, TargetTag& tag) {
+    // Iterate through stored target entities instead of using ECS query
+    for (CountT i = 0; i < ctx.data().numTargets; i++) {
+        Entity target = ctx.data().targets[i];
+        MotionParams& params = ctx.get<MotionParams>(target);
+        TargetTag& tag = ctx.get<TargetTag>(target);
+
         // Only randomize circular motion targets with randomize flag set
         if (params.motion_type == 2 && params.omega_y > 0.0f) {
             // Create deterministic episode key using same pattern as spawn generation
@@ -526,7 +532,7 @@ static void resetTargets(Engine &ctx) {
             float random_direction_val = rand::sampleUniform(rand::split_i(target_base_key, 1u, 0u));
             params.mass = (random_direction_val < 0.5f) ? -1.0f : 1.0f;  // -1 = clockwise, 1 = counter-clockwise
         }
-    });
+    }
 }
 
 /**

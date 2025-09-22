@@ -118,8 +118,9 @@ struct Sim : public madrona::WorldBase {
     // Compass direction indicator entities (one per agent)
     Entity compassIndicators[consts::numAgents];
 
-    // Target entity that compass points toward
-    Entity targetEntity;
+    // Target entities that compass can point toward (up to maxTargets)
+    Entity targets[consts::limits::maxTargets];
+    CountT numTargets;
 
     // Persistent level entities that survive across episodes
     static constexpr CountT MAX_PERSISTENT_TILES = 256;  // Reasonable limit for persistent entities
