@@ -49,4 +49,4 @@ parameters:
   
   # Level files for grid search across all 20 generated levels
   level-file:
-    value: "levels/progressive32_spawn_random.lvl"
+    value: "levels/circular_target_demo.lvl"

@@ -207,14 +207,13 @@ struct MotionParams {
 - **Specifications**:
   - **Step 0**: Always 0.0 reward (no reward on reset)
   - **Completion only**: Only completion gives rewards (no incremental progress rewards)
-  - **Completion condition**: Reward = 1.0 when agent is within 1.0 world units of target position
+  - **Completion condition**: Reward = 1.0 when agent is within 3.0 world units of target position
   - **Target selection**: Uses primary target (TargetTag.id == 0) for distance calculation
   - **Distance calculation**: Euclidean distance in 3D space between agent and target positions
   - **Non-completion**: 0.0 reward for all other steps
-  - **Progress tracking**: Progress.maxY repurposed to track closest distance to target achieved
   - **No target fallback**: If no target exists, no reward is given (0.0 reward)
   - **Goal achievement termination**:
-    - Occurs when agent distance to target <= 1.0 world units
+    - Occurs when agent distance to target <= 3.0 world units
     - Sets done=1 and termination_code=1
     - Reward = 1.0 for successful completion
     - Represents successful episode completion
@@ -247,7 +246,7 @@ struct MotionParams {
   - **Termination codes**:
     - Code -1: Not terminated (episode still running) - set on initialization
     - Code 0: Episode steps reached (hit 200-step limit) - set by stepTrackerSystem
-    - Code 1: Goal achieved (reached world_max_y) - set by rewardSystem
+    - Code 1: Goal achieved (reached target within 3.0 units) - set by rewardSystem
     - Code 2: Collision death (hit DoneOnCollide=true entity) - set by agentCollisionSystem
   - **Physics settled**: Runs after physics to get stable position
   - **Export safety**: Ensures valid Progress values for tensor export
@@ -582,7 +581,7 @@ Executor construction triggers ECS registration and world creation.
   - Position/velocity constraint solving (XPBD solver)
 - **agentZeroVelSystem**: Zeros agent velocities for control
 - **stepTrackerSystem**: Tracks episode steps and sets done flag
-- **rewardSystem**: Computes incremental forward progress rewards
+- **rewardSystem**: Computes target-based completion rewards
 - **resetSystem**: Conditionally resets world on episode completion
 - **initProgressAfterReset**: Initializes progress tracking after reset
 - **collectObservationsSystem**: Normalizes agent observations
@@ -703,9 +702,7 @@ Initial simulation step populates observations for Python. This step is critical
   - Computes normalized progress using world_max_y
 - **compassSystem**: Computes 128-dim one-hot direction encoding
 - **lidarSystem**: Traces 128 rays in 120-degree arc with GPU optimization
-- **rewardSystem**:
-  - **Uses CompiledLevel.world_max_y for progress normalization**
-  - Computes incremental rewards based on forward movement
+- **rewardSystem**: Computes target-based completion rewards when agent reaches target
 - Data automatically written to exported component buffers
 
 ## Output
@@ -1324,7 +1321,7 @@ State changes from step execution:
 | Velocity | agentZeroVelSystem | Linear: (0, 0, ≤0), Angular: (0, 0, 0) |
 | ExternalForce | movementSystem | 0-1000N in world space |
 | ExternalTorque | movementSystem | ±320 Nm around Z axis |
-| Reward | rewardSystem | 0.0 to ~0.005 per step, or -0.1 on collision |
+| Reward | rewardSystem | 0.0 per step, 1.0 on target completion, or -0.1 on collision |
 | Done | Multiple systems | 0.0 or 1.0 |
 | TerminationReason | Multiple systems | -1, 0, 1, or 2 |
 | SelfObservation | collectObservationsSystem | Normalized [0,1] for positions |

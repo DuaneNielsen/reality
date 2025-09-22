@@ -311,17 +311,7 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
         EXPECT_LT(rotation_change, 1.0f) 
             << "Rotation should remain nearly constant";
         
-        // Progress should increase
-        EXPECT_GT(last_point.progress, first_point.progress) 
-            << "Progress should increase during movement";
-        
-        // Verify monotonic progress increase
-        float prev_progress = -std::numeric_limits<float>::max();  // Start with minimum possible value
-        for (const auto& point : record_trajectory) {
-            EXPECT_GE(point.progress, prev_progress) 
-                << "Progress should increase monotonically";
-            prev_progress = point.progress;
-        }
+        // Note: Progress tracking removed with target-based reward system
     }
     
     // Additional verification: Check that replay matches recording exactly

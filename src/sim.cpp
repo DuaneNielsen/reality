@@ -743,22 +743,12 @@ inline void rewardSystem(Engine &ctx,
     Vector3 diff = agent_pos - target_position;
     float distance_to_target = diff.length();
 
-    // Debug: Print distance to target every 10 steps
-    if (steps_taken.t % 10 == 0) {
-        printf("World %d Step %d: Agent pos (%.2f, %.2f, %.2f), Target pos (%.2f, %.2f, %.2f), Distance: %.3f\n",
-               ctx.worldID().idx, steps_taken.t,
-               agent_pos.x, agent_pos.y, agent_pos.z,
-               target_position.x, target_position.y, target_position.z,
-               distance_to_target);
-    }
 
     // Check for episode completion - within 3.0 world units of target
     if (done.v == 0 && distance_to_target <= 3.0f) {
         done.v = 1;
         termination_reason.code = 1;  // goal_achieved
         out_reward.v = 1.0f;  // +1 reward for reaching the target
-        printf("World %d: TARGET REACHED! Distance: %.3f, Reward: %.1f\n",
-               ctx.worldID().idx, distance_to_target, out_reward.v);
     } else {
         out_reward.v = 0.0f;  // No reward until target is reached
     }

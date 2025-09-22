@@ -236,6 +236,7 @@ def test_state_persistence(cpu_manager):
     assert rewards.shape == (4, 1)
 
 
+@pytest.mark.xfail(reason="Progress tensor deprecated with target-based reward system")
 def test_progress_tensor(cpu_manager):
     """Test that progress tensor is accessible and has correct shape."""
     mgr = cpu_manager
