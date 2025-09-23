@@ -8,7 +8,7 @@ command:
   - "--eval-worlds"
   - "32"
   - "--eval-steps" 
-  - "1000"
+  - "2000"
   - "--clip-value-loss"
   - "--fp16"
   - "--gpu-sim"
@@ -49,4 +49,4 @@ parameters:
   
   # Level files for grid search across all 20 generated levels
   level-file:
-    value: "levels/static_randomized_target.lvl"
+    value: "levels/progressive_size_curriculum.lvl"
