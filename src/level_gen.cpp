@@ -91,11 +91,11 @@ static void createAgentEntities(Engine &ctx) {
 }
 
 /**
- * Find a valid spawn position that avoids collisions with all entities.
+ * Find a valid position that avoids collisions with all entities.
  * Uses rejection sampling with configurable exclusion radius.
- * Uses deterministic sub-keys based on agent index for reproducible results.
+ * Uses deterministic sub-keys based on entity index for reproducible results.
  */
-static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius, CountT agent_idx)
+static inline Vector2 findValidPosition(Engine &ctx, float exclusion_radius, uint32_t entity_idx, uint32_t key_offset)
 {
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
 
@@ -103,16 +103,16 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
     const int MAX_ATTEMPTS = 30;
     float exclusion_sq = exclusion_radius * exclusion_radius;
 
-    // Create deterministic spawn base key for this agent using episode RNG key
+    // Create deterministic base key for this entity using episode RNG key
     // Use the same pattern as in sim.cpp:144-145 to ensure identical base key
     RandKey episode_key = rand::split_i(ctx.data().initRandKey,
                                        ctx.data().curWorldEpisode - 1, // -1 because episode was already incremented
                                        (uint32_t)ctx.worldID().idx);
-    RandKey spawn_base_key = rand::split_i(episode_key, 500u + agent_idx, 0u);
+    RandKey base_key = rand::split_i(episode_key, key_offset + entity_idx, 0u);
 
     for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         // Generate candidate position using deterministic sub-keys
-        RandKey attempt_key = rand::split_i(spawn_base_key, attempt, 0u);
+        RandKey attempt_key = rand::split_i(base_key, attempt, 0u);
         Vector2 candidate = {
             rand::sampleUniform(attempt_key) *
                 (level.world_max_x - level.world_min_x - 2*WALL_MARGIN) +
@@ -132,8 +132,8 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
                 return;
             }
 
-            // Skip agents (don't collide with self)
-            if (entity_type == EntityType::Agent) {
+            // Skip agents (don't collide with self when finding agent spawns)
+            if (entity_type == EntityType::Agent && key_offset == 500u) {
                 return;
             }
 
@@ -153,6 +153,14 @@ static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius
 
     // Fallback: Center position with small offset
     return Vector2{0.0f, 0.0f};
+}
+
+/**
+ * Convenience wrapper for finding valid agent spawn positions.
+ */
+static inline Vector2 findValidSpawnPosition(Engine &ctx, float exclusion_radius, CountT agent_idx)
+{
+    return findValidPosition(ctx, exclusion_radius, agent_idx, 500u);
 }
 
 /**
@@ -344,13 +352,25 @@ static void createTargetEntity(Engine &ctx)
         params.motion_type = level.target_motion_type[i];
 
         if (params.motion_type == 0) {
-            // Static motion
-            params.omega_x = 0.0f;
-            params.omega_y = 0.0f;
-            params.center_x = level.target_x[i];
-            params.center_y = level.target_y[i];
-            params.center_z = level.target_z[i];
-            params.mass = 1.0f;
+            // Static motion - check if we have parameters configured for randomization
+            if (level.num_targets > 0 && i < CompiledLevel::MAX_TARGETS) {
+                // Use target_params if available (for randomization control)
+                int32_t base_idx = i * 8;
+                params.omega_x = 0.0f;  // Always 0 for static targets
+                params.omega_y = level.target_params[base_idx + 1];  // randomize_flag (0.0 = disabled, 1.0 = enabled)
+                params.center_x = level.target_x[i];
+                params.center_y = level.target_y[i];
+                params.center_z = level.target_z[i];
+                params.mass = 1.0f;
+            } else {
+                // Fallback for basic static targets without parameter configuration
+                params.omega_x = 0.0f;
+                params.omega_y = 0.0f;
+                params.center_x = level.target_x[i];
+                params.center_y = level.target_y[i];
+                params.center_z = level.target_z[i];
+                params.mass = 1.0f;
+            }
         } else if (params.motion_type == 1) {
             // Harmonic motion - decode parameters from flattened array
             decodeHarmonicParams(level.target_params, i, params);
@@ -505,7 +525,9 @@ void createPersistentEntities(Engine &ctx)
 /**
  * Resets target entities with randomization for a new episode.
  * Called from resetPersistentEntities() each episode.
- * Applies deterministic randomization to circular motion targets if randomize flag is set.
+ * Applies deterministic randomization to targets if randomize flag is set.
+ * - Circular motion targets (motion_type == 2): randomize initial angle and direction
+ * - Static targets (motion_type == 0): randomize position with collision avoidance
  */
 static void resetTargets(Engine &ctx) {
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
@@ -516,8 +538,21 @@ static void resetTargets(Engine &ctx) {
         MotionParams& params = ctx.get<MotionParams>(target);
         TargetTag& tag = ctx.get<TargetTag>(target);
 
-        // Only randomize circular motion targets with randomize flag set
-        if (params.motion_type == 2 && params.omega_y > 0.0f) {
+        if (params.motion_type == 0 && params.omega_y > 0.0f) {
+            // Static target with randomization enabled
+            const float EXCLUSION_RADIUS = 3.0f;
+            Vector2 new_pos_2d = findValidPosition(ctx, EXCLUSION_RADIUS, tag.id, 4000u);
+
+            // Update target position directly
+            Vector3 new_pos = Vector3{new_pos_2d.x, new_pos_2d.y, params.center_z};
+            ctx.get<Position>(target) = new_pos;
+
+            // Store the new position in motion params for consistency
+            params.center_x = new_pos_2d.x;
+            params.center_y = new_pos_2d.y;
+
+        } else if (params.motion_type == 2 && params.omega_y > 0.0f) {
+            // Circular motion target with randomization enabled
             // Create deterministic episode key using same pattern as spawn generation
             RandKey episode_key = rand::split_i(ctx.data().initRandKey,
                                                ctx.data().curWorldEpisode - 1, // -1 because episode was already incremented

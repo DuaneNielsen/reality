@@ -215,8 +215,8 @@ MER_Result mer_validate_compiled_level(const void* level) {
     if (compiled_level->width <= 0 || compiled_level->height <= 0) return MER_ERROR_INVALID_PARAMETER;
     if (compiled_level->world_scale <= 0.0f) return MER_ERROR_INVALID_PARAMETER;
     
-    // Validate array size doesn't exceed our fixed buffer limits
-    if (expected_array_size > CompiledLevel::MAX_TILES) return MER_ERROR_INVALID_PARAMETER;
+    // Validate number of filled tiles doesn't exceed our fixed buffer limits
+    if (compiled_level->num_tiles > CompiledLevel::MAX_TILES) return MER_ERROR_INVALID_PARAMETER;
     
     return MER_SUCCESS;
 }

@@ -309,6 +309,20 @@ struct MotionParams {
     - Direction randomized to ±1.0 (clockwise/counter-clockwise)
     - Randomization applied during `resetTargets()` called from `resetPersistentEntities()`
 
+#### resetTargets
+- **Purpose**: Randomizes static target positions on episode reset when randomization is enabled
+- **Components Used**: Reads: `MotionParams`, `TargetTag`; Writes: `Position`
+- **Task Graph Dependencies**: Called from `resetPersistentEntities()` during episode reset
+- **Specifications**:
+  - **Static target randomization**: When motion_type=0 (static) and omega_y>0.0 (randomization flag enabled)
+  - **Collision avoidance**: Uses `findValidPosition()` with 3.0 unit exclusion radius to avoid obstacles
+  - **Deterministic randomization**: Uses simulation PRNG with episode-based seeding for reproducible behavior
+  - **Boundary constraints**: Ensures new positions remain within world boundaries
+  - **PRNG key pattern**: `rand::split_i(episode_key, 4000u + target_id, 0u)` for target position randomization
+  - **Position update**: Direct modification of target entity Position component
+  - **Compatibility**: Works alongside existing circular motion randomization system
+  - **Level configuration**: Enabled by setting omega_y=1.0 in target parameters within level JSON/compiled data
+
 ## Performance Considerations
 
 ### GPU Optimization
@@ -1235,7 +1249,7 @@ Handles episode resets and world regeneration
 **Details:**
 - `resetPersistentEntities()`: Re-register persistent tiles with physics
 - `resetAgentPhysics()`: Place agents at spawn positions from CompiledLevel
-- `resetTargets()`: Apply randomization to circular motion targets if randomize flag enabled
+- `resetTargets()`: Apply randomization to static targets (when omega_y>0.0) and circular motion targets (when randomize flag enabled)
 - `generateLevel()`: Create non-persistent tiles with randomization
 - Initialize Progress with sentinel values
 

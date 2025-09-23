@@ -879,6 +879,27 @@ def _process_targets(level: CompiledLevel, targets: List[Dict]) -> None:
         motion_type = target["motion_type"]
         if motion_type == "static":
             level.target_motion_type[i] = 0
+
+            # Set static parameters if provided (for randomization control)
+            if "params" in target:
+                params = target["params"]
+                base_idx = i * 8
+                level.target_params[base_idx + 0] = float(params.get("omega_x", 0.0))  # omega_x
+                level.target_params[base_idx + 1] = float(
+                    params.get("omega_y", 0.0)
+                )  # omega_y (randomization flag)
+                level.target_params[base_idx + 2] = float(
+                    params.get("center", [0, 0, 0])[0]
+                )  # center_x
+                level.target_params[base_idx + 3] = float(
+                    params.get("center", [0, 0, 0])[1]
+                )  # center_y
+                level.target_params[base_idx + 4] = float(
+                    params.get("center", [0, 0, 0])[2]
+                )  # center_z
+                level.target_params[base_idx + 5] = float(params.get("mass", 1.0))  # mass
+                level.target_params[base_idx + 6] = float(params.get("phase_x", 0.0))  # phase_x
+                level.target_params[base_idx + 7] = float(params.get("phase_y", 0.0))  # phase_y
         elif motion_type == "figure8":
             level.target_motion_type[i] = 1
 
@@ -964,17 +985,14 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
             f"Level height {height} must be between {MIN_LEVEL_HEIGHT} and {MAX_GRID_SIZE}"
         )
 
-    # Calculate total array size
-    array_size = width * height
-    if array_size > MAX_TILES:
-        raise ValueError(
-            f"Level too large: {width}×{height} = {array_size} tiles > {MAX_TILES} max"
-        )
-
     # Parse ASCII to tiles and spawns
     tiles, spawns, entity_count = _parse_ascii_to_tiles(
         ascii_str, char_to_tile, char_to_props, scale, width, height
     )
+
+    # Validate entity count (excluding empty tiles)
+    if entity_count > MAX_TILES:
+        raise ValueError(f"Level has too many entities: {entity_count} > {MAX_TILES} max")
 
     # Validate results
     if len(spawns) == 0:
