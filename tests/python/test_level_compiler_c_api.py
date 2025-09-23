@@ -86,42 +86,49 @@ class TestLevelSizeValidation:
 
     @pytest.mark.spec("docs/specs/level_compiler.md", "compile_level")
     def test_oversized_level_rejected(self):
-        """Test that levels exceeding MAX_TILES_C_API are rejected."""
-        # Create a 33x33 level (1089 tiles > 1024)
+        """Test that levels exceeding MAX_TILES_C_API entities are rejected."""
+        # Create a level with 1025 actual entities (cubes) to exceed the limit
+        # Use a 33x33 grid but fill it with cubes to exceed entity count
         size = 33
         lines = []
         for y in range(size):
             if y == 0 or y == size - 1:
+                # Border walls
                 lines.append("#" * size)
             else:
                 if y == 1:
-                    lines.append("#S" + "." * (size - 3) + "#")
+                    # First row with spawn point
+                    lines.append("#S" + "C" * (size - 3) + "#")
                 else:
-                    lines.append("#" + "." * (size - 2) + "#")
+                    # Fill with cubes to exceed entity limit
+                    lines.append("#" + "C" * (size - 2) + "#")
 
         oversized_level = "\n".join(lines)
 
-        with pytest.raises(ValueError, match=r"Level too large.*1089 tiles > 1024 max"):
+        # This should have ~961 cubes + border walls = well over 1024 entities
+        with pytest.raises(ValueError, match=r"Level has too many entities"):
             compile_ascii_level(oversized_level)
 
     @pytest.mark.spec("docs/specs/level_compiler.md", "compile_level")
     def test_64x64_level_rejected(self):
-        """Test that maximum dimension levels are correctly rejected when too large."""
-        # 64x64 = 4096 tiles, which exceeds 1024
-        size = 64
+        """Test that levels with too many entities are correctly rejected."""
+        # Create a smaller level but densely packed with entities
+        # 33x33 completely filled with cubes should exceed 1024 entities
+        size = 33
         lines = []
         for y in range(size):
-            if y == 0 or y == size - 1:
-                lines.append("#" * size)
+            if y == size // 2 and "#" not in lines[y] if y < len(lines) else True:
+                # Place spawn in middle, rest cubes
+                line = "C" * (size // 2) + "S" + "C" * (size - size // 2 - 1)
+                lines.append(line)
             else:
-                if y == 1:
-                    lines.append("#S" + "." * (size - 3) + "#")
-                else:
-                    lines.append("#" + "." * (size - 2) + "#")
+                # Fill completely with cubes
+                lines.append("C" * size)
 
         large_level = "\n".join(lines)
 
-        with pytest.raises(ValueError, match=r"Level too large.*4096 tiles > 1024 max"):
+        # This should have 1089 cubes which exceeds 1024 limit
+        with pytest.raises(ValueError, match=r"Level has too many entities"):
             compile_ascii_level(large_level)
 
 
