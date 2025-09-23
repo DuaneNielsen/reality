@@ -144,48 +144,92 @@ struct CompiledLevel {
 **Purpose:** Human-readable level definition with ASCII visual layout and explicit asset mappings
 
 #### JSON Multi-Level Format
+
+The multi-level format supports three different tileset configurations:
+
+**Option 1 - Shared Tileset (Original Format):**
 ```json
 {
     "levels": [
         {
             "ascii": ["###", "#S#", "###"],
             "name": "level_1",
-            "agent_facing": [0.0],
-            "targets": [
-                {
-                    "position": [5.0, 10.0, 1.0],
-                    "motion_type": "static"
-                }
-            ]
+            "agent_facing": [0.0]
         }
     ],
     "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
     "scale": 2.5,
     "spawn_random": false,
-    "auto_boundary_walls": true,
-    "boundary_wall_offset": 0.5,
-    "targets": [
-        {
-            "position": [0.0, 0.0, 1.0],
-            "motion_type": "harmonic",
-            "params": {
-                "omega_x": 2.0,
-                "omega_y": 1.5,
-                "center": [0.0, 0.0, 1.0],
-                "mass": 1.0
-            }
-        }
-    ],
     "name": "curriculum_set"
 }
 ```
 
-**Purpose:** Curriculum learning support with shared tileset and per-level customization
+**Option 2 - Per-Level Tilesets:**
+```json
+{
+    "levels": [
+        {
+            "ascii": ["####", "#S.#", "####"],
+            "tileset": {
+                "#": {"asset": "wall"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"}
+            },
+            "name": "simple_level"
+        },
+        {
+            "ascii": ["######", "#S..C#", "######"],
+            "tileset": {
+                "#": {"asset": "wall", "done_on_collision": true},
+                "C": {"asset": "cube"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"}
+            },
+            "name": "complex_level"
+        }
+    ],
+    "scale": 2.5,
+    "name": "mixed_curriculum"
+}
+```
+
+**Option 3 - Mixed (Global with Per-Level Overrides):**
+```json
+{
+    "levels": [
+        {
+            "ascii": ["####", "#S.#", "####"],
+            "name": "uses_global_tileset"
+        },
+        {
+            "ascii": ["######", "#S..C#", "######"],
+            "tileset": {
+                "#": {"asset": "wall", "done_on_collision": true},
+                "C": {"asset": "cube"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"}
+            },
+            "name": "custom_tileset_level"
+        }
+    ],
+    "tileset": {
+        "#": {"asset": "wall"},
+        "S": {"asset": "spawn"},
+        ".": {"asset": "empty"}
+    },
+    "scale": 2.5,
+    "name": "mixed_curriculum"
+}
+```
+
+**Purpose:** Curriculum learning support with flexible tileset configuration - shared, per-level, or mixed approaches
 
 #### Invariants
 - All levels must contain at least one spawn point ('S' character)
 - Level dimensions must be between 3x3 and 64x64 tiles
 - Total tile count cannot exceed MAX_TILES (1024)
+- Each level must have access to a tileset (either per-level or global)
+- Per-level tilesets take precedence over global tileset when both are present
 - Asset names in tileset must resolve to valid object IDs via C API
 - Spawn coordinates are automatically converted from grid space to world space
 

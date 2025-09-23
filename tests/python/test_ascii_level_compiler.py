@@ -163,9 +163,147 @@ class TestLevelCompiler:
         with pytest.raises(ValueError, match="Level 0 must contain 'ascii' field"):
             compile_multi_level({"levels": [{"name": "test"}], "tileset": {"#": {"asset": "wall"}}})
 
-        # Missing tileset
-        with pytest.raises(ValueError, match="Multi-level JSON must contain 'tileset' field"):
+        # Missing tileset (no global tileset and level doesn't have one)
+        with pytest.raises(
+            ValueError,
+            match="Level 0 must have a 'tileset' field since no global tileset is provided",
+        ):
             compile_multi_level({"levels": [{"ascii": ["###", "#S#", "###"]}]})
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_multi_level")
+    def test_multi_level_per_level_tilesets(self):
+        """Test multi-level with per-level tilesets only"""
+        multi_level = {
+            "levels": [
+                {
+                    "ascii": ["####", "#S.#", "####"],
+                    "tileset": {
+                        "#": {"asset": "wall"},
+                        "S": {"asset": "spawn"},
+                        ".": {"asset": "empty"},
+                    },
+                    "name": "simple_level",
+                },
+                {
+                    "ascii": ["######", "#S..C#", "######"],
+                    "tileset": {
+                        "#": {"asset": "wall", "done_on_collision": True},
+                        "C": {"asset": "cube", "done_on_collision": True},
+                        "S": {"asset": "spawn"},
+                        ".": {"asset": "empty"},
+                    },
+                    "name": "complex_level",
+                },
+            ],
+            "scale": 2.0,
+            "name": "per_level_tileset_test",
+        }
+
+        compiled_levels = compile_multi_level(multi_level)
+        assert len(compiled_levels) == 2
+
+        # Test first level
+        level1 = compiled_levels[0]
+        assert level1.width == 4
+        assert level1.height == 3
+        assert level1.world_scale == 2.0
+        assert level1.level_name.decode("utf-8", errors="ignore") == "simple_level"
+        validate_compiled_level(level1)
+
+        # Test second level has more tiles (includes cubes)
+        level2 = compiled_levels[1]
+        assert level2.width == 6
+        assert level2.height == 3
+        assert level2.world_scale == 2.0
+        assert level2.num_tiles > level1.num_tiles
+        assert level2.level_name.decode("utf-8", errors="ignore") == "complex_level"
+        validate_compiled_level(level2)
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_multi_level")
+    def test_multi_level_mixed_tilesets(self):
+        """Test multi-level with mixed (global + per-level) tilesets"""
+        multi_level = {
+            "levels": [
+                {"ascii": ["####", "#S.#", "####"], "name": "uses_global"},
+                {
+                    "ascii": ["######", "#S..C#", "######"],
+                    "tileset": {
+                        "#": {"asset": "wall", "done_on_collision": True},
+                        "C": {"asset": "cube"},
+                        "S": {"asset": "spawn"},
+                        ".": {"asset": "empty"},
+                    },
+                    "name": "custom_tileset",
+                },
+            ],
+            "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
+            "scale": 2.5,
+            "name": "mixed_tileset_test",
+        }
+
+        compiled_levels = compile_multi_level(multi_level)
+        assert len(compiled_levels) == 2
+
+        # Both levels should compile successfully
+        for level in compiled_levels:
+            validate_compiled_level(level)
+            assert level.world_scale == 2.5
+
+        # Verify names
+        assert compiled_levels[0].level_name.decode("utf-8", errors="ignore") == "uses_global"
+        assert compiled_levels[1].level_name.decode("utf-8", errors="ignore") == "custom_tileset"
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_multi_level")
+    def test_multi_level_tileset_precedence(self):
+        """Test that per-level tilesets override global tileset"""
+        multi_level = {
+            "levels": [
+                {
+                    "ascii": ["###", "#S#", "###"],
+                    "tileset": {
+                        "#": {"asset": "cube"},  # Override: walls become cubes
+                        "S": {"asset": "spawn"},
+                    },
+                    "name": "override_level",
+                }
+            ],
+            "tileset": {
+                "#": {"asset": "wall"},  # Global: walls are walls
+                "S": {"asset": "spawn"},
+            },
+            "name": "precedence_test",
+        }
+
+        compiled_levels = compile_multi_level(multi_level)
+        level = compiled_levels[0]
+
+        # Check that the level used cubes instead of walls
+        from madrona_escape_room.ctypes_bindings import get_physics_asset_object_id
+
+        cube_id = get_physics_asset_object_id("cube")
+        wall_id = get_physics_asset_object_id("wall")
+
+        # Should have cubes, not walls
+        cube_count = sum(1 for i in range(level.num_tiles) if level.object_ids[i] == cube_id)
+        wall_count = sum(1 for i in range(level.num_tiles) if level.object_ids[i] == wall_id)
+
+        assert cube_count > 0, "Should have cubes from per-level tileset override"
+        assert wall_count == 0, "Should have no walls (overridden by per-level tileset)"
+
+    @pytest.mark.spec("docs/specs/level_compiler.md", "compile_multi_level")
+    def test_multi_level_validation_no_tileset(self):
+        """Test validation error when no tileset is available"""
+        # Level without tileset and no global tileset
+        with pytest.raises(
+            ValueError,
+            match="Level 0 must have a 'tileset' field since no global tileset is provided",
+        ):
+            compile_multi_level(
+                {
+                    "levels": [{"ascii": ["####", "#S.#", "####"], "name": "no_tileset_level"}],
+                    "scale": 2.5,
+                }
+            )
 
 
 class TestCTypesIntegration:

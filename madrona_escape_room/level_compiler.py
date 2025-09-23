@@ -76,7 +76,42 @@ Option 2 - Multi-level format with shared tileset:
     "name": "multi_level_set"   # Optional name for the level set
 }
 
-Option 3 - String with newlines (backwards compatible):
+Option 3 - Multi-level format with per-level tilesets:
+{
+    "levels": [
+        {
+            "ascii": [
+                "########",
+                "#S....#",
+                "########"
+            ],
+            "tileset": {       # Per-level tileset
+                "#": {"asset": "wall"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"}
+            },
+            "name": "simple_level"
+        },
+        {
+            "ascii": [
+                "##########",
+                "#S......C#",
+                "##########"
+            ],
+            "tileset": {       # Different tileset for this level
+                "#": {"asset": "wall", "done_on_collision": true},
+                "C": {"asset": "cube"},
+                "S": {"asset": "spawn"},
+                ".": {"asset": "empty"}
+            },
+            "name": "complex_level"
+        }
+    ],
+    "scale": 2.5,              # Optional shared settings
+    "name": "mixed_level_set"
+}
+
+Option 4 - String with newlines (backwards compatible):
 {
     "ascii": "########\\n#S....#\\n########",
     "tileset": { ... },
@@ -378,16 +413,33 @@ def _validate_multi_level_json(data: Dict) -> None:
     if "levels" not in data:
         raise ValueError("Multi-level JSON must contain 'levels' field")
 
-    if "tileset" not in data:
-        raise ValueError("Multi-level JSON must contain 'tileset' field")
+    # Check that we have either a global tileset or all levels have their own tilesets
+    has_global_tileset = "tileset" in data
 
     # Validate levels array
     levels = data["levels"]
     if not isinstance(levels, list) or not levels:
         raise ValueError("'levels' field must be a non-empty list")
 
-    # Validate each level
+    # Check each level has a tileset (either its own or there's a global one)
     for i, level in enumerate(levels):
+        if not isinstance(level, dict):
+            raise ValueError(f"Level {i} must be a dictionary")
+
+        level_has_tileset = "tileset" in level
+        if not level_has_tileset and not has_global_tileset:
+            raise ValueError(
+                f"Level {i} must have a 'tileset' field since no global tileset is provided"
+            )
+
+        # Validate per-level tileset if present
+        if level_has_tileset:
+            try:
+                _validate_tileset(level["tileset"])
+            except ValueError as e:
+                raise ValueError(f"Level {i} tileset validation failed: {e}")
+
+        # Validate each level
         if not isinstance(level, dict):
             raise ValueError(f"Level {i} must be a dictionary")
 
@@ -431,8 +483,9 @@ def _validate_multi_level_json(data: Dict) -> None:
             except ValueError as e:
                 raise ValueError(f"Level {i} targets validation failed: {e}")
 
-    # Validate shared tileset
-    _validate_tileset(data["tileset"])
+    # Validate shared tileset if present
+    if has_global_tileset:
+        _validate_tileset(data["tileset"])
 
     # Validate optional shared fields
     if "scale" in data:
@@ -1167,7 +1220,7 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
     _validate_json_level(data)
 
     # Extract shared fields
-    shared_tileset = data["tileset"]
+    shared_tileset = data.get("tileset")  # May be None if levels have their own tilesets
     shared_scale = data.get("scale", 2.5)
     shared_spawn_random = data.get("spawn_random", False)
     shared_auto_boundary_walls = data.get("auto_boundary_walls", False)
@@ -1178,10 +1231,19 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
 
     # Compile each level
     for i, level_data in enumerate(data["levels"]):
+        # Determine which tileset to use: per-level first, then global fallback
+        if "tileset" in level_data:
+            level_tileset = level_data["tileset"]
+        elif shared_tileset is not None:
+            level_tileset = shared_tileset
+        else:
+            # This should not happen if validation passed, but be defensive
+            raise ValueError(f"Level {i} has no tileset and no global tileset provided")
+
         # Build single-level JSON for this level
         single_level_json = {
             "ascii": level_data["ascii"],
-            "tileset": shared_tileset,
+            "tileset": level_tileset,
             "scale": shared_scale,
             "spawn_random": shared_spawn_random,
             "auto_boundary_walls": shared_auto_boundary_walls,
