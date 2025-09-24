@@ -6,7 +6,7 @@ command:
   - python
   - ${program}
   - "--eval-worlds"
-  - "32"
+  - "50"
   - "--eval-steps" 
   - "2000"
   - "--clip-value-loss"
@@ -21,7 +21,7 @@ parameters:
   num-worlds:
     value: 4096
   num-updates:
-    value: 10000
+    value: 30000
   steps-per-update:
     value: 40
   num-bptt-chunks:
@@ -49,4 +49,4 @@ parameters:
   
   # Level files for grid search across all 20 generated levels
   level-file:
-    value: "levels/progressive_size_curriculum.lvl"
+    value: "levels/progressive_size_levels_50.lvl"
