@@ -358,11 +358,23 @@ MER_Result mer_get_progress_tensor(MER_ManagerHandle handle, MER_Tensor* out_ten
     if (!handle || !out_tensor) {
         return MER_ERROR_NULL_POINTER;
     }
-    
+
     Manager* mgr = reinterpret_cast<Manager*>(handle);
     madrona::py::Tensor tensor = mgr->progressTensor();
     convertTensor(tensor, out_tensor);
-    
+
+    return MER_SUCCESS;
+}
+
+MER_Result mer_get_target_position_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor) {
+    if (!handle || !out_tensor) {
+        return MER_ERROR_NULL_POINTER;
+    }
+
+    Manager* mgr = reinterpret_cast<Manager*>(handle);
+    madrona::py::Tensor tensor = mgr->targetPositionTensor();
+    convertTensor(tensor, out_tensor);
+
     return MER_SUCCESS;
 }
 

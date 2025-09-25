@@ -146,6 +146,9 @@ class SimManager:
     def progress_tensor(self):
         return self._get_tensor(lib.mer_get_progress_tensor)
 
+    def target_position_tensor(self):
+        return self._get_tensor(lib.mer_get_target_position_tensor)
+
     def rgb_tensor(self):
         return self._get_tensor(lib.mer_get_rgb_tensor)
 

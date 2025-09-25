@@ -755,6 +755,7 @@ State changes or resources modified:
 | StepsTaken | Agent::StepsTaken | int32_t* | [num_worlds][num_agents] | Current episode step count |
 | Progress | Agent::Progress | float* | [num_worlds][num_agents][2] | maxY, initialY positions |
 | AgentPosition | Agent::Position | float* | [num_worlds][num_agents][3] | x, y, z coordinates |
+| TargetPosition | TargetEntity::Position | float* | [num_worlds][maxTargets][3] | Target x, y, z coordinates |
 | Reset | WorldReset | uint8_t* | [num_worlds] | Reset trigger flag singleton |
 | LidarVisControl | LidarVisControl | uint8_t* | [num_worlds] | Lidar visualization enable singleton |
 # Reset Sequence

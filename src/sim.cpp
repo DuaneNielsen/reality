@@ -72,6 +72,7 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Phase 2: Test-driven level system singleton
     registry.registerSingleton<CompiledLevel>();
 
+
     // [GAME_SPECIFIC] Escape room archetypes
     registry.registerArchetype<Agent>();
     registry.registerArchetype<PhysicsEntity>();
@@ -87,7 +88,8 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     // [GAME_SPECIFIC] Export lidar visualization control
     registry.exportSingleton<LidarVisControl>(
         (uint32_t)ExportID::LidarVisControl);
-    
+
+
     // [BOILERPLATE] Export core RL components
     registry.exportColumn<Agent, Action>(
         (uint32_t)ExportID::Action);
@@ -111,6 +113,8 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
         (uint32_t)ExportID::Progress);
     registry.exportColumn<Agent, Position>(
         (uint32_t)ExportID::AgentPosition);
+    registry.exportColumn<TargetEntity, Position>(
+        (uint32_t)ExportID::TargetPosition);
 }
 
 // [GAME_SPECIFIC] Helper to clean up escape room entities

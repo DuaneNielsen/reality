@@ -860,6 +860,17 @@ Tensor Manager::progressTensor() const
                                });
 }
 
+Tensor Manager::targetPositionTensor() const
+{
+    return impl_->exportTensor(ExportID::TargetPosition,
+                               TensorElementType::Float32,
+                               {
+                                   impl_->cfg.numWorlds,
+                                   madEscape::consts::limits::maxTargets,
+                                   3,  // x, y, z
+                               });
+}
+
 //[GAME_SPECIFIC]
 Tensor Manager::rgbTensor() const
 {

@@ -432,6 +432,32 @@ struct Impl {
 **Error Handling:**
 - None - always returns valid tensor
 
+#### targetPositionTensor (Python: target_position_tensor)
+
+**Purpose:** Get target entity positions for all worlds
+
+**Parameters:** None
+
+**Returns:** Tensor of shape [numWorlds, maxTargets, 3] with Float32 elements
+
+**Preconditions:**
+- Manager must be initialized
+
+**Specs:**
+- Shape: [numWorlds, maxTargets, 3]
+  - maxTargets is 8 (consts::limits::maxTargets)
+- Position coordinates: [x, y, z] in world space
+- Updated each step by customMotionSystem (for moving targets)
+- Updated on reset by resetTargets (for randomized static targets)
+- Only valid entries up to numTargets contain meaningful data
+- Direct memory access via devicePtr()
+- Read-only tensor (simulation writes, user reads)
+- GPU tensors have gpuID >= 0 and non-null devicePtr
+- Tensor shape remains consistent after world resets
+
+**Error Handling:**
+- None - always returns valid tensor
+
 ### Replay Determinism Guarantees
 
 #### Fundamental Guarantee

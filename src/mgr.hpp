@@ -175,6 +175,7 @@ public:
     madrona::py::Tensor lidarTensor() const;
     madrona::py::Tensor stepsTakenTensor() const;
     madrona::py::Tensor progressTensor() const;
+    madrona::py::Tensor targetPositionTensor() const;
     madrona::py::Tensor rgbTensor() const;
     madrona::py::Tensor depthTensor() const;
 

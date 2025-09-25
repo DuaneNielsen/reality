@@ -82,6 +82,7 @@ MER_EXPORT MER_Result mer_get_compass_tensor(MER_ManagerHandle handle, MER_Tenso
 MER_EXPORT MER_Result mer_get_lidar_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_steps_taken_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_progress_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
+MER_EXPORT MER_Result mer_get_target_position_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_rgb_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 MER_EXPORT MER_Result mer_get_depth_tensor(MER_ManagerHandle handle, MER_Tensor* out_tensor);
 

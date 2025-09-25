@@ -253,6 +253,9 @@ lib.mer_get_steps_taken_tensor.restype = c_int
 lib.mer_get_progress_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_progress_tensor.restype = c_int
 
+lib.mer_get_target_position_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
+lib.mer_get_target_position_tensor.restype = c_int
+
 lib.mer_get_rgb_tensor.argtypes = [MER_ManagerHandle, POINTER(MER_Tensor)]
 lib.mer_get_rgb_tensor.restype = c_int
 

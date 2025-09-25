@@ -33,6 +33,7 @@ enum class ExportID : uint32_t {
     StepsTaken,
     Progress,
     AgentPosition,  // Actual world position for camera tracking
+    TargetPosition, // Target entity positions for testing and observations
     NumExports,
 };
 
