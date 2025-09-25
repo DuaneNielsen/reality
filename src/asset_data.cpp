@@ -237,7 +237,7 @@ const AssetInfo ASSET_TABLE[AssetIDs::MAX_ASSETS] = {
         .inverseMass = 0.f,   // Not used since hasPhysics = false
         .friction = { 0.f, 0.f },
         .constrainRotationXY = false,
-        .meshPath = "cube_render.obj",  // Reuse cube mesh, will scale it small and spherical
+        .meshPath = "cylinder_render.obj",  // Use cylinder to visualize 3D collection radius
         .materialIndices = TARGET_MATERIALS,
         .numMaterialIndices = 1,
         .numMeshes = 1,

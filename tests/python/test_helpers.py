@@ -220,3 +220,123 @@ def reset_all_worlds(manager):
     reset_tensor[:] = 1
     manager.step()
     reset_tensor[:] = 0  # Clear reset flags
+
+
+class TargetTracker:
+    """Helper for tracking target positions and calculating distances to agents"""
+
+    def __init__(self, manager):
+        """Initialize tracker with SimManager instance"""
+        self.mgr = manager
+
+    def get_target_position(self, world_idx: int, target_idx: int = 0) -> np.ndarray:
+        """Get current target position in world coordinates"""
+        target_tensor = self.mgr.target_position_tensor()
+        target_positions = target_tensor.to_numpy()
+        return target_positions[world_idx, target_idx, :]  # Shape: [3] (x, y, z)
+
+    def calculate_distance_to_agent(
+        self, world_idx: int, agent_idx: int = 0, target_idx: int = 0, compiled_level=None
+    ) -> float:
+        """Calculate 3D distance between agent and target using proper coordinate conversion
+
+        Args:
+            compiled_level: Optional CompiledLevel to get exact world bounds.
+                           If None, uses default world bounds (world_length = 40.0)
+        """
+        # Get agent position from observation tensor (normalized)
+        obs = self.mgr.self_observation_tensor().to_torch()
+        agent_pos_norm = obs[world_idx, agent_idx, :3].cpu().numpy()  # Normalized position
+
+        # Get target position (already in world coordinates)
+        target_pos = self.get_target_position(world_idx, target_idx)
+
+        # Convert agent position to world coordinates using proper denormalization
+        if compiled_level is not None:
+            # Use exact world bounds from compiled level
+            world_width = compiled_level.world_max_x - compiled_level.world_min_x
+            world_length = compiled_level.world_max_y - compiled_level.world_min_y
+            world_height = compiled_level.world_max_z - compiled_level.world_min_z
+
+            # Apply exact denormalization formula from src/sim.cpp:325-327
+            agent_pos_world = np.array(
+                [
+                    agent_pos_norm[0] * world_width + compiled_level.world_min_x,
+                    agent_pos_norm[1] * world_length + compiled_level.world_min_y,
+                    agent_pos_norm[2] * world_height + compiled_level.world_min_z,
+                ]
+            )
+        else:
+            # Fallback to default world bounds (assumes square world with world_length = 40.0)
+            # This works for default levels but not custom test levels
+            agent_pos_world = agent_pos_norm * 40.0
+
+        # Calculate 3D distance
+        distance = np.linalg.norm(agent_pos_world - target_pos)
+        return distance
+
+    def verify_reward_threshold(
+        self, distance: float, expected_reward: float, tolerance: float = 0.01
+    ) -> bool:
+        """Verify that reward matches expected value based on 3.0 unit threshold"""
+        if distance <= 3.0:
+            return abs(expected_reward - 1.0) < tolerance  # Should get +1.0 reward
+        else:
+            return abs(expected_reward - 0.0) < tolerance  # Should get 0.0 reward
+
+    def print_distance_info(
+        self, world_idx: int, agent_idx: int = 0, target_idx: int = 0, compiled_level=None
+    ):
+        """Print debugging information about agent-target distance"""
+        target_pos = self.get_target_position(world_idx, target_idx)
+        distance = self.calculate_distance_to_agent(
+            world_idx, agent_idx, target_idx, compiled_level
+        )
+
+        # Get properly denormalized agent position
+        obs = self.mgr.self_observation_tensor().to_torch()
+        agent_pos_norm = obs[world_idx, agent_idx, :3].cpu().numpy()
+
+        if compiled_level is not None:
+            world_width = compiled_level.world_max_x - compiled_level.world_min_x
+            world_length = compiled_level.world_max_y - compiled_level.world_min_y
+            world_height = compiled_level.world_max_z - compiled_level.world_min_z
+            agent_pos_world = np.array(
+                [
+                    agent_pos_norm[0] * world_width + compiled_level.world_min_x,
+                    agent_pos_norm[1] * world_length + compiled_level.world_min_y,
+                    agent_pos_norm[2] * world_height + compiled_level.world_min_z,
+                ]
+            )
+        else:
+            agent_pos_world = agent_pos_norm * 40.0
+
+        print(f"Target {target_idx} in World {world_idx}:")
+        print(f"  Target Position: ({target_pos[0]:.2f}, {target_pos[1]:.2f}, {target_pos[2]:.2f})")
+        print(
+            f"  Agent Position: ({agent_pos_world[0]:.2f}, {agent_pos_world[1]:.2f}, {agent_pos_world[2]:.2f})"
+        )
+        print(f"  Distance: {distance:.2f} units")
+        print(f"  Within 3.0 threshold: {distance <= 3.0}")
+
+    def get_all_target_distances(
+        self, world_idx: int, agent_idx: int = 0, compiled_level=None
+    ) -> list:
+        """Get distances to all targets in a world"""
+        target_tensor = self.mgr.target_position_tensor()
+        target_positions = target_tensor.to_numpy()
+
+        # Get number of targets for this world
+        world_targets = target_positions[world_idx]  # Shape: [max_targets, 3]
+
+        distances = []
+        for target_idx in range(len(world_targets)):
+            # Check if target exists (non-zero position indicates active target)
+            target_pos = world_targets[target_idx]
+            if np.any(target_pos != 0):  # Active target
+                distance = self.calculate_distance_to_agent(
+                    world_idx, agent_idx, target_idx, compiled_level
+                )
+                distances.append((target_idx, distance))
+
+        return distances

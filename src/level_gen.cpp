@@ -346,7 +346,7 @@ static void createTargetEntity(Engine &ctx)
             level.target_z[i]
         };
         ctx.get<Rotation>(target) = Quat{1, 0, 0, 0};
-        ctx.get<Scale>(target) = Diag3x3{0.3f, 0.3f, 0.3f}; // Small sphere
+        ctx.get<Scale>(target) = Diag3x3{3.0f, 3.0f, 0.5f}; // Flat cylinder with 3.0 unit radius (base mesh radius=1.0)
         ctx.get<ObjectID>(target) = ObjectID{(int32_t)AssetIDs::TARGET};
 
         // Initialize velocity to zero

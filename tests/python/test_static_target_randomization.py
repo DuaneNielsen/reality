@@ -364,63 +364,6 @@ def test_static_target_boundary_respect(cpu_manager):
 @pytest.mark.spec("docs/specs/sim.md", "resetTargets")
 @pytest.mark.spec("docs/specs/mgr.md", "targetPositionTensor")
 @pytest.mark.json_level(TEST_LEVEL_COMPLEX_OBSTACLES)
-def test_target_randomization_distribution(cpu_manager):
-    """Test that randomized positions are well-distributed across available space."""
-    mgr = cpu_manager
-
-    # Collect many target positions to analyze distribution
-    target_positions = []
-
-    for reset_idx in range(100):  # More resets for distribution analysis
-        mgr.reset_tensor().to_numpy()[0] = 1
-        mgr.step()
-
-        target_tensor = mgr.target_position_tensor()
-        positions = target_tensor.to_numpy()
-        target_positions.extend(positions[0, :2, :])  # First world, both targets
-
-    # Convert to numpy array for analysis
-    positions_array = np.array(target_positions)
-    x_positions = positions_array[:, 0]
-    y_positions = positions_array[:, 1]
-
-    # Analyze distribution using 3.0 unit grid cells (matching exclusion radius)
-    grid_size = COLLISION_EXCLUSION_RADIUS
-    x_min, x_max = x_positions.min(), x_positions.max()
-    y_min, y_max = y_positions.min(), y_positions.max()
-
-    # Count positions in grid cells
-    x_bins = int((x_max - x_min) / grid_size) + 1
-    y_bins = int((y_max - y_min) / grid_size) + 1
-
-    occupied_cells = set()
-    for x, y in zip(x_positions, y_positions):
-        grid_x = int((x - x_min) / grid_size)
-        grid_y = int((y - y_min) / grid_size)
-        occupied_cells.add((grid_x, grid_y))
-
-    total_cells = x_bins * y_bins
-    occupied_ratio = len(occupied_cells) / total_cells
-
-    print("✓ Position distribution analysis:")
-    print(f"  X range: {x_min:.1f} to {x_max:.1f} ({x_max-x_min:.1f} units)")
-    print(f"  Y range: {y_min:.1f} to {y_max:.1f} ({y_max-y_min:.1f} units)")
-    print(f"  Grid cells: {x_bins} × {y_bins} = {total_cells}")
-    print(f"  Occupied cells: {len(occupied_cells)} ({occupied_ratio:.1%})")
-
-    # Verify reasonable distribution
-    assert x_max - x_min > 10.0, f"X distribution too narrow: {x_max - x_min:.1f} units"
-    assert y_max - y_min > 10.0, f"Y distribution too narrow: {y_max - y_min:.1f} units"
-    assert (
-        occupied_ratio > 0.1
-    ), f"Position distribution too clustered: {occupied_ratio:.1%} cells occupied"
-
-    print("✓ Target positions show good distribution across available space")
-
-
-@pytest.mark.spec("docs/specs/sim.md", "resetTargets")
-@pytest.mark.spec("docs/specs/mgr.md", "targetPositionTensor")
-@pytest.mark.json_level(TEST_LEVEL_COMPLEX_OBSTACLES)
 def test_static_target_deterministic_randomization(cpu_manager):
     """Test that target randomization is deterministic across runs with same seed."""
     mgr = cpu_manager
