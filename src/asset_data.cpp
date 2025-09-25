@@ -33,7 +33,7 @@ namespace AssetMaterials {
         { "axis_z", {0.0f, 0.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Blue
         { "cylinder", {0.0f, 1.0f, 1.0f, 1.0f}, -1, 0.8f, 0.2f },  // Cyan
         { "lidar_ray", {0.0f, 1.0f, 0.0f, 0.5f}, -1, 0.8f, 0.2f },  // Semi-transparent green
-        { "target", {1.0f, 0.0f, 0.0f, 1.0f}, -1, 0.8f, 0.2f },  // Red target
+        { "target", {1.0f, 0.0f, 0.0f, 0.5f}, -1, 0.8f, 0.2f },  // Red target, 50% transparent
         { "compass_indicator", {0.3f, 0.7f, 1.0f, 0.8f}, -1, 0.8f, 0.2f },  // Light blue, semi-transparent
     };
 }
