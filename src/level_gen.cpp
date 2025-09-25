@@ -95,7 +95,7 @@ static void createAgentEntities(Engine &ctx) {
  * Uses rejection sampling with configurable exclusion radius.
  * Uses deterministic sub-keys based on entity index for reproducible results.
  */
-static inline Vector2 findValidPosition(Engine &ctx, float exclusion_radius, uint32_t entity_idx, uint32_t key_offset)
+static inline Vector2 findValidPosition(Engine &ctx, float exclusion_radius, uint32_t entity_idx, uint32_t key_offset, float candidate_z = 1.0f)
 {
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
 
@@ -126,7 +126,10 @@ static inline Vector2 findValidPosition(Engine &ctx, float exclusion_radius, uin
 
         // Check all entities with Position and EntityType components using ECS query
         auto collision_query = ctx.query<Position, EntityType>();
+        int entity_count = 0;
         ctx.iterateQuery(collision_query, [&](Position &entity_pos, EntityType &entity_type) {
+            entity_count++;
+
             // Skip floor entities (NoEntity type)
             if (entity_type == EntityType::NoEntity) {
                 return;
@@ -139,20 +142,25 @@ static inline Vector2 findValidPosition(Engine &ctx, float exclusion_radius, uin
 
             float dx = candidate.x - entity_pos.x;
             float dy = candidate.y - entity_pos.y;
-            float dist_sq = dx*dx + dy*dy;
+            float dz = candidate_z - entity_pos.z;  // Include Z distance for 3D collision check
+            float dist_sq = dx*dx + dy*dy + dz*dz;
 
             if (dist_sq < exclusion_sq) {
                 valid = false;
             }
         });
 
+
         if (valid) {
             return candidate;
         }
     }
 
-    // Fallback: Center position with small offset
-    return Vector2{0.0f, 0.0f};
+    // Fallback: Use level center with exclusion radius buffer from boundaries
+    // This ensures the fallback position is always collision-safe
+    float center_x = (level.world_max_x + level.world_min_x) * 0.5f;
+    float center_y = (level.world_max_y + level.world_min_y) * 0.5f;
+    return Vector2{center_x, center_y};
 }
 
 /**
@@ -541,7 +549,7 @@ static void resetTargets(Engine &ctx) {
         if (params.motion_type == 0 && params.omega_y > 0.0f) {
             // Static target with randomization enabled
             const float EXCLUSION_RADIUS = 3.0f;
-            Vector2 new_pos_2d = findValidPosition(ctx, EXCLUSION_RADIUS, tag.id, 4000u);
+            Vector2 new_pos_2d = findValidPosition(ctx, EXCLUSION_RADIUS, tag.id, 4000u, params.center_z);
 
             // Update target position directly
             Vector3 new_pos = Vector3{new_pos_2d.x, new_pos_2d.y, params.center_z};
@@ -617,8 +625,7 @@ static void resetPersistentEntities(Engine &ctx)
      // Reset agent physics and positions for the new episode
      resetAgentPhysics(ctx);
 
-     // Reset targets with randomization for the new episode
-     resetTargets(ctx);
+     // Note: resetTargets() is now called after generateLevel() to ensure obstacles exist
 }
 
 
@@ -813,6 +820,7 @@ void generateWorld(Engine &ctx)
 {
     resetPersistentEntities(ctx);
     generateLevel(ctx);
+    resetTargets(ctx);  // Move target randomization after level generation so obstacles exist
     applyRandomSpawnPositions(ctx);
 }
 
