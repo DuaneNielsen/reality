@@ -764,9 +764,9 @@ inline void rewardSystem(Engine &ctx,
     }
 
     // Override with collision penalty if agent died
-    if (done.v == 1 && collision_death.died == 1) {
-        out_reward.v = -0.1f;  // Collision death penalty overrides completion reward
-    }
+    // if (done.v == 1 && collision_death.died == 1) {
+    //     out_reward.v = -0.1f;  // Collision death penalty overrides completion reward
+    // }
 }
 
 // [GAME_SPECIFIC] Self-contained collision detection system
