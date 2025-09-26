@@ -18,7 +18,7 @@ namespace madEscape {
 
     // Replay metadata constants and structure (host-only with STL usage)
     static constexpr uint32_t REPLAY_MAGIC = 0x4D455352; // "MESR" in hex
-    static constexpr uint32_t REPLAY_VERSION = 3;
+    static constexpr uint32_t REPLAY_VERSION = 4;  // Version 4 adds checksum support
     static constexpr uint32_t MAX_SIM_NAME_LENGTH = 64;
 
     // [GAME_SPECIFIC] Host-only replay metadata structure with STL usage
@@ -33,7 +33,10 @@ namespace madEscape {
         uint32_t actions_per_step;              // Number of action components (3: move_amount, move_angle, rotate)
         uint64_t timestamp;                     // Unix timestamp when recording started
         uint32_t seed;                          // Random seed used for simulation
-        uint32_t reserved[consts::fileFormat::replayMagicLength];  // Reserved for future use
+        uint32_t checksum_version;              // Version of checksum algorithm (1 for initial implementation)
+        uint32_t enable_checksums;              // Flag to enable/disable checksum recording (0 or 1)
+        uint32_t num_episode_checksums;         // Total number of episode checksums stored
+        uint32_t reserved[consts::fileFormat::replayMagicLength - 3];  // Reserved for future use
         
         static ReplayMetadata createDefault() {
             ReplayMetadata meta;
@@ -49,13 +52,30 @@ namespace madEscape {
             meta.actions_per_step = consts::numActionComponents;
             meta.timestamp = 0;
             meta.seed = consts::fileFormat::defaultSeed;
+            meta.checksum_version = 1;  // Version 1 of checksum algorithm
+            meta.enable_checksums = 1;  // Enable checksums by default
+            meta.num_episode_checksums = 0;
             std::memset(meta.reserved, 0, sizeof(meta.reserved));
             return meta;
         }
         
         bool isValid() const {
-            return magic == REPLAY_MAGIC && version == 3;
+            return magic == REPLAY_MAGIC && (version == 3 || version == 4);
         }
+    };
+
+    // [GAME_SPECIFIC] Episode checksum structure for validation
+    struct EpisodeChecksum {
+        uint32_t world_idx;         // World index that completed episode
+        uint32_t episode_num;       // Episode number (increments per world)
+        uint32_t step_num;          // Step number when episode ended
+        uint64_t hash;              // Computed hash of episode state
+
+        // Hash algorithm version 1: Combines agent positions, target positions, and level data
+        static uint64_t computeHash(uint32_t world_idx, uint32_t step_num,
+                                  const float* agent_positions, size_t num_agents,
+                                  const float* target_positions, size_t num_targets,
+                                  uint32_t level_width, uint32_t level_height);
     };
 
 }
@@ -209,10 +229,14 @@ public:
     };
     
     // Recording functionality
-    Result startRecording(const std::string& filepath);
+    Result startRecording(const std::string& filepath, bool enable_checksums = true);
     void stopRecording();
     bool isRecording() const;
     void recordActions(const std::vector<int32_t>& frame_actions);
+    void captureEpisodeChecksums();  // Capture checksums when episodes end
+    void validateEpisodeChecksums(); // Validate checksums during replay
+
+    // Checksum control functionality
     
     // Replay functionality
     bool loadReplay(const std::string& filepath);

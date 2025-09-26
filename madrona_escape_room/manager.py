@@ -172,7 +172,7 @@ class SimManager:
         _check_result(result)
 
     # Recording functionality
-    def start_recording(self, filepath):
+    def start_recording(self, filepath, enable_checksums=True):
         """Start recording actions to a binary file from the beginning of the simulation.
 
         Recording can only be started from a fresh simulation (before any steps are taken).
@@ -180,13 +180,14 @@ class SimManager:
 
         Args:
             filepath: Path where to save the recording
+            enable_checksums: Whether to enable episode checksum validation (default: True)
 
         Raises:
             RuntimeError: If recording cannot be started (already recording or
                 simulation has started)
         """
         filepath_bytes = filepath.encode("utf-8")
-        result = lib.mer_start_recording(self._handle, filepath_bytes)
+        result = lib.mer_start_recording(self._handle, filepath_bytes, enable_checksums)
         _check_result(result)
 
     def stop_recording(self):

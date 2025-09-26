@@ -310,7 +310,7 @@ TEST_F(OptionParsingAndFileErrorTest, ReplayMetadataMismatch) {
         config.auto_reset = true;
         ASSERT_TRUE(CreateManager(&level, 1));
         
-        mer_start_recording(handle, "test.rec");
+        mer_start_recording(handle, "test.rec", true);
         mer_step(handle);
         mer_stop_recording(handle);
     }
@@ -390,7 +390,7 @@ TEST_F(OptionParsingAndFileErrorTest, LargeRecordingFileCreation) {
     
     ASSERT_TRUE(CreateManager(&level, 1));
     
-    mer_start_recording(handle, "huge.rec");
+    mer_start_recording(handle, "huge.rec", true);
     
     // Simulate many steps to create large file
     for (int i = 0; i < 1000; i++) {

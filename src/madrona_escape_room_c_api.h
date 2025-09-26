@@ -109,12 +109,12 @@ MER_EXPORT MER_Result mer_disable_trajectory_logging(MER_ManagerHandle handle);
 // Recording functionality
 MER_EXPORT MER_Result mer_start_recording(
     MER_ManagerHandle handle,
-    const char* filepath
+    const char* filepath,
+    bool enable_checksums
 );
 
 MER_EXPORT MER_Result mer_stop_recording(MER_ManagerHandle handle);
 MER_EXPORT MER_Result mer_is_recording(MER_ManagerHandle handle, bool* out_is_recording);
-
 // Replay metadata reading (static function - no handle needed)
 MER_EXPORT MER_Result mer_read_replay_metadata(
     const char* filepath,

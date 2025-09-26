@@ -464,15 +464,16 @@ MER_Result mer_disable_trajectory_logging(MER_ManagerHandle handle) {
 
 MER_Result mer_start_recording(
     MER_ManagerHandle handle,
-    const char* filepath
+    const char* filepath,
+    bool enable_checksums
 ) {
     if (!handle || !filepath) {
         return MER_ERROR_NULL_POINTER;
     }
-    
+
     Manager* mgr = reinterpret_cast<Manager*>(handle);
-    Result result = mgr->startRecording(filepath);
-    
+    Result result = mgr->startRecording(filepath, enable_checksums);
+
     return static_cast<MER_Result>(result);
 }
 
@@ -563,30 +564,12 @@ MER_Result mer_read_replay_metadata(
     
     const auto& metadata = metadata_opt.value();
     
-    // Direct cast to ReplayMetadata* - Python passes the exact C++ struct via ctypes
-    ReplayMetadata* replay_meta = reinterpret_cast<ReplayMetadata*>(out_metadata);
-    
-    // Copy ALL metadata fields including v3 additions
-    replay_meta->magic = metadata.magic;
-    replay_meta->version = metadata.version;
-    replay_meta->num_worlds = metadata.num_worlds;
-    replay_meta->num_agents_per_world = metadata.num_agents_per_world;
-    replay_meta->num_steps = metadata.num_steps;
-    replay_meta->actions_per_step = metadata.actions_per_step;
-    replay_meta->timestamp = metadata.timestamp;
-    replay_meta->seed = metadata.seed;
-    
-    std::memcpy(replay_meta->reserved, metadata.reserved, sizeof(replay_meta->reserved));
-    
-    // Copy string fields safely
-    std::strncpy(replay_meta->sim_name, metadata.sim_name, sizeof(replay_meta->sim_name) - 1);
-    replay_meta->sim_name[sizeof(replay_meta->sim_name) - 1] = '\0';
-    
-    std::strncpy(replay_meta->level_name, metadata.level_name, sizeof(replay_meta->level_name) - 1);
-    replay_meta->level_name[sizeof(replay_meta->level_name) - 1] = '\0';
-    
+    // Direct memory copy - code generation ensures identical struct layouts
+    std::memcpy(out_metadata, &metadata, sizeof(metadata));
+
     return MER_SUCCESS;
 }
+
 
 int32_t mer_get_max_tiles(void) {
     return CompiledLevel::MAX_TILES;

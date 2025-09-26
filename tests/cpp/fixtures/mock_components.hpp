@@ -277,7 +277,7 @@ public:
     }
     
     bool startRecording(const char* filepath) {
-        MER_Result result = mer_start_recording(handle_, filepath);
+        MER_Result result = mer_start_recording(handle_, filepath, true);
         if (result == MER_SUCCESS) {
             is_recording_ = true;
             recording_file_ = filepath;

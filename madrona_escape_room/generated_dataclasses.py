@@ -32,9 +32,9 @@ def _make_int_array_1024():
     """Factory for 1024-element int array"""
     return [0] * 1024
 
-def _make_int_array_7():
-    """Factory for 7-element int array"""
-    return [0] * 7
+def _make_int_array_4():
+    """Factory for 4-element int array"""
+    return [0] * 4
 
 def _make_int_array_8():
     """Factory for 8-element int array"""
@@ -106,7 +106,10 @@ class ReplayMetadata(NativeEndianCDataMixIn):
     actions_per_step: int = field(metadata=meta(ctypes.c_uint32), default=0)
     timestamp: int = field(metadata=meta(ctypes.c_uint64), default=0)
     seed: int = field(metadata=meta(ctypes.c_uint32), default=0)
-    reserved: List[int] = field(metadata=meta(ctypes.c_uint32 * 7), default_factory=_make_int_array_7)
+    checksum_version: int = field(metadata=meta(ctypes.c_uint32), default=0)
+    enable_checksums: int = field(metadata=meta(ctypes.c_uint32), default=0)
+    num_episode_checksums: int = field(metadata=meta(ctypes.c_uint32), default=0)
+    reserved: List[int] = field(metadata=meta(ctypes.c_uint32 * 4), default_factory=_make_int_array_4)
 
 @dataclass
 class ManagerConfig(NativeEndianCDataMixIn):

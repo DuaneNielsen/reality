@@ -1130,6 +1130,7 @@ Sim::Sim(Engine &ctx,
     initWorld(ctx);
 }
 
+
 // [BOILERPLATE] This declaration is needed for the GPU backend in order to generate the
 // CUDA kernel for world initialization, which needs to be specialized to the
 // application's world data type (Sim) and config and initialization types.

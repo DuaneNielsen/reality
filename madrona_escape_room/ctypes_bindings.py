@@ -281,8 +281,9 @@ lib.mer_enable_trajectory_logging.restype = c_int
 lib.mer_disable_trajectory_logging.argtypes = [MER_ManagerHandle]
 lib.mer_disable_trajectory_logging.restype = c_int
 
+# Checksum control functionality
 # Recording functionality
-lib.mer_start_recording.argtypes = [MER_ManagerHandle, c_char_p]
+lib.mer_start_recording.argtypes = [MER_ManagerHandle, c_char_p, c_bool]
 lib.mer_start_recording.restype = c_int
 
 lib.mer_stop_recording.argtypes = [MER_ManagerHandle]
