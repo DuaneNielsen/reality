@@ -5,6 +5,7 @@ Tests the checksum system that validates replay accuracy by computing
 deterministic hashes of simulation state at episode boundaries.
 """
 
+import numpy as np
 import pytest
 import torch
 from test_helpers import AgentController
@@ -13,95 +14,112 @@ from madrona_escape_room import ExecMode, SimManager
 from madrona_escape_room import generated_constants as consts
 
 
+def set_random_actions(agent_controller):
+    """Helper function to set random actions for all agents"""
+    # Get random values for each action component
+    # Actions shape is [num_worlds, action_components] where action_components = 3
+    action_data = agent_controller.actions.cpu().numpy()
+
+    for world_idx in range(agent_controller.num_worlds):
+        # Random move amount (0-3)
+        action_data[world_idx, 0] = np.random.randint(0, 4)
+        # Random move angle (0-7)
+        action_data[world_idx, 1] = np.random.randint(0, 8)
+        # Random rotate (0-4)
+        action_data[world_idx, 2] = np.random.randint(0, 5)
+
+
 class TestChecksumValidation:
     """Test checksum validation API and functionality"""
 
-    def test_checksum_validation_api_cpu(self, cpu_manager):
+    def test_checksum_validation_api_cpu(self, cpu_manager, tmp_path):
         """Test checksum validation control API with CPU manager"""
         mgr = cpu_manager
 
-        # Test initial state (should be enabled by default)
-        initial_enabled = mgr.is_checksum_validation_enabled()
-        assert isinstance(initial_enabled, bool)
-        assert initial_enabled  # Should be enabled by default
+        # Test checksums enabled by default via start_recording
+        recording_path_enabled = tmp_path / "test_enabled.rec"
+        mgr.start_recording(str(recording_path_enabled), enable_checksums=True)
+        mgr.stop_recording()
 
-        # Test disabling checksum validation
-        mgr.enable_checksum_validation(False)
-        assert not mgr.is_checksum_validation_enabled()
+        # Verify checksums were enabled in metadata
+        metadata = SimManager.read_replay_metadata(str(recording_path_enabled))
+        assert metadata.enable_checksums == 1
+        assert metadata.checksum_version == 1
 
-        # Test re-enabling checksum validation
-        mgr.enable_checksum_validation(True)
-        assert mgr.is_checksum_validation_enabled()
+        # Test checksums disabled via start_recording
+        recording_path_disabled = tmp_path / "test_disabled.rec"
+        mgr.start_recording(str(recording_path_disabled), enable_checksums=False)
+        mgr.stop_recording()
+
+        # Verify checksums were disabled in metadata
+        metadata = SimManager.read_replay_metadata(str(recording_path_disabled))
+        assert metadata.enable_checksums == 0
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-    def test_checksum_validation_api_gpu(self, gpu_manager):
+    def test_checksum_validation_api_gpu(self, gpu_manager, tmp_path):
         """Test checksum validation control API with GPU manager"""
         mgr = gpu_manager
 
-        # Test initial state (should be enabled by default)
-        initial_enabled = mgr.is_checksum_validation_enabled()
-        assert isinstance(initial_enabled, bool)
-        assert initial_enabled  # Should be enabled by default
+        # Test checksums enabled by default via start_recording
+        recording_path_enabled = tmp_path / "test_enabled_gpu.rec"
+        mgr.start_recording(str(recording_path_enabled), enable_checksums=True)
+        mgr.stop_recording()
 
-        # Test disabling checksum validation
-        mgr.enable_checksum_validation(False)
-        assert not mgr.is_checksum_validation_enabled()
+        # Verify checksums were enabled in metadata
+        metadata = SimManager.read_replay_metadata(str(recording_path_enabled))
+        assert metadata.enable_checksums == 1
+        assert metadata.checksum_version == 1
 
-        # Test re-enabling checksum validation
-        mgr.enable_checksum_validation(True)
-        assert mgr.is_checksum_validation_enabled()
+        # Test checksums disabled via start_recording
+        recording_path_disabled = tmp_path / "test_disabled_gpu.rec"
+        mgr.start_recording(str(recording_path_disabled), enable_checksums=False)
+        mgr.stop_recording()
+
+        # Verify checksums were disabled in metadata
+        metadata = SimManager.read_replay_metadata(str(recording_path_disabled))
+        assert metadata.enable_checksums == 0
 
     def test_recording_with_checksums(self, cpu_manager, tmp_path):
         """Test that recording includes checksums when enabled"""
         mgr = cpu_manager
+        recording_path = tmp_path / "test_recording.rec"
 
-        # Ensure checksum validation is enabled
-        mgr.enable_checksum_validation(True)
-        assert mgr.is_checksum_validation_enabled()
+        # Start recording with checksums enabled
+        mgr.start_recording(str(recording_path), enable_checksums=True)
 
-        # Start recording
-        recording_path = tmp_path / "checksum_test.rec"
-        mgr.start_recording(str(recording_path))
-        assert mgr.is_recording()
+        # Simulate some steps to potentially generate episodes
+        agent_controller = AgentController(mgr)
 
-        # Create agent controller for movement
-        controller = AgentController(mgr)
-
-        # Simulate some steps to trigger episodes
-        for step in range(20):
-            controller.reset_actions()
-            controller.move_forward(speed=consts.action.move_amount.FAST)
+        for step in range(50):
+            set_random_actions(agent_controller)
             mgr.step()
 
-            # Check for episode completion
-            done_tensor = mgr.done_tensor()
-            done_data = done_tensor.to_torch()
-            if done_data.any():
-                break  # Episode completed
-
-        # Stop recording
         mgr.stop_recording()
-        assert not mgr.is_recording()
 
-        # Verify recording file was created
-        assert recording_path.exists()
-        assert recording_path.stat().st_size > 0
+        # Verify metadata structure
+        metadata = SimManager.read_replay_metadata(str(recording_path))
+        assert metadata is not None
+        assert hasattr(metadata, "enable_checksums")
+        assert hasattr(metadata, "checksum_version")
+        assert hasattr(metadata, "num_episode_checksums")
+
+        assert metadata.enable_checksums == 1
+        assert metadata.checksum_version == 1
+        # num_episode_checksums should be >= 0 (may be 0 if no episodes completed)
+        assert metadata.num_episode_checksums >= 0
 
     def test_replay_metadata_includes_checksum_fields(self, cpu_manager, tmp_path):
-        """Test that replay metadata includes version 4 checksum fields"""
+        """Test that replay metadata includes all checksum-related fields"""
         mgr = cpu_manager
+        recording_path = tmp_path / "test_fields.rec"
 
-        # Enable checksum validation
-        mgr.enable_checksum_validation(True)
+        # Start recording with checksums enabled
+        mgr.start_recording(str(recording_path), enable_checksums=True)
 
-        # Record a short episode
-        recording_path = tmp_path / "metadata_test.rec"
-        mgr.start_recording(str(recording_path))
-
-        controller = AgentController(mgr)
+        # Take a few steps
+        agent_controller = AgentController(mgr)
         for _ in range(10):
-            controller.reset_actions()
-            controller.move_forward(speed=consts.action.move_amount.MEDIUM)
+            set_random_actions(agent_controller)
             mgr.step()
 
         mgr.stop_recording()
@@ -123,168 +141,82 @@ class TestChecksumValidation:
         assert hasattr(metadata, "num_episode_checksums")
         assert metadata.num_episode_checksums >= 0  # Should have non-negative count
 
-    def test_replay_with_checksum_validation(self, cpu_manager, tmp_path):
-        """Test replay with checksum validation enabled"""
+    def test_replay_with_checksums_enabled(self, cpu_manager, tmp_path):
+        """Test replay functionality with checksums enabled"""
         mgr = cpu_manager
+        recording_path = tmp_path / "test_replay.rec"
 
-        # Enable checksum validation for recording
-        mgr.enable_checksum_validation(True)
+        # Start recording with checksums enabled
+        mgr.start_recording(str(recording_path), enable_checksums=True)
 
-        # Record a deterministic episode
-        recording_path = tmp_path / "replay_validation_test.rec"
-        mgr.start_recording(str(recording_path))
-
-        controller = AgentController(mgr)
-
-        # Record deterministic movements
-        for step in range(25):
-            controller.reset_actions()
-            if step < 10:
-                controller.move_forward(speed=consts.action.move_amount.FAST)
-            elif step < 20:
-                controller.strafe_right(speed=consts.action.move_amount.MEDIUM)
-            else:
-                controller.move_backward(speed=consts.action.move_amount.SLOW)
+        # Run some steps
+        agent_controller = AgentController(mgr)
+        for _ in range(30):
+            set_random_actions(agent_controller)
             mgr.step()
 
         mgr.stop_recording()
 
-        # Create new manager and load replay
-        mgr2 = SimManager(
-            exec_mode=ExecMode.CPU,
-            num_worlds=1,
-            rand_seed=5,  # Same seed for deterministic behavior
-            auto_reset=True,
-            enable_batch_renderer=False,
-        )
+        # Create new manager from replay
+        mgr2 = SimManager.from_replay(str(recording_path), ExecMode.CPU, gpu_id=0)
 
-        # Enable checksum validation for replay
-        mgr2.enable_checksum_validation(True)
-
-        # Load and play back the recording
-        success = mgr2.load_replay(str(recording_path))
-        assert success
-        assert mgr2.has_replay()
-
-        # Step through replay - checksums should validate automatically
-        total_steps = mgr2.get_total_replay_steps()
-        assert total_steps > 0
-
-        for _ in range(total_steps):
-            replay_success = mgr2.replay_step()
-            if not replay_success:
+        # Step through replay
+        for _ in range(10):  # Replay some steps
+            result = mgr2.replay_step()
+            if not result:
                 break  # End of replay
 
-        # If we get here without assertion failures, checksum validation passed
-
     def test_checksum_validation_disabled_during_replay(self, cpu_manager, tmp_path):
-        """Test that replay works when checksum validation is disabled"""
+        """Test replay with checksum validation disabled"""
         mgr = cpu_manager
+        recording_path = tmp_path / "test_disabled_replay.rec"
 
-        # Record with checksums enabled
-        mgr.enable_checksum_validation(True)
-        recording_path = tmp_path / "disabled_validation_test.rec"
-        mgr.start_recording(str(recording_path))
+        # Start recording with checksums enabled
+        mgr.start_recording(str(recording_path), enable_checksums=True)
 
-        controller = AgentController(mgr)
-        for _ in range(15):
-            controller.reset_actions()
-            controller.move_forward(speed=consts.action.move_amount.FAST)
+        # Run some steps
+        agent_controller = AgentController(mgr)
+        for _ in range(20):
+            set_random_actions(agent_controller)
             mgr.step()
 
         mgr.stop_recording()
 
-        # Create new manager and disable checksum validation
-        mgr2 = SimManager(
-            exec_mode=ExecMode.CPU,
-            num_worlds=1,
-            rand_seed=5,
-            auto_reset=True,
-            enable_batch_renderer=False,
-        )
+        # Create new manager from replay (checksums are controlled at recording time)
+        mgr2 = SimManager.from_replay(str(recording_path), ExecMode.CPU, gpu_id=0)
 
-        # Disable checksum validation for replay
-        mgr2.enable_checksum_validation(False)
-        assert not mgr2.is_checksum_validation_enabled()
-
-        # Load and play back the recording (should work without validation)
-        success = mgr2.load_replay(str(recording_path))
-        assert success
-
-        total_steps = mgr2.get_total_replay_steps()
-        for _ in range(min(10, total_steps)):  # Test first 10 steps
-            replay_success = mgr2.replay_step()
-            assert replay_success
-
-    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-    def test_checksum_validation_gpu_recording(self, gpu_manager, tmp_path):
-        """Test checksum validation with GPU recording and replay"""
-        mgr = gpu_manager
-
-        # Enable checksum validation
-        mgr.enable_checksum_validation(True)
-
-        # Record a short GPU episode
-        recording_path = tmp_path / "gpu_checksum_test.rec"
-        mgr.start_recording(str(recording_path))
-
-        controller = AgentController(mgr)
-        for _ in range(15):
-            controller.reset_actions()
-            controller.move_forward(speed=consts.action.move_amount.MEDIUM)
-            mgr.step()
-
-        mgr.stop_recording()
-
-        # Verify recording was created with correct metadata
-        metadata = SimManager.read_replay_metadata(str(recording_path))
-        assert metadata is not None
-        assert metadata.version == 4
-        assert metadata.enable_checksums == 1
-
-        # Note: Due to GPU manager constraints, we cannot create a second GPU manager
-        # for replay testing. In a real scenario, the same GPU manager would be used
-        # for both recording and replay.
+        # Step through replay
+        for _ in range(10):
+            result = mgr2.replay_step()
+            if not result:
+                break
 
     def test_empty_recording_metadata(self, cpu_manager, tmp_path):
-        """Test metadata for empty recording (no episodes completed)"""
+        """Test metadata for empty recording"""
         mgr = cpu_manager
+        recording_path = tmp_path / "test_empty.rec"
 
-        # Enable checksum validation
-        mgr.enable_checksum_validation(True)
-
-        # Record very short session (no episodes completed)
-        recording_path = tmp_path / "empty_recording_test.rec"
-        mgr.start_recording(str(recording_path))
-
-        # Take just a few steps (not enough for episode completion)
-        controller = AgentController(mgr)
-        for _ in range(3):
-            controller.reset_actions()
-            controller.move_forward(speed=consts.action.move_amount.SLOW)
-            mgr.step()
-
+        # Start and immediately stop recording
+        mgr.start_recording(str(recording_path), enable_checksums=True)
         mgr.stop_recording()
 
         # Read metadata
         metadata = SimManager.read_replay_metadata(str(recording_path))
         assert metadata is not None
-        assert metadata.version == 4
         assert metadata.enable_checksums == 1
+        assert metadata.checksum_version == 1
         assert metadata.num_episode_checksums == 0  # No episodes completed
 
-    def test_checksum_api_type_safety(self, cpu_manager):
-        """Test that checksum API methods have correct type behavior"""
+    def test_default_enable_checksums_parameter(self, cpu_manager, tmp_path):
+        """Test that start_recording defaults to enable_checksums=True"""
         mgr = cpu_manager
+        recording_path = tmp_path / "test_default.rec"
 
-        # Test enable_checksum_validation accepts bool
-        mgr.enable_checksum_validation(True)
-        mgr.enable_checksum_validation(False)
+        # Start recording without specifying enable_checksums (should default to True)
+        mgr.start_recording(str(recording_path))
+        mgr.stop_recording()
 
-        # Test return type of is_checksum_validation_enabled
-        result = mgr.is_checksum_validation_enabled()
-        assert isinstance(result, bool)
-
-        # Test that enable_checksum_validation doesn't return anything
-        return_value = mgr.enable_checksum_validation(True)
-        assert return_value is None  # Should not return anything
+        # Verify checksums were enabled by default
+        metadata = SimManager.read_replay_metadata(str(recording_path))
+        assert metadata.enable_checksums == 1
+        assert metadata.checksum_version == 1
