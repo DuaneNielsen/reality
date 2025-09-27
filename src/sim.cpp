@@ -1139,9 +1139,10 @@ uint32_t Engine::calculateWorldChecksum()
 
     uint32_t hash = FNV_OFFSET_BASIS;
 
-    // Hash all Position components in this world (agents, cubes, walls, etc.)
-    auto position_query = this->query<Position>();
-    this->iterateQuery(position_query, [&](Position &pos) {
+    // Hash only physics entities' Position components (agents, cubes, walls)
+    // Using LeafID to filter out visualization entities (lidar rays, compass indicators)
+    auto position_query = this->query<broadphase::LeafID, Position>();
+    this->iterateQuery(position_query, [&](broadphase::LeafID &leaf_id, Position &pos) {
         // Convert position components to bytes and hash them
         uint32_t x_bits = *reinterpret_cast<const uint32_t*>(&pos.x);
         uint32_t y_bits = *reinterpret_cast<const uint32_t*>(&pos.y);

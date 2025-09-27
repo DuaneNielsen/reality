@@ -22,18 +22,24 @@ def create_inference_config_from_args(args: argparse.Namespace) -> InferenceConf
         madrona_escape_room.ExecMode.CUDA if args.gpu_sim else madrona_escape_room.ExecMode.CPU
     )
 
+    # Prepare model kwargs for policy creation
+    model_kwargs = {
+        "num_channels": args.num_channels,
+        "separate_value": args.separate_value,
+    }
+
     return InferenceConfig(
         # Required
         ckpt_path=args.ckpt_path,
+        compiled_levels=getattr(args, "compiled_levels", []),
+        # Model configuration
+        model_kwargs=model_kwargs,
+        # Simulation
         num_worlds=args.num_worlds,
         num_steps=args.num_steps,
-        # Simulation
         exec_mode=exec_mode,
         gpu_id=args.gpu_id,
         sim_seed=getattr(args, "sim_seed", getattr(args, "seed", 0)),
-        # Model
-        num_channels=args.num_channels,
-        separate_value=args.separate_value,
         fp16=args.fp16,
         # Level
         level_file=getattr(args, "level_file", None),
