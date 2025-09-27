@@ -47,9 +47,10 @@ def test_gpu_feature(gpu_manager):
 ### Recording and Replay Tests
 - **test_native_recording.py** - Native recording functionality tests
 - **test_native_recording_gpu.py** - GPU-specific recording tests
-- **test_native_recording_replay_roundtrip.py** - Recording/replay roundtrip validation
+- **test_native_recording_replay_roundtrip.py** - Recording/replay roundtrip validation using checksum verification
 - **test_native_replay.py** - Replay system functionality tests
 - **test_recording_binary_format.py** - Binary recording format validation
+- **test_checksum_verification.py** - Comprehensive checksum-based determinism validation
 
 ### Tensor and Memory Tests
 - **test_dlpack.py** - DLPack tensor format interoperability
@@ -92,8 +93,8 @@ uv run --group dev pytest tests/python/ -v -k "gpu"
 ### Main Test Fixtures
 - **cpu_manager** - Function-scoped CPU SimManager (new per test, supports custom levels)
 - **gpu_manager** - Session-scoped GPU SimManager (shared across all GPU tests)
-- **gpu_env** - Session-scoped GPU TorchRL environment  
-- **log_and_verify_replay_cpu_manager** - CPU manager with automatic replay verification
+- **gpu_env** - Session-scoped GPU TorchRL environment
+- **log_and_verify_replay_cpu_manager** - CPU manager with automatic checksum-based replay verification
 - **test_manager_from_replay** - Factory for creating managers from replay files
 
 ## Custom Level Testing
@@ -178,7 +179,6 @@ uv run --group dev pytest tests/python/ -m "not slow"
 #### Debugging and Visualization Flags
 ```bash
 --record-actions      # Record actions to binary files for viewer replay
---trace-trajectories  # Log agent trajectories to text files
 --visualize           # Auto-launch viewer after tests (requires --record-actions)
 ```
 
@@ -187,11 +187,8 @@ uv run --group dev pytest tests/python/ -m "not slow"
 # Record actions for debugging
 uv run --group dev pytest tests/python/test_reward_system.py --record-actions
 
-# Record both actions and trajectories
-uv run --group dev pytest tests/python/test_reward_system.py --record-actions --trace-trajectories
-
-# Record, trace, and auto-launch viewer
-uv run --group dev pytest tests/python/test_reward_system.py --record-actions --trace-trajectories --visualize
+# Record actions and auto-launch viewer
+uv run --group dev pytest tests/python/test_reward_system.py --record-actions --visualize
 
 # Debug specific test
 uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movement_reward -v --record-actions
@@ -199,16 +196,58 @@ uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movem
 
 ### Output Files
 When using debugging flags, files are created in `test_recordings/` with automatic naming:
-- **Actions**: `test_recordings/test_module.py__test_function_actions.bin`  
-- **Trajectories**: `test_recordings/test_module.py__test_function_actions_trajectory.txt`
+- **Actions**: `test_recordings/test_module.py__test_function_actions.bin`
 
 Example:
 ```bash
-uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movement_reward --record-actions --trace-trajectories
+uv run --group dev pytest tests/python/test_reward_system.py::test_forward_movement_reward --record-actions
 # Creates:
 # test_recordings/test_reward_system.py__test_forward_movement_reward_actions.bin
-# test_recordings/test_reward_system.py__test_forward_movement_reward_actions_trajectory.txt
 ```
+
+### Checksum-Based Replay Verification
+
+The test suite now uses **checksum verification** for determinism validation instead of trajectory file comparison:
+
+#### Key Benefits
+- **Simpler**: Single boolean flag vs complex file comparison
+- **Faster**: No file I/O for trajectory traces
+- **More reliable**: Built into recording format vs external files
+- **Automatic**: Checksums calculated every 200 steps during replay
+- **Self-contained**: No manual file management required
+
+#### Features
+- **Automatic verification**: Tests using `log_and_verify_replay_cpu_manager` automatically verify replay determinism
+- **Built-in checksums**: v4 format recordings embed position checksums every 200 steps
+- **Simple API**: Check determinism with `mgr.has_checksum_failed()` boolean flag
+- **Multi-world support**: Verifies determinism across all simulation worlds
+- **Corruption detection**: Detects non-deterministic replays or corrupted files
+
+#### Usage Examples
+```python
+# Modern approach - automatic checksum verification
+def test_deterministic_replay(log_and_verify_replay_cpu_manager):
+    mgr = log_and_verify_replay_cpu_manager
+    # Run your test actions...
+    # Fixture automatically verifies determinism on exit using checksums
+
+# Manual checksum verification
+def test_manual_checksum_check(cpu_manager):
+    mgr = cpu_manager
+    mgr.start_recording("recording.bin")
+    # ... run simulation ...
+    mgr.stop_recording()
+
+    replay_mgr = SimManager.from_replay("recording.bin", ExecMode.CPU)
+    # Run replay...
+    assert not replay_mgr.has_checksum_failed(), "Replay should be deterministic"
+```
+
+#### Migration from Trajectory Verification
+The previous trajectory logging approach has been replaced:
+- ❌ **Old**: Complex trajectory file comparison, manual file management
+- ✅ **New**: Simple boolean flag, automatic checksum verification
+- **Tests**: Comprehensive checksum verification in `test_checksum_verification.py`
 
 ### GPU Testing
 ```bash
@@ -346,12 +385,13 @@ controller.set_custom_action(
 - `@pytest.mark.skipif(not torch.cuda.is_available(), ...)` - Skip tests when CUDA unavailable
 - `@pytest.mark.slow` - Mark tests that take significant time (GPU compilation, stress tests)
 
-## Recording Capabilities
-Tests can optionally record actions and trajectories:
+## Recording and Verification Capabilities
+Tests can optionally record actions and verify determinism:
 - Actions saved to `.bin` files for viewer replay
-- Trajectories logged to `.txt` files for analysis
+- Built-in checksum verification for determinism validation
 - Automatic replay verification in specialized fixtures
-- Use `--record-actions` and `--trace-trajectories` flags
+- Use `--record-actions` flag for debugging
+- No manual trajectory file management required
 
 ## Debugging
 

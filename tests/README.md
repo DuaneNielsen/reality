@@ -6,7 +6,7 @@ This directory contains the testing infrastructure for the Madrona Escape Room p
 
 - `cpp/` - C++ tests using GoogleTest framework
 - `python/` - Python tests using pytest framework
-- `test_recordings/` - Recorded test sessions for replay testing
+- `test_recordings/` - Recorded test sessions for replay testing and checksum verification
 
 ## Main Testing Entrypoint
 
