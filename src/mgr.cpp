@@ -790,9 +790,9 @@ void Manager::step()
     if (impl_->replayData.has_value()) {
         const auto& metadata = impl_->replayData->metadata;
 
-        // For v4 format with checksums, verify positions every 200 steps
+        // For v4 format with checksums, verify positions at step 0 (initial state) or every 200 steps
         if (metadata.hasChecksums() &&
-            impl_->replayChecksumStepCounter >= CHECKSUM_INTERVAL) {
+            (impl_->currentReplayStep == 0 || impl_->replayChecksumStepCounter >= CHECKSUM_INTERVAL)) {
 
             // Calculate current world checksums
             std::vector<uint32_t> currentChecksums = impl_->calculateAllWorldChecksums();
@@ -1440,10 +1440,28 @@ Result Manager::startRecording(const std::string& filepath)
     for (const auto& level : worldLevels) {
         impl_->recordingFile.write(reinterpret_cast<const char*>(&level), sizeof(CompiledLevel));
     }
-    
+
+    // For v4 format with checksums, write initial state checksum before any actions
+    if (impl_->recordingMetadata.version == 4) {
+        // Calculate initial state checksums for all worlds
+        std::vector<uint32_t> initialChecksums = impl_->calculateAllWorldChecksums();
+
+        // Write initial checksum record header
+        ChecksumRecord checksumHeader;
+        checksumHeader.type = RecordType::CHECKSUM;
+        checksumHeader.num_worlds = impl_->cfg.numWorlds;
+
+        impl_->recordingFile.write(reinterpret_cast<const char*>(&checksumHeader),
+                                  sizeof(checksumHeader));
+
+        // Write all world checksums
+        impl_->recordingFile.write(reinterpret_cast<const char*>(initialChecksums.data()),
+                                  initialChecksums.size() * sizeof(uint32_t));
+    }
+
     impl_->recordedFrames = 0;
     impl_->isRecordingActive = true;
-    
+
     return Result::Success;
 }
 
@@ -1723,6 +1741,7 @@ std::unique_ptr<Manager> Manager::fromReplay(
         actions = HeapArray<int32_t>(metadata_inline.num_steps * metadata_inline.num_worlds * metadata_inline.actions_per_step);
         uint32_t action_idx = 0;
         uint32_t current_step = 0;
+        bool first_record = true;
 
         while (current_step < metadata_inline.num_steps && !replay_file.eof()) {
             // Read record type
@@ -1738,6 +1757,7 @@ std::unique_ptr<Manager> Manager::fromReplay(
                                step_action_count * sizeof(int32_t));
                 action_idx += step_action_count;
                 current_step++;
+                first_record = false;
             } else if (record_type == RecordType::CHECKSUM) {
                 // Read num_worlds field (type was already read)
                 uint32_t num_worlds;
@@ -1750,7 +1770,15 @@ std::unique_ptr<Manager> Manager::fromReplay(
 
                 // Store checksums and step number
                 checksums.push_back(std::move(step_checksums));
-                checksum_steps.push_back(current_step);
+
+                // For the initial checksum (first record), store at step 0
+                // For subsequent checksums, store at the current step after actions
+                if (first_record) {
+                    checksum_steps.push_back(0);
+                    first_record = false;
+                } else {
+                    checksum_steps.push_back(current_step);
+                }
             } else {
                 std::cerr << "Error: Unknown record type " << static_cast<uint32_t>(record_type)
                          << " at step " << current_step << "\n";
