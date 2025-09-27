@@ -208,11 +208,11 @@ TEST_F(FileInspectorTest, InspectorHandlesRecordingFile) {
     
     std::string output = runFileInspector(testRecordingFile);
     
-    // Check for expected recording output (v3 format)
+    // Check for expected recording output (v4 format)
     EXPECT_TRUE(output.find("Recording File:") != std::string::npos);
     EXPECT_TRUE(output.find("✓ Valid magic number (MESR)") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ Valid version (3)") != std::string::npos);
-    EXPECT_TRUE(output.find("✓ File structure intact") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ Valid version (4 with checksums)") != std::string::npos);
+    EXPECT_TRUE(output.find("✓ File structure intact (v4 format with checksums)") != std::string::npos);
     EXPECT_TRUE(output.find("✓ Metadata fields within valid ranges") != std::string::npos);
     
     // Check metadata content
@@ -221,7 +221,7 @@ TEST_F(FileInspectorTest, InspectorHandlesRecordingFile) {
     EXPECT_TRUE(output.find("Steps recorded: 3") != std::string::npos);
     EXPECT_TRUE(output.find("Actions per step: 3") != std::string::npos);
     
-    // Check embedded level content (v3 format shows levels differently)
+    // Check embedded level content (v4 format shows levels)
     EXPECT_TRUE(output.find("Embedded Levels") != std::string::npos);
     EXPECT_TRUE(output.find("embedded_test_level") != std::string::npos);
     EXPECT_TRUE(output.find("5x4 grid") != std::string::npos);

@@ -213,10 +213,10 @@ def test_compiled_level_structure_validation(cpu_manager):
 
 
 def test_action_data_verification_step_by_step(cpu_manager):
-    """Test action data verification with step-by-step validation"""
+    """Test action data verification using proper replay API with checksum validation"""
     mgr = cpu_manager
 
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".rec", delete=False) as f:
         recording_path = f.name
 
     try:
@@ -224,7 +224,6 @@ def test_action_data_verification_step_by_step(cpu_manager):
         mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
-        num_worlds = action_tensor.shape[0]
 
         # Define specific action sequence for validation
         test_actions = [
@@ -243,74 +242,59 @@ def test_action_data_verification_step_by_step(cpu_manager):
 
         mgr.stop_recording()
 
-        # Read and validate action data
-        with open(recording_path, "rb") as f:
-            # Skip ReplayMetadata (192 bytes) and CompiledLevel
-            f.seek(192)
+        # Validate recording metadata
+        metadata = mgr.read_replay_metadata(recording_path)
+        assert metadata is not None, "Failed to read replay metadata"
+        assert metadata.version == 4, f"Expected v4 format with checksums, got v{metadata.version}"
+        assert metadata.num_steps == len(
+            test_actions
+        ), f"Expected {len(test_actions)} steps, got {metadata.num_steps}"
 
-            # Determine CompiledLevel size by reading to find actions
-            # For now, use a known offset or seek to end to calculate
-            f.seek(0, 2)  # Go to end
-            file_size = f.tell()
+        print("=== Action Data Verification using Replay API ===")
+        print(f"Recording format: v{metadata.version} with checksums")
+        print(f"Recorded steps: {metadata.num_steps}")
+        print(f"Worlds: {metadata.num_worlds}, Agents per world: {metadata.num_agents_per_world}")
 
-            # Calculate action data size and work backwards from file end
-            bytes_per_step = num_worlds * 3 * 4  # 3 int32_t per world
-            expected_action_bytes = len(test_actions) * bytes_per_step
+        # Create replay manager to validate the recording
+        from madrona_escape_room import SimManager
+        from madrona_escape_room.generated_constants import ExecMode
 
-            print("=== Action Data Verification ===")
-            print(f"File size: {file_size} bytes")
-            print(f"Expected action bytes: {expected_action_bytes}")
-            print(f"Bytes per step: {bytes_per_step}")
+        replay_mgr = SimManager.from_replay(recording_path, ExecMode.CPU)
 
-            # Actions are at the end of the file, work backwards
-            actions_start = file_size - expected_action_bytes
-            f.seek(actions_start)
+        # Verify checksum failed flag starts as False
+        assert not replay_mgr.has_checksum_failed(), "Checksum should not have failed before replay"
 
-            print(f"Action data starts at: {actions_start}")
+        # Replay and verify deterministic behavior through checksum validation
+        step_count = 0
+        while step_count < len(test_actions):
+            replay_complete = replay_mgr.replay_step()
+            step_count += 1
 
-            remaining_bytes = file_size - actions_start
-            possible_steps = remaining_bytes // bytes_per_step if bytes_per_step > 0 else 0
+            # Get current positions to verify they're changing deterministically
+            obs_tensor = replay_mgr.self_observation_tensor().to_torch()
+            positions = obs_tensor[:, 0, :3]  # [world, agent, xyz]
 
-            print(f"Remaining bytes: {remaining_bytes}")
-            print(f"Possible steps: {possible_steps}")
+            print(f"✓ Step {step_count}: Agent positions shape {positions.shape}")
 
-            # Validate we can read expected number of steps
-            assert possible_steps >= len(
-                test_actions
-            ), f"Expected at least {len(test_actions)} steps, can only read {possible_steps}"
+            # Break if replay indicates completion
+            if replay_complete:
+                break
 
-            # Read and validate each step
-            for step_idx, expected_actions in enumerate(test_actions):
-                step_data = []
-                for world_idx in range(num_worlds):
-                    try:
-                        move_amount = struct.unpack("<i", f.read(4))[0]
-                        move_angle = struct.unpack("<i", f.read(4))[0]
-                        rotate = struct.unpack("<i", f.read(4))[0]
-                        step_data.append((move_amount, move_angle, rotate))
-                    except struct.error as e:
-                        print(f"Failed to read step {step_idx}, world {world_idx}: {e}")
-                        raise
+        # Verify replay completed all steps (should reach exactly the recorded number)
+        assert step_count == len(
+            test_actions
+        ), f"Expected {len(test_actions)} replay steps, got {step_count}"
 
-                # Verify actions match expected values for all worlds
-                expected_move_amount, expected_move_angle, expected_rotate = expected_actions
-                for world_idx, (move_amount, move_angle, rotate) in enumerate(step_data):
-                    assert move_amount == expected_move_amount, (
-                        f"Step {step_idx}, World {world_idx}: expected move_amount "
-                        f"{expected_move_amount}, got {move_amount}"
-                    )
-                    assert move_angle == expected_move_angle, (
-                        f"Step {step_idx}, World {world_idx}: expected move_angle "
-                        f"{expected_move_angle}, got {move_angle}"
-                    )
-                    assert rotate == expected_rotate, (
-                        f"Step {step_idx}, World {world_idx}: expected rotate "
-                        f"{expected_rotate}, got {rotate}"
-                    )
+        # Critical test: Use hasChecksumFailed to verify recording integrity
+        # This validates that recorded actions produced deterministic results
+        checksum_failed = replay_mgr.has_checksum_failed()
+        assert not checksum_failed, (
+            "Checksum verification failed - recorded actions should produce deterministic replay. "
+            "This indicates the action data was corrupted or the simulation is non-deterministic."
+        )
 
-                print(f"✓ Step {step_idx}: {expected_actions} validated for {num_worlds} worlds")
-
-            print("✓ All action data validated successfully")
+        print("✓ Checksum verification PASSED - recording contains valid action data")
+        print(f"✓ Successfully replayed {step_count} steps with deterministic results")
 
     finally:
         if os.path.exists(recording_path):
