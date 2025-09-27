@@ -497,13 +497,19 @@ Determinism can be verified by:
 
 **Specs:**
 - Records all world actions at each step
-- Embeds compiled levels in recording file (v3 format)
+- Embeds compiled levels in recording file (v4 format with checksum verification)
 - Updates metadata incrementally for crash recovery
-- File format: [Metadata][Levels][Actions]
-- **Determinism Note**: Recording only captures seed + actions. Full determinism is guaranteed by the simulation's PRNG.
-- **Version 3 Metadata structure** (192 bytes total):
+- File format: [Metadata][Levels][Mixed ACTION/CHECKSUM Records]
+- **Determinism Note**: Recording captures seed + actions + position checksums for verification
+- **Checksum Verification**: Automatically calculates and stores checksums every 200 steps for determinism validation
+- **Version 4 Format Features**:
+  - Mixed record types (ACTION and CHECKSUM records)
+  - Position-based checksums using FNV-1a hash algorithm
+  - Deterministic replay verification support
+  - Backward compatible metadata structure
+- **Version 4 Metadata structure** (192 bytes total):
   - `magic`: uint32_t (4 bytes) - Magic number for validation
-  - `version`: uint32_t (4 bytes) - Format version (currently 3)
+  - `version`: uint32_t (4 bytes) - Format version (currently 4)
   - `sim_name`: char[64] - Simulation name (null-terminated ASCII)
   - `level_name`: char[64] - Level name (null-terminated ASCII)
   - `num_worlds`: uint32_t (4 bytes) - Number of parallel worlds
@@ -539,19 +545,20 @@ Determinism can be verified by:
 **Returns:** bool (success/failure)
 
 **Preconditions:**
-- Valid replay file in v3 format
+- Valid replay file in v4 format (with checksum verification support)
 - Number of worlds must match
 
 **Specs:**
-- Loads embedded levels and action sequence
-- Validates metadata magic and version
-- Prepares for replay playback via replayStep()
+- Loads embedded levels and mixed ACTION/CHECKSUM record sequence
+- Validates metadata magic and version (supports v4 format)
+- Prepares for replay playback via replayStep() with checksum verification
 - Extracts metadata:
   - Number of worlds (updates viewer configuration)
   - Number of steps
   - Random seed for deterministic replay
 - Extracts embedded MER_CompiledLevel data
-- Validates file size matches expected format
+- Loads checksum verification points for determinism validation
+- Validates file size matches expected v4 format
 - Detects malformed files (too small or corrupted)
 - **Multi-Level Replay Support:**
   - Reconstructs per-world level assignments from recording
@@ -561,11 +568,12 @@ Determinism can be verified by:
 
 **Error Handling:**
 - **Invalid Format:** Returns false with error message
-- **Version Mismatch:** Only v3 format supported
+- **Version Mismatch:** v4 format required for checksum verification
 - **Corrupt File:** Returns false
 - **Missing File:** Returns false with invalid metadata
 - **Malformed File:** Detected by size validation
 - **Level Mismatch:** Validation error if worlds/levels don't match recording
+- **Checksum Data Corruption:** Invalid checksum records detected during parsing
 
 #### replayStep (Python: replay_step)
 
@@ -667,6 +675,29 @@ Determinism can be verified by:
 
 **Error Handling:**
 - **No Replay:** Returns (0, 0)
+
+#### hasChecksumFailed (Python: has_checksum_failed)
+
+**Purpose:** Check if checksum verification has failed during replay
+
+**Parameters:** None
+
+**Returns:** bool - True if checksum verification has failed, False otherwise
+
+**Preconditions:**
+- Manager must be initialized
+- Works with or without active replay
+
+**Specs:**
+- Returns False initially (no verification failures)
+- Returns True if any checksum verification has failed during current session
+- Flag persists once set - does not reset until new Manager created
+- Works for both v4 format files with embedded checksums and regular simulations
+- Checksum verification occurs every 200 steps during replay when v4 format data available
+- Verification compares calculated vs stored checksums of all position components
+
+**Error Handling:**
+- None - always returns valid bool
 
 ### Recording/Replay Utilities
 

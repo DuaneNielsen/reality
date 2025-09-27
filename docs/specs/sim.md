@@ -309,6 +309,20 @@ struct MotionParams {
     - Direction randomized to ±1.0 (clockwise/counter-clockwise)
     - Randomization applied during `resetTargets()` called from `resetPersistentEntities()`
 
+#### Engine::calculateWorldChecksum
+- **Purpose**: Calculate deterministic checksum of all Position components for replay verification
+- **Components Used**: Reads: `Position` (all entities in world)
+- **Task Graph Dependencies**: Called on-demand during recording/replay (not part of main task graph)
+- **Specifications**:
+  - **Algorithm**: FNV-1a hash (offset basis: 2166136261U, prime: 16777619U)
+  - **Input data**: All Position components in world (agents, physics entities, render entities, etc.)
+  - **Hash process**: Iterates through position query, hashes x/y/z coordinates as raw bytes
+  - **Determinism**: Same entity positions produce identical checksums across runs
+  - **Usage**: Called every 200 steps during recording to store verification data
+  - **Replay verification**: Calculated checksums compared against stored values during replay
+  - **Platform consistency**: Uses fixed-width hash for cross-platform determinism
+  - **NVRTC compatibility**: Template implementation works on both CPU and GPU execution modes
+
 #### resetTargets
 - **Purpose**: Randomizes static target positions on episode reset when randomization is enabled
 - **Components Used**: Reads: `MotionParams`, `TargetTag`; Writes: `Position`

@@ -180,19 +180,33 @@ def test_extended_checksum_recording(cpu_manager):
         except Exception as e:
             pytest.fail(f"Failed to load v4 format file with multiple checksum records: {e}")
 
-        # Run replay and verify we get through multiple checksum points
+        # Run replay and verify checksums at each 200-step interval
         step_count = 0
         while not mgr.replay_step() and step_count < 600:
             step_count += 1
 
+            # Check for checksum failure after each checksum verification point
+            if step_count in [200, 400]:
+                checksum_failed = mgr.has_checksum_failed()
+                assert not checksum_failed, (
+                    f"Checksum verification failed at step {step_count} - "
+                    "simulation should be deterministic! Same actions should produce same positions"
+                )
+                print(f"✅ Checksum verification PASSED at step {step_count}")
+
         assert step_count >= 590, f"Should complete most replay steps, got {step_count}"
 
-        # Test that checksum flag is accessible (may or may not have failed)
-        checksum_failed = mgr.has_checksum_failed()
-        assert isinstance(checksum_failed, bool), "has_checksum_failed should return boolean"
+        # Final check - checksums should have passed for deterministic simulation
+        final_checksum_failed = mgr.has_checksum_failed()
+        assert not final_checksum_failed, (
+            "Final checksum verification should pass - "
+            "replay uses same actions so should be deterministic"
+        )
 
         print(f"Successfully completed {step_count} replay steps with checksum verification")
-        print(f"Checksum verification status: {'FAILED' if checksum_failed else 'PASSED'}")
+        print(
+            f"Final checksum verification status: {'FAILED' if final_checksum_failed else 'PASSED'}"
+        )
 
     finally:
         if os.path.exists(recording_path):
