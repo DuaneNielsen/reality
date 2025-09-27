@@ -24,7 +24,7 @@ def suppress_replay_warnings():
 
 def create_test_recording(mgr, num_steps=5, seed=42):
     """Helper function to create a test recording file"""
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".rec", delete=False) as f:
         recording_path = f.name
 
     # Create recording (seed parameter removed - uses manager's seed)
@@ -171,10 +171,10 @@ def test_replay_error_handling(cpu_manager):
     import madrona_escape_room as mer
 
     with pytest.raises(RuntimeError):
-        mer.SimManager.from_replay("/path/that/does/not/exist.bin", mer.ExecMode.CPU)
+        mer.SimManager.from_replay("/path/that/does/not/exist.rec", mer.ExecMode.CPU)
 
     # Test loading invalid file
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".rec", delete=False) as f:
         # Write some invalid data
         f.write(b"not a valid replay file")
         invalid_path = f.name
@@ -496,3 +496,127 @@ def test_spawn_positions_are_random_between_episodes():
         f"All positions: {positions}. "
         f"With spawn_random=True, agents should spawn at different locations across episodes."
     )
+
+
+def test_replay_large_scale_with_autoreset():
+    """
+    Test replay accuracy for large-scale simulations with auto-reset enabled.
+    Tests 32 worlds running up to 2000 steps with auto-reset.
+    This is a comprehensive test for replay determinism at scale.
+    """
+    import madrona_escape_room as mer
+
+    # Use higher world count and step count to test scalability
+    num_worlds = 32
+    num_steps = 2000
+
+    # Create a manager with auto-reset enabled
+    recording_mgr = mer.SimManager(
+        exec_mode=mer.ExecMode.CPU,
+        gpu_id=0,
+        num_worlds=num_worlds,
+        rand_seed=7777,  # Fixed seed for deterministic recording
+        auto_reset=True,  # Enable auto-reset for episode transitions
+    )
+
+    # Create recording with more complex action patterns
+    with tempfile.NamedTemporaryFile(suffix=".rec", delete=False) as f:
+        recording_path = f.name
+
+    print(f"Creating large-scale recording: {num_worlds} worlds, {num_steps} steps")
+    recording_mgr.start_recording(recording_path)
+
+    action_tensor = recording_mgr.action_tensor().to_torch()
+
+    # Use more varied action patterns to test different scenarios
+    for step in range(num_steps):
+        action_tensor.fill_(0)
+
+        # Cycle through different movement patterns for each world
+        for world_idx in range(num_worlds):
+            # Varied movement patterns
+            action_tensor[world_idx, 0] = (step + world_idx) % 4  # move_amount 0-3
+            action_tensor[world_idx, 1] = (step * 2 + world_idx) % 8  # move_angle 0-7
+            action_tensor[world_idx, 2] = (step + world_idx * 2) % 5  # rotate 0-4
+
+        recording_mgr.step()
+
+        # Progress indicator for long recording
+        if (step + 1) % 400 == 0:
+            print(f"Recording progress: {step + 1}/{num_steps} steps")
+
+    recording_mgr.stop_recording()
+    print("Recording completed")
+
+    try:
+        # Load replay
+        print("Loading replay for verification...")
+        replay_mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
+
+        # Verify basic replay properties
+        assert replay_mgr.has_replay()
+        current, total = replay_mgr.get_replay_step_count()
+        assert current == 0
+        assert total == num_steps
+
+        print(f"Replay loaded: {total} steps, {num_worlds} worlds")
+
+        # Step through the entire replay
+        print("Stepping through replay...")
+        steps_completed = 0
+
+        while steps_completed < num_steps:
+            # Get replay actions for this step
+            finished = replay_mgr.replay_step()
+
+            # Execute simulation step with replay actions
+            replay_mgr.step()
+            steps_completed += 1
+
+            # Progress indicator
+            if steps_completed % 400 == 0:
+                print(f"Replay progress: {steps_completed}/{num_steps} steps")
+
+                # Verify step count consistency
+                current, total = replay_mgr.get_replay_step_count()
+                assert (
+                    current == steps_completed
+                ), f"Step count mismatch: {current} != {steps_completed}"
+
+            # Check if we should finish after this step
+            if finished:
+                break
+
+        # Verify we completed all steps
+        assert (
+            steps_completed == num_steps
+        ), f"Completed {steps_completed} steps, expected {num_steps}"
+
+        # Verify final replay state
+        current, total = replay_mgr.get_replay_step_count()
+        assert current == num_steps
+        assert total == num_steps
+
+        # Critical: Verify replay determinism through checksum verification
+        # With 2000 steps and checksum interval of 200, we should have had 10 checksum verifications
+        if replay_mgr.has_checksum_failed():
+            pytest.fail(
+                "Large-scale replay failed checksum verification. "
+                f"This indicates non-deterministic behavior with {num_worlds} worlds "
+                f"over {num_steps} steps. "
+                "Auto-reset configuration may not be properly stored/loaded, or there may be other "
+                "sources of non-determinism in the simulation."
+            )
+
+        print(f"✓ Large-scale replay test passed: {num_worlds} worlds, {num_steps} steps")
+        print("✓ Checksum verification passed - replay is deterministic")
+
+        # The fact that checksum verification passed proves that the auto-reset setting
+        # was properly stored and loaded from replay metadata. If it wasn't, we would have
+        # seen checksum mismatches due to different episode reset behaviors.
+        print("✓ Auto-reset setting properly preserved (verified by checksum validation)")
+
+    finally:
+        if os.path.exists(recording_path):
+            os.unlink(recording_path)
+            print("Cleanup completed")

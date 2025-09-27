@@ -355,7 +355,7 @@ TEST_LEVEL_BOUNDARY_INSIDE = {
     "scale": 1.0,
     "targets": [
         {
-            "position": [2.9, -1.0, 1.0],  # Just within 3.0 unit threshold
+            "position": [2.4, -1.0, 1.0],  # Exactly 2.9 units from spawn (-0.5, -1.0)
             "motion_type": "static",
         }
     ],
@@ -368,7 +368,7 @@ TEST_LEVEL_BOUNDARY_OUTSIDE = {
     "scale": 1.0,
     "targets": [
         {
-            "position": [3.1, -1.0, 1.0],  # Just outside 3.0 unit threshold
+            "position": [2.6, -1.0, 1.0],  # Exactly 3.1 units from spawn (-0.5, -1.0)
             "motion_type": "static",
         }
     ],
@@ -381,7 +381,7 @@ TEST_LEVEL_EXACTLY_THREE = {
     "scale": 1.0,
     "targets": [
         {
-            "position": [3.0, 0.0, 1.0],  # Exactly 3.0 units away
+            "position": [2.5, -1.0, 1.0],  # Exactly 3.0 units from spawn (-0.5, -1.0)
             "motion_type": "static",
         }
     ],
