@@ -47,7 +47,8 @@ namespace madEscape {
         uint32_t actions_per_step;              // Number of action components (3: move_amount, move_angle, rotate)
         uint64_t timestamp;                     // Unix timestamp when recording started
         uint32_t seed;                          // Random seed used for simulation
-        uint32_t reserved[consts::fileFormat::replayMagicLength];  // Reserved for future use
+        uint32_t auto_reset;                    // Auto-reset setting used during recording
+        uint32_t reserved[consts::fileFormat::replayMagicLength - 1];  // Reserved for future use (reduced by 1)
         
         static ReplayMetadata createDefault() {
             ReplayMetadata meta;
@@ -63,6 +64,7 @@ namespace madEscape {
             meta.actions_per_step = consts::numActionComponents;
             meta.timestamp = 0;
             meta.seed = consts::fileFormat::defaultSeed;
+            meta.auto_reset = 0;  // Default to false (0)
             std::memset(meta.reserved, 0, sizeof(meta.reserved));
             return meta;
         }
