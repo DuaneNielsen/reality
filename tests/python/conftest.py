@@ -278,15 +278,11 @@ def cpu_manager(request):
 
 @pytest.fixture(scope="function")
 def log_and_verify_replay_cpu_manager(request):
-    """Create a CPU SimManager that logs trajectory and automatically verifies replay matches.
+    """Create a CPU SimManager that records actions and automatically verifies replay determinism.
     This fixture is independent of --record-actions flag and automatically:
     1. Records all actions during the test
-    2. Logs trajectory traces during the test
-    3. After test completes, replays the recording and verifies trajectory matches exactly
+    2. After test completes, replays the recording and verifies determinism using checksums
     """
-    import os
-    import tempfile
-
     from madrona_escape_room import ExecMode
 
     mgr = _create_sim_manager(request, ExecMode.CPU, auto_reset=True)
@@ -299,36 +295,28 @@ def log_and_verify_replay_cpu_manager(request):
     output_dir.mkdir(exist_ok=True)
     base_path = output_dir / f"{test_filename}_debug"
 
-    # Always enable both recording and tracing for debug manager
+    # Enable recording only (no trajectory logging needed with checksums)
     with mgr.debug_session(
-        base_path=base_path, enable_recording=True, enable_tracing=True, seed=42
+        base_path=base_path, enable_recording=True, enable_tracing=False, seed=42
     ) as debug_session:
         # Store debug session info on the manager for test access
         mgr._debug_recording_path = debug_session.recording_path
-        mgr._debug_trajectory_path = debug_session.trajectory_path
         yield mgr
 
-    # After context exits, recording and trajectory are finalized
-    # Now automatically verify replay matches original trajectory
-    logger.info("Debug session complete - verifying replay...")
+    # After context exits, recording is finalized
+    # Now automatically verify replay determinism using checksums
+    logger.info("Debug session complete - verifying replay determinism...")
     logger.info(f"Recording: {debug_session.recording_path}")
-    logger.info(f"Original trajectory: {debug_session.trajectory_path}")
 
     try:
-        # Create replay manager and trace file
+        # Create replay manager
         from madrona_escape_room import SimManager
 
         replay_mgr = SimManager.from_replay(str(debug_session.recording_path), ExecMode.CPU)
 
-        with tempfile.NamedTemporaryFile(suffix="_replay_trace.txt", delete=False) as f:
-            replay_trace_path = f.name
-
-        # Enable trajectory logging for replay
-        replay_mgr.enable_trajectory_logging(world_idx=0, agent_idx=0, filename=replay_trace_path)
-
         # Get total steps and replay them all
         current, total = replay_mgr.get_replay_step_count()
-        logger.info(f"Replaying {total} steps...")
+        logger.info(f"Replaying {total} steps with checksum verification...")
 
         for step in range(total):
             finished = replay_mgr.replay_step()
@@ -337,44 +325,16 @@ def log_and_verify_replay_cpu_manager(request):
             if step == total - 1:
                 assert finished, f"Expected replay to finish at step {step}"
 
-        replay_mgr.disable_trajectory_logging()
-
-        # Compare trajectory files
-        with open(debug_session.trajectory_path, "r") as f:
-            original_content = f.read().strip()
-
-        with open(replay_trace_path, "r") as f:
-            replay_content = f.read().strip()
-
-        # Verify they match exactly
-        if original_content == replay_content:
-            logger.info("✓ Replay verification PASSED - trajectories match exactly!")
+        # Check if checksum verification passed
+        checksum_failed = replay_mgr.has_checksum_failed()
+        if not checksum_failed:
+            logger.info("✓ Replay verification PASSED - checksums match (deterministic replay)!")
         else:
-            original_lines = original_content.split("\n")
-            replay_lines = replay_content.split("\n")
-
-            logger.error("✗ Replay verification FAILED:")
-            logger.error(f"  Original: {len(original_lines)} lines, {len(original_content)} chars")
-            logger.error(f"  Replay:   {len(replay_lines)} lines, {len(replay_content)} chars")
-
-            # Find first difference
-            for i, (orig_line, replay_line) in enumerate(zip(original_lines, replay_lines)):
-                if orig_line != replay_line:
-                    logger.error(f"  First difference at line {i + 1}:")
-                    logger.error(f"    Original: {orig_line}")
-                    logger.error(f"    Replay:   {replay_line}")
-                    break
-
-            # Clean up and fail
-            if os.path.exists(replay_trace_path):
-                os.unlink(replay_trace_path)
+            logger.error("✗ Replay verification FAILED - checksum mismatch detected!")
             raise AssertionError(
-                "Replay trajectory verification failed - trajectories don't match!"
+                "Replay checksum verification failed - replay is not deterministic! "
+                "Same actions produced different positions."
             )
-
-        # Clean up replay trace file
-        if os.path.exists(replay_trace_path):
-            os.unlink(replay_trace_path)
 
     except Exception as e:
         logger.error(f"✗ Replay verification ERROR: {e}")
