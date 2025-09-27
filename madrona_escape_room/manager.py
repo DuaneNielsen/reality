@@ -276,6 +276,19 @@ class SimManager:
         _check_result(result)
         return (current_step.value, total_steps.value)
 
+    def has_checksum_failed(self):
+        """Check if checksum verification has failed during replay
+
+        Returns:
+            bool: True if checksum verification failed, False otherwise
+        """
+        from ctypes import byref
+
+        has_failed = c_bool()
+        result = lib.mer_has_checksum_failed(self._handle, byref(has_failed))
+        _check_result(result)
+        return has_failed.value
+
     # Context manager convenience methods
     def debug_session(self, base_path, enable_recording=True, enable_tracing=True, seed=42):
         """Create a debug session context manager that handles both recording and tracing"""

@@ -130,6 +130,7 @@ MER_EXPORT MER_Result mer_get_replay_step_count(
     uint32_t* out_current,
     uint32_t* out_total
 );
+MER_EXPORT MER_Result mer_has_checksum_failed(MER_ManagerHandle handle, bool* out_has_failed);
 
 // Utility functions
 MER_EXPORT const char* mer_result_to_string(MER_Result result);

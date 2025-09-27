@@ -312,6 +312,9 @@ lib.mer_get_replay_step_count.argtypes = [
 ]
 lib.mer_get_replay_step_count.restype = c_int
 
+lib.mer_has_checksum_failed.argtypes = [MER_ManagerHandle, POINTER(c_bool)]
+lib.mer_has_checksum_failed.restype = c_int
+
 # Utility functions
 lib.mer_result_to_string.argtypes = [c_int]
 lib.mer_result_to_string.restype = c_char_p

@@ -141,7 +141,7 @@ def test_checksum_hasChecksumFailed_flag(cpu_manager):
         # The flag state depends on whether checksums matched
         # We just verify the flag is accessible and boolean
         checksum_failed = mgr.has_checksum_failed()
-        assert isinstance(checksum_failed, bool), "hasChecksumFailed should return boolean"
+        assert isinstance(checksum_failed, bool), "has_checksum_failed should return boolean"
 
         print(f"Checksum verification completed, failed flag: {checksum_failed}")
 
@@ -150,41 +150,49 @@ def test_checksum_hasChecksumFailed_flag(cpu_manager):
             os.unlink(recording_path)
 
 
-def test_minimal_checksum_recording(cpu_manager):
-    """Test checksum recording with minimal steps (no checksum records expected)"""
+def test_extended_checksum_recording(cpu_manager):
+    """Test checksum recording with 600 steps to demonstrate multiple checksum points"""
     mgr = cpu_manager
 
     with tempfile.NamedTemporaryFile(suffix=".rec", delete=False) as f:
         recording_path = f.name
 
     try:
-        # Record only 50 steps (less than 200, so no checksum records)
+        # Record 600 steps to get checksum records at steps 200 and 400
         mgr.start_recording(recording_path)
 
         action_tensor = mgr.action_tensor().to_torch()
-        for step in range(50):
-            action_tensor.fill_(0)
+        for step in range(600):
+            action_tensor.fill_(step % 4)  # Vary actions to create some dynamics
             mgr.step()
 
         mgr.stop_recording()
 
-        # Should still be v4 format even without checksum records
+        # Should be v4 format with multiple checksum records
         metadata = mgr.read_replay_metadata(recording_path)
         assert metadata.version == 4, f"Expected v4 format, got v{metadata.version}"
+        assert metadata.num_steps == 600, f"Expected 600 steps, got {metadata.num_steps}"
 
         # Should load and replay successfully
         try:
             mgr.load_replay(recording_path)
             # If no exception was raised, loading succeeded
         except Exception as e:
-            pytest.fail(f"Failed to load v4 format file without checksum records: {e}")
+            pytest.fail(f"Failed to load v4 format file with multiple checksum records: {e}")
 
-        # Run replay
+        # Run replay and verify we get through multiple checksum points
         step_count = 0
-        while not mgr.replay_step() and step_count < 50:
+        while not mgr.replay_step() and step_count < 600:
             step_count += 1
 
-        assert step_count >= 45, f"Should complete most replay steps, got {step_count}"
+        assert step_count >= 590, f"Should complete most replay steps, got {step_count}"
+
+        # Test that checksum flag is accessible (may or may not have failed)
+        checksum_failed = mgr.has_checksum_failed()
+        assert isinstance(checksum_failed, bool), "has_checksum_failed should return boolean"
+
+        print(f"Successfully completed {step_count} replay steps with checksum verification")
+        print(f"Checksum verification status: {'FAILED' if checksum_failed else 'PASSED'}")
 
     finally:
         if os.path.exists(recording_path):

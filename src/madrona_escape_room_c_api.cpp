@@ -588,6 +588,17 @@ MER_Result mer_read_replay_metadata(
     return MER_SUCCESS;
 }
 
+MER_Result mer_has_checksum_failed(MER_ManagerHandle handle, bool* out_has_failed) {
+    if (!handle || !out_has_failed) {
+        return MER_ERROR_NULL_POINTER;
+    }
+
+    Manager* mgr = reinterpret_cast<Manager*>(handle);
+    *out_has_failed = mgr->hasChecksumFailed();
+
+    return MER_SUCCESS;
+}
+
 int32_t mer_get_max_tiles(void) {
     return CompiledLevel::MAX_TILES;
 }
