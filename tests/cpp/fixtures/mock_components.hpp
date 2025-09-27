@@ -291,11 +291,12 @@ public:
         is_recording_ = false;
     }
     
-    void loadReplay(const char* filepath) {
-        mer_load_replay(handle_, filepath);
-        has_replay_ = true;
-        replay_file_ = filepath;
-    }
+    // NOTE: loadReplay() removed - use Manager::fromReplay() to create managers with replay data
+    // void loadReplay(const char* filepath) { // REMOVED - API no longer available
+    //     mer_load_replay(handle_, filepath);
+    //     has_replay_ = true;
+    //     replay_file_ = filepath;
+    // }
     
     bool replayStep() {
         bool success;

@@ -1467,112 +1467,6 @@ std::optional<madEscape::ReplayMetadata> Manager::readReplayMetadata(const std::
     return metadata;
 }
 
-bool Manager::loadReplay(const std::string& filepath)
-{
-    std::ifstream replay_file(filepath, std::ios::binary);
-    if (!replay_file.is_open()) {
-        std::cerr << "Error: Failed to open replay file: " << filepath << "\n";
-        return false;
-    }
-    
-    // Read metadata header
-    madEscape::ReplayMetadata metadata;
-    replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
-    
-    // Validate metadata - v3 and v4 formats supported
-    if (!metadata.isValid()) {
-        if (metadata.magic != REPLAY_MAGIC) {
-            std::cerr << "Error: Invalid replay file format. Expected magic: 0x"
-                      << std::hex << REPLAY_MAGIC << ", got: 0x"
-                      << metadata.magic << std::dec << "\n";
-        } else {
-            std::cerr << "Error: Only replay format v3 and v4 are supported. This file is v"
-                      << metadata.version << "\n";
-            std::cerr << "Please re-record your replay with the current version.\n";
-        }
-        return false;
-    }
-    
-    // Read all world levels (v3 format)
-    // Format: [ReplayMetadata][CompiledLevel1][CompiledLevel2]...[CompiledLevelN][Actions]
-    std::vector<CompiledLevel> worldLevels;
-    worldLevels.reserve(metadata.num_worlds);
-    
-    for (uint32_t i = 0; i < metadata.num_worlds; i++) {
-        CompiledLevel level;
-        replay_file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
-        
-        if (replay_file.fail()) {
-            std::cerr << "Error: Failed to read level for world " << i << " from replay file\n";
-            return false;
-        }
-        
-        worldLevels.push_back(level);
-        std::cout << "  World " << i << " -> Level (" << level.level_name << ")\n";
-    }
-    
-    // TODO: Apply the embedded levels to reconfigure simulation worlds
-    // This would require reinitializing the Manager with the correct per-world levels
-    // For now, we just verify that the levels were read correctly
-    
-    // Parse records after embedded level data
-    HeapArray<int32_t> actions(0);
-    std::vector<std::vector<uint32_t>> checksums;
-    std::vector<uint32_t> checksum_steps;
-
-    if (metadata.version == 3) {
-        // v3 format: Pure action data
-        int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
-        actions = HeapArray<int32_t>(actions_size / sizeof(int32_t));
-        replay_file.read((char *)actions.data(), actions_size);
-    } else if (metadata.version == 4) {
-        // v4 format: Mixed ACTION and CHECKSUM records
-        actions = HeapArray<int32_t>(metadata.num_steps * metadata.num_worlds * metadata.actions_per_step);
-        uint32_t action_idx = 0;
-        uint32_t current_step = 0;
-
-        while (current_step < metadata.num_steps && !replay_file.eof()) {
-            // Read record type
-            RecordType record_type;
-            replay_file.read(reinterpret_cast<char*>(&record_type), sizeof(record_type));
-
-            if (replay_file.fail()) break;
-
-            if (record_type == RecordType::ACTION) {
-                // Read action data for all worlds in this step
-                uint32_t step_action_count = metadata.num_worlds * metadata.actions_per_step;
-                replay_file.read(reinterpret_cast<char*>(&actions[action_idx]),
-                               step_action_count * sizeof(int32_t));
-                action_idx += step_action_count;
-                current_step++;
-            } else if (record_type == RecordType::CHECKSUM) {
-                // Read num_worlds field (type was already read)
-                uint32_t num_worlds;
-                replay_file.read(reinterpret_cast<char*>(&num_worlds), sizeof(num_worlds));
-
-                // Read checksum values for all worlds
-                std::vector<uint32_t> step_checksums(num_worlds);
-                replay_file.read(reinterpret_cast<char*>(step_checksums.data()),
-                               step_checksums.size() * sizeof(uint32_t));
-
-                // Store checksums and step number
-                checksums.push_back(std::move(step_checksums));
-                checksum_steps.push_back(current_step);
-            } else {
-                std::cerr << "Error: Unknown record type " << static_cast<uint32_t>(record_type)
-                         << " at step " << current_step << "\n";
-                return false;
-            }
-        }
-
-        std::cout << "INFO: Loaded " << checksums.size() << " checksum verification points\n";
-    }
-
-    impl_->replayData = ReplayData{metadata, std::move(actions), std::move(checksums), std::move(checksum_steps)};
-    impl_->currentReplayStep = 0;
-    
-    return true;
-}
 
 bool Manager::hasReplay() const
 {
@@ -1751,11 +1645,111 @@ std::unique_ptr<Manager> Manager::fromReplay(
     // 4. Create manager with replay configuration
     auto mgr = std::make_unique<Manager>(cfg);
     
-    // 5. Load replay actions
-    if (!mgr->loadReplay(filepath)) {
-        std::cerr << "Error: Failed to load replay actions from " << filepath << "\n";
+    // 5. Load replay actions - [INLINE] Begin loadReplay logic
+    std::ifstream replay_file(filepath, std::ios::binary);
+    if (!replay_file.is_open()) {
+        std::cerr << "Error: Failed to open replay file: " << filepath << "\n";
         return nullptr;
     }
+
+    // Read metadata header
+    madEscape::ReplayMetadata metadata_inline;
+    replay_file.read(reinterpret_cast<char*>(&metadata_inline), sizeof(metadata_inline));
+
+    // Validate metadata - v3 and v4 formats supported
+    if (!metadata_inline.isValid()) {
+        if (metadata_inline.magic != REPLAY_MAGIC) {
+            std::cerr << "Error: Invalid replay file format. Expected magic: 0x"
+                      << std::hex << REPLAY_MAGIC << ", got: 0x"
+                      << metadata_inline.magic << std::dec << "\n";
+        } else {
+            std::cerr << "Error: Only replay format v3 and v4 are supported. This file is v"
+                      << metadata_inline.version << "\n";
+            std::cerr << "Please re-record your replay with the current version.\n";
+        }
+        return nullptr;
+    }
+
+    // Read all world levels (v3 format)
+    // Format: [ReplayMetadata][CompiledLevel1][CompiledLevel2]...[CompiledLevelN][Actions]
+    std::vector<CompiledLevel> worldLevels;
+    worldLevels.reserve(metadata_inline.num_worlds);
+
+    for (uint32_t i = 0; i < metadata_inline.num_worlds; i++) {
+        CompiledLevel level;
+        replay_file.read(reinterpret_cast<char*>(&level), sizeof(CompiledLevel));
+
+        if (replay_file.fail()) {
+            std::cerr << "Error: Failed to read level for world " << i << " from replay file\n";
+            return nullptr;
+        }
+
+        worldLevels.push_back(level);
+        std::cout << "  World " << i << " -> Level (" << level.level_name << ")\n";
+    }
+
+    // TODO: Apply the embedded levels to reconfigure simulation worlds
+    // This would require reinitializing the Manager with the correct per-world levels
+    // For now, we just verify that the levels were read correctly
+
+    // Parse records after embedded level data
+    HeapArray<int32_t> actions(0);
+    std::vector<std::vector<uint32_t>> checksums;
+    std::vector<uint32_t> checksum_steps;
+
+    if (metadata_inline.version == 3) {
+        // v3 format: Pure action data
+        int64_t actions_size = metadata_inline.num_steps * metadata_inline.num_worlds * metadata_inline.actions_per_step * sizeof(int32_t);
+        actions = HeapArray<int32_t>(actions_size / sizeof(int32_t));
+        replay_file.read((char *)actions.data(), actions_size);
+    } else if (metadata_inline.version == 4) {
+        // v4 format: Mixed ACTION and CHECKSUM records
+        actions = HeapArray<int32_t>(metadata_inline.num_steps * metadata_inline.num_worlds * metadata_inline.actions_per_step);
+        uint32_t action_idx = 0;
+        uint32_t current_step = 0;
+
+        while (current_step < metadata_inline.num_steps && !replay_file.eof()) {
+            // Read record type
+            RecordType record_type;
+            replay_file.read(reinterpret_cast<char*>(&record_type), sizeof(record_type));
+
+            if (replay_file.fail()) break;
+
+            if (record_type == RecordType::ACTION) {
+                // Read action data for all worlds in this step
+                uint32_t step_action_count = metadata_inline.num_worlds * metadata_inline.actions_per_step;
+                replay_file.read(reinterpret_cast<char*>(&actions[action_idx]),
+                               step_action_count * sizeof(int32_t));
+                action_idx += step_action_count;
+                current_step++;
+            } else if (record_type == RecordType::CHECKSUM) {
+                // Read num_worlds field (type was already read)
+                uint32_t num_worlds;
+                replay_file.read(reinterpret_cast<char*>(&num_worlds), sizeof(num_worlds));
+
+                // Read checksum values for all worlds
+                std::vector<uint32_t> step_checksums(num_worlds);
+                replay_file.read(reinterpret_cast<char*>(step_checksums.data()),
+                               step_checksums.size() * sizeof(uint32_t));
+
+                // Store checksums and step number
+                checksums.push_back(std::move(step_checksums));
+                checksum_steps.push_back(current_step);
+            } else {
+                std::cerr << "Error: Unknown record type " << static_cast<uint32_t>(record_type)
+                         << " at step " << current_step << "\n";
+                return nullptr;
+            }
+        }
+
+        std::cout << "INFO: Loaded " << checksums.size() << " checksum verification points\n";
+    }
+
+    mgr->impl_->replayData = ReplayData{metadata_inline, std::move(actions), std::move(checksums), std::move(checksum_steps)};
+    mgr->impl_->currentReplayStep = 0;
+
+    // No reset needed - Manager is fresh
+    // [END INLINE] loadReplay logic inlined
     
     return mgr;
 }

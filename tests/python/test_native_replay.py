@@ -56,18 +56,14 @@ def test_replay_lifecycle(cpu_manager):
         # Initially should not have replay
         assert not mgr.has_replay()
 
-        # Test new interface alongside old
+        # Test from_replay interface
         import madrona_escape_room as mer
 
         replay_mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
         assert replay_mgr.has_replay()
 
-        # Also test old interface for compatibility
-        mgr.load_replay(recording_path)
-        assert mgr.has_replay()
-
         # Get step counts
-        current, total = mgr.get_replay_step_count()
+        current, total = replay_mgr.get_replay_step_count()
         assert current == 0  # Haven't started replaying yet
         assert total == 3  # Should match our recording
 
@@ -88,7 +84,9 @@ def test_replay_step_through(cpu_manager):
 
     try:
         # Load replay
-        mgr.load_replay(recording_path)
+        import madrona_escape_room as mer
+
+        mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
 
         # Step through the replay
         steps_taken = 0
@@ -133,7 +131,9 @@ def test_replay_beyond_end(cpu_manager):
     recording_path = create_test_recording(mgr, num_steps=2)
 
     try:
-        mgr.load_replay(recording_path)
+        import madrona_escape_room as mer
+
+        mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
 
         # Step through entire replay
         finished1 = mgr.replay_step()  # Step 1
@@ -161,8 +161,10 @@ def test_replay_error_handling(cpu_manager):
     mgr = cpu_manager
 
     # Test loading non-existent file
+    import madrona_escape_room as mer
+
     with pytest.raises(RuntimeError):
-        mgr.load_replay("/path/that/does/not/exist.bin")
+        mer.SimManager.from_replay("/path/that/does/not/exist.bin", mer.ExecMode.CPU)
 
     # Test loading invalid file
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
@@ -172,7 +174,7 @@ def test_replay_error_handling(cpu_manager):
 
     try:
         with pytest.raises(RuntimeError):
-            mgr.load_replay(invalid_path)
+            mer.SimManager.from_replay(invalid_path, mer.ExecMode.CPU)
     finally:
         os.unlink(invalid_path)
 
@@ -189,7 +191,6 @@ def test_replay_error_handling(cpu_manager):
 
 def test_replay_multiple_loads(cpu_manager):
     """Test loading multiple replay files"""
-    mgr = cpu_manager
 
     # Create two different recordings using separate fresh managers
     # (since recording requires fresh simulation state)
@@ -208,16 +209,16 @@ def test_replay_multiple_loads(cpu_manager):
     recording2 = create_test_recording(temp_mgr2, num_steps=7, seed=456)
 
     try:
-        # Load first replay
-        mgr.load_replay(recording1)
-        current1, total1 = mgr.get_replay_step_count()
+        # Create replay manager for first recording
+        mgr1 = mer.SimManager.from_replay(recording1, mer.ExecMode.CPU)
+        current1, total1 = mgr1.get_replay_step_count()
         assert total1 == 3
 
-        # Load second replay (should replace first)
-        mgr.load_replay(recording2)
-        current2, total2 = mgr.get_replay_step_count()
+        # Create replay manager for second recording
+        mgr2 = mer.SimManager.from_replay(recording2, mer.ExecMode.CPU)
+        current2, total2 = mgr2.get_replay_step_count()
         assert total2 == 7
-        assert current2 == 0  # Should reset to beginning
+        assert current2 == 0  # Should start at beginning
 
     finally:
         for path in [recording1, recording2]:
@@ -237,7 +238,9 @@ def test_replay_with_different_worlds(cpu_manager):
     recording_path = create_test_recording(mgr, num_steps=4)
 
     try:
-        mgr.load_replay(recording_path)
+        import madrona_escape_room as mer
+
+        mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
 
         # Should load successfully
         assert mgr.has_replay()
@@ -268,7 +271,9 @@ def test_replay_state_consistency(cpu_manager):
     recording_path = create_test_recording(mgr, num_steps=3)
 
     try:
-        mgr.load_replay(recording_path)
+        import madrona_escape_room as mer
+
+        mgr = mer.SimManager.from_replay(recording_path, mer.ExecMode.CPU)
 
         # State should be consistent through various operations
         assert mgr.has_replay()

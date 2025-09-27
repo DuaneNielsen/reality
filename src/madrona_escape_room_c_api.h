@@ -122,7 +122,6 @@ MER_EXPORT MER_Result mer_read_replay_metadata(
 );
 
 // Replay functionality
-MER_EXPORT MER_Result mer_load_replay(MER_ManagerHandle handle, const char* filepath);
 MER_EXPORT MER_Result mer_has_replay(MER_ManagerHandle handle, bool* out_has_replay);
 MER_EXPORT MER_Result mer_replay_step(MER_ManagerHandle handle, bool* out_success);
 MER_EXPORT MER_Result mer_get_replay_step_count(

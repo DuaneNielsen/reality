@@ -296,9 +296,6 @@ lib.mer_read_replay_metadata.argtypes = [c_char_p, c_void_p]  # Direct ReplayMet
 lib.mer_read_replay_metadata.restype = c_int
 
 # Replay functionality
-lib.mer_load_replay.argtypes = [MER_ManagerHandle, c_char_p]
-lib.mer_load_replay.restype = c_int
-
 lib.mer_has_replay.argtypes = [MER_ManagerHandle, POINTER(c_bool)]
 lib.mer_has_replay.restype = c_int
 

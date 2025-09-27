@@ -21,6 +21,7 @@ def suppress_replay_warnings():
         yield
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_checksum_recording_and_verification(cpu_manager):
     """Test that checksum verification works correctly for deterministic replay"""
     mgr = cpu_manager
@@ -44,12 +45,18 @@ def test_checksum_recording_and_verification(cpu_manager):
 
         mgr.stop_recording()
 
-        # Verify checksum functionality by loading replay
+        # Verify checksum functionality by creating replay manager
         try:
-            mgr.load_replay(recording_path)
+            from madrona_escape_room import SimManager
+            from madrona_escape_room.generated_constants import ExecMode
+
+            replay_mgr = SimManager.from_replay(recording_path, ExecMode.CPU)
             # If no exception was raised, loading succeeded
         except Exception as e:
             pytest.fail(f"Failed to load v4 format replay with checksums: {e}")
+
+        # Use the replay manager for the rest of the test
+        mgr = replay_mgr
 
         # Initially, no checksum failures should be detected
         assert not mgr.has_checksum_failed(), "Checksum should not have failed before replay"
@@ -73,6 +80,7 @@ def test_checksum_recording_and_verification(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "loadReplay")
 def test_checksum_file_format_detection(cpu_manager):
     """Test that v4 format files are properly detected and handled"""
     mgr = cpu_manager
@@ -99,7 +107,10 @@ def test_checksum_file_format_detection(cpu_manager):
 
         # Verify the file can be loaded (tests v4 parsing)
         try:
-            mgr.load_replay(recording_path)
+            from madrona_escape_room import SimManager
+            from madrona_escape_room.generated_constants import ExecMode
+
+            SimManager.from_replay(recording_path, ExecMode.CPU)
             # If no exception was raised, loading succeeded
         except Exception as e:
             pytest.fail(f"Failed to load v4 format file: {e}")
@@ -109,6 +120,7 @@ def test_checksum_file_format_detection(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "hasChecksumFailed")
 def test_checksum_hasChecksumFailed_flag(cpu_manager):
     """Test that hasChecksumFailed flag functionality works"""
     mgr = cpu_manager
@@ -131,7 +143,10 @@ def test_checksum_hasChecksumFailed_flag(cpu_manager):
         mgr.stop_recording()
 
         # Load and replay
-        mgr.load_replay(recording_path)
+        from madrona_escape_room import SimManager
+        from madrona_escape_room.generated_constants import ExecMode
+
+        mgr = SimManager.from_replay(recording_path, ExecMode.CPU)
 
         # Run enough steps to trigger checksum verification
         step_count = 0
@@ -150,6 +165,7 @@ def test_checksum_hasChecksumFailed_flag(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.spec("docs/specs/mgr.md", "replayStep")
 def test_extended_checksum_recording(cpu_manager):
     """Test checksum recording with 600 steps to demonstrate multiple checksum points"""
     mgr = cpu_manager
@@ -175,7 +191,10 @@ def test_extended_checksum_recording(cpu_manager):
 
         # Should load and replay successfully
         try:
-            mgr.load_replay(recording_path)
+            from madrona_escape_room import SimManager
+            from madrona_escape_room.generated_constants import ExecMode
+
+            mgr = SimManager.from_replay(recording_path, ExecMode.CPU)
             # If no exception was raised, loading succeeded
         except Exception as e:
             pytest.fail(f"Failed to load v4 format file with multiple checksum records: {e}")

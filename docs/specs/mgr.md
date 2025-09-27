@@ -535,45 +535,6 @@ Determinism can be verified by:
 - **File IO Error:** Returns ErrorFileIO / Python: may not raise (implementation dependent)
 - **Invalid Path:** C++ prints error but may not raise exception
 
-#### loadReplay
-
-**Purpose:** Load replay data from file
-
-**Parameters:**
-- `filepath`: Path to replay file
-
-**Returns:** bool (success/failure)
-
-**Preconditions:**
-- Valid replay file in v4 format (with checksum verification support)
-- Number of worlds must match
-
-**Specs:**
-- Loads embedded levels and mixed ACTION/CHECKSUM record sequence
-- Validates metadata magic and version (supports v4 format)
-- Prepares for replay playback via replayStep() with checksum verification
-- Extracts metadata:
-  - Number of worlds (updates viewer configuration)
-  - Number of steps
-  - Random seed for deterministic replay
-- Extracts embedded MER_CompiledLevel data
-- Loads checksum verification points for determinism validation
-- Validates file size matches expected v4 format
-- Detects malformed files (too small or corrupted)
-- **Multi-Level Replay Support:**
-  - Reconstructs per-world level assignments from recording
-  - Validates that current Manager configuration matches recorded setup
-  - Ensures deterministic replay across heterogeneous level configurations
-  - Maintains level-specific behavior during replay
-
-**Error Handling:**
-- **Invalid Format:** Returns false with error message
-- **Version Mismatch:** v4 format required for checksum verification
-- **Corrupt File:** Returns false
-- **Missing File:** Returns false with invalid metadata
-- **Malformed File:** Detected by size validation
-- **Level Mismatch:** Validation error if worlds/levels don't match recording
-- **Checksum Data Corruption:** Invalid checksum records detected during parsing
 
 #### replayStep (Python: replay_step)
 
@@ -584,7 +545,7 @@ Determinism can be verified by:
 **Returns:** bool (true if replay finished)
 
 **Preconditions:**
-- Replay must be loaded via loadReplay() or Manager created via from_replay()
+- Manager must be created via from_replay() to load replay data
 
 **Specs:**
 - Applies recorded actions to all worlds
@@ -651,7 +612,7 @@ Determinism can be verified by:
 
 **Specs:**
 - Query method to check replay availability
-- Returns true after successful loadReplay() or from_replay creation
+- Returns true after successful from_replay creation
 - Returns false for normal (non-replay) managers
 
 **Error Handling:**

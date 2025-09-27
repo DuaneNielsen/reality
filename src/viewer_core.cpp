@@ -382,7 +382,13 @@ void ViewerCore::stopRecording() {
 }
 
 void ViewerCore::loadReplay(const std::string& path) {
-    mgr_->loadReplay(path);
+    // NOTE: When using Manager::fromReplay(), the replay data is already loaded.
+    // This method now only needs to start the replay state machine.
+    if (!mgr_->hasReplay()) {
+        std::cerr << "Error: Manager does not have replay data loaded. "
+                  << "Use Manager::fromReplay() to create manager with replay.\n";
+        return;
+    }
     state_machine_.startReplay();
 }
 

@@ -143,18 +143,8 @@ def test_multi_level_recording_roundtrip():
         # Phase 2: Replay and verify trajectories match exactly
         print("\nPhase 2: Replaying recorded session")
 
-        replay_mgr = SimManager(
-            exec_mode=ExecMode.CPU,
-            gpu_id=-1,
-            num_worlds=num_worlds,
-            rand_seed=42,  # Same seed
-            auto_reset=True,
-            compiled_levels=per_world_levels,  # Same level configuration
-            enable_batch_renderer=False,
-        )
-
-        # Load the replay (raises exception on failure)
-        replay_mgr.load_replay(recording_path)
+        # Create replay manager from file (automatically picks up config)
+        replay_mgr = SimManager.from_replay(recording_path, ExecMode.CPU)
         print("✓ Replay file loaded successfully")
 
         # Replay and compare trajectories

@@ -240,7 +240,6 @@ public:
     bool hasChecksumFailed() const;
 
     // Replay functionality
-    bool loadReplay(const std::string& filepath);
     bool hasReplay() const;
     bool replayStep();
     uint32_t getCurrentReplayStep() const;

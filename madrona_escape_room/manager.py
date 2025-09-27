@@ -208,31 +208,6 @@ class SimManager:
         return is_recording.value
 
     # Replay functionality
-    def load_replay(self, filepath):
-        """Load a replay file for playback (NOT RECOMMENDED - use SimManager.from_replay() instead)
-
-        WARNING: This method can cause configuration mismatches if the current SimManager
-        was not created with the same settings as the replay file. For guaranteed correct
-        replay, use SimManager.from_replay() instead.
-
-        Args:
-            filepath: Path to the replay file
-
-        Recommended alternative:
-            sim = SimManager.from_replay(filepath, exec_mode, gpu_id)
-        """
-        import warnings
-
-        warnings.warn(
-            "Loading replay into existing manager can cause configuration mismatches. "
-            "Consider using SimManager.from_replay() for guaranteed correct replay.",
-            UserWarning,
-            stacklevel=2,
-        )
-
-        filepath_bytes = filepath.encode("utf-8")
-        result = lib.mer_load_replay(self._handle, filepath_bytes)
-        _check_result(result)
 
     def has_replay(self):
         """Check if a replay is currently loaded

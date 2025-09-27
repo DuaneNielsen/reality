@@ -498,16 +498,6 @@ MER_Result mer_is_recording(MER_ManagerHandle handle, bool* out_is_recording) {
     return MER_SUCCESS;
 }
 
-MER_Result mer_load_replay(MER_ManagerHandle handle, const char* filepath) {
-    if (!handle || !filepath) {
-        return MER_ERROR_NULL_POINTER;
-    }
-    
-    Manager* mgr = reinterpret_cast<Manager*>(handle);
-    bool success = mgr->loadReplay(filepath);
-    
-    return success ? MER_SUCCESS : MER_ERROR_INVALID_FILE;
-}
 
 MER_Result mer_has_replay(MER_ManagerHandle handle, bool* out_has_replay) {
     if (!handle || !out_has_replay) {
