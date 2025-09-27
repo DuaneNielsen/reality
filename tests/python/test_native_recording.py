@@ -291,7 +291,9 @@ def test_recording_file_format(cpu_manager):
 
                 # Verify all 14 fields (comprehensive validation)
                 assert magic == 0x4D455352, f"Expected magic 0x4D455352, got 0x{magic:08x}"
-                assert version == 3, f"Expected version 3 (current format), got {version}"
+                assert (
+                    version == 4
+                ), f"Expected version 4 (current format with checksums), got {version}"
                 assert (
                     sim_name == "madrona_escape_room"
                 ), f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
@@ -441,7 +443,7 @@ def test_current_format_specification_compliance(cpu_manager):
 
             # Validate magic number and version (critical format identifiers)
             assert magic == 0x4D455352, f"Invalid magic number: 0x{magic:08x}"
-            assert version == 3, f"Expected current version 3, got {version}"
+            assert version == 4, f"Expected current version 4 (with checksums), got {version}"
 
             # Validate string field layout
             assert (
@@ -512,7 +514,7 @@ def test_format_error_conditions(cpu_manager):
             # Should detect invalid magic
             assert magic == 0xDEADBEEF, "Should read invalid magic"
             assert magic != 0x4D455352, "Magic should not match expected value"
-            assert version == 3, "Version should still be valid"
+            assert version == 4, "Version should still be valid (v4 with checksums)"
 
         print("✓ Invalid magic number detection validated")
 
@@ -560,7 +562,7 @@ def test_format_error_conditions(cpu_manager):
             remaining = f.read()
 
             assert magic == 0x4D455352, "Magic should be valid"
-            assert version == 3, "Version should be valid"
+            assert version == 4, "Version should be valid (v4 with checksums)"
             assert len(remaining) < 128, "Should have incomplete data"
 
         print("✓ Incomplete header detection validated")
@@ -656,7 +658,9 @@ def test_field_alignment_and_padding(cpu_manager):
 
             # Validate field values
             assert magic == 0x4D455352, "Magic field misaligned or corrupted"
-            assert version == 3, "Version field misaligned or corrupted"
+            assert (
+                version == 4
+            ), "Version field misaligned or corrupted (expected v4 with checksums)"
             assert sim_name == "madrona_escape_room", "sim_name field misaligned or corrupted"
             assert level_name, "level_name field misaligned or corrupted"
             assert offset == 192, f"Field alignment error: should be at offset 192, got {offset}"

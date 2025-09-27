@@ -294,7 +294,7 @@ def test_v3_format_validation():
         metadata = mgr.read_replay_metadata(recording_path)
         assert metadata is not None, "Failed to read v3 replay metadata"
 
-        assert metadata.version == 3, f"Expected version 3, got {metadata.version}"
+        assert metadata.version == 4, f"Expected version 4 (with checksums), got {metadata.version}"
         assert metadata.magic != 0, f"Expected valid magic number, got {metadata.magic}"
 
         print(f"✓ v3 format file created and validated (version {metadata.version})")
