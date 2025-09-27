@@ -375,12 +375,6 @@ class SimManager:
 
         return manager
 
-    def _load_replay_internal(self, filepath):
-        """Internal replay loading without reconfiguration"""
-        filepath_bytes = filepath.encode("utf-8")
-        result = lib.mer_load_replay(self._handle, filepath_bytes)
-        _check_result(result)
-
 
 # Context Managers for Recording and Tracing
 class Recording:

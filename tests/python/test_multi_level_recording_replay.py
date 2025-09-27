@@ -99,7 +99,7 @@ def test_multi_level_recording_roundtrip():
 
         # Set unique action patterns per world type to create different trajectories
         action_tensor = mgr.action_tensor().to_torch()
-        num_steps = 8
+        num_steps = 600  # Run enough steps to trigger checksum verification
 
         recorded_positions = []
 
@@ -198,6 +198,12 @@ def test_multi_level_recording_roundtrip():
         ), "Different levels should produce different trajectories"
 
         print("✓ Multi-level behavior verification passed")
+
+        # Verify replay determinism using checksum verification
+        assert (
+            not replay_mgr.has_checksum_failed()
+        ), "Multi-level replay should be deterministic (no checksum failures)"
+        print("✓ Multi-level checksum verification passed")
 
     finally:
         # Cleanup

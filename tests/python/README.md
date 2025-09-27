@@ -50,7 +50,7 @@ def test_gpu_feature(gpu_manager):
 - **test_native_recording_replay_roundtrip.py** - Recording/replay roundtrip validation using checksum verification
 - **test_native_replay.py** - Replay system functionality tests
 - **test_recording_binary_format.py** - Binary recording format validation
-- **test_checksum_verification.py** - Comprehensive checksum-based determinism validation
+- **test_checksum_verification.py** - Comprehensive checksum-based determinism validation with proper replay patterns
 
 ### Tensor and Memory Tests
 - **test_dlpack.py** - DLPack tensor format interoperability
@@ -231,7 +231,7 @@ def test_deterministic_replay(log_and_verify_replay_cpu_manager):
     # Run your test actions...
     # Fixture automatically verifies determinism on exit using checksums
 
-# Manual checksum verification
+# Manual checksum verification (see "Replay Testing Patterns" section for details)
 def test_manual_checksum_check(cpu_manager):
     mgr = cpu_manager
     mgr.start_recording("recording.bin")
@@ -239,7 +239,17 @@ def test_manual_checksum_check(cpu_manager):
     mgr.stop_recording()
 
     replay_mgr = SimManager.from_replay("recording.bin", ExecMode.CPU)
-    # Run replay...
+
+    # CRITICAL: Must call both replay_step() AND step() for checksum verification
+    step_count = 0
+    while step_count < max_steps:
+        replay_complete = replay_mgr.replay_step()
+        if not replay_complete:
+            replay_mgr.step()  # ← Triggers checksum verification!
+        step_count += 1
+        if replay_complete:
+            break
+
     assert not replay_mgr.has_checksum_failed(), "Replay should be deterministic"
 ```
 
@@ -393,6 +403,57 @@ Tests can optionally record actions and verify determinism:
 - Use `--record-actions` flag for debugging
 - No manual trajectory file management required
 
+## Replay Testing Patterns
+
+### CRITICAL: Proper Replay Loop Pattern
+
+When writing tests that replay recordings, you **MUST** call both `replay_step()` AND `step()` to get checksum verification:
+
+```python
+# ✅ CORRECT - Calls both replay_step() and step()
+def test_replay_with_checksum_verification():
+    mgr = SimManager.from_replay("recording.rec", ExecMode.CPU)
+
+    step_count = 0
+    while step_count < max_steps:
+        # Step 1: Load action data for current replay step
+        replay_complete = mgr.replay_step()
+
+        # Step 2: Execute simulation with checksum verification
+        if not replay_complete:
+            mgr.step()  # ← This triggers checksum verification!
+
+        step_count += 1
+
+        # Check for corruption detection
+        if mgr.has_checksum_failed():
+            print(f"Checksum mismatch detected at step {step_count}")
+            break
+
+        if replay_complete:
+            break
+
+# ❌ INCORRECT - Missing step() call, no checksum verification
+def test_replay_without_checksum_verification():
+    mgr = SimManager.from_replay("recording.rec", ExecMode.CPU)
+
+    while not mgr.replay_step():
+        pass  # Missing mgr.step() - checksum verification won't work!
+```
+
+### Why Both Calls Are Required
+
+- **`replay_step()`**: Sets up action data for the current replay step from the recording file
+- **`step()`**: Executes the simulation step AND performs checksum verification (every 200 steps)
+
+This pattern matches how the headless tool works and ensures proper checksum-based corruption detection.
+
+### Checksum Verification Points
+
+- Checksums are calculated and verified every **200 simulation steps**
+- Use `mgr.has_checksum_failed()` to check if verification failed
+- Checksum mismatches indicate corruption or non-deterministic simulation behavior
+
 ## Debugging
 
 **GPU test failures** (`Fatal Python error`, deadlocks): Check if test creates its own GPU manager instead of using the `gpu_manager` fixture.
@@ -403,10 +464,10 @@ Tests can optionally record actions and verify determinism:
 
 **Issue**: The new `SimManager.from_replay()` factory method cannot be used in GPU tests because it creates a fresh GPU manager, violating the "one GPU manager per process" constraint.
 
-**Current Status**: 
-- CPU tests: Use `SimManager.from_replay()` (no warnings)
-- GPU tests: Continue using `mgr.load_replay()` (with warnings) 
+**Current Status**:
+- CPU tests: Use `SimManager.from_replay()` (recommended)
+- GPU tests: Use `SimManager.from_replay()` (creates new GPU manager, violates single GPU manager constraint)
 
-**Workaround**: GPU replay tests use the existing session-scoped `gpu_manager` fixture with the legacy `load_replay()` method.
+**Limitation**: GPU replay tests should avoid `SimManager.from_replay()` because it creates a fresh GPU manager, violating the "one GPU manager per process" constraint.
 
 **Future**: Consider adding GPU-compatible replay factory that reuses existing GPU context.

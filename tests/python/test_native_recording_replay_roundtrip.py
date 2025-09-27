@@ -120,6 +120,8 @@ def test_roundtrip_edge_cases(cpu_manager):
         assert total == 1
 
         finished = replay_mgr.replay_step()
+        if not finished:
+            replay_mgr.step()  # Execute simulation step (though not needed for 1-step recordings)
         assert finished  # Should finish immediately
 
         current, total = replay_mgr.get_replay_step_count()

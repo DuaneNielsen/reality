@@ -78,8 +78,8 @@ def test_replay_step_through(cpu_manager):
     """Test stepping through a replay"""
     mgr = cpu_manager
 
-    # Create a test recording
-    num_steps = 5
+    # Create a test recording with enough steps to trigger checksum verification (>200)
+    num_steps = 600
     recording_path = create_test_recording(mgr, num_steps=num_steps)
 
     try:
@@ -118,6 +118,11 @@ def test_replay_step_through(cpu_manager):
 
         print(f"Successfully stepped through {steps_taken} replay steps")
 
+        # Verify replay determinism using checksum verification
+        assert (
+            not mgr.has_checksum_failed()
+        ), "Replay should be deterministic (no checksum failures)"
+
     finally:
         if os.path.exists(recording_path):
             os.unlink(recording_path)
@@ -150,6 +155,8 @@ def test_replay_beyond_end(cpu_manager):
         current, total = mgr.get_replay_step_count()
         assert current == 2
         assert total == 2
+
+        # Note: Only 1 step was executed, so checksum verification (every 200 steps) won't trigger
 
     finally:
         if os.path.exists(recording_path):
@@ -234,8 +241,8 @@ def test_replay_with_different_worlds(cpu_manager):
     action_tensor = mgr.action_tensor().to_torch()
     num_worlds = action_tensor.shape[0]
 
-    # Create recording with current world count
-    recording_path = create_test_recording(mgr, num_steps=4)
+    # Create recording with current world count (>200 steps for checksum verification)
+    recording_path = create_test_recording(mgr, num_steps=600)
 
     try:
         import madrona_escape_room as mer
@@ -246,18 +253,24 @@ def test_replay_with_different_worlds(cpu_manager):
         assert mgr.has_replay()
 
         current, total = mgr.get_replay_step_count()
-        assert total == 4
+        assert total == 600
 
-        # Try a few replay steps
-        finished1 = mgr.replay_step()
-        assert not finished1
-        mgr.step()  # Run simulation with replay step 1
+        # Run full replay to test checksum verification with different world configurations
+        step_count = 0
+        while step_count < 600:
+            replay_complete = mgr.replay_step()
+            if not replay_complete:
+                mgr.step()  # Execute simulation step with checksum verification
+            step_count += 1
+            if replay_complete:
+                break
 
-        finished2 = mgr.replay_step()
-        assert not finished2
-        mgr.step()  # Run simulation with replay step 2
+        print(f"Replay working with {num_worlds} worlds ({step_count} steps)")
 
-        print(f"Replay working with {num_worlds} worlds")
+        # Verify replay determinism using checksum verification
+        assert (
+            not mgr.has_checksum_failed()
+        ), "Replay should be deterministic (no checksum failures)"
 
     finally:
         if os.path.exists(recording_path):
@@ -268,7 +281,7 @@ def test_replay_state_consistency(cpu_manager):
     """Test that replay state remains consistent during simulation"""
     mgr = cpu_manager
 
-    recording_path = create_test_recording(mgr, num_steps=3)
+    recording_path = create_test_recording(mgr, num_steps=600)
 
     try:
         import madrona_escape_room as mer
@@ -294,8 +307,10 @@ def test_replay_state_consistency(cpu_manager):
         # Check counts
         current, total = mgr.get_replay_step_count()
         assert current == 1
-        assert total == 3
+        assert total == 600  # Updated to match the new recording length
         assert mgr.has_replay()
+
+        # Note: Only 1 step was replayed, so checksum verification (every 200 steps) won't trigger
 
     finally:
         if os.path.exists(recording_path):
