@@ -126,23 +126,41 @@ bool validateReplayFileJson(const FileInfo& info) {
         errors << "Invalid magic number: 0x" << std::hex << metadata.magic << std::dec;
     }
     
-    // Validate version - only v3 supported
-    if (metadata.version != 3) {
+    // Validate version - v3 and v4 supported
+    if (metadata.version != 3 && metadata.version != 4) {
         valid = false;
         if (errors.tellp() > 0) errors << "; ";
-        errors << "Unsupported version: " << metadata.version << " (only v3 supported)";
+        errors << "Unsupported version: " << metadata.version << " (only v3 and v4 supported)";
     }
     
     // Check file structure
-    size_t expected_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
-    if (metadata.num_steps > 0) {
-        expected_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
-    }
-    
-    if (info.file_size < expected_size) {
-        valid = false;
-        if (errors.tellp() > 0) errors << "; ";
-        errors << "File too small: " << info.file_size << " bytes < " << expected_size << " expected";
+    size_t expected_min_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
+
+    if (metadata.version == 3) {
+        // v3 format: Fixed structure with pure action data
+        if (metadata.num_steps > 0) {
+            expected_min_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
+        }
+
+        if (info.file_size < expected_min_size) {
+            valid = false;
+            if (errors.tellp() > 0) errors << "; ";
+            errors << "File too small: " << info.file_size << " bytes (expected " << expected_min_size << " for v3)";
+        }
+    } else if (metadata.version == 4) {
+        // v4 format: Mixed records (actions + checksums), so we can only check minimum size
+        if (metadata.num_steps > 0) {
+            // Minimum: action data alone (without checksum records)
+            expected_min_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
+            // Add RecordType enum for each action record
+            expected_min_size += metadata.num_steps * sizeof(uint32_t);
+        }
+
+        if (info.file_size < expected_min_size) {
+            valid = false;
+            if (errors.tellp() > 0) errors << "; ";
+            errors << "File too small: " << info.file_size << " bytes (minimum expected " << expected_min_size << " for v4)";
+        }
     }
     
     // Validate metadata ranges
@@ -232,26 +250,54 @@ bool validateReplayFile(const FileInfo& info) {
         return false;
     }
     
-    // Validate version - only v3 supported
+    // Validate version - v3 and v4 supported
+    if (metadata.version == 3 || metadata.version == 4) {
+        std::cout << "✓ Valid version (" << metadata.version;
+        if (metadata.version == 4) {
+            std::cout << " with checksums";
+        }
+        std::cout << ")\n";
+    } else {
+        std::cout << "✗ Unsupported version: " << metadata.version << " (only v3 and v4 supported)\n";
+        return false;
+    }
+    
+    // Check file structure - calculate expected size based on format version
+    size_t expected_min_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
+
     if (metadata.version == 3) {
-        std::cout << "✓ Valid version (" << metadata.version << ")\n";
-    } else {
-        std::cout << "✗ Unsupported version: " << metadata.version << " (only v3 supported)\n";
-        return false;
-    }
-    
-    // Check file structure - calculate expected size for v3 format
-    // Format: [ReplayMetadata][CompiledLevel1...N][Actions...]
-    size_t expected_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
-    if (metadata.num_steps > 0) {
-        expected_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
-    }
-    
-    if (info.file_size >= expected_size) {
-        std::cout << "✓ File structure intact\n";
-    } else {
-        std::cout << "✗ File too small: " << info.file_size << " bytes < " << expected_size << " expected\n";
-        return false;
+        // v3 format: [ReplayMetadata][CompiledLevel1...N][Actions...]
+        if (metadata.num_steps > 0) {
+            expected_min_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
+        }
+
+        if (info.file_size >= expected_min_size) {
+            std::cout << "✓ File structure intact (v3 format)\n";
+        } else {
+            std::cout << "✗ File too small: " << info.file_size << " bytes < " << expected_min_size << " expected for v3\n";
+            return false;
+        }
+    } else if (metadata.version == 4) {
+        // v4 format: [ReplayMetadata][CompiledLevel1...N][Mixed Records: Actions + Checksums]
+        if (metadata.num_steps > 0) {
+            // Minimum size estimate (actions with record type headers, without checksum records)
+            expected_min_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
+            expected_min_size += metadata.num_steps * sizeof(uint32_t); // RecordType for each action
+        }
+
+        if (info.file_size >= expected_min_size) {
+            std::cout << "✓ File structure intact (v4 format with checksums)\n";
+
+            // Try to estimate checksum count for v4 format
+            size_t checksum_interval = 200; // From CHECKSUM_INTERVAL constant
+            size_t expected_checksum_points = metadata.num_steps / checksum_interval;
+            if (expected_checksum_points > 0) {
+                std::cout << "  Estimated checksum verification points: " << expected_checksum_points << "\n";
+            }
+        } else {
+            std::cout << "✗ File too small: " << info.file_size << " bytes < " << expected_min_size << " minimum expected for v4\n";
+            return false;
+        }
     }
     
     // Validate metadata ranges

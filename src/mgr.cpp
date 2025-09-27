@@ -1546,12 +1546,12 @@ bool Manager::loadReplay(const std::string& filepath)
                 action_idx += step_action_count;
                 current_step++;
             } else if (record_type == RecordType::CHECKSUM) {
-                // Read checksum record header
-                ChecksumRecord checksum_header;
-                replay_file.read(reinterpret_cast<char*>(&checksum_header), sizeof(checksum_header));
+                // Read num_worlds field (type was already read)
+                uint32_t num_worlds;
+                replay_file.read(reinterpret_cast<char*>(&num_worlds), sizeof(num_worlds));
 
                 // Read checksum values for all worlds
-                std::vector<uint32_t> step_checksums(checksum_header.num_worlds);
+                std::vector<uint32_t> step_checksums(num_worlds);
                 replay_file.read(reinterpret_cast<char*>(step_checksums.data()),
                                step_checksums.size() * sizeof(uint32_t));
 
