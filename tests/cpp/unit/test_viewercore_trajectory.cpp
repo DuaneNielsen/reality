@@ -200,31 +200,15 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
     
     // Phase 2: Replay with Trajectory Tracking
     // =========================================
-    
-    // 1. Extract the embedded level from the replay file
-    auto embedded_level = madrona::escape_room::ReplayLoader::loadEmbeddedLevel("test_viewercore_recording.rec");
-    ASSERT_TRUE(embedded_level.has_value()) << "Failed to load embedded level from replay file";
-    
-    // 2. Create Manager with the extracted level
-    std::vector<std::optional<CompiledLevel>> replay_levels;
-    replay_levels.push_back(embedded_level.value());
-    
-    Manager::Config mgr_config_replay;
-    mgr_config_replay.execMode = madrona::ExecMode::CPU;
-    mgr_config_replay.gpuID = 0;
-    mgr_config_replay.numWorlds = 1;
-    mgr_config_replay.randSeed = 42;  // Same seed
-    mgr_config_replay.autoReset = true;
-    mgr_config_replay.enableBatchRenderer = false;
-    mgr_config_replay.batchRenderViewWidth = 64;
-    mgr_config_replay.batchRenderViewHeight = 64;
-    mgr_config_replay.extRenderAPI = nullptr;
-    mgr_config_replay.extRenderDev = nullptr;
-    mgr_config_replay.enableTrajectoryTracking = false;
-    mgr_config_replay.perWorldCompiledLevels = replay_levels;
-    
-    Manager mgr_replay(mgr_config_replay);
-    
+
+    // 1. Create Manager from replay file using factory method
+    auto mgr_replay_ptr = Manager::fromReplay(
+        "test_viewercore_recording.rec",
+        madrona::ExecMode::CPU,
+        0  // gpuID
+    );
+    ASSERT_NE(mgr_replay_ptr, nullptr) << "Failed to create Manager from replay file";
+
     // 2. Create ViewerCore in Replay Mode
     ViewerCore::Config replay_config;
     replay_config.num_worlds = 1;
@@ -233,14 +217,14 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
     replay_config.load_path = "";
     replay_config.record_path = "";
     replay_config.replay_path = "test_viewercore_recording.rec";
-    
-    ViewerCore core_replay(replay_config, &mgr_replay);
-    
-    // 3. Load Replay and Enable Tracking
-    core_replay.loadReplay("test_viewercore_recording.rec");
+
+    ViewerCore core_replay(replay_config, mgr_replay_ptr.get());
+
+    // 3. Enable Trajectory Tracking (replay data is already loaded)
+    // Note: loadReplay() is no longer needed with Manager::fromReplay()
     
     // Enable trajectory tracking to different file
-    mgr_replay.enableTrajectoryLogging(0, 0, "trajectory_replay.csv");
+    mgr_replay_ptr->enableTrajectoryLogging(0, 0, "trajectory_replay.csv");
     
     // Verify replay state (should NOT be paused)
     state = core_replay.getFrameState();
@@ -708,19 +692,14 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryPointsMatchRecordedFrames) {
     }
     
     // Now replay the recording and verify trajectory during replay also matches
-    // Extract embedded level for replay
-    auto embedded_level = madrona::escape_room::ReplayLoader::loadEmbeddedLevel("test_frame_count.rec");
-    ASSERT_TRUE(embedded_level.has_value()) << "Failed to load embedded level from replay";
-    
-    std::vector<std::optional<CompiledLevel>> replay_levels;
-    replay_levels.push_back(embedded_level.value());
-    
-    // Create new Manager for replay
-    Manager::Config replay_mgr_config = mgr_config;
-    replay_mgr_config.perWorldCompiledLevels = replay_levels;
-    
-    Manager mgr_replay(replay_mgr_config);
-    
+    // Create Manager from replay file using factory method
+    auto mgr_replay_ptr = Manager::fromReplay(
+        "test_frame_count.rec",
+        madrona::ExecMode::CPU,
+        0  // gpuID
+    );
+    ASSERT_NE(mgr_replay_ptr, nullptr) << "Failed to create Manager from replay file";
+
     // Create ViewerCore in replay mode
     ViewerCore::Config replay_config;
     replay_config.num_worlds = 1;
@@ -729,12 +708,11 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryPointsMatchRecordedFrames) {
     replay_config.load_path = "";
     replay_config.record_path = "";
     replay_config.replay_path = "test_frame_count.rec";
-    
-    ViewerCore core_replay(replay_config, &mgr_replay);
-    
-    // Load replay and enable trajectory tracking
-    core_replay.loadReplay("test_frame_count.rec");
-    mgr_replay.enableTrajectoryLogging(0, 0, "trajectory_replay_count.csv");
+
+    ViewerCore core_replay(replay_config, mgr_replay_ptr.get());
+
+    // Enable trajectory tracking (replay data is already loaded)
+    mgr_replay_ptr->enableTrajectoryLogging(0, 0, "trajectory_replay_count.csv");
     
     // Step through ALL frames in the replay
     int replay_frame_count = 0;
@@ -866,16 +844,14 @@ TEST_F(ViewerCoreTrajectoryTest, DiagnoseFrameCountMismatch) {
     // Now replay
     std::cout << "\n=== REPLAY PHASE ===" << std::endl;
     
-    auto embedded_level = madrona::escape_room::ReplayLoader::loadEmbeddedLevel("diagnose_frames.rec");
-    ASSERT_TRUE(embedded_level.has_value());
-    
-    std::vector<std::optional<CompiledLevel>> replay_levels;
-    replay_levels.push_back(embedded_level.value());
-    
-    Manager::Config replay_config = mgr_config;
-    replay_config.perWorldCompiledLevels = replay_levels;
-    Manager mgr_replay(replay_config);
-    
+    // Create Manager from replay file using factory method
+    auto mgr_replay_ptr = Manager::fromReplay(
+        "diagnose_frames.rec",
+        madrona::ExecMode::CPU,
+        0  // gpuID
+    );
+    ASSERT_NE(mgr_replay_ptr, nullptr) << "Failed to create Manager from replay file";
+
     ViewerCore::Config core_replay_config;
     core_replay_config.num_worlds = 1;
     core_replay_config.rand_seed = 999;
@@ -883,10 +859,9 @@ TEST_F(ViewerCoreTrajectoryTest, DiagnoseFrameCountMismatch) {
     core_replay_config.load_path = "";
     core_replay_config.record_path = "";
     core_replay_config.replay_path = "diagnose_frames.rec";
-    
-    ViewerCore core_replay(core_replay_config, &mgr_replay);
-    core_replay.loadReplay("diagnose_frames.rec");
-    mgr_replay.enableTrajectoryLogging(0, 0, "diagnose_replay_trajectory.csv");
+
+    ViewerCore core_replay(core_replay_config, mgr_replay_ptr.get());
+    mgr_replay_ptr->enableTrajectoryLogging(0, 0, "diagnose_replay_trajectory.csv");
     
     // Step through replay and count frames
     int replay_frames = 0;
