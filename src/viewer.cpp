@@ -134,8 +134,8 @@ int main(int argc, char *argv[])
         std::cout << "  viewer --num-worlds 4                       # 4 worlds on CPU\n";
         std::cout << "  viewer --cuda 0 --track                     # Track world 0, agent 0 on GPU 0\n";
         std::cout << "  viewer --cuda 1 --track-world 2             # Use GPU 1, track world 2\n";
-        std::cout << "  viewer -n 2 --record demo.bin              # Record 2 worlds to demo.bin\n";
-        std::cout << "  viewer -n 2 --replay demo.bin              # Replay demo.bin with 2 worlds\n";
+        std::cout << "  viewer -n 2 --record demo.rec              # Record 2 worlds to demo.rec\n";
+        std::cout << "  viewer -n 2 --replay demo.rec              # Replay demo.rec with 2 worlds\n";
         std::cout << "  viewer -n 4 --seed 42                      # 4 worlds with seed 42\n";
         std::cout << "  viewer --track --track-file trajectory.csv  # Track and save to file\n";
         std::cout << "  viewer --auto-reset                          # Enable automatic episode reset\n";

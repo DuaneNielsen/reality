@@ -577,7 +577,7 @@ arg_parser.add_argument(
 arg_parser.add_argument(
     "--record",
     type=str,
-    help="Enable recording and save to specified filepath (e.g., training_run.bin)",
+    help="Enable recording and save to specified filepath (e.g., training_run.rec)",
 )
 
 # Evaluation arguments
