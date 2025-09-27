@@ -501,7 +501,7 @@ def test_format_error_conditions(cpu_manager):
         invalid_magic_path = f.name
         # Write file with invalid magic but valid structure
         f.write(struct.pack("<I", 0xDEADBEEF))  # Invalid magic
-        f.write(struct.pack("<I", 3))  # Valid version
+        f.write(struct.pack("<I", 4))  # Valid version
         f.write(b"madrona_escape_room\x00" + b"\x00" * 44)  # sim_name (64 bytes)
         f.write(b"test_level\x00" + b"\x00" * 53)  # level_name (64 bytes)
         f.write(b"\x00" * 40)  # Remaining fields
@@ -549,7 +549,7 @@ def test_format_error_conditions(cpu_manager):
         incomplete_path = f.name
         # Write only partial header
         f.write(struct.pack("<I", 0x4D455352))  # Valid magic
-        f.write(struct.pack("<I", 3))  # Valid version
+        f.write(struct.pack("<I", 4))  # Valid version
         f.write(b"madrona")  # Incomplete sim_name
 
     try:
