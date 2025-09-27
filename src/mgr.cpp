@@ -760,6 +760,113 @@ void Manager::step()
     
     impl_->run();
 
+    // Unified checksum handling after simulation execution
+    // Handles both recording (write checksums) and replay (verify checksums)
+
+    // For recording: write checksums to file
+    if (impl_->isRecordingActive && impl_->recordingMetadata.version == 4 &&
+        impl_->checksumStepCounter >= CHECKSUM_INTERVAL) {
+
+        // Calculate checksums for all worlds
+        std::vector<uint32_t> checksums = impl_->calculateAllWorldChecksums();
+
+        // Write checksum record header
+        ChecksumRecord checksumHeader;
+        checksumHeader.type = RecordType::CHECKSUM;
+        checksumHeader.num_worlds = impl_->cfg.numWorlds;
+
+        impl_->recordingFile.write(reinterpret_cast<const char*>(&checksumHeader),
+                                  sizeof(checksumHeader));
+
+        // Write all world checksums
+        impl_->recordingFile.write(reinterpret_cast<const char*>(checksums.data()),
+                                  checksums.size() * sizeof(uint32_t));
+
+        // Reset counter
+        impl_->checksumStepCounter = 0;
+    }
+
+    // For replay: verify checksums
+    if (impl_->replayData.has_value()) {
+        const auto& metadata = impl_->replayData->metadata;
+
+        // For v4 format with checksums, verify positions every 200 steps
+        if (metadata.hasChecksums() &&
+            impl_->replayChecksumStepCounter >= CHECKSUM_INTERVAL) {
+
+            // Calculate current world checksums
+            std::vector<uint32_t> currentChecksums = impl_->calculateAllWorldChecksums();
+
+            // Find expected checksums for current step
+            const auto& replayData = *impl_->replayData;
+            bool foundExpectedChecksums = false;
+            std::vector<uint32_t> expectedChecksums;
+
+            // Look for stored checksums at this step
+            for (size_t i = 0; i < replayData.checksum_steps.size(); i++) {
+                if (replayData.checksum_steps[i] == impl_->currentReplayStep) {
+                    expectedChecksums = replayData.checksums[i];
+                    foundExpectedChecksums = true;
+                    break;
+                }
+            }
+
+            if (foundExpectedChecksums) {
+                // Perform actual checksum verification
+                bool checksumMismatch = false;
+
+                // Check if we have matching world counts
+                if (currentChecksums.size() != expectedChecksums.size()) {
+                    std::cout << "WARNING: World count mismatch in checksum verification at step "
+                              << impl_->currentReplayStep << " (current: " << currentChecksums.size()
+                              << ", expected: " << expectedChecksums.size() << ")\n";
+                    checksumMismatch = true;
+                    impl_->hasChecksumFailed = true;
+                } else {
+                    // Compare checksums for each world
+                    for (uint32_t world_idx = 0; world_idx < currentChecksums.size(); world_idx++) {
+                        if (currentChecksums[world_idx] != expectedChecksums[world_idx]) {
+                            checksumMismatch = true;
+                        }
+                    }
+                }
+
+                if (checksumMismatch) {
+                    impl_->hasChecksumFailed = true;
+                    std::cout << "WARNING: Checksum mismatch detected at replay step "
+                              << impl_->currentReplayStep << std::endl;
+
+                    for (uint32_t world_idx = 0; world_idx < std::min(currentChecksums.size(), expectedChecksums.size()); world_idx++) {
+                        uint32_t current = currentChecksums[world_idx];
+                        uint32_t expected = expectedChecksums[world_idx];
+
+                        if (current != expected) {
+                            std::cout << "  World " << world_idx
+                                      << ": calculated=0x" << std::hex << current
+                                      << ", expected=0x" << expected << std::dec
+                                      << std::endl;
+                        }
+                    }
+                } else {
+                    std::cout << "INFO: Checksum verification PASSED at step " << impl_->currentReplayStep
+                              << " (all " << currentChecksums.size() << " worlds match)\n";
+                }
+            } else {
+                // No expected checksums found - this should not happen for v4 format at checkpoint intervals
+                if (metadata.version == 4) {
+                    std::cout << "WARNING: No stored checksums found at step " << impl_->currentReplayStep
+                              << " in v4 format file\n";
+                } else {
+                    std::cout << "INFO: Checksum verification skipped at step " << impl_->currentReplayStep
+                              << " (v3 format has no stored checksums)\n";
+                }
+            }
+
+            // Reset counter after verification
+            impl_->replayChecksumStepCounter = 0;
+        }
+    }
+
     if (impl_->renderMgr.has_value()) {
         impl_->renderMgr->readECS();
     }
@@ -1381,28 +1488,7 @@ void Manager::recordActions(const std::vector<int32_t>& frame_actions)
     impl_->recordedFrames++;
     impl_->checksumStepCounter++;
 
-    // Check if we should write a checksum record (every 200 steps)
-    if (impl_->recordingMetadata.version == 4 &&
-        impl_->checksumStepCounter >= CHECKSUM_INTERVAL) {
-
-        // Calculate checksums for all worlds
-        std::vector<uint32_t> checksums = impl_->calculateAllWorldChecksums();
-
-        // Write checksum record header
-        ChecksumRecord checksumHeader;
-        checksumHeader.type = RecordType::CHECKSUM;
-        checksumHeader.num_worlds = impl_->cfg.numWorlds;
-
-        impl_->recordingFile.write(reinterpret_cast<const char*>(&checksumHeader),
-                                  sizeof(checksumHeader));
-
-        // Write all world checksums
-        impl_->recordingFile.write(reinterpret_cast<const char*>(checksums.data()),
-                                  checksums.size() * sizeof(uint32_t));
-
-        // Reset counter
-        impl_->checksumStepCounter = 0;
-    }
+    // Checksum calculation moved to step() for unified timing
 
     // Update metadata with new step count
     impl_->recordingMetadata.num_steps = impl_->recordedFrames;
@@ -1496,80 +1582,9 @@ bool Manager::replayStep()
     impl_->currentReplayStep++;
     impl_->replayChecksumStepCounter++;
 
-    // For v4 format with checksums, verify positions every 200 steps
-    if (metadata.hasChecksums() &&
-        impl_->replayChecksumStepCounter >= CHECKSUM_INTERVAL) {
+    // Checksum verification moved to step() to match recording timing
+    // (Recording calculates checksums AFTER step execution, not before)
 
-        // Calculate current world checksums
-        std::vector<uint32_t> currentChecksums = impl_->calculateAllWorldChecksums();
-
-        // Find expected checksums for current step
-        const auto& replayData = *impl_->replayData;
-        bool foundExpectedChecksums = false;
-        std::vector<uint32_t> expectedChecksums;
-
-        // Look for stored checksums at this step
-        for (size_t i = 0; i < replayData.checksum_steps.size(); i++) {
-            if (replayData.checksum_steps[i] == impl_->currentReplayStep) {
-                expectedChecksums = replayData.checksums[i];
-                foundExpectedChecksums = true;
-                break;
-            }
-        }
-
-        if (foundExpectedChecksums) {
-            // Perform actual checksum verification
-            bool checksumMismatch = false;
-
-            // Check if we have matching world counts
-            if (currentChecksums.size() != expectedChecksums.size()) {
-                std::cout << "WARNING: World count mismatch in checksum verification at step "
-                          << impl_->currentReplayStep << " (current: " << currentChecksums.size()
-                          << ", expected: " << expectedChecksums.size() << ")\n";
-                checksumMismatch = true;
-                impl_->hasChecksumFailed = true;
-            } else {
-                // Compare checksums for each world
-                for (uint32_t world_idx = 0; world_idx < currentChecksums.size(); world_idx++) {
-                    if (currentChecksums[world_idx] != expectedChecksums[world_idx]) {
-                        checksumMismatch = true;
-                    }
-                }
-            }
-
-            if (checksumMismatch) {
-                impl_->hasChecksumFailed = true;
-                std::cout << "WARNING: Checksum mismatch detected at replay step "
-                          << impl_->currentReplayStep << std::endl;
-
-                for (uint32_t world_idx = 0; world_idx < std::min(currentChecksums.size(), expectedChecksums.size()); world_idx++) {
-                    uint32_t current = currentChecksums[world_idx];
-                    uint32_t expected = expectedChecksums[world_idx];
-
-                    if (current != expected) {
-                        std::cout << "  World " << world_idx
-                                  << ": calculated=0x" << std::hex << current
-                                  << ", expected=0x" << expected << std::dec
-                                  << std::endl;
-                    }
-                }
-            } else {
-                std::cout << "INFO: Checksum verification PASSED at step " << impl_->currentReplayStep
-                          << " (all " << currentChecksums.size() << " worlds match)\n";
-            }
-        } else {
-            // No expected checksums found - this should not happen for v4 format at checkpoint intervals
-            if (metadata.version == 4) {
-                std::cout << "WARNING: No stored checksums found at step " << impl_->currentReplayStep
-                          << " in v4 format file\n";
-            } else {
-                std::cout << "INFO: Checksum verification skipped at step " << impl_->currentReplayStep
-                          << " (v3 format has no stored checksums)\n";
-            }
-        }
-
-        impl_->replayChecksumStepCounter = 0;
-    }
 
     // Check if we just consumed the last step
     return impl_->currentReplayStep >= impl_->replayData->metadata.num_steps;
@@ -1748,7 +1763,9 @@ std::unique_ptr<Manager> Manager::fromReplay(
     mgr->impl_->replayData = ReplayData{metadata_inline, std::move(actions), std::move(checksums), std::move(checksum_steps)};
     mgr->impl_->currentReplayStep = 0;
 
-    // No reset needed - Manager is fresh
+    // Ensure episode counter starts from same state as recording
+    // Recording manager had one init reset, replay should match exactly
+    // No additional reset needed - Manager constructor already did init reset
     // [END INLINE] loadReplay logic inlined
     
     return mgr;
