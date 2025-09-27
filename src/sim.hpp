@@ -34,6 +34,7 @@ enum class ExportID : uint32_t {
     Progress,
     AgentPosition,  // Actual world position for camera tracking
     TargetPosition, // Target entity positions for testing and observations
+    WorldChecksum,  // Checksum of all position components for replay verification
     NumExports,
 };
 
@@ -138,6 +139,9 @@ public:
     template <typename ArchetypeT>
     inline madrona::Entity makeRenderableEntity();
     inline void destroyRenderableEntity(Entity e);
+
+    // Checksum calculation for replay verification
+    uint32_t calculateWorldChecksum();
 };
 
 }

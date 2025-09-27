@@ -1130,6 +1130,48 @@ Sim::Sim(Engine &ctx,
     initWorld(ctx);
 }
 
+// [GAME_SPECIFIC] Calculate checksum of all position components for replay verification
+uint32_t Engine::calculateWorldChecksum()
+{
+    // FNV-1a hash constants
+    const uint32_t FNV_OFFSET_BASIS = 2166136261U;
+    const uint32_t FNV_PRIME = 16777619U;
+
+    uint32_t hash = FNV_OFFSET_BASIS;
+
+    // Hash all Position components in this world (agents, cubes, walls, etc.)
+    auto position_query = this->query<Position>();
+    this->iterateQuery(position_query, [&](Position &pos) {
+        // Convert position components to bytes and hash them
+        uint32_t x_bits = *reinterpret_cast<const uint32_t*>(&pos.x);
+        uint32_t y_bits = *reinterpret_cast<const uint32_t*>(&pos.y);
+        uint32_t z_bits = *reinterpret_cast<const uint32_t*>(&pos.z);
+
+        // Hash X component
+        for (int i = 0; i < 4; i++) {
+            uint8_t byte = (x_bits >> (i * 8)) & 0xFF;
+            hash ^= byte;
+            hash *= FNV_PRIME;
+        }
+
+        // Hash Y component
+        for (int i = 0; i < 4; i++) {
+            uint8_t byte = (y_bits >> (i * 8)) & 0xFF;
+            hash ^= byte;
+            hash *= FNV_PRIME;
+        }
+
+        // Hash Z component
+        for (int i = 0; i < 4; i++) {
+            uint8_t byte = (z_bits >> (i * 8)) & 0xFF;
+            hash ^= byte;
+            hash *= FNV_PRIME;
+        }
+    });
+
+    return hash;
+}
+
 // [BOILERPLATE] This declaration is needed for the GPU backend in order to generate the
 // CUDA kernel for world initialization, which needs to be specialized to the
 // application's world data type (Sim) and config and initialization types.

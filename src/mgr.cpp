@@ -141,6 +141,13 @@ struct Manager::Impl {
     uint32_t recordedFrames = 0;
     bool isRecordingActive = false;
 
+    // Checksum state
+    uint32_t checksumStepCounter = 0;
+    bool hasChecksumFailed = false;
+
+    // Replay checksum validation state
+    uint32_t replayChecksumStepCounter = 0;
+
     inline Impl(const Manager::Config &mgr_cfg,
                 PhysicsLoader &&phys_loader,
                 WorldReset *reset_buffer,
@@ -164,6 +171,8 @@ struct Manager::Impl {
     virtual Tensor exportTensor(ExportID slot,
         TensorElementType type,
         madrona::Span<const int64_t> dimensions) const = 0;
+
+    virtual std::vector<uint32_t> calculateAllWorldChecksums() = 0;
 
     static inline Impl * init(const Config &cfg);
 };
@@ -203,6 +212,20 @@ struct Manager::CPUImpl final : Manager::Impl {
         void *dev_ptr = cpuExec.getExported((uint32_t)slot);
         return Tensor(dev_ptr, type, dims, Optional<int>::none());
     }
+
+    std::vector<uint32_t> calculateAllWorldChecksums() final
+    {
+        std::vector<uint32_t> checksums;
+        checksums.reserve(cfg.numWorlds);
+
+        for (uint32_t i = 0; i < cfg.numWorlds; i++) {
+            Engine& engine = cpuExec.getWorldContext(i);
+            uint32_t checksum = engine.calculateWorldChecksum();
+            checksums.push_back(checksum);
+        }
+
+        return checksums;
+    }
 };
 
 #ifdef MADRONA_CUDA_SUPPORT
@@ -239,6 +262,16 @@ struct Manager::CUDAImpl final : Manager::Impl {
     {
         void *dev_ptr = gpuExec.getExported((uint32_t)slot);
         return Tensor(dev_ptr, type, dims, cfg.gpuID);
+    }
+
+    std::vector<uint32_t> calculateAllWorldChecksums() final
+    {
+        // For GPU implementation, calculate checksums by triggering
+        // the checksum calculation and reading back the exported data
+        // TODO: Implement proper GPU checksum calculation
+        // For now, return dummy checksums to allow compilation
+        std::vector<uint32_t> checksums(cfg.numWorlds, 0);
+        return checksums;
     }
 };
 #endif
@@ -1325,16 +1358,51 @@ bool Manager::isRecording() const
     return impl_->isRecordingActive;
 }
 
+bool Manager::hasChecksumFailed() const
+{
+    return impl_->hasChecksumFailed;
+}
+
 void Manager::recordActions(const std::vector<int32_t>& frame_actions)
 {
     if (!impl_->isRecordingActive) {
         return;
     }
 
+    // For v4 format, write action record header
+    if (impl_->recordingMetadata.version == 4) {
+        RecordType actionType = RecordType::ACTION;
+        impl_->recordingFile.write(reinterpret_cast<const char*>(&actionType), sizeof(actionType));
+    }
+
     // Write action data
     impl_->recordingFile.write(reinterpret_cast<const char*>(frame_actions.data()),
                               frame_actions.size() * sizeof(int32_t));
     impl_->recordedFrames++;
+    impl_->checksumStepCounter++;
+
+    // Check if we should write a checksum record (every 200 steps)
+    if (impl_->recordingMetadata.version == 4 &&
+        impl_->checksumStepCounter >= CHECKSUM_INTERVAL) {
+
+        // Calculate checksums for all worlds
+        std::vector<uint32_t> checksums = impl_->calculateAllWorldChecksums();
+
+        // Write checksum record header
+        ChecksumRecord checksumHeader;
+        checksumHeader.type = RecordType::CHECKSUM;
+        checksumHeader.num_worlds = impl_->cfg.numWorlds;
+
+        impl_->recordingFile.write(reinterpret_cast<const char*>(&checksumHeader),
+                                  sizeof(checksumHeader));
+
+        // Write all world checksums
+        impl_->recordingFile.write(reinterpret_cast<const char*>(checksums.data()),
+                                  checksums.size() * sizeof(uint32_t));
+
+        // Reset counter
+        impl_->checksumStepCounter = 0;
+    }
 
     // Update metadata with new step count
     impl_->recordingMetadata.num_steps = impl_->recordedFrames;
@@ -1411,14 +1479,14 @@ bool Manager::loadReplay(const std::string& filepath)
     madEscape::ReplayMetadata metadata;
     replay_file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
     
-    // Validate metadata - only v3 format supported
+    // Validate metadata - v3 and v4 formats supported
     if (!metadata.isValid()) {
         if (metadata.magic != REPLAY_MAGIC) {
-            std::cerr << "Error: Invalid replay file format. Expected magic: 0x" 
-                      << std::hex << REPLAY_MAGIC << ", got: 0x" 
+            std::cerr << "Error: Invalid replay file format. Expected magic: 0x"
+                      << std::hex << REPLAY_MAGIC << ", got: 0x"
                       << metadata.magic << std::dec << "\n";
         } else {
-            std::cerr << "Error: Only replay format v3 is supported. This file is v" 
+            std::cerr << "Error: Only replay format v3 and v4 are supported. This file is v"
                       << metadata.version << "\n";
             std::cerr << "Please re-record your replay with the current version.\n";
         }
@@ -1447,13 +1515,60 @@ bool Manager::loadReplay(const std::string& filepath)
     // This would require reinitializing the Manager with the correct per-world levels
     // For now, we just verify that the levels were read correctly
     
-    // Read actions after embedded level data
-    int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
-    HeapArray<int32_t> actions(actions_size / sizeof(int32_t));
-    replay_file.read((char *)actions.data(), actions_size);
-    
-    
-    impl_->replayData = ReplayData{metadata, std::move(actions)};
+    // Parse records after embedded level data
+    HeapArray<int32_t> actions(0);
+    std::vector<std::vector<uint32_t>> checksums;
+    std::vector<uint32_t> checksum_steps;
+
+    if (metadata.version == 3) {
+        // v3 format: Pure action data
+        int64_t actions_size = metadata.num_steps * metadata.num_worlds * metadata.actions_per_step * sizeof(int32_t);
+        actions = HeapArray<int32_t>(actions_size / sizeof(int32_t));
+        replay_file.read((char *)actions.data(), actions_size);
+    } else if (metadata.version == 4) {
+        // v4 format: Mixed ACTION and CHECKSUM records
+        actions = HeapArray<int32_t>(metadata.num_steps * metadata.num_worlds * metadata.actions_per_step);
+        uint32_t action_idx = 0;
+        uint32_t current_step = 0;
+
+        while (current_step < metadata.num_steps && !replay_file.eof()) {
+            // Read record type
+            RecordType record_type;
+            replay_file.read(reinterpret_cast<char*>(&record_type), sizeof(record_type));
+
+            if (replay_file.fail()) break;
+
+            if (record_type == RecordType::ACTION) {
+                // Read action data for all worlds in this step
+                uint32_t step_action_count = metadata.num_worlds * metadata.actions_per_step;
+                replay_file.read(reinterpret_cast<char*>(&actions[action_idx]),
+                               step_action_count * sizeof(int32_t));
+                action_idx += step_action_count;
+                current_step++;
+            } else if (record_type == RecordType::CHECKSUM) {
+                // Read checksum record header
+                ChecksumRecord checksum_header;
+                replay_file.read(reinterpret_cast<char*>(&checksum_header), sizeof(checksum_header));
+
+                // Read checksum values for all worlds
+                std::vector<uint32_t> step_checksums(checksum_header.num_worlds);
+                replay_file.read(reinterpret_cast<char*>(step_checksums.data()),
+                               step_checksums.size() * sizeof(uint32_t));
+
+                // Store checksums and step number
+                checksums.push_back(std::move(step_checksums));
+                checksum_steps.push_back(current_step);
+            } else {
+                std::cerr << "Error: Unknown record type " << static_cast<uint32_t>(record_type)
+                         << " at step " << current_step << "\n";
+                return false;
+            }
+        }
+
+        std::cout << "INFO: Loaded " << checksums.size() << " checksum verification points\n";
+    }
+
+    impl_->replayData = ReplayData{metadata, std::move(actions), std::move(checksums), std::move(checksum_steps)};
     impl_->currentReplayStep = 0;
     
     return true;
@@ -1485,7 +1600,83 @@ bool Manager::replayStep()
     }
     
     impl_->currentReplayStep++;
-    
+    impl_->replayChecksumStepCounter++;
+
+    // For v4 format with checksums, verify positions every 200 steps
+    if (metadata.hasChecksums() &&
+        impl_->replayChecksumStepCounter >= CHECKSUM_INTERVAL) {
+
+        // Calculate current world checksums
+        std::vector<uint32_t> currentChecksums = impl_->calculateAllWorldChecksums();
+
+        // Find expected checksums for current step
+        const auto& replayData = *impl_->replayData;
+        bool foundExpectedChecksums = false;
+        std::vector<uint32_t> expectedChecksums;
+
+        // Look for stored checksums at this step
+        for (size_t i = 0; i < replayData.checksum_steps.size(); i++) {
+            if (replayData.checksum_steps[i] == impl_->currentReplayStep) {
+                expectedChecksums = replayData.checksums[i];
+                foundExpectedChecksums = true;
+                break;
+            }
+        }
+
+        if (foundExpectedChecksums) {
+            // Perform actual checksum verification
+            bool checksumMismatch = false;
+
+            // Check if we have matching world counts
+            if (currentChecksums.size() != expectedChecksums.size()) {
+                std::cout << "WARNING: World count mismatch in checksum verification at step "
+                          << impl_->currentReplayStep << " (current: " << currentChecksums.size()
+                          << ", expected: " << expectedChecksums.size() << ")\n";
+                checksumMismatch = true;
+                impl_->hasChecksumFailed = true;
+            } else {
+                // Compare checksums for each world
+                for (uint32_t world_idx = 0; world_idx < currentChecksums.size(); world_idx++) {
+                    if (currentChecksums[world_idx] != expectedChecksums[world_idx]) {
+                        checksumMismatch = true;
+                    }
+                }
+            }
+
+            if (checksumMismatch) {
+                impl_->hasChecksumFailed = true;
+                std::cout << "WARNING: Checksum mismatch detected at replay step "
+                          << impl_->currentReplayStep << std::endl;
+
+                for (uint32_t world_idx = 0; world_idx < std::min(currentChecksums.size(), expectedChecksums.size()); world_idx++) {
+                    uint32_t current = currentChecksums[world_idx];
+                    uint32_t expected = expectedChecksums[world_idx];
+
+                    if (current != expected) {
+                        std::cout << "  World " << world_idx
+                                  << ": calculated=0x" << std::hex << current
+                                  << ", expected=0x" << expected << std::dec
+                                  << std::endl;
+                    }
+                }
+            } else {
+                std::cout << "INFO: Checksum verification PASSED at step " << impl_->currentReplayStep
+                          << " (all " << currentChecksums.size() << " worlds match)\n";
+            }
+        } else {
+            // No expected checksums found - this should not happen for v4 format at checkpoint intervals
+            if (metadata.version == 4) {
+                std::cout << "WARNING: No stored checksums found at step " << impl_->currentReplayStep
+                          << " in v4 format file\n";
+            } else {
+                std::cout << "INFO: Checksum verification skipped at step " << impl_->currentReplayStep
+                          << " (v3 format has no stored checksums)\n";
+            }
+        }
+
+        impl_->replayChecksumStepCounter = 0;
+    }
+
     // Check if we just consumed the last step
     return impl_->currentReplayStep >= impl_->replayData->metadata.num_steps;
 }

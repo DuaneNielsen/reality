@@ -18,8 +18,22 @@ namespace madEscape {
 
     // Replay metadata constants and structure (host-only with STL usage)
     static constexpr uint32_t REPLAY_MAGIC = 0x4D455352; // "MESR" in hex
-    static constexpr uint32_t REPLAY_VERSION = 3;
+    static constexpr uint32_t REPLAY_VERSION = 4;
     static constexpr uint32_t MAX_SIM_NAME_LENGTH = 64;
+    static constexpr uint32_t CHECKSUM_INTERVAL = 200;
+
+    // Record types for replay file format v4
+    enum class RecordType : uint32_t {
+        ACTION = 0,
+        CHECKSUM = 1
+    };
+
+    // Checksum record structure
+    struct ChecksumRecord {
+        RecordType type;           // Always RecordType::CHECKSUM
+        uint32_t num_worlds;       // Number of world checksums that follow
+        // Followed by num_worlds * uint32_t checksums
+    };
 
     // [GAME_SPECIFIC] Host-only replay metadata structure with STL usage
     struct ReplayMetadata {
@@ -54,7 +68,11 @@ namespace madEscape {
         }
         
         bool isValid() const {
-            return magic == REPLAY_MAGIC && version == 3;
+            return magic == REPLAY_MAGIC && (version == 3 || version == 4);
+        }
+
+        bool hasChecksums() const {
+            return version == 4;
         }
     };
 
@@ -206,6 +224,10 @@ public:
     struct ReplayData {
         madEscape::ReplayMetadata metadata;
         madrona::HeapArray<int32_t> actions;
+
+        // v4 format checksum data
+        std::vector<std::vector<uint32_t>> checksums;  // checksums[verification_point][world_idx]
+        std::vector<uint32_t> checksum_steps;          // step numbers where checksums are stored
     };
     
     // Recording functionality
@@ -213,7 +235,10 @@ public:
     void stopRecording();
     bool isRecording() const;
     void recordActions(const std::vector<int32_t>& frame_actions);
-    
+
+    // Checksum functionality
+    bool hasChecksumFailed() const;
+
     // Replay functionality
     bool loadReplay(const std::string& filepath);
     bool hasReplay() const;

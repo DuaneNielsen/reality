@@ -152,6 +152,12 @@ namespace madEscape {
         float initialY; // Initial Y position at episode start
     };
 
+    // [GAME_SPECIFIC]
+    // Tracks checksum of all Position components in this world for replay verification
+    struct WorldChecksum {
+        uint32_t checksum;  // FNV-1a hash of all position data
+    };
+
 
 
     // [GAME_SPECIFIC]
