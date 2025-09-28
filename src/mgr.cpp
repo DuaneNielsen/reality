@@ -130,6 +130,7 @@ struct Manager::Impl {
     int32_t trackWorldIdx = -1;
     int32_t trackAgentIdx = -1;
     FILE* trajectoryLogFile = nullptr;
+
     
     // Replay state
     Optional<ReplayData> replayData = Optional<ReplayData>::none();
@@ -726,24 +727,27 @@ void Manager::step()
     if (!impl_->isInitializationStep) {
         impl_->hasSteppedSinceInit = true;
     }
+    bool was_initialization = impl_->isInitializationStep;
     impl_->isInitializationStep = false;
-    
-    // Record actions if recording is active
-    if (impl_->isRecordingActive) {
+
+    impl_->run();
+
+    // Record actions AFTER execution if recording is active and not during initialization
+    if (impl_->isRecordingActive && !was_initialization) {
         // Get current actions from the action tensor
         auto action_tensor = actionTensor();
         std::vector<int32_t> frame_actions;
-        
+
         // Calculate total size needed: num_worlds * 3 actions per world
         uint32_t num_worlds = impl_->cfg.numWorlds;
         uint32_t total_actions = num_worlds * madEscape::consts::numActionComponents;
         frame_actions.resize(total_actions);
-        
+
         // Handle GPU vs CPU memory access
         if (impl_->cfg.execMode == ExecMode::CUDA) {
 #ifdef MADRONA_CUDA_SUPPORT
             // For GPU, we need to copy the data from device to host
-            cudaMemcpy(frame_actions.data(), action_tensor.devicePtr(), 
+            cudaMemcpy(frame_actions.data(), action_tensor.devicePtr(),
                       total_actions * sizeof(int32_t), cudaMemcpyDeviceToHost);
 #endif
         } else {
@@ -753,12 +757,10 @@ void Manager::step()
                 frame_actions[i] = action_data[i];
             }
         }
-        
+
         // Record the actions
         recordActions(frame_actions);
     }
-    
-    impl_->run();
 
     // Unified checksum handling after simulation execution
     // Handles both recording (write checksums) and replay (verify checksums)
@@ -1058,6 +1060,7 @@ void Manager::triggerReset(int32_t world_idx)
     }  else {
         *reset_ptr = reset;
     }
+
 }
 
 
@@ -1068,7 +1071,7 @@ void Manager::setAction(int32_t world_idx,
                         int32_t rotate)
 {
     // [GAME_SPECIFIC] Pack discrete actions into struct
-    Action action { 
+    Action action {
         .moveAmount = move_amount,
         .moveAngle = move_angle,
         .rotate = rotate,
@@ -1085,6 +1088,7 @@ void Manager::setAction(int32_t world_idx,
     } else {
         *action_ptr = action;
     }
+
 }
 
 // [GAME_SPECIFIC] Toggle lidar visualization for a specific world
@@ -1164,11 +1168,12 @@ void Manager::toggleLidarVisualizationGlobal()
 // Helper function to log current trajectory state
 void Manager::logCurrentTrajectoryState()
 {
-    if (!impl_->enableTrajectoryLogging || 
-        impl_->trackWorldIdx < 0 || 
+    if (!impl_->enableTrajectoryLogging ||
+        impl_->trackWorldIdx < 0 ||
         impl_->trackAgentIdx < 0) {
         return;
     }
+
     
     // Get tensor data
     auto self_obs = selfObservationTensor();
@@ -1259,15 +1264,46 @@ void Manager::logCurrentTrajectoryState()
         }
     }
     
-    // Log trajectory to file or stdout  
+    // Log trajectory to file or stdout
     FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
     uint32_t remaining_display = (*steps_taken_data >= madEscape::consts::episodeLen) ? 0 : (madEscape::consts::episodeLen - *steps_taken_data);
-    
-    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f reward=%.3f done=%d term=%d\n",
+
+    // Format action string
+    const char* action_str;
+    char action_buffer[32];
+    if (*steps_taken_data == 0) {
+        action_str = "action=RESET";  // Step 0 is always from reset
+    } else {
+        // Read the action that was actually applied from the action tensor
+        auto action_tensor = actionTensor();
+        const Action* action_data;
+
+        if (impl_->cfg.execMode == ExecMode::CUDA) {
+#ifdef MADRONA_CUDA_SUPPORT
+            // For CUDA, copy action data to host
+            static Action host_action;
+            cudaMemcpy(&host_action,
+                      ((const Action*)action_tensor.devicePtr()) + impl_->trackWorldIdx,
+                      sizeof(Action),
+                      cudaMemcpyDeviceToHost);
+            action_data = &host_action;
+#endif
+        } else {
+            // For CPU, direct access
+            action_data = ((const Action*)action_tensor.devicePtr()) + impl_->trackWorldIdx;
+        }
+
+        snprintf(action_buffer, sizeof(action_buffer), "action=(%d,%d,%d)",
+                 action_data->moveAmount, action_data->moveAngle, action_data->rotate);
+        action_str = action_buffer;
+    }
+
+    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: %s pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f reward=%.3f done=%d term=%d\n",
             *steps_taken_data,
             remaining_display,
             impl_->trackWorldIdx,
             impl_->trackAgentIdx,
+            action_str,
             obs_data->globalX,
             obs_data->globalY,
             obs_data->globalZ,
@@ -1319,9 +1355,15 @@ void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std:
     impl_->enableTrajectoryLogging = true;
     impl_->trackWorldIdx = world_idx;
     impl_->trackAgentIdx = agent_idx;
-    
-    // Log initial state (step 0) immediately
-    logCurrentTrajectoryState();
+
+    // If this is a replay manager and we're enabling logging after initialization,
+    // immediately log the current state (step 0). This ensures replay managers log
+    // step 0 even though they enable logging after construction.
+    // For recording managers, don't log immediately as the test will do reset+step.
+    if (impl_->replayData.has_value() &&
+        (impl_->hasSteppedSinceInit || !impl_->isInitializationStep)) {
+        logCurrentTrajectoryState();
+    }
 }
 
 void Manager::disableTrajectoryLogging()
@@ -1580,24 +1622,24 @@ bool Manager::hasReplay() const
 
 bool Manager::replayStep()
 {
-    if (!impl_->replayData.has_value() || 
+    if (!impl_->replayData.has_value() ||
         impl_->currentReplayStep >= impl_->replayData->metadata.num_steps) {
         return true; // Replay finished
     }
-    
+
     const auto& actions = impl_->replayData->actions;
     const auto& metadata = impl_->replayData->metadata;
-    
+
     for (uint32_t i = 0; i < metadata.num_worlds; i++) {
         uint32_t base_idx = (impl_->currentReplayStep * metadata.num_worlds * madEscape::consts::numActionComponents) + (i * madEscape::consts::numActionComponents);
-        
+
         int32_t move_amount = actions[base_idx];
         int32_t move_angle = actions[base_idx + 1];
         int32_t turn = actions[base_idx + 2];
-        
+
         setAction(i, move_amount, move_angle, turn);
     }
-    
+
     impl_->currentReplayStep++;
     impl_->replayChecksumStepCounter++;
 

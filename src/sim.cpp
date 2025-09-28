@@ -169,12 +169,23 @@ static inline void initWorld(Engine &ctx)
 inline void resetSystem(Engine &ctx, WorldReset &reset)
 {
     int32_t should_reset = reset.reset;
+
+    // Debug logging for problematic worlds
+    int32_t world_id = ctx.worldID().idx;
+    bool is_debug_world = (world_id == 31 || world_id == 32 || world_id == 38);
+
     if (ctx.data().autoReset && should_reset == 0) {
         // Check if any agent is done and schedule reset for next step
         for (CountT i = 0; i < consts::numAgents; i++) {
             Entity agent = ctx.data().agents[i];
             Done done = ctx.get<Done>(agent);
             if (done.v) {
+                if (is_debug_world) {
+                    TerminationReason termination = ctx.get<TerminationReason>(agent);
+                    StepsTaken steps = ctx.get<StepsTaken>(agent);
+                    printf("RESET_DEBUG: World %d Agent %d episode ending - step %d, reason %d\n",
+                           world_id, (int)i, steps.t, termination.code);
+                }
                 // Set reset flag for next step instead of immediate reset
                 // This allows Python to observe the done=1 state and rewards
                 reset.reset = 1;
@@ -184,6 +195,9 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
     }
 
     if (should_reset != 0) {
+        if (is_debug_world) {
+            printf("RESET_DEBUG: World %d performing reset\n", world_id);
+        }
         reset.reset = 0;
 
         cleanupWorld(ctx);
@@ -1139,10 +1153,24 @@ uint32_t Engine::calculateWorldChecksum()
 
     uint32_t hash = FNV_OFFSET_BASIS;
 
+    // Debug logging for problematic worlds
+    int32_t world_id = worldID().idx;
+    bool is_debug_world = (world_id == 31 || world_id == 32 || world_id == 38);
+
+    if (is_debug_world) {
+        printf("=== World %d Position Debug ===\n", world_id);
+    }
+
     // Hash only physics entities' Position components (agents, cubes, walls)
     // Using LeafID to filter out visualization entities (lidar rays, compass indicators)
     auto position_query = this->query<broadphase::LeafID, Position>();
+    int entity_count = 0;
     this->iterateQuery(position_query, [&](broadphase::LeafID &leaf_id, Position &pos) {
+        if (is_debug_world) {
+            printf("Entity %d (LeafID %d): pos=(%.6f, %.6f, %.6f)\n",
+                   entity_count, leaf_id.id, pos.x, pos.y, pos.z);
+        }
+        entity_count++;
         // Convert position components to bytes and hash them
         uint32_t x_bits = *reinterpret_cast<const uint32_t*>(&pos.x);
         uint32_t y_bits = *reinterpret_cast<const uint32_t*>(&pos.y);
@@ -1169,6 +1197,10 @@ uint32_t Engine::calculateWorldChecksum()
             hash *= FNV_PRIME;
         }
     });
+
+    if (is_debug_world) {
+        printf("World %d: %d entities, checksum=0x%x\n", world_id, entity_count, hash);
+    }
 
     return hash;
 }

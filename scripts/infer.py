@@ -27,6 +27,9 @@ arg_parser.add_argument("--separate-value", action="store_true")
 arg_parser.add_argument("--fp16", action="store_true")
 
 arg_parser.add_argument("--gpu-sim", action="store_true")
+arg_parser.add_argument(
+    "--track-world", type=int, help="Enable trajectory tracking for specific world"
+)
 
 args = arg_parser.parse_args()
 
@@ -47,6 +50,14 @@ config.compiled_levels = compiled_levels
 
 # Create and run inference
 runner = InferenceRunner(config)
+
+# Enable trajectory tracking if requested
+if args.track_world is not None:
+    runner.setup_simulation()
+    runner.sim_interface.manager.enable_trajectory_logging(
+        args.track_world, 0, f"world{args.track_world}_recording_trajectory.csv"
+    )
+    print(f"Trajectory logging enabled for World {args.track_world}, Agent 0")
 
 # Keep detailed tracking for final statistics
 episode_returns = []  # Store completed episode returns
