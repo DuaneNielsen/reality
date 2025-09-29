@@ -46,6 +46,13 @@ enum class TaskGraphID : uint32_t {
     NumTaskGraphs,
 };
 
+// Export IDs for tensor exports
+enum class ExportID : uint32_t {
+    HealthComponent,
+    PositionComponent,
+    NumExports,
+};
+
 // Health component for game entities
 struct HealthComponent {
     float currentHealth;
@@ -114,6 +121,12 @@ void Sim::registerTypes(madrona::ECSRegistry &registry, const Config &cfg) {
 
     // Then register the archetype that uses them
     registry.registerArchetype<GameEntity>();
+
+    // Export components as tensors for testing
+    registry.exportColumn<GameEntity, HealthComponent>(
+        (uint32_t)TestECS::ExportID::HealthComponent);
+    registry.exportColumn<GameEntity, Position>(
+        (uint32_t)TestECS::ExportID::PositionComponent);
 }
 
 void Sim::setupTasks(madrona::TaskGraphManager &mgr, const Config &cfg) {
@@ -195,7 +208,7 @@ int main() {
 
         TestTaskGraph exec({
             .numWorlds = 1,          // Single world for simplicity
-            .numExportedBuffers = 0, // No exports needed for test
+            .numExportedBuffers = (uint32_t)TestECS::ExportID::NumExports, // Export health and position tensors
             .numWorkers = 1          // Single worker thread
         }, cfg, &world_init, 1);     // 1 taskgraph
 
@@ -311,6 +324,53 @@ int main() {
             });
 
             std::cout << "\nPosition query completed. Found " << position_count << " Position instances." << std::endl;
+
+            // Test tensor exports
+            std::cout << "\n=== Testing Tensor Exports ===" << std::endl;
+
+            // Get exported tensor data
+            void* health_data = exec.getExported((uint32_t)TestECS::ExportID::HealthComponent);
+            void* position_data = exec.getExported((uint32_t)TestECS::ExportID::PositionComponent);
+
+            std::cout << "Health tensor data pointer: " << health_data << std::endl;
+            std::cout << "Position tensor data pointer: " << position_data << std::endl;
+
+            if (health_data && position_data) {
+                // Cast to appropriate types and verify data
+                float* health_tensor = static_cast<float*>(health_data);
+                float* position_tensor = static_cast<float*>(position_data);
+
+                std::cout << "\n📊 Health Tensor Data:" << std::endl;
+                for (int i = 0; i < 2; i++) {  // We have 2 entities
+                    std::cout << "  Entity " << i << " Health: " << health_tensor[i] << std::endl;
+                }
+
+                std::cout << "\n📊 Position Tensor Data:" << std::endl;
+                for (int i = 0; i < 2; i++) {  // We have 2 entities
+                    std::cout << "  Entity " << i << " Position: x=" << position_tensor[i*3]
+                              << ", y=" << position_tensor[i*3+1]
+                              << ", z=" << position_tensor[i*3+2] << std::endl;
+                }
+
+                // Verify the values match what we set
+                bool health_correct = (health_tensor[0] == 101.0f && health_tensor[1] == 76.0f);
+                bool position_correct = (position_tensor[0] == 5.0f && position_tensor[1] == 10.0f && position_tensor[2] == 15.0f &&
+                                       position_tensor[3] == -3.5f && position_tensor[4] == 7.2f && position_tensor[5] == -1.0f);
+
+                if (health_correct && position_correct) {
+                    std::cout << "\n✅ TENSOR VERIFICATION SUCCESS: All values match expected data!" << std::endl;
+                } else {
+                    std::cout << "\n❌ TENSOR VERIFICATION FAILED: Values don't match expected data!" << std::endl;
+                    if (!health_correct) {
+                        std::cout << "  Health mismatch: expected [101.0, 76.0], got [" << health_tensor[0] << ", " << health_tensor[1] << "]" << std::endl;
+                    }
+                    if (!position_correct) {
+                        std::cout << "  Position mismatch detected" << std::endl;
+                    }
+                }
+            } else {
+                std::cout << "\n❌ TENSOR EXPORT FAILED: Null pointers returned!" << std::endl;
+            }
 
             // Also test an invalid address for comparison
             std::cout << "\n🔍 Testing invalid address for comparison:" << std::endl;
