@@ -11,10 +11,39 @@
 
 #include <array>
 #include <mutex>
+#include <cstring>
 
 #ifdef MADRONA_ECS_DEBUG_TRACKING
 // Forward declaration of debug tracking function to avoid header dependency
 extern "C" void simple_tracker_register_component_type(uint32_t id, const char* name, uint32_t size, uint32_t alignment);
+extern "C" void simple_tracker_register_archetype_type(uint32_t id, const char* name);
+
+template<typename T>
+const char* extract_type_name() {
+#ifdef __clang__
+    constexpr const char* sig = __PRETTY_FUNCTION__;
+    // Extract from: "const char* extract_type_name() [T = MyType]"
+    const char* start = strstr(sig, "[T = ") + 5;
+    const char* end = strchr(start, ']');
+    static thread_local char buffer[64];
+    size_t len = std::min(size_t(end - start), size_t(63));
+    strncpy(buffer, start, len);
+    buffer[len] = '\0';
+    return buffer;
+#elif defined(__GNUC__)
+    constexpr const char* sig = __PRETTY_FUNCTION__;
+    // Extract from: "const char* extract_type_name() [with T = MyType]"
+    const char* start = strstr(sig, "[with T = ") + 10;
+    const char* end = strchr(start, ']');
+    static thread_local char buffer[64];
+    size_t len = std::min(size_t(end - start), size_t(63));
+    strncpy(buffer, start, len);
+    buffer[len] = '\0';
+    return buffer;
+#else
+    return "Component"; // Fallback for unsupported compilers
+#endif
+}
 #endif
 
 namespace madrona {
@@ -81,7 +110,7 @@ ComponentID StateManager::registerComponent(uint32_t num_bytes)
 #ifdef MADRONA_ECS_DEBUG_TRACKING
     simple_tracker_register_component_type(
         id,
-        "Component",  // Can't use typeid without RTTI
+        extract_type_name<ComponentT>(),  // 🎯 AUTOMATIC TYPE NAME!
         sizeof(ComponentT),
         alignof(ComponentT)
     );
@@ -168,6 +197,13 @@ ArchetypeID StateManager::registerArchetype(
                       (CountT)archetype_components.size(),
                       archetype_components.data(),
                       archetype_component_flags.data());
+
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+    simple_tracker_register_archetype_type(
+        id,
+        extract_type_name<ArchetypeT>()
+    );
+#endif
 
     return ArchetypeID {
         id,
