@@ -24,6 +24,7 @@ extern "C" {
         void* column_base;
         char component_name[64];
         char archetype_name[64];
+        char formatted_value[256];  // Formatted component value
     } address_info_t;
 
     int simple_tracker_lookup(void* address, address_info_t* info);
@@ -31,6 +32,8 @@ extern "C" {
         uint32_t component_id, const char* type_name, uint32_t size, uint32_t alignment);
     void simple_tracker_register_archetype_type(
         uint32_t archetype_id, const char* archetype_name);
+    const char* simple_tracker_format_component_value(void* address);
+    void simple_tracker_print_component_value(void* address);
     void simple_tracker_print_memory_map();  // Add this to see detailed component info
 }
 #endif
@@ -48,8 +51,13 @@ struct HealthComponent {
     float currentHealth;
 };
 
-// Simple game entity with health component
-struct GameEntity : public madrona::Archetype<HealthComponent> {};
+// Position component for testing default formatter (no specialization)
+struct Position {
+    float x, y, z;
+};
+
+// Game entity with both health and position components
+struct GameEntity : public madrona::Archetype<HealthComponent, Position> {};
 
 // Minimal config (like Sim::Config)
 struct Config {
@@ -100,10 +108,11 @@ public:
 void Sim::registerTypes(madrona::ECSRegistry &registry, const Config &cfg) {
     (void)cfg; // Suppress unused parameter warning
 
-    // First register the component type
+    // Register both component types
     registry.registerComponent<HealthComponent>();
+    registry.registerComponent<Position>();
 
-    // Then register the archetype that uses it
+    // Then register the archetype that uses them
     registry.registerArchetype<GameEntity>();
 }
 
@@ -119,20 +128,38 @@ void Sim::setupTasks(madrona::TaskGraphManager &mgr, const Config &cfg) {
 Sim::Sim(Engine &ctx, const Config &cfg, const WorldInit &init)
     : madrona::WorldBase(ctx), enableDebug(cfg.enableDebug), worldID(init.worldID) {
     // Initialize world state
-    // Create game entities with health - this will trigger table allocation
+    // Create game entities with health and position - this will trigger table allocation
     auto player = ctx.makeEntity<GameEntity>();
     auto &playerHealth = ctx.get<HealthComponent>(player);
     playerHealth.currentHealth = 100.0f;
+    auto &playerPos = ctx.get<Position>(player);
+    playerPos.x = 5.0f; playerPos.y = 10.0f; playerPos.z = 15.0f;
 
     auto enemy = ctx.makeEntity<GameEntity>();
     auto &enemyHealth = ctx.get<HealthComponent>(enemy);
     enemyHealth.currentHealth = 75.0f;
+    auto &enemyPos = ctx.get<Position>(enemy);
+    enemyPos.x = -3.5f; enemyPos.y = 7.2f; enemyPos.z = -1.0f;
 
     // Component addresses will be tracked automatically by the debug system
     // Reverse lookup will be demonstrated after table setup is complete
 }
 
 }
+
+// Specialized formatter for HealthComponent - must be outside namespace
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+template<>
+const char* format_component_default<TestECS::HealthComponent>(const void* ptr, const void* info_ptr) {
+    static thread_local char buffer[128];
+    const auto& health = *static_cast<const TestECS::HealthComponent*>(ptr);
+    const auto* info = static_cast<const address_info_t*>(info_ptr);
+    snprintf(buffer, sizeof(buffer), "%s(%u)-%s(%u) : HealthComponent{currentHealth=%.1f}",
+             info->archetype_name, info->archetype_id,
+             info->component_name, info->component_id, health.currentHealth);
+    return buffer;
+}
+#endif
 
 int main() {
     std::cout << "=== Simple ECS Table Test ===" << std::endl;
@@ -224,6 +251,7 @@ int main() {
                 std::cout << "\n🔍 Testing component #" << component_count << ":" << std::endl;
                 std::cout << "  Address: " << comp_addr << std::endl;
                 std::cout << "  Health: " << health.currentHealth << std::endl;
+                std::cout << "  Formatted Value: " << simple_tracker_format_component_value(comp_addr) << std::endl;
 
                 // Perform reverse lookup on this real component address
                 address_info_t lookup_info;
@@ -233,6 +261,7 @@ int main() {
                     std::cout << "  ✅ REVERSE LOOKUP SUCCESS:" << std::endl;
                     std::cout << "    Component: " << lookup_info.component_name
                               << " (ID: " << lookup_info.component_id << ")" << std::endl;
+                    std::cout << "    Value: " << lookup_info.formatted_value << std::endl;  // ✨ NEW!
                     std::cout << "    Archetype: " << lookup_info.archetype_name
                               << " (ID: " << lookup_info.archetype_id << ")" << std::endl;
                     std::cout << "    World ID: " << lookup_info.world_id << std::endl;
@@ -246,6 +275,42 @@ int main() {
             });
 
             std::cout << "\nQuery completed. Found " << component_count << " HealthComponent instances." << std::endl;
+
+            // Now test Position components (using default formatter)
+            std::cout << "\n=== Testing Default Formatter with Position Components ===" << std::endl;
+            auto position_query = world_ctx.query<TestECS::Position>();
+
+            std::cout << "Running query for Position..." << std::endl;
+
+            int position_count = 0;
+            world_ctx.iterateQuery(position_query, [&](TestECS::Position &pos) {
+                position_count++;
+
+                // Get the actual address of this component
+                void* comp_addr = &pos;
+
+                std::cout << "\n🔍 Testing Position #" << position_count << ":" << std::endl;
+                std::cout << "  Address: " << comp_addr << std::endl;
+                std::cout << "  Position: x=" << pos.x << ", y=" << pos.y << ", z=" << pos.z << std::endl;
+                std::cout << "  Formatted Value: " << simple_tracker_format_component_value(comp_addr) << std::endl;
+
+                // Perform reverse lookup on this real component address
+                address_info_t lookup_info;
+                int found = simple_tracker_lookup(comp_addr, &lookup_info);
+
+                if (found) {
+                    std::cout << "  ✅ REVERSE LOOKUP SUCCESS:" << std::endl;
+                    std::cout << "    Component: " << lookup_info.component_name
+                              << " (ID: " << lookup_info.component_id << ")" << std::endl;
+                    std::cout << "    Value: " << lookup_info.formatted_value << std::endl;
+                    std::cout << "    Archetype: " << lookup_info.archetype_name
+                              << " (ID: " << lookup_info.archetype_id << ")" << std::endl;
+                } else {
+                    std::cout << "  ❌ REVERSE LOOKUP FAILED (code: " << found << ")" << std::endl;
+                }
+            });
+
+            std::cout << "\nPosition query completed. Found " << position_count << " Position instances." << std::endl;
 
             // Also test an invalid address for comparison
             std::cout << "\n🔍 Testing invalid address for comparison:" << std::endl;

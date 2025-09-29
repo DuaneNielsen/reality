@@ -14,9 +14,12 @@
 #include <cstring>
 
 #ifdef MADRONA_ECS_DEBUG_TRACKING
-// Forward declaration of debug tracking function to avoid header dependency
+// Forward declarations to avoid header dependency
+// Note: Using void* instead of address_info_t* to avoid typedef conflicts
+typedef const char* (*component_formatter_t)(const void* component_ptr, const void* info);
 extern "C" void simple_tracker_register_component_type(uint32_t id, const char* name, uint32_t size, uint32_t alignment);
 extern "C" void simple_tracker_register_archetype_type(uint32_t id, const char* name);
+extern "C" void simple_tracker_register_component_formatter(uint32_t id, component_formatter_t formatter);
 
 template<typename T>
 const char* extract_type_name() {
@@ -43,6 +46,44 @@ const char* extract_type_name() {
 #else
     return "Component"; // Fallback for unsupported compilers
 #endif
+}
+
+// Default formatter template for POD components
+template<typename ComponentT>
+const char* format_component_default(const void* ptr, const void* info_ptr) {
+    static thread_local char buffer[256];
+    (void)info_ptr; // Keep simple to avoid header dependencies
+    const ComponentT& comp = *static_cast<const ComponentT*>(ptr);
+
+    // Simple default format - specialized formatters provide rich context
+    snprintf(buffer, sizeof(buffer), "%s@%p", extract_type_name<ComponentT>(), ptr);
+    return buffer;
+}
+
+// Note: Specialized formatters should be defined per project
+// Example specialization (commented out - implement in your specific project):
+//
+// namespace TestECS {
+//     struct HealthComponent { float currentHealth; };
+// }
+//
+// template<>
+// const char* format_component_default<TestECS::HealthComponent>(const void* ptr, const address_info_t* info) {
+//     static thread_local char buffer[128];
+//     const auto& health = *static_cast<const TestECS::HealthComponent*>(ptr);
+//     snprintf(buffer, sizeof(buffer), "%s(%u)-%s(%u) : HealthComponent{currentHealth=%.1f}",
+//              info->archetype_name, info->archetype_id,
+//              info->component_name, info->component_id, health.currentHealth);
+//     return buffer;
+// }
+
+// Formatter registration template
+template<typename ComponentT>
+void register_component_formatter() {
+    simple_tracker_register_component_formatter(
+        madrona::TypeTracker::typeID<ComponentT>(),
+        format_component_default<ComponentT>
+    );
 }
 #endif
 
@@ -114,6 +155,7 @@ ComponentID StateManager::registerComponent(uint32_t num_bytes)
         sizeof(ComponentT),
         alignof(ComponentT)
     );
+    register_component_formatter<ComponentT>();  // 🎯 AUTOMATIC FORMATTER REGISTRATION!
 #endif
 
     return ComponentID {

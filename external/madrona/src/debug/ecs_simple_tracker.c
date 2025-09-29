@@ -57,18 +57,20 @@ int simple_tracker_lookup(void* address, address_info_t* info) {
             uintptr_t offset = addr - range->start;
             info->row = (uint32_t)(offset / range->component_size);
 
-            // Look up component type name
+            // Look up component type name and formatter
             const char* comp_name = "Unknown";
+            component_formatter_t formatter = NULL;
             for (uint32_t j = 0; j < g_component_count; j++) {
                 if (g_components[j].component_id == range->component_id) {
                     comp_name = g_components[j].type_name;
+                    formatter = g_components[j].formatter;
                     break;
                 }
             }
             strncpy(info->component_name, comp_name, MAX_TYPE_NAME_LEN - 1);
             info->component_name[MAX_TYPE_NAME_LEN - 1] = '\0';
 
-            // Look up archetype type name
+            // Look up archetype type name first (needed for formatter)
             const char* archetype_name = "Unknown";
             for (uint32_t k = 0; k < g_archetype_count; k++) {
                 if (g_archetypes[k].archetype_id == range->archetype_id) {
@@ -78,6 +80,17 @@ int simple_tracker_lookup(void* address, address_info_t* info) {
             }
             strncpy(info->archetype_name, archetype_name, MAX_TYPE_NAME_LEN - 1);
             info->archetype_name[MAX_TYPE_NAME_LEN - 1] = '\0';
+
+            // Format component value if formatter available
+            if (formatter) {
+                const char* formatted = formatter(address, (const void*)info);
+                strncpy(info->formatted_value, formatted ? formatted : "<formatter error>",
+                       sizeof(info->formatted_value) - 1);
+                info->formatted_value[sizeof(info->formatted_value) - 1] = '\0';
+            } else {
+                snprintf(info->formatted_value, sizeof(info->formatted_value),
+                        "<%s at %p (no formatter)>", comp_name, address);
+            }
 
             simple_unlock();
             return 1; // Found
@@ -162,6 +175,7 @@ void simple_tracker_register_component_type(
     comp->component_id = component_id;
     comp->size = size;
     comp->alignment = alignment;
+    comp->formatter = NULL;  // Initialize formatter to NULL
     strncpy(comp->type_name, type_name, MAX_TYPE_NAME_LEN - 1);
     comp->type_name[MAX_TYPE_NAME_LEN - 1] = '\0';
 
@@ -193,6 +207,26 @@ void simple_tracker_register_archetype_type(
     g_archetype_count++;
 
     simple_unlock();
+}
+
+void simple_tracker_register_component_formatter(
+    uint32_t component_id, component_formatter_t formatter) {
+
+    if (!formatter) return;
+
+    simple_lock();
+
+    // Find the component and add the formatter
+    for (uint32_t i = 0; i < g_component_count; i++) {
+        if (g_components[i].component_id == component_id) {
+            g_components[i].formatter = formatter;
+            simple_unlock();
+            return;
+        }
+    }
+
+    simple_unlock();
+    // Component not found - this is OK, formatter may be registered before type
 }
 
 void simple_tracker_print_memory_map(void) {
@@ -276,6 +310,45 @@ int simple_tracker_validate_integrity(void) {
 
     simple_unlock();
     return errors;
+}
+
+const char* simple_tracker_format_component_value(void* address) {
+    static char fallback_buffer[128];
+
+    if (!address) return "NULL";
+
+    address_info_t info;
+    if (!simple_tracker_lookup(address, &info)) {
+        snprintf(fallback_buffer, sizeof(fallback_buffer), "<unknown address: %p>", address);
+        return fallback_buffer;
+    }
+
+    simple_lock();
+
+    // Find the component type and use its formatter
+    for (uint32_t i = 0; i < g_component_count; i++) {
+        if (g_components[i].component_id == info.component_id) {
+            if (g_components[i].formatter) {
+                const char* result = g_components[i].formatter(address, (const void*)&info);
+                simple_unlock();
+                return result ? result : "<formatter error>";
+            } else {
+                snprintf(fallback_buffer, sizeof(fallback_buffer),
+                    "<%s at %p (no formatter)>", g_components[i].type_name, address);
+                simple_unlock();
+                return fallback_buffer;
+            }
+        }
+    }
+
+    simple_unlock();
+    snprintf(fallback_buffer, sizeof(fallback_buffer), "<unknown component type %u at %p>",
+        info.component_id, address);
+    return fallback_buffer;
+}
+
+void simple_tracker_print_component_value(void* address) {
+    printf("Component value: %s\n", simple_tracker_format_component_value(address));
 }
 
 #endif // MADRONA_ECS_DEBUG_TRACKING

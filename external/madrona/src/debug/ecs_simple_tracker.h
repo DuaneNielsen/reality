@@ -43,13 +43,19 @@ typedef struct {
     void* column_base;
     char component_name[MAX_TYPE_NAME_LEN];
     char archetype_name[MAX_TYPE_NAME_LEN];
+    char formatted_value[256];  // Formatted component value
 } address_info_t;
+
+// Function pointer type for component value formatters
+// Passes the complete address info for rich formatting context
+typedef const char* (*component_formatter_t)(const void* component_ptr, const void* info);
 
 typedef struct {
     char type_name[MAX_TYPE_NAME_LEN];
     uint32_t component_id;
     uint32_t size;
     uint32_t alignment;
+    component_formatter_t formatter;  // Optional formatter function
 } component_type_t;
 
 typedef struct {
@@ -68,6 +74,8 @@ void simple_tracker_unregister_range(void* base_address);
 // Type registration
 void simple_tracker_register_component_type(
     uint32_t component_id, const char* type_name, uint32_t size, uint32_t alignment);
+void simple_tracker_register_component_formatter(
+    uint32_t component_id, component_formatter_t formatter);
 void simple_tracker_register_archetype_type(
     uint32_t archetype_id, const char* archetype_name);
 
@@ -75,6 +83,8 @@ void simple_tracker_register_archetype_type(
 void simple_tracker_print_memory_map(void);
 void simple_tracker_print_statistics(void);
 uint32_t simple_tracker_get_range_count(void);
+const char* simple_tracker_format_component_value(void* address);
+void simple_tracker_print_component_value(void* address);
 
 // Test functions for debugging the tracker itself
 void simple_tracker_dump_ranges(void);
