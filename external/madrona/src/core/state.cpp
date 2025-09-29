@@ -15,6 +15,10 @@
 #include <mutex>
 #include <string_view>
 
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+#include "../debug/ecs_simple_tracker.h"
+#endif
+
 #ifndef MADRONA_WINDOWS
 #include <sys/mman.h>
 #include <unistd.h>
@@ -213,12 +217,14 @@ StateManager::TableStorage::TableStorage(Span<TypeInfo> types,
         new (&tbls) HeapArray<Table>(num_worlds);
 
         for (CountT i = 0; i < num_worlds; i++) {
-            tbls.emplace(i, types.data(), types.size(), 0);
+            tbls.emplace(i, types.data(), types.size(), 0
+                MADRONA_DEBUG_COND(0, (uint32_t)i));  // archetype_id=0 for now, world_id=i
         }
     } else {
         new (&fixed) Fixed {
             Table(types.data(), types.size(),
-                  max_num_per_world * num_worlds),
+                  max_num_per_world * num_worlds
+                  MADRONA_DEBUG_COND(0, 0)),  // archetype_id=0, world_id=0 for fixed storage
             HeapArray<int32_t>(num_worlds),
         };
 
@@ -239,7 +245,8 @@ StateManager::TableStorage::~TableStorage()
 
 #else
 StateManager::TableStorage::TableStorage(Span<TypeInfo> types)
-    : tbl(types.data(), types.size(), 0)
+    : tbl(types.data(), types.size(), 0
+          MADRONA_DEBUG_COND(0, 0))  // archetype_id=0, world_id=0 for single world
 {}
 #endif
 

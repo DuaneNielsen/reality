@@ -123,6 +123,22 @@ if (MADRONA_ENABLE_TRACING)
     )
 endif()
 
+option(MADRONA_ECS_DEBUG_TRACKING "Enable ECS address tracking (debug only)" OFF)
+if (MADRONA_ECS_DEBUG_TRACKING)
+    if (CMAKE_BUILD_TYPE STREQUAL "Release")
+        message(FATAL_ERROR "ECS debug tracking cannot be enabled in Release builds")
+    endif()
+
+    target_compile_definitions(madrona_common PUBLIC
+        MADRONA_ECS_DEBUG_TRACKING=1
+    )
+
+    target_sources(madrona_common PRIVATE
+        ../debug/ecs_simple_tracker.c
+        ../debug/ecs_simple_tracker.h
+    )
+endif()
+
 target_link_libraries(madrona_common
     PUBLIC 
         madrona_hdrs

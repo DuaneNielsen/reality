@@ -226,3 +226,37 @@ add_custom_target(run_cpp_gpu_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Running C++ GPU tests..."
 )
+
+# ECS Debug Tracker Standalone Test
+add_executable(test_simple_table test_simple_table.cpp)
+
+target_include_directories(test_simple_table PRIVATE
+    ${CMAKE_SOURCE_DIR}/external/madrona/include
+    ${CMAKE_SOURCE_DIR}/external/madrona/src
+)
+
+target_link_libraries(test_simple_table
+    PRIVATE
+        madrona_mw_cpu  # This includes the debug tracker
+)
+
+# Set C++ standard for our standalone test
+set_target_properties(test_simple_table PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Set RPATH for our standalone test
+set_target_properties(test_simple_table PROPERTIES
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH_USE_LINK_PATH TRUE
+    INSTALL_RPATH "$ORIGIN:${LIBCXX_PATH}:${CMAKE_BINARY_DIR}"
+)
+
+# Add target to run our standalone test
+add_custom_target(run_simple_table_test
+    COMMAND test_simple_table
+    DEPENDS test_simple_table
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running ECS debug tracker table test..."
+)

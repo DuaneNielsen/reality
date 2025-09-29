@@ -150,7 +150,14 @@
       "Bash(git merge:*)",
       "Bash(./levels/generate_progressive_levels.py --single --output-dir levels)",
       "Bash(git -C external/madrona log --oneline b989946...8e882f7)",
-      "Bash(./debug_inference.sh:*)"
+      "Bash(./debug_inference.sh:*)",
+      "Bash(timeout:*)",
+      "Bash(g++:*)",
+      "Bash(./build/test_simple_table)",
+      "Bash(/home/duane/madroom/.claude/scripts/repo-status.sh:*)",
+      "Bash(git -C external/madrona diff HEAD src/debug/ecs_simple_tracker.h)",
+      "Bash(git -C external/madrona diff HEAD src/debug/ecs_simple_tracker.c)",
+      "Bash(git -C external/madrona push origin main)"
     ],
     "deny": []
   },
