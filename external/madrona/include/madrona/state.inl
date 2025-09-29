@@ -12,6 +12,11 @@
 #include <array>
 #include <mutex>
 
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+// Forward declaration of debug tracking function to avoid header dependency
+extern "C" void simple_tracker_register_component_type(uint32_t id, const char* name, uint32_t size, uint32_t alignment);
+#endif
+
 namespace madrona {
 
 template <typename T>
@@ -72,6 +77,15 @@ ComponentID StateManager::registerComponent(uint32_t num_bytes)
 
     registerComponent(id, std::alignment_of_v<ComponentT>,
                       component_size);
+
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+    simple_tracker_register_component_type(
+        id,
+        "Component",  // Can't use typeid without RTTI
+        sizeof(ComponentT),
+        alignof(ComponentT)
+    );
+#endif
 
     return ComponentID {
         id,

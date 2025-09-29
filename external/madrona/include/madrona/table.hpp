@@ -15,6 +15,12 @@
 
 #include <array>
 
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+#define MADRONA_DEBUG_COND(...) , __VA_ARGS__
+#else
+#define MADRONA_DEBUG_COND(...)
+#endif
+
 namespace madrona {
 
 struct TypeInfo {
@@ -25,7 +31,8 @@ struct TypeInfo {
 class Table {
 public:
     Table(const TypeInfo *component_types, CountT num_components,
-          CountT init_num_rows);
+          CountT init_num_rows
+          MADRONA_DEBUG_COND(uint32_t archetype_id, uint32_t world_id));
 
     uint32_t addRow();
     bool removeRow(uint32_t row);
@@ -53,6 +60,11 @@ private:
     uint32_t num_components_;
     InlineArray<void *, maxColumns> columns_;
     InlineArray<uint32_t, maxColumns> bytes_per_column_;
+
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+    uint32_t debug_archetype_id_;
+    uint32_t debug_world_id_;
+#endif
 };
 
 }

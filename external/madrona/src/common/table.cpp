@@ -11,6 +11,10 @@
 #include <cstring>
 #include <type_traits>
 
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+#include "../debug/ecs_simple_tracker.h"
+#endif
+
 namespace madrona {
 
 namespace ICfg {
@@ -18,12 +22,17 @@ inline constexpr uint32_t maxRowsPerTable = 1u << 28u;
 }
 
 Table::Table(const TypeInfo *component_types, CountT num_components,
-             CountT init_num_rows)
+             CountT init_num_rows
+             MADRONA_DEBUG_COND(uint32_t archetype_id, uint32_t world_id))
     : num_rows_(init_num_rows),
       num_allocated_rows_(std::max(uint32_t(init_num_rows), 1_u32)),
       num_components_(num_components),
       columns_(),
       bytes_per_column_()
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+      , debug_archetype_id_(archetype_id),
+      debug_world_id_(world_id)
+#endif
 {
     for (int i = 0; i < (int)num_components; i++) {
         const TypeInfo &type = component_types[i];
@@ -37,9 +46,21 @@ Table::Table(const TypeInfo *component_types, CountT num_components,
 #endif
 
         size_t column_bytes_per_row = (size_t)type.numBytes;
-        columns_[i] = malloc(
+        void* col_mem = malloc(
             (size_t)column_bytes_per_row * (size_t)num_allocated_rows_);
+        columns_[i] = col_mem;
         bytes_per_column_[i] = column_bytes_per_row;
+
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+        simple_tracker_register_range(
+            col_mem,
+            column_bytes_per_row * num_allocated_rows_,
+            archetype_id, world_id, i,
+            i,  // component_id - using column index for now
+            column_bytes_per_row,
+            init_num_rows
+        );
+#endif
     }
 }
 
@@ -52,8 +73,25 @@ uint32_t Table::addRow()
             std::max(std::max(10_u32, uint32_t(num_allocated_rows_ * 2)), idx);
 
         for (int i = 0; i < (int)num_components_; i++) {
-            columns_[i] = realloc(columns_[i],
+            void* old_ptr = columns_[i];
+            void* new_ptr = realloc(old_ptr,
                 uint64_t(new_num_rows) * uint64_t(bytes_per_column_[i]));
+
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+            if (new_ptr != old_ptr) {
+                simple_tracker_unregister_range(old_ptr);
+                simple_tracker_register_range(
+                    new_ptr,
+                    new_num_rows * bytes_per_column_[i],
+                    debug_archetype_id_, debug_world_id_, i,
+                    i,  // component_id
+                    bytes_per_column_[i],
+                    new_num_rows
+                );
+            }
+#endif
+
+            columns_[i] = new_ptr;
         }
 
         num_allocated_rows_ = new_num_rows;
