@@ -16,8 +16,10 @@
 // Global storage - simple arrays for minimal overhead
 static address_range_t g_ranges[MAX_RANGES];
 static component_type_t g_components[MAX_COMPONENTS];
+static archetype_type_t g_archetypes[MAX_ARCHETYPES];
 static uint32_t g_range_count = 0;
 static uint32_t g_component_count = 0;
+static uint32_t g_archetype_count = 0;
 
 // Simple mutex simulation - for now just use a flag
 static volatile int g_lock = 0;
@@ -66,7 +68,16 @@ int simple_tracker_lookup(void* address, address_info_t* info) {
             strncpy(info->component_name, comp_name, MAX_TYPE_NAME_LEN - 1);
             info->component_name[MAX_TYPE_NAME_LEN - 1] = '\0';
 
-            snprintf(info->archetype_name, MAX_TYPE_NAME_LEN, "Archetype_%u", range->archetype_id);
+            // Look up archetype type name
+            const char* archetype_name = "Unknown";
+            for (uint32_t k = 0; k < g_archetype_count; k++) {
+                if (g_archetypes[k].archetype_id == range->archetype_id) {
+                    archetype_name = g_archetypes[k].archetype_name;
+                    break;
+                }
+            }
+            strncpy(info->archetype_name, archetype_name, MAX_TYPE_NAME_LEN - 1);
+            info->archetype_name[MAX_TYPE_NAME_LEN - 1] = '\0';
 
             simple_unlock();
             return 1; // Found
@@ -131,11 +142,19 @@ void simple_tracker_register_component_type(
 
     simple_lock();
 
-    // Check if already exists
+    // Check if already exists - if so, update the name if it's more specific
     for (uint32_t i = 0; i < g_component_count; i++) {
         if (g_components[i].component_id == component_id) {
+            // Update if the new name is more specific than the existing generic name
+            if (strcmp(g_components[i].type_name, "Component") == 0 &&
+                strcmp(type_name, "Component") != 0) {
+                strncpy(g_components[i].type_name, type_name, MAX_TYPE_NAME_LEN - 1);
+                g_components[i].type_name[MAX_TYPE_NAME_LEN - 1] = '\0';
+                g_components[i].size = size;
+                g_components[i].alignment = alignment;
+            }
             simple_unlock();
-            return; // Already registered
+            return; // Already registered (possibly updated)
         }
     }
 
@@ -147,6 +166,31 @@ void simple_tracker_register_component_type(
     comp->type_name[MAX_TYPE_NAME_LEN - 1] = '\0';
 
     g_component_count++;
+
+    simple_unlock();
+}
+
+void simple_tracker_register_archetype_type(
+    uint32_t archetype_id, const char* archetype_name) {
+
+    if (!archetype_name || g_archetype_count >= MAX_ARCHETYPES) return;
+
+    simple_lock();
+
+    // Check if already exists
+    for (uint32_t i = 0; i < g_archetype_count; i++) {
+        if (g_archetypes[i].archetype_id == archetype_id) {
+            simple_unlock();
+            return; // Already registered
+        }
+    }
+
+    archetype_type_t* archetype = &g_archetypes[g_archetype_count];
+    archetype->archetype_id = archetype_id;
+    strncpy(archetype->archetype_name, archetype_name, MAX_TYPE_NAME_LEN - 1);
+    archetype->archetype_name[MAX_TYPE_NAME_LEN - 1] = '\0';
+
+    g_archetype_count++;
 
     simple_unlock();
 }
@@ -179,9 +223,11 @@ void simple_tracker_print_statistics(void) {
     printf("=== Simple ECS Tracker Statistics ===\n");
     printf("Tracked ranges: %u / %u\n", g_range_count, MAX_RANGES);
     printf("Component types: %u / %u\n", g_component_count, MAX_COMPONENTS);
+    printf("Archetype types: %u / %u\n", g_archetype_count, MAX_ARCHETYPES);
 
     size_t memory_usage = g_range_count * sizeof(address_range_t) +
-                         g_component_count * sizeof(component_type_t);
+                         g_component_count * sizeof(component_type_t) +
+                         g_archetype_count * sizeof(archetype_type_t);
     printf("Memory usage: %zu bytes\n", memory_usage);
 
     simple_unlock();

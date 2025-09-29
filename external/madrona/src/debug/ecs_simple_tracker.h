@@ -19,6 +19,7 @@ extern "C" {
 #define MAX_RANGES 4096
 #define MAX_TYPE_NAME_LEN 64
 #define MAX_COMPONENTS 256
+#define MAX_ARCHETYPES 256
 
 typedef struct {
     uintptr_t start;
@@ -51,6 +52,11 @@ typedef struct {
     uint32_t alignment;
 } component_type_t;
 
+typedef struct {
+    char archetype_name[MAX_TYPE_NAME_LEN];
+    uint32_t archetype_id;
+} archetype_type_t;
+
 // Core functions
 int simple_tracker_lookup(void* address, address_info_t* info);
 void simple_tracker_register_range(
@@ -62,6 +68,8 @@ void simple_tracker_unregister_range(void* base_address);
 // Type registration
 void simple_tracker_register_component_type(
     uint32_t component_id, const char* type_name, uint32_t size, uint32_t alignment);
+void simple_tracker_register_archetype_type(
+    uint32_t archetype_id, const char* archetype_name);
 
 // Statistics and debugging
 void simple_tracker_print_memory_map(void);
