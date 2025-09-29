@@ -183,16 +183,8 @@ int main() {
         std::cout << "\n=== ECS System Component Registration ===" << std::endl;
         simple_tracker_print_memory_map();
 
-        // Register type names for readable debug output AFTER ECS setup
-        // Note: We're guessing component ID 2 - the actual ID comes from ECS registration
-        std::cout << "Attempting to register our own component names..." << std::endl;
-        simple_tracker_register_component_type(0, "Entity", 8, 8);
-        simple_tracker_register_component_type(1, "UnknownComponent1", 4, 4);
-        simple_tracker_register_component_type(2, "HealthComponent", sizeof(float), alignof(float));
-        simple_tracker_register_archetype_type(0, "GameEntity");
-
-        std::cout << "\n=== After Our Registration Attempt ===" << std::endl;
-        simple_tracker_print_memory_map();
+        // Type names are now automatically registered during ECS setup!
+        std::cout << "Type names now registered automatically during ECS setup!" << std::endl;
 
         // Check what we captured after executor creation and execution
         std::cout << "\n=== After Task Execution ===" << std::endl;
