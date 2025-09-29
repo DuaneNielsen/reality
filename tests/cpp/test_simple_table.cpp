@@ -27,6 +27,11 @@ extern "C" {
     } address_info_t;
 
     int simple_tracker_lookup(void* address, address_info_t* info);
+    void simple_tracker_register_component_type(
+        uint32_t component_id, const char* type_name, uint32_t size, uint32_t alignment);
+    void simple_tracker_register_archetype_type(
+        uint32_t archetype_id, const char* archetype_name);
+    void simple_tracker_print_memory_map();  // Add this to see detailed component info
 }
 #endif
 
@@ -38,13 +43,13 @@ enum class TaskGraphID : uint32_t {
     NumTaskGraphs,
 };
 
-// Simple component - just one float
-struct TestComponent {
-    float value;
+// Health component for game entities
+struct HealthComponent {
+    float currentHealth;
 };
 
-// Simple archetype with just one component
-struct SimpleEntity : public madrona::Archetype<TestComponent> {};
+// Simple game entity with health component
+struct GameEntity : public madrona::Archetype<HealthComponent> {};
 
 // Minimal config (like Sim::Config)
 struct Config {
@@ -82,12 +87,12 @@ class Engine : public madrona::CustomContext<Engine, Sim> {
 public:
     using CustomContext::CustomContext;
 
-    // Simple task system that operates on TestComponent
-    static void testTask(Engine &ctx, TestComponent &comp) {
+    // Health regeneration system that operates on HealthComponent
+    static void healthRegenTask(Engine &ctx, HealthComponent &health) {
         (void)ctx; // Suppress unused parameter warning
-        // The ParallelForNode will iterate over all entities with TestComponent
-        // and call this function for each one
-        comp.value += 1.0f;
+        // The ParallelForNode will iterate over all entities with HealthComponent
+        // and regenerate health by 1.0 per frame
+        health.currentHealth += 1.0f;
     }
 };
 
@@ -96,32 +101,32 @@ void Sim::registerTypes(madrona::ECSRegistry &registry, const Config &cfg) {
     (void)cfg; // Suppress unused parameter warning
 
     // First register the component type
-    registry.registerComponent<TestComponent>();
+    registry.registerComponent<HealthComponent>();
 
     // Then register the archetype that uses it
-    registry.registerArchetype<SimpleEntity>();
+    registry.registerArchetype<GameEntity>();
 }
 
 void Sim::setupTasks(madrona::TaskGraphManager &mgr, const Config &cfg) {
     (void)cfg; // Suppress unused parameter warning
     madrona::TaskGraphBuilder &builder = mgr.init(TaskGraphID::Step);
 
-    // Simple task that processes TestComponent
+    // Health regeneration task that processes HealthComponent
     (void)builder.addToGraph<madrona::ParallelForNode<Engine,
-        Engine::testTask, TestComponent>>({});
+        Engine::healthRegenTask, HealthComponent>>({});
 }
 
 Sim::Sim(Engine &ctx, const Config &cfg, const WorldInit &init)
     : madrona::WorldBase(ctx), enableDebug(cfg.enableDebug), worldID(init.worldID) {
     // Initialize world state
-    // Create test entities - this will trigger table allocation
-    auto entity1 = ctx.makeEntity<SimpleEntity>();
-    auto &comp1 = ctx.get<TestComponent>(entity1);
-    comp1.value = 10.0f;
+    // Create game entities with health - this will trigger table allocation
+    auto player = ctx.makeEntity<GameEntity>();
+    auto &playerHealth = ctx.get<HealthComponent>(player);
+    playerHealth.currentHealth = 100.0f;
 
-    auto entity2 = ctx.makeEntity<SimpleEntity>();
-    auto &comp2 = ctx.get<TestComponent>(entity2);
-    comp2.value = 20.0f;
+    auto enemy = ctx.makeEntity<GameEntity>();
+    auto &enemyHealth = ctx.get<HealthComponent>(enemy);
+    enemyHealth.currentHealth = 75.0f;
 
     // Component addresses will be tracked automatically by the debug system
     // Reverse lookup will be demonstrated after table setup is complete
@@ -174,6 +179,21 @@ int main() {
         exec.runTaskGraph(0);
         std::cout << "Task graph execution completed!" << std::endl;
 
+        // Show what component types the ECS system actually registered
+        std::cout << "\n=== ECS System Component Registration ===" << std::endl;
+        simple_tracker_print_memory_map();
+
+        // Register type names for readable debug output AFTER ECS setup
+        // Note: We're guessing component ID 2 - the actual ID comes from ECS registration
+        std::cout << "Attempting to register our own component names..." << std::endl;
+        simple_tracker_register_component_type(0, "Entity", 8, 8);
+        simple_tracker_register_component_type(1, "UnknownComponent1", 4, 4);
+        simple_tracker_register_component_type(2, "HealthComponent", sizeof(float), alignof(float));
+        simple_tracker_register_archetype_type(0, "GameEntity");
+
+        std::cout << "\n=== After Our Registration Attempt ===" << std::endl;
+        simple_tracker_print_memory_map();
+
         // Check what we captured after executor creation and execution
         std::cout << "\n=== After Task Execution ===" << std::endl;
         simple_tracker_print_statistics();
@@ -197,21 +217,21 @@ int main() {
             // Get the world context to run queries
             auto& world_ctx = exec.getWorldContext(0);
 
-            // Query all TestComponents in the world
-            auto query = world_ctx.query<TestECS::TestComponent>();
+            // Query all HealthComponents in the world
+            auto query = world_ctx.query<TestECS::HealthComponent>();
 
-            std::cout << "Running query for TestComponent..." << std::endl;
+            std::cout << "Running query for HealthComponent..." << std::endl;
 
             int component_count = 0;
-            world_ctx.iterateQuery(query, [&](TestECS::TestComponent &comp) {
+            world_ctx.iterateQuery(query, [&](TestECS::HealthComponent &health) {
                 component_count++;
 
                 // Get the actual address of this component
-                void* comp_addr = &comp;
+                void* comp_addr = &health;
 
                 std::cout << "\n🔍 Testing component #" << component_count << ":" << std::endl;
                 std::cout << "  Address: " << comp_addr << std::endl;
-                std::cout << "  Value: " << comp.value << std::endl;
+                std::cout << "  Health: " << health.currentHealth << std::endl;
 
                 // Perform reverse lookup on this real component address
                 address_info_t lookup_info;
@@ -219,8 +239,10 @@ int main() {
 
                 if (found) {
                     std::cout << "  ✅ REVERSE LOOKUP SUCCESS:" << std::endl;
-                    std::cout << "    Component ID: " << lookup_info.component_id << std::endl;
-                    std::cout << "    Archetype ID: " << lookup_info.archetype_id << std::endl;
+                    std::cout << "    Component: " << lookup_info.component_name
+                              << " (ID: " << lookup_info.component_id << ")" << std::endl;
+                    std::cout << "    Archetype: " << lookup_info.archetype_name
+                              << " (ID: " << lookup_info.archetype_id << ")" << std::endl;
                     std::cout << "    World ID: " << lookup_info.world_id << std::endl;
                     std::cout << "    Column Index: " << lookup_info.column_idx << std::endl;
                     std::cout << "    Row: " << lookup_info.row << std::endl;
@@ -231,7 +253,7 @@ int main() {
                 }
             });
 
-            std::cout << "\nQuery completed. Found " << component_count << " TestComponent instances." << std::endl;
+            std::cout << "\nQuery completed. Found " << component_count << " HealthComponent instances." << std::endl;
 
             // Also test an invalid address for comparison
             std::cout << "\n🔍 Testing invalid address for comparison:" << std::endl;
