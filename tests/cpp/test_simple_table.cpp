@@ -7,35 +7,7 @@
 #include <madrona/ecs.hpp>
 
 #ifdef MADRONA_ECS_DEBUG_TRACKING
-extern "C" {
-    void simple_tracker_print_statistics();
-    void simple_tracker_print_memory_map();
-    uint32_t simple_tracker_get_range_count();
-    void simple_tracker_dump_ranges();
-
-    // Address lookup functionality
-    typedef struct {
-        uint32_t component_id;
-        uint32_t archetype_id;
-        uint32_t world_id;
-        uint32_t column_idx;
-        uint32_t row;
-        uint32_t component_size;
-        void* column_base;
-        char component_name[64];
-        char archetype_name[64];
-        char formatted_value[256];  // Formatted component value
-    } address_info_t;
-
-    int simple_tracker_lookup(void* address, address_info_t* info);
-    void simple_tracker_register_component_type(
-        uint32_t component_id, const char* type_name, uint32_t size, uint32_t alignment);
-    void simple_tracker_register_archetype_type(
-        uint32_t archetype_id, const char* archetype_name);
-    const char* simple_tracker_format_component_value(void* address);
-    void simple_tracker_print_component_value(void* address);
-    void simple_tracker_print_memory_map();  // Add this to see detailed component info
-}
+#include "../../external/madrona/src/debug/ecs_simple_tracker.h"
 #endif
 
 namespace TestECS {
