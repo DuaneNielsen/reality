@@ -12,6 +12,21 @@ extern "C" {
     void simple_tracker_print_memory_map();
     uint32_t simple_tracker_get_range_count();
     void simple_tracker_dump_ranges();
+
+    // Address lookup functionality
+    typedef struct {
+        uint32_t component_id;
+        uint32_t archetype_id;
+        uint32_t world_id;
+        uint32_t column_idx;
+        uint32_t row;
+        uint32_t component_size;
+        void* column_base;
+        char component_name[64];
+        char archetype_name[64];
+    } address_info_t;
+
+    int simple_tracker_lookup(void* address, address_info_t* info);
 }
 #endif
 
@@ -69,6 +84,7 @@ public:
 
     // Simple task system that operates on TestComponent
     static void testTask(Engine &ctx, TestComponent &comp) {
+        (void)ctx; // Suppress unused parameter warning
         // The ParallelForNode will iterate over all entities with TestComponent
         // and call this function for each one
         comp.value += 1.0f;
@@ -91,7 +107,7 @@ void Sim::setupTasks(madrona::TaskGraphManager &mgr, const Config &cfg) {
     madrona::TaskGraphBuilder &builder = mgr.init(TaskGraphID::Step);
 
     // Simple task that processes TestComponent
-    auto test_task = builder.addToGraph<madrona::ParallelForNode<Engine,
+    (void)builder.addToGraph<madrona::ParallelForNode<Engine,
         Engine::testTask, TestComponent>>({});
 }
 
@@ -106,6 +122,9 @@ Sim::Sim(Engine &ctx, const Config &cfg, const WorldInit &init)
     auto entity2 = ctx.makeEntity<SimpleEntity>();
     auto &comp2 = ctx.get<TestComponent>(entity2);
     comp2.value = 20.0f;
+
+    // Component addresses will be tracked automatically by the debug system
+    // Reverse lookup will be demonstrated after table setup is complete
 }
 
 }
@@ -170,6 +189,63 @@ int main() {
             // Show the captured ranges
             std::cout << "\n=== Captured Table Memory Layout ===" << std::endl;
             simple_tracker_dump_ranges();
+
+            // Now demonstrate ACTUAL reverse lookup using REAL component queries
+            std::cout << "\n=== LIVE Reverse Lookup with Component Query ===" << std::endl;
+            std::cout << "Querying TestComponents and testing reverse lookup on actual addresses...\n" << std::endl;
+
+            // Get the world context to run queries
+            auto& world_ctx = exec.getWorldContext(0);
+
+            // Query all TestComponents in the world
+            auto query = world_ctx.query<TestECS::TestComponent>();
+
+            std::cout << "Running query for TestComponent..." << std::endl;
+
+            int component_count = 0;
+            world_ctx.iterateQuery(query, [&](TestECS::TestComponent &comp) {
+                component_count++;
+
+                // Get the actual address of this component
+                void* comp_addr = &comp;
+
+                std::cout << "\n🔍 Testing component #" << component_count << ":" << std::endl;
+                std::cout << "  Address: " << comp_addr << std::endl;
+                std::cout << "  Value: " << comp.value << std::endl;
+
+                // Perform reverse lookup on this real component address
+                address_info_t lookup_info;
+                int found = simple_tracker_lookup(comp_addr, &lookup_info);
+
+                if (found) {
+                    std::cout << "  ✅ REVERSE LOOKUP SUCCESS:" << std::endl;
+                    std::cout << "    Component ID: " << lookup_info.component_id << std::endl;
+                    std::cout << "    Archetype ID: " << lookup_info.archetype_id << std::endl;
+                    std::cout << "    World ID: " << lookup_info.world_id << std::endl;
+                    std::cout << "    Column Index: " << lookup_info.column_idx << std::endl;
+                    std::cout << "    Row: " << lookup_info.row << std::endl;
+                    std::cout << "    Component Size: " << lookup_info.component_size << " bytes" << std::endl;
+                    std::cout << "    Column Base: " << lookup_info.column_base << std::endl;
+                } else {
+                    std::cout << "  ❌ REVERSE LOOKUP FAILED (code: " << found << ")" << std::endl;
+                }
+            });
+
+            std::cout << "\nQuery completed. Found " << component_count << " TestComponent instances." << std::endl;
+
+            // Also test an invalid address for comparison
+            std::cout << "\n🔍 Testing invalid address for comparison:" << std::endl;
+            void* invalid_addr = (void*)0x12345678;
+            std::cout << "  Address: " << invalid_addr << std::endl;
+
+            address_info_t invalid_lookup;
+            int found = simple_tracker_lookup(invalid_addr, &invalid_lookup);
+
+            if (found) {
+                std::cout << "  ⚠️  UNEXPECTED SUCCESS on invalid address!" << std::endl;
+            } else {
+                std::cout << "  ✅ CORRECTLY FAILED on invalid address (code: " << found << ")" << std::endl;
+            }
 
         } else {
             std::cout << "WARNING: No new ranges captured!" << std::endl;
