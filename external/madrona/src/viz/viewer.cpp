@@ -383,7 +383,8 @@ static void cfgUI(ViewerControl &ctrl,
         ImGui::Text("Checksum:");
         ImGui::SameLine();
 
-        if (mgr->hasChecksumFailed()) {
+        // Check checksum status for the currently selected world
+        if (mgr->hasChecksumFailed(ctrl.worldIdx)) {
             // Red LED indicator for failed checksum
             ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[FAIL]");
             if (ImGui::IsItemHovered()) {

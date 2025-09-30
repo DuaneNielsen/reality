@@ -145,6 +145,7 @@ struct Manager::Impl {
     // Checksum state
     uint32_t checksumStepCounter = 0;
     bool hasChecksumFailed = false;
+    std::vector<bool> worldChecksumFailed;  // Per-world checksum failure tracking
 
     // Replay checksum validation state
     uint32_t replayChecksumStepCounter = 0;
@@ -162,7 +163,8 @@ struct Manager::Impl {
           lidarVisBuffer(lidar_vis_buffer),
           agentActionsBuffer(action_buffer),
           renderGPUState(std::move(render_gpu_state)),
-          renderMgr(std::move(render_mgr))
+          renderMgr(std::move(render_mgr)),
+          worldChecksumFailed(mgr_cfg.numWorlds, false)
     {}
 
     inline virtual ~Impl() {}
@@ -843,23 +845,26 @@ void Manager::step()
 
                 if (checksumMismatch) {
                     impl_->hasChecksumFailed = true;
-                    std::cout << "WARNING: Checksum mismatch detected at replay step "
-                              << impl_->currentReplayStep << std::endl;
 
+                    // Collect failed world indices and mark them
+                    std::vector<uint32_t> failed_worlds;
                     for (uint32_t world_idx = 0; world_idx < std::min(currentChecksums.size(), expectedChecksums.size()); world_idx++) {
-                        uint32_t current = currentChecksums[world_idx];
-                        uint32_t expected = expectedChecksums[world_idx];
-
-                        if (current != expected) {
-                            std::cout << "  World " << world_idx
-                                      << ": calculated=0x" << std::hex << current
-                                      << ", expected=0x" << expected << std::dec
-                                      << std::endl;
+                        if (currentChecksums[world_idx] != expectedChecksums[world_idx]) {
+                            failed_worlds.push_back(world_idx);
+                            impl_->worldChecksumFailed[world_idx] = true;  // Mark this world as failed
                         }
                     }
-                } else {
-                    std::cout << "INFO: Checksum verification PASSED at step " << impl_->currentReplayStep
-                              << " (all " << currentChecksums.size() << " worlds match)\n";
+
+                    // Print compact warning with failed world list
+                    std::cout << "WARNING: Checksum mismatch detected at step "
+                              << impl_->currentReplayStep << " for worlds ";
+                    for (size_t i = 0; i < failed_worlds.size(); i++) {
+                        std::cout << failed_worlds[i];
+                        if (i < failed_worlds.size() - 1) {
+                            std::cout << ", ";
+                        }
+                    }
+                    std::cout << std::endl;
                 }
             } else {
                 // No expected checksums found - this should not happen for v4 format at checkpoint intervals
@@ -1521,6 +1526,14 @@ bool Manager::isRecording() const
 bool Manager::hasChecksumFailed() const
 {
     return impl_->hasChecksumFailed;
+}
+
+bool Manager::hasChecksumFailed(uint32_t world_idx) const
+{
+    if (world_idx >= impl_->worldChecksumFailed.size()) {
+        return false;
+    }
+    return impl_->worldChecksumFailed[world_idx];
 }
 
 void Manager::recordActions(const std::vector<int32_t>& frame_actions)

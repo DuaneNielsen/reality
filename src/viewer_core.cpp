@@ -344,20 +344,6 @@ void ViewerCore::stepSimulation() {
     // Always step the simulation
     mgr_->step();
 
-    // Check for checksum failures during replay (periodic reporting)
-    static uint32_t replay_step_count = 0;
-    if (state_machine_.isReplaying()) {
-        replay_step_count++;
-        // Check every 200 steps (matching checksum frequency)
-        if (replay_step_count % 200 == 0 && mgr_->hasChecksumFailed()) {
-            std::cout << "WARNING: Checksum mismatch detected at step "
-                      << replay_step_count << std::endl;
-        }
-    } else {
-        // Reset counter when not replaying
-        replay_step_count = 0;
-    }
-
     // After stepping, check if replay finished
     if (replay_finished) {
         state_machine_.finishReplay();

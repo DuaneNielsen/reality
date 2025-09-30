@@ -299,6 +299,7 @@ public:
 
     // Checksum functionality
     bool hasChecksumFailed() const;
+    bool hasChecksumFailed(uint32_t world_idx) const;
 
     // Replay functionality
     bool hasReplay() const;

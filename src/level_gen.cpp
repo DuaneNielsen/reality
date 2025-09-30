@@ -764,14 +764,6 @@ static void applyRandomSpawnPositions(Engine &ctx) {
         return;
     }
 
-    // Debug logging for problematic worlds
-    int32_t world_id = ctx.worldID().idx;
-    bool is_debug_world = (world_id == 31 || world_id == 32 || world_id == 38);
-
-    if (is_debug_world) {
-        printf("SPAWN_DEBUG: World %d applying random spawn positions\n", world_id);
-    }
-
     for (CountT i = 0; i < consts::numAgents; i++) {
         Entity agent_entity = ctx.data().agents[i];
 
@@ -779,11 +771,6 @@ static void applyRandomSpawnPositions(Engine &ctx) {
         const float EXCLUSION_RADIUS = 3.0f;
         Vector2 spawn_2d = findValidSpawnPosition(ctx, EXCLUSION_RADIUS, i);
         Vector3 pos = Vector3{spawn_2d.x, spawn_2d.y, 1.0f};
-
-        if (is_debug_world) {
-            printf("SPAWN_DEBUG: World %d Agent %d spawn at (%.6f, %.6f, %.6f)\n",
-                   world_id, (int)i, pos.x, pos.y, pos.z);
-        }
 
         ctx.get<Position>(agent_entity) = pos;
 
