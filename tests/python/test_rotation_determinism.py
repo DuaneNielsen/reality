@@ -42,11 +42,7 @@ def run_controlled_sequence(mgr, trajectory_file: str, num_steps: int = 25):
     """
     controller = AgentController(mgr)
 
-    # Reset to clean start
-    reset_tensor = mgr.reset_tensor().to_torch()
-    reset_tensor[0] = 1
-
-    # Enable Manager's trajectory logging (automatically logs initial state)
+    # Enable Manager's trajectory logging
     mgr.enable_trajectory_logging(0, 0, trajectory_file)
 
     # Execute controlled rotation sequence
@@ -64,7 +60,6 @@ def run_controlled_sequence(mgr, trajectory_file: str, num_steps: int = 25):
             controller.rotate_only(madrona_escape_room.action.rotate.SLOW_RIGHT)
 
         mgr.step()
-        reset_tensor[0] = 0  # Clear reset flag after first step
 
     mgr.disable_trajectory_logging()
 
@@ -78,15 +73,20 @@ def run_replay_sequence(mgr, trajectory_file: str, num_steps: int = 25):
         trajectory_file: Path to write trajectory CSV
         num_steps: Number of simulation steps to run
     """
-    # Enable Manager's trajectory logging (automatically logs initial state)
+    # Enable Manager's trajectory logging
     mgr.enable_trajectory_logging(0, 0, trajectory_file)
 
     # Execute replay sequence
-    for step in range(num_steps):
+    step_count = 0
+    while step_count < num_steps:
         replay_complete = mgr.replay_step()
-        if not replay_complete:
-            mgr.step()
-        else:
+
+        # Always call step() to apply the loaded action
+        # replay_complete=True means this is the LAST action
+        mgr.step()
+        step_count += 1
+
+        if replay_complete:
             break
 
     mgr.disable_trajectory_logging()
