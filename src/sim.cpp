@@ -157,10 +157,6 @@ inline void resetSystem(Engine &ctx, WorldReset &reset)
 {
     int32_t should_reset = reset.reset;
 
-    // Debug logging for problematic worlds
-    int32_t world_id = ctx.worldID().idx;
-    bool is_debug_world = (world_id == 31 || world_id == 32 || world_id == 38);
-
     if (ctx.data().autoReset && should_reset == 0) {
         // Check if any agent is done and schedule reset for next step
         for (CountT i = 0; i < consts::numAgents; i++) {
