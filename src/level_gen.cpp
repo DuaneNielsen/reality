@@ -797,12 +797,14 @@ static void generateLevel(Engine &ctx)
 {
     // Always use compiled level - no fallback to hardcoded generation
     CompiledLevel& level = ctx.singleton<CompiledLevel>();
-    if (level.num_tiles == 0) {
-        // Fatal error - all managers must provide a level
+
+    // Note: A level with 0 tiles is perfectly valid (e.g., empty room with just spawn)
+    // We only error if the level appears completely uninitialized
+    if (level.width == 0 || level.height == 0) {
         FATAL("No compiled level provided! All simulations must use compiled level data.\n"
               "Please provide a valid .lvl file or use the level compiler to create one.");
     }
-    
+
     // Generate from compiled level
     generateFromCompiled(ctx, &level);
 }

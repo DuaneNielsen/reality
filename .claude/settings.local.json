@@ -159,7 +159,8 @@
       "Bash(git -C external/madrona diff HEAD src/debug/ecs_simple_tracker.c)",
       "Bash(git -C external/madrona push origin main)",
       "Bash(git -C external/madrona add include/madrona/state.inl)",
-      "Bash(paste:*)"
+      "Bash(paste:*)",
+      "Bash(python3:*)"
     ],
     "deny": []
   },

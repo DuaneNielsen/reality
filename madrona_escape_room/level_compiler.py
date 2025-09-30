@@ -1246,8 +1246,12 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
             "tileset": level_tileset,
             "scale": shared_scale,
             "spawn_random": shared_spawn_random,
-            "auto_boundary_walls": shared_auto_boundary_walls,
-            "boundary_wall_offset": shared_boundary_wall_offset,
+            "auto_boundary_walls": level_data.get(
+                "auto_boundary_walls", shared_auto_boundary_walls
+            ),
+            "boundary_wall_offset": level_data.get(
+                "boundary_wall_offset", shared_boundary_wall_offset
+            ),
         }
 
         # Use per-level name if provided, otherwise generate from set name

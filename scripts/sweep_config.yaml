@@ -49,4 +49,4 @@ parameters:
   
   # Level files for grid search across all 20 generated levels
   level-file:
-    value: "levels/four_room_progression_32_levels_spawn_random.lvl"
+    value: "levels/full_progression_159_levels_spawn_random.lvl"
