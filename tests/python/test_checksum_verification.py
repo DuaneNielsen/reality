@@ -21,6 +21,7 @@ def suppress_replay_warnings():
         yield
 
 
+@pytest.mark.slow
 @pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_checksum_recording_and_verification(cpu_manager):
     """Test that checksum verification works correctly for deterministic replay"""

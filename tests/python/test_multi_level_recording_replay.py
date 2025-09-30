@@ -64,6 +64,7 @@ def create_test_levels():
     return level1, level2, level3
 
 
+@pytest.mark.slow
 @pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_multi_level_recording_roundtrip():
     """Test recording and replaying across multiple different levels."""

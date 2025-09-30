@@ -243,7 +243,7 @@ full_build() {
     # Include version hashes needed for madrona toolchain and dependencies
     log_info "Configuring with CMake..."
     if [ "$debug_mode" = true ]; then
-        CMAKE_ARGS="-B build -DCMAKE_BUILD_TYPE=Debug -DMADRONA_ECS_DEBUG_TRACKING=ON -DMADRONA_DEPS_VERSION=8d57788 -DMADRONA_TOOLCHAIN_VERSION=8c0b55b"
+        CMAKE_ARGS="-B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMADRONA_ECS_DEBUG_TRACKING=ON -DMADRONA_DEPS_VERSION=8d57788 -DMADRONA_TOOLCHAIN_VERSION=8c0b55b"
     else
         CMAKE_ARGS="-B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMADRONA_DEPS_VERSION=8d57788 -DMADRONA_TOOLCHAIN_VERSION=8c0b55b"
     fi

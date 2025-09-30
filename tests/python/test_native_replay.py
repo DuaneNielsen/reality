@@ -74,6 +74,7 @@ def test_replay_lifecycle(cpu_manager):
             os.unlink(recording_path)
 
 
+@pytest.mark.slow
 def test_replay_step_through(cpu_manager):
     """Test stepping through a replay"""
     mgr = cpu_manager
@@ -233,6 +234,7 @@ def test_replay_multiple_loads(cpu_manager):
                 os.unlink(path)
 
 
+@pytest.mark.slow
 def test_replay_with_different_worlds(cpu_manager):
     """Test replay with different world configurations"""
     mgr = cpu_manager
@@ -498,6 +500,7 @@ def test_spawn_positions_are_random_between_episodes():
     )
 
 
+@pytest.mark.slow
 def test_replay_large_scale_with_autoreset():
     """
     Test replay accuracy for large-scale simulations with auto-reset enabled.
