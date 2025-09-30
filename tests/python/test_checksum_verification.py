@@ -250,80 +250,8 @@ def test_extended_checksum_recording(cpu_manager):
             os.unlink(recording_path)
 
 
-@pytest.mark.spec("docs/specs/mgr.md", "hasChecksumFailed")
-def test_checksum_verification_with_corruption():
-    """Test that checksum verification detects corrupted replay files"""
-    import struct
-
-    from madrona_escape_room import SimManager
-    from madrona_escape_room.generated_constants import ExecMode
-
-    # Create a fresh manager for this test
-    mgr = SimManager(exec_mode=ExecMode.CPU, gpu_id=0, num_worlds=4, rand_seed=42, auto_reset=True)
-
-    with tempfile.NamedTemporaryFile(suffix=".rec", delete=False) as f:
-        clean_path = f.name
-
-    with tempfile.NamedTemporaryFile(suffix=".rec", delete=False) as f:
-        corrupted_path = f.name
-
-    try:
-        # Create a clean recording with enough steps for checksum records
-        mgr.start_recording(clean_path)
-
-        action_tensor = mgr.action_tensor().to_torch()
-        for step in range(250):  # Enough for at least one checksum at step 200
-            action_tensor.fill_(step % 4)
-            mgr.step()
-
-        mgr.stop_recording()
-
-        # Read the clean file and create a corrupted version
-        with open(clean_path, "rb") as f:
-            clean_data = f.read()
-
-        # Corrupt some action data (change a few bytes in the middle)
-        corrupted_data = bytearray(clean_data)
-        if len(corrupted_data) > 1000:
-            # Corrupt some bytes that are likely to be action data
-            for i in range(500, 510):
-                if i < len(corrupted_data):
-                    corrupted_data[i] = (corrupted_data[i] + 50) % 256
-
-        with open(corrupted_path, "wb") as f:
-            f.write(corrupted_data)
-
-        # Replay the corrupted file - checksums should detect the difference
-        try:
-            replay_mgr = SimManager.from_replay(corrupted_path, ExecMode.CPU)
-
-            # Run the replay
-            # CRITICAL: Must call BOTH replay_step() AND step() for checksum verification
-            step_count = 0
-            while step_count < 250:
-                replay_complete = replay_mgr.replay_step()
-                if not replay_complete:
-                    replay_mgr.step()  # ← This triggers checksum verification!
-                step_count += 1
-                if replay_complete:
-                    break
-
-            # Check if corruption was detected
-            checksum_failed = replay_mgr.has_checksum_failed()
-            # Note: We can't guarantee it will fail since corruption might not affect
-            # position calculations, but if it does fail, that proves the system works
-            print(f"Corruption detection test: checksum_failed = {checksum_failed}")
-            print(f"Completed {step_count} steps with corrupted data")
-
-        except Exception as e:
-            print(f"Corrupted replay failed to load or execute: {e}")
-            # This is also a valid outcome - the corruption was severe enough
-            # to prevent replay entirely
-
-    finally:
-        for path in [clean_path, corrupted_path]:
-            if os.path.exists(path):
-                os.unlink(path)
+# Test removed - checksum verification with corruption testing moved to C++ tests
+# See: tests/cpp/integration/test_viewer_integration.cpp - ChecksumVerificationDetectsDivergence
 
 
 @pytest.mark.spec("docs/specs/mgr.md", "hasChecksumFailed")
@@ -607,7 +535,7 @@ def test_seed_corruption_detection(cpu_manager):
 
         # Read original metadata to get the seed
         metadata = mgr.read_replay_metadata(original_path)
-        original_seed = metadata.rand_seed
+        original_seed = metadata.seed
         print(f"Original recording seed: {original_seed}")
 
         # Create corrupted version with different seed
@@ -615,8 +543,10 @@ def test_seed_corruption_detection(cpu_manager):
             file_data = bytearray(f.read())
 
         # The seed is in the ReplayMetadata structure at a known offset
-        # Modify the seed field (uint32_t at offset 20 in ReplayMetadata)
-        seed_offset = 20  # Based on ReplayMetadata structure
+        # Offset: magic(4) + version(4) + sim_name(64) + level_name(64) +
+        # num_worlds(4) + num_agents_per_world(4) + num_steps(4) +
+        # actions_per_step(4) + timestamp(8) = 160
+        seed_offset = 160  # Based on ReplayMetadata structure
         new_seed = (original_seed + 12345) % (2**32)  # Different seed
 
         file_data[seed_offset : seed_offset + 4] = struct.pack("<I", new_seed)
@@ -627,7 +557,7 @@ def test_seed_corruption_detection(cpu_manager):
 
         # Verify the corruption affected the metadata
         corrupted_metadata = mgr.read_replay_metadata(seed_corrupted_path)
-        assert corrupted_metadata.rand_seed == new_seed, "Seed corruption didn't take effect"
+        assert corrupted_metadata.seed == new_seed, "Seed corruption didn't take effect"
 
         # Test original recording (should pass)
         original_mgr = SimManager.from_replay(original_path, ExecMode.CPU)

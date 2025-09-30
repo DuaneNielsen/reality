@@ -120,31 +120,90 @@ struct ReplayLoader {
         if (!file.is_open()) {
             return std::nullopt;
         }
-        
+
         // Read metadata
         madEscape::ReplayMetadata metadata;
         file.read(reinterpret_cast<char*>(&metadata), sizeof(metadata));
-        
+
         if (!file.good() || !metadata.isValid()) {
             return std::nullopt;
         }
-        
+
         // Read all world levels
         std::vector<madEscape::CompiledLevel> levels;
         levels.reserve(metadata.num_worlds);
-        
+
         for (uint32_t i = 0; i < metadata.num_worlds; i++) {
             madEscape::CompiledLevel level;
             file.read(reinterpret_cast<char*>(&level), sizeof(madEscape::CompiledLevel));
-            
+
             if (!file.good()) {
                 return std::nullopt;
             }
-            
+
             levels.push_back(level);
         }
-        
+
         return levels;
+    }
+
+    // Corrupt specific actions in a replay file for testing checksum verification
+    // This method safely modifies action data without breaking the file format
+    static bool corruptActionsInReplay(const std::string& filepath,
+                                       uint32_t start_step,
+                                       uint32_t end_step,
+                                       uint8_t xor_mask = 0x55) {
+        // First load metadata to understand the file structure
+        auto metadata_opt = loadMetadata(filepath);
+        if (!metadata_opt.has_value()) {
+            return false;
+        }
+
+        const auto& metadata = metadata_opt.value();
+
+        // Calculate where actions start in the file
+        // Format: [ReplayMetadata][CompiledLevel * num_worlds][Actions...]
+        size_t action_offset = sizeof(madEscape::ReplayMetadata) +
+                              (sizeof(madEscape::CompiledLevel) * metadata.num_worlds);
+
+        // Each action frame has 3 int32_t values per world
+        size_t action_frame_size = metadata.num_worlds * madEscape::consts::numActionComponents * sizeof(int32_t);
+
+        // Open file for reading and writing
+        std::fstream file(filepath, std::ios::binary | std::ios::in | std::ios::out);
+        if (!file.is_open()) {
+            return false;
+        }
+
+        // Seek to the start of actions for the target step range
+        for (uint32_t step = start_step; step <= end_step && step < metadata.num_steps; step++) {
+            size_t step_offset = action_offset + (step * action_frame_size);
+            file.seekg(step_offset);
+
+            // Read the action data for this step
+            std::vector<uint8_t> action_data(action_frame_size);
+            file.read(reinterpret_cast<char*>(action_data.data()), action_frame_size);
+
+            if (!file.good()) {
+                return false;
+            }
+
+            // Corrupt the first world's actions (first 12 bytes)
+            for (size_t i = 0; i < std::min(size_t(12), action_data.size()); i++) {
+                action_data[i] ^= xor_mask;
+            }
+
+            // Write the corrupted data back
+            file.seekp(step_offset);
+            file.write(reinterpret_cast<const char*>(action_data.data()), action_frame_size);
+
+            if (!file.good()) {
+                return false;
+            }
+        }
+
+        file.close();
+        return true;
     }
 };
 

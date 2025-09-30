@@ -303,10 +303,16 @@ public:
         mer_replay_step(handle_, &success);
         return success;
     }
-    
+
+    bool hasChecksumFailed() {
+        bool failed;
+        mer_has_checksum_failed(handle_, &failed);
+        return failed;
+    }
+
     bool hasReplay() const { return has_replay_; }
     bool isRecording() const { return is_recording_; }
-    
+
     // Test helpers
     const ActionRecorder& getRecorder() const { return recorder_; }
     const std::vector<std::pair<uint32_t, int32_t>>& getResets() const { return resets_; }

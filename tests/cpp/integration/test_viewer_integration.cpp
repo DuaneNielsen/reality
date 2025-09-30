@@ -3,7 +3,11 @@
 #include "mock_components.hpp"
 #include <thread>
 #include <chrono>
+#include <fstream>
+#include <vector>
+#include <cstring>
 #include "../../../src/consts.hpp"
+#include "../../../src/mgr.hpp"
 
 // For capturing stdout/stderr output in tests
 using testing::internal::CaptureStdout;
@@ -426,4 +430,176 @@ TEST_F(ManagerIntegrationTest, ManagerEmbeddedLevelRecording) {
     ASSERT_EQ(mer_read_replay_metadata("embedded.rec", &metadata), MER_SUCCESS);
     EXPECT_EQ(metadata.seed, 42);
     EXPECT_EQ(metadata.num_worlds, 1);
+}
+
+// Test checksum verification detects trajectory divergence
+TEST_F(ManagerIntegrationTest, ChecksumVerificationDetectsDivergence) {
+    auto level = LevelComparer::getDefaultLevel();
+    config.num_worlds = 4;
+    config.auto_reset = true;
+    config.rand_seed = 42;  // Fixed seed for reproducibility
+
+    ASSERT_TRUE(CreateManager(&level, 1));
+
+    TestManagerWrapper mgr(handle);
+
+    // Create a recording with enough steps for checksum at step 200
+    mgr.startRecording("checksum_test.rec");
+
+    for (int i = 0; i < 250; i++) {
+        // Use consistent actions for reproducibility
+        mgr.setAction(0, move_amount::MEDIUM, move_angle::FORWARD, rotate::NONE);
+        mgr.setAction(1, move_amount::MEDIUM, move_angle::FORWARD, rotate::NONE);
+        mgr.setAction(2, move_amount::MEDIUM, move_angle::FORWARD, rotate::NONE);
+        mgr.setAction(3, move_amount::MEDIUM, move_angle::FORWARD, rotate::NONE);
+        mgr.step();
+    }
+
+    mgr.stopRecording();
+    file_manager_->addFile("checksum_test.rec");
+
+    // Test 1: Exact replay with same seed should pass checksum
+    {
+        auto replay_mgr = madEscape::Manager::fromReplay(
+            "checksum_test.rec",
+            madrona::ExecMode::CPU,
+            0  // gpuID
+        );
+        ASSERT_NE(replay_mgr, nullptr);
+
+        // Replay all steps - should match exactly
+        for (int i = 0; i < 250; i++) {
+            bool replay_complete = replay_mgr->replayStep();
+            if (!replay_complete) {
+                replay_mgr->step();
+            }
+            if (replay_complete) {
+                break;
+            }
+        }
+
+        // Checksum should pass for exact replay
+        EXPECT_FALSE(replay_mgr->hasChecksumFailed())
+            << "Exact replay should pass checksum verification";
+    }
+
+    // Test 2: Create a recording with DIFFERENT actions that will cause divergence
+    {
+        // Reset and create a new manager
+        mer_destroy_manager(handle);
+
+        config.rand_seed = 42;  // Same seed
+        ASSERT_TRUE(CreateManager(&level, 1));
+        TestManagerWrapper mgr2(handle);
+
+        mgr2.startRecording("checksum_diverged.rec");
+
+        for (int i = 0; i < 250; i++) {
+            if (i < 100) {
+                // Same actions initially
+                mgr2.setAction(0, move_amount::MEDIUM, move_angle::FORWARD, rotate::NONE);
+                mgr2.setAction(1, move_amount::MEDIUM, move_angle::FORWARD, rotate::NONE);
+                mgr2.setAction(2, move_amount::MEDIUM, move_angle::FORWARD, rotate::NONE);
+                mgr2.setAction(3, move_amount::MEDIUM, move_angle::FORWARD, rotate::NONE);
+            } else {
+                // DIFFERENT actions after step 100 - this will cause trajectory divergence
+                mgr2.setAction(0, move_amount::SLOW, move_angle::LEFT, rotate::SLOW_LEFT);
+                mgr2.setAction(1, move_amount::SLOW, move_angle::LEFT, rotate::SLOW_LEFT);
+                mgr2.setAction(2, move_amount::SLOW, move_angle::LEFT, rotate::SLOW_LEFT);
+                mgr2.setAction(3, move_amount::SLOW, move_angle::LEFT, rotate::SLOW_LEFT);
+            }
+            mgr2.step();
+        }
+
+        mgr2.stopRecording();
+        file_manager_->addFile("checksum_diverged.rec");
+    }
+
+    // Now test that checksums detect when actions cause trajectory divergence
+    // We'll manually swap in different actions from the diverged recording
+    {
+        // Read both replay files to get their action data
+        std::vector<uint8_t> original_data;
+        std::vector<uint8_t> diverged_data;
+
+        {
+            std::ifstream original_file("checksum_test.rec", std::ios::binary);
+            ASSERT_TRUE(original_file.is_open()) << "Failed to open original recording";
+            original_data.assign(std::istreambuf_iterator<char>(original_file),
+                               std::istreambuf_iterator<char>());
+        }
+
+        {
+            std::ifstream diverged_file("checksum_diverged.rec", std::ios::binary);
+            ASSERT_TRUE(diverged_file.is_open()) << "Failed to open diverged recording";
+            diverged_data.assign(std::istreambuf_iterator<char>(diverged_file),
+                               std::istreambuf_iterator<char>());
+        }
+
+        // Calculate where action data starts (after metadata and level data)
+        // ReplayMetadata is 192 bytes
+        size_t metadata_size = 192;
+
+        // Read num_worlds from metadata to calculate level data size
+        uint32_t num_worlds;
+        memcpy(&num_worlds, original_data.data() + 136, sizeof(uint32_t)); // offset 136 = num_worlds
+
+        // CompiledLevel is 85592 bytes per world
+        size_t level_data_size = 85592 * num_worlds;
+        size_t actions_offset = metadata_size + level_data_size;
+
+        // Each action is 3 int32_t values (12 bytes per agent)
+        size_t action_size = 12 * num_worlds;  // 12 bytes per world (1 agent per world)
+
+        // Replace actions at steps 100-110 with the diverged actions
+        for (int step = 100; step < 110 && step < 250; step++) {
+            size_t step_offset = actions_offset + (step * action_size);
+            if (step_offset + action_size <= original_data.size() &&
+                step_offset + action_size <= diverged_data.size()) {
+                memcpy(original_data.data() + step_offset,
+                       diverged_data.data() + step_offset,
+                       action_size);
+            }
+        }
+
+        // Write modified recording to a new file
+        {
+            std::ofstream modified_file("checksum_modified.rec", std::ios::binary);
+            ASSERT_TRUE(modified_file.is_open()) << "Failed to create modified recording";
+            modified_file.write(reinterpret_cast<const char*>(original_data.data()),
+                              original_data.size());
+        }
+        file_manager_->addFile("checksum_modified.rec");
+
+        // Now replay the modified file - it should detect divergence at checksum
+        auto modified_mgr = madEscape::Manager::fromReplay(
+            "checksum_modified.rec",
+            madrona::ExecMode::CPU,
+            0  // gpuID
+        );
+
+        ASSERT_NE(modified_mgr, nullptr) << "Failed to load modified recording";
+
+        // Replay all steps
+        for (int i = 0; i < 250; i++) {
+            bool replay_complete = modified_mgr->replayStep();
+            if (!replay_complete) {
+                modified_mgr->step();
+            }
+            if (replay_complete) {
+                break;
+            }
+        }
+
+        // Checksum SHOULD fail because the modified actions at steps 100-110
+        // will cause different positions by step 200
+        bool checksum_failed = modified_mgr->hasChecksumFailed();
+
+        EXPECT_TRUE(checksum_failed)
+            << "Checksum should detect trajectory divergence from modified actions";
+
+        if (checksum_failed) {
+            std::cout << "✓ Checksum correctly detected trajectory divergence from action modification" << std::endl;
+        }
+    }
 }
