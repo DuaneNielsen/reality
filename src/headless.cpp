@@ -70,7 +70,7 @@ const option::Descriptor usage[] = {
     {TRACK_WORLD,  0, "", "track-world", ArgChecker::Numeric, "  --track-world <n>  \tSpecify world to track (default: 0)"},
     {TRACK_AGENT,  0, "", "track-agent", ArgChecker::Numeric, "  --track-agent <n>  \tSpecify agent to track (default: 0)"},
     {TRACK_FILE,   0, "", "track-file", ArgChecker::Required, "  --track-file <file>  \tSave trajectory to file"},
-    {UNKNOWN, 0, "", "", nullptr, nullptr}
+    {0, 0, 0, 0, 0, 0}
 };
 
 int main(int argc, char *argv[])
@@ -85,6 +85,20 @@ int main(int argc, char *argv[])
     option::Parser parse(usage, argc, argv, options, buffer);
 
     if (parse.error()) {
+        delete[] options;
+        delete[] buffer;
+        return 1;
+    }
+
+    // Check for unknown options
+    if (options[UNKNOWN]) {
+        std::cerr << "Error: Unknown options detected:\n";
+        for (option::Option* opt = options[UNKNOWN]; opt; opt = opt->next()) {
+            std::cerr << "  Unknown option: ";
+            fwrite(opt->name, opt->namelen, 1, stderr);
+            std::cerr << "\n";
+        }
+        std::cerr << "\nUse --help to see available options.\n";
         delete[] options;
         delete[] buffer;
         return 1;
