@@ -20,6 +20,7 @@ extern "C" {
 #define MAX_TYPE_NAME_LEN 64
 #define MAX_COMPONENTS 256
 #define MAX_ARCHETYPES 256
+#define MAX_EXPORT_BUFFERS 64
 
 typedef struct {
     uintptr_t start;
@@ -71,6 +72,9 @@ void simple_tracker_register_range(
     uint32_t component_id, uint32_t component_size, uint32_t num_rows);
 void simple_tracker_unregister_range(void* base_address);
 
+// Update component ID for existing range
+void simple_tracker_update_range_component_id(void* base_address, uint32_t new_component_id);
+
 // Type registration
 void simple_tracker_register_component_type(
     uint32_t component_id, const char* type_name, uint32_t size, uint32_t alignment);
@@ -78,6 +82,12 @@ void simple_tracker_register_component_formatter(
     uint32_t component_id, component_formatter_t formatter);
 void simple_tracker_register_archetype_type(
     uint32_t archetype_id, const char* archetype_name);
+
+// Export buffer registration for tensor name reverse lookup
+void simple_tracker_register_export_buffer(
+    void* buffer_address,
+    const char* tensor_name);
+const char* simple_tracker_lookup_export_tensor_name(void* buffer_address);
 
 // Statistics and debugging
 void simple_tracker_print_memory_map(void);

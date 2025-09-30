@@ -22,6 +22,7 @@ print_usage() {
     echo "  clean     Clean all build artifacts from project and submodules"
     echo "  build     Quick incremental build (default if no command given)"
     echo "  fullbuild Full build with CMake reconfiguration and codegen"
+    echo "  debug     Full debug build with debug symbols and ECS debug tracking"
     echo "  rebuild   Clean then full build"
     echo "  help      Show this help message"
     echo ""
@@ -29,14 +30,17 @@ print_usage() {
     echo "  --test    Run tests after building"
     echo "  --jobs N  Use N parallel jobs for building (default: 16)"
     echo "  --verbose Show detailed output (default: errors only)"
+    echo "  --debug   Use debug build type (implies -DMADRONA_ECS_DEBUG_TRACKING=ON)"
     echo ""
     echo "Examples:"
     echo "  $0              # Quick incremental build"
-    echo "  $0 build        # Quick incremental build" 
+    echo "  $0 build        # Quick incremental build"
     echo "  $0 fullbuild    # Full build with CMake + codegen"
+    echo "  $0 debug        # Debug build with ECS debug tracking"
     echo "  $0 clean        # Clean all build artifacts"
     echo "  $0 rebuild      # Clean then full build"
     echo "  $0 build --test # Quick build and run tests"
+    echo "  $0 build --debug # Quick build with debug flags"
 }
 
 log_info() {
@@ -217,23 +221,32 @@ quick_build() {
 full_build() {
     local jobs=${1:-16}
     local run_tests=${2:-false}
-    
-    log_info "Full build with CMake reconfiguration and $jobs parallel jobs..."
-    
+    local debug_mode=${3:-false}
+
+    if [ "$debug_mode" = true ]; then
+        log_info "Full debug build with CMake reconfiguration and $jobs parallel jobs..."
+    else
+        log_info "Full build with CMake reconfiguration and $jobs parallel jobs..."
+    fi
+
     cd "$PROJECT_ROOT"
     check_prerequisites
     check_uv_prerequisite
-    
+
     # Always delete CUDA kernel cache to ensure correct optimization level
     if [ -f "$PROJECT_ROOT/build/madrona_kernels.cache" ]; then
         log_info "Removing CUDA kernel cache to ensure correct optimization level"
         rm -f "$PROJECT_ROOT/build/madrona_kernels.cache"
     fi
-    
+
     # Configure with CMake (creates build directory automatically)
     # Include version hashes needed for madrona toolchain and dependencies
     log_info "Configuring with CMake..."
-    CMAKE_ARGS="-B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMADRONA_DEPS_VERSION=8d57788 -DMADRONA_TOOLCHAIN_VERSION=8c0b55b"
+    if [ "$debug_mode" = true ]; then
+        CMAKE_ARGS="-B build -DCMAKE_BUILD_TYPE=Debug -DMADRONA_ECS_DEBUG_TRACKING=ON -DMADRONA_DEPS_VERSION=8d57788 -DMADRONA_TOOLCHAIN_VERSION=8c0b55b"
+    else
+        CMAKE_ARGS="-B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMADRONA_DEPS_VERSION=8d57788 -DMADRONA_TOOLCHAIN_VERSION=8c0b55b"
+    fi
     if [ "${VERBOSE:-false}" = true ]; then
         cmake $CMAKE_ARGS
     else
@@ -280,15 +293,24 @@ full_build() {
     echo "Build log: build_output.log"
 }
 
+debug_build() {
+    local jobs=${1:-16}
+    local run_tests=${2:-false}
+
+    log_info "Debug build with ECS debug tracking enabled..."
+    full_build "$jobs" "$run_tests" true
+}
+
 # Parse command line arguments
 COMMAND="build"
 RUN_TESTS=false
 JOBS=16
 VERBOSE=false
+DEBUG=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        clean|build|fullbuild|rebuild|help)
+        clean|build|fullbuild|debug|rebuild|help)
             COMMAND=$1
             shift
             ;;
@@ -302,6 +324,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --verbose)
             VERBOSE=true
+            shift
+            ;;
+        --debug)
+            DEBUG=true
             shift
             ;;
         *)
@@ -318,14 +344,21 @@ case $COMMAND in
         clean_build_artifacts
         ;;
     build)
-        quick_build "$JOBS" "$RUN_TESTS"
+        if [ "$DEBUG" = true ]; then
+            debug_build "$JOBS" "$RUN_TESTS"
+        else
+            quick_build "$JOBS" "$RUN_TESTS"
+        fi
         ;;
     fullbuild)
-        full_build "$JOBS" "$RUN_TESTS"
+        full_build "$JOBS" "$RUN_TESTS" "$DEBUG"
+        ;;
+    debug)
+        debug_build "$JOBS" "$RUN_TESTS"
         ;;
     rebuild)
         clean_build_artifacts
-        full_build "$JOBS" "$RUN_TESTS"
+        full_build "$JOBS" "$RUN_TESTS" "$DEBUG"
         ;;
     help)
         print_usage

@@ -157,7 +157,8 @@
       "Bash(/home/duane/madroom/.claude/scripts/repo-status.sh:*)",
       "Bash(git -C external/madrona diff HEAD src/debug/ecs_simple_tracker.h)",
       "Bash(git -C external/madrona diff HEAD src/debug/ecs_simple_tracker.c)",
-      "Bash(git -C external/madrona push origin main)"
+      "Bash(git -C external/madrona push origin main)",
+      "Bash(git -C external/madrona add include/madrona/state.inl)"
     ],
     "deny": []
   },

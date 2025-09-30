@@ -13,11 +13,11 @@
 #include <cassert>
 #include <functional>
 #include <mutex>
-#include <string_view>
 
 #ifdef MADRONA_ECS_DEBUG_TRACKING
 #include "../debug/ecs_simple_tracker.h"
 #endif
+#include <string_view>
 
 #ifndef MADRONA_WINDOWS
 #include <sys/mman.h>
@@ -268,7 +268,46 @@ StateManager::ArchetypeStore::ArchetypeStore(Init &&init)
       tblStorage(init.types
           MADRONA_MW_COND(, init.numWorlds, init.maxNumEntitiesPerWorld)),
       columnLookup(init.lookupInputs.data(), init.lookupInputs.size())
-{}
+{
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+    // Re-register ranges with correct component IDs
+    // Create mapping from column index to component ID
+    std::array<uint32_t, 1024> column_to_component_id;
+    for (const auto& pair : init.lookupInputs) {
+        if (pair.value < column_to_component_id.size()) {
+            column_to_component_id[pair.value] = pair.key;
+        }
+    }
+
+    // Update ranges with correct component IDs
+#ifdef MADRONA_MW_MODE
+    if (tblStorage.maxNumPerWorld == 0) {
+        for (CountT world_idx = 0; world_idx < tblStorage.tbls.size(); world_idx++) {
+            for (CountT col_idx = 0; col_idx < numComponents + componentOffset; col_idx++) {
+                void* column_base = tblStorage.tbls[world_idx].data(col_idx);
+                if (col_idx < column_to_component_id.size()) {
+                    simple_tracker_update_range_component_id(column_base, column_to_component_id[col_idx]);
+                }
+            }
+        }
+    } else {
+        for (CountT col_idx = 0; col_idx < numComponents + componentOffset; col_idx++) {
+            void* column_base = tblStorage.fixed.tbl.data(col_idx);
+            if (col_idx < column_to_component_id.size()) {
+                simple_tracker_update_range_component_id(column_base, column_to_component_id[col_idx]);
+            }
+        }
+    }
+#else
+    for (CountT col_idx = 0; col_idx < numComponents + componentOffset; col_idx++) {
+        void* column_base = tblStorage.tbl.data(col_idx);
+        if (col_idx < column_to_component_id.size()) {
+            simple_tracker_update_range_component_id(column_base, column_to_component_id[col_idx]);
+        }
+    }
+#endif
+#endif
+}
 
 StateManager::QueryState::QueryState()
     : lock(),
@@ -583,6 +622,7 @@ void StateManager::copyInExportedColumns()
 void StateManager::copyOutExportedColumns()
 {
 #ifdef MADRONA_MW_MODE
+
     for (ExportJob &export_job : export_jobs_) {
         auto &archetype = *archetype_stores_[export_job.archetypeIdx];
 
@@ -622,6 +662,7 @@ void StateManager::copyOutExportedColumns()
                    export_job.numBytesPerRow * num_rows);
         }
     }
+
 #endif
 }
 

@@ -1,5 +1,10 @@
 #pragma once
 
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+#include "../src/debug/ecs_simple_tracker.h"
+#include "magic_enum.hpp"
+#endif
+
 namespace madrona {
 
 template <typename ComponentT>
@@ -58,13 +63,31 @@ void ECSRegistry::exportSingleton(int32_t slot)
 template <typename ArchetypeT, typename ComponentT, EnumType EnumT>
 void ECSRegistry::exportColumn(EnumT slot)
 {
-    exportColumn<ArchetypeT, ComponentT>(static_cast<uint32_t>(slot));
+    void* buffer_ptr = state_mgr_->exportColumn<ArchetypeT, ComponentT>();
+    export_ptrs_[static_cast<uint32_t>(slot)] = buffer_ptr;
+
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+    // Use magic_enum to automatically get tensor name from enum value
+    auto tensor_name = magic_enum::enum_name(slot);
+    if (!tensor_name.empty()) {
+        simple_tracker_register_export_buffer(buffer_ptr, std::string(tensor_name).c_str());
+    }
+#endif
 }
 
 template <typename SingletonT, EnumType EnumT>
 void ECSRegistry::exportSingleton(EnumT slot)
 {
-    exportSingleton<SingletonT>(static_cast<uint32_t>(slot));
+    void* buffer_ptr = state_mgr_->exportSingleton<SingletonT>();
+    export_ptrs_[static_cast<uint32_t>(slot)] = buffer_ptr;
+
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+    // Use magic_enum to automatically get tensor name from enum value
+    auto tensor_name = magic_enum::enum_name(slot);
+    if (!tensor_name.empty()) {
+        simple_tracker_register_export_buffer(buffer_ptr, std::string(tensor_name).c_str());
+    }
+#endif
 }
 
 }

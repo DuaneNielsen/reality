@@ -13,13 +13,21 @@
 #include <string.h>
 #include <stdlib.h>
 
+// Export buffer mapping for tensor name reverse lookup
+typedef struct {
+    void* buffer_address;
+    char tensor_name[MAX_TYPE_NAME_LEN];
+} export_buffer_t;
+
 // Global storage - simple arrays for minimal overhead
 static address_range_t g_ranges[MAX_RANGES];
 static component_type_t g_components[MAX_COMPONENTS];
 static archetype_type_t g_archetypes[MAX_ARCHETYPES];
+static export_buffer_t g_export_buffers[MAX_EXPORT_BUFFERS];
 static uint32_t g_range_count = 0;
 static uint32_t g_component_count = 0;
 static uint32_t g_archetype_count = 0;
+static uint32_t g_export_buffer_count = 0;
 
 // Simple mutex simulation - for now just use a flag
 static volatile int g_lock = 0;
@@ -349,6 +357,70 @@ const char* simple_tracker_format_component_value(void* address) {
 
 void simple_tracker_print_component_value(void* address) {
     printf("Component value: %s\n", simple_tracker_format_component_value(address));
+}
+
+void simple_tracker_register_export_buffer(
+    void* buffer_address,
+    const char* tensor_name) {
+
+    if (!buffer_address || !tensor_name || g_export_buffer_count >= MAX_EXPORT_BUFFERS) return;
+
+    simple_lock();
+
+    // Check if already exists - update if so
+    for (uint32_t i = 0; i < g_export_buffer_count; i++) {
+        if (g_export_buffers[i].buffer_address == buffer_address) {
+            strncpy(g_export_buffers[i].tensor_name, tensor_name, MAX_TYPE_NAME_LEN - 1);
+            g_export_buffers[i].tensor_name[MAX_TYPE_NAME_LEN - 1] = '\0';
+            simple_unlock();
+            return;
+        }
+    }
+
+    // Add new entry
+    export_buffer_t* buffer_entry = &g_export_buffers[g_export_buffer_count];
+    buffer_entry->buffer_address = buffer_address;
+    strncpy(buffer_entry->tensor_name, tensor_name, MAX_TYPE_NAME_LEN - 1);
+    buffer_entry->tensor_name[MAX_TYPE_NAME_LEN - 1] = '\0';
+
+    g_export_buffer_count++;
+
+    simple_unlock();
+}
+
+const char* simple_tracker_lookup_export_tensor_name(void* buffer_address) {
+    if (!buffer_address) return NULL;
+
+    simple_lock();
+
+    for (uint32_t i = 0; i < g_export_buffer_count; i++) {
+        if (g_export_buffers[i].buffer_address == buffer_address) {
+            const char* result = g_export_buffers[i].tensor_name;
+            simple_unlock();
+            return result;
+        }
+    }
+
+    simple_unlock();
+    return NULL; // Not found
+}
+
+void simple_tracker_update_range_component_id(void* base_address, uint32_t new_component_id) {
+    if (!base_address) return;
+
+    simple_lock();
+
+    uintptr_t addr = (uintptr_t)base_address;
+
+    // Find the range with this base address and update its component ID
+    for (uint32_t i = 0; i < g_range_count; i++) {
+        if (g_ranges[i].start == addr) {
+            g_ranges[i].component_id = new_component_id;
+            break;
+        }
+    }
+
+    simple_unlock();
 }
 
 #endif // MADRONA_ECS_DEBUG_TRACKING

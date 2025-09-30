@@ -81,40 +81,27 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     registry.registerArchetype<CompassIndicatorEntity>();
     registry.registerArchetype<TargetEntity>();
 
-    // [REQUIRED_INTERFACE] Export reset control
-    registry.exportSingleton<WorldReset>(
-        (uint32_t)ExportID::Reset);
-    
-    // [GAME_SPECIFIC] Export lidar visualization control
-    registry.exportSingleton<LidarVisControl>(
-        (uint32_t)ExportID::LidarVisControl);
 
+    // [REQUIRED_INTERFACE] Export reset control
+    registry.exportSingleton<WorldReset>(ExportID::Reset);
+
+    // [GAME_SPECIFIC] Export lidar visualization control
+    registry.exportSingleton<LidarVisControl>(ExportID::LidarVisControl);
 
     // [BOILERPLATE] Export core RL components
-    registry.exportColumn<Agent, Action>(
-        (uint32_t)ExportID::Action);
-    registry.exportColumn<Agent, Reward>(
-        (uint32_t)ExportID::Reward);
-    registry.exportColumn<Agent, Done>(
-        (uint32_t)ExportID::Done);
-    registry.exportColumn<Agent, TerminationReason>(
-        (uint32_t)ExportID::TerminationReason);
+    registry.exportColumn<Agent, Action>(ExportID::Action);
+    registry.exportColumn<Agent, Reward>(ExportID::Reward);
+    registry.exportColumn<Agent, Done>(ExportID::Done);
+    registry.exportColumn<Agent, TerminationReason>(ExportID::TerminationReason);
 
     // [GAME_SPECIFIC] Export escape room observations
-    registry.exportColumn<Agent, SelfObservation>(
-        (uint32_t)ExportID::SelfObservation);
-    registry.exportColumn<Agent, CompassObservation>(
-        (uint32_t)ExportID::CompassObservation);
-    registry.exportColumn<Agent, Lidar>(
-        (uint32_t)ExportID::Lidar);
-    registry.exportColumn<Agent, StepsTaken>(
-        (uint32_t)ExportID::StepsTaken);
-    registry.exportColumn<Agent, Progress>(
-        (uint32_t)ExportID::Progress);
-    registry.exportColumn<Agent, Position>(
-        (uint32_t)ExportID::AgentPosition);
-    registry.exportColumn<TargetEntity, Position>(
-        (uint32_t)ExportID::TargetPosition);
+    registry.exportColumn<Agent, SelfObservation>(ExportID::SelfObservation);
+    registry.exportColumn<Agent, CompassObservation>(ExportID::CompassObservation);
+    registry.exportColumn<Agent, Lidar>(ExportID::Lidar);
+    registry.exportColumn<Agent, StepsTaken>(ExportID::StepsTaken);
+    registry.exportColumn<Agent, Progress>(ExportID::Progress);
+    registry.exportColumn<Agent, Position>(ExportID::AgentPosition);
+    registry.exportColumn<TargetEntity, Position>(ExportID::TargetPosition);
 }
 
 // [GAME_SPECIFIC] Helper to clean up escape room entities
