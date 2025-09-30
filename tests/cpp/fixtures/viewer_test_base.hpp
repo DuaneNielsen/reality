@@ -54,9 +54,45 @@ public:
             TrajectoryPoint point;
             uint32_t remaining = 0;
             int32_t done = 0;
-            
-            // Try newest format with termination reason first
+
+            // Try newest format with state in brackets and action data (simplified step counter)
+            char action_str[64];
             if (sscanf(line.c_str(),
+                      "Step %u: World %d Agent %d: [pos=(%f,%f,%f) rot=%f° compass=%d progress=%f] %63s reward=%f done=%d term=%d",
+                      &point.step, &point.world, &point.agent,
+                      &point.x, &point.y, &point.z,
+                      &point.rotation, &point.compass, &point.progress,
+                      action_str, &point.reward, &done, &point.termination_reason) == 13) {
+                points.push_back(point);
+            }
+            // Try previous format with Episode step and remaining counter
+            else if (sscanf(line.c_str(),
+                      "Episode step %u (%u remaining): World %d Agent %d: [pos=(%f,%f,%f) rot=%f° compass=%d progress=%f] %63s reward=%f done=%d term=%d",
+                      &point.step, &remaining, &point.world, &point.agent,
+                      &point.x, &point.y, &point.z,
+                      &point.rotation, &point.compass, &point.progress,
+                      action_str, &point.reward, &done, &point.termination_reason) == 14) {
+                points.push_back(point);
+            }
+            // Try old format with action data and termination reason
+            else if (sscanf(line.c_str(),
+                      "Episode step %u (%u remaining): World %d Agent %d: %63s pos=(%f,%f,%f) rot=%f° compass=%d progress=%f reward=%f done=%d term=%d",
+                      &point.step, &remaining, &point.world, &point.agent,
+                      action_str, &point.x, &point.y, &point.z,
+                      &point.rotation, &point.compass, &point.progress, &point.reward, &done, &point.termination_reason) == 14) {
+                points.push_back(point);
+            }
+            // Try format with action data but no termination reason
+            else if (sscanf(line.c_str(),
+                      "Episode step %u (%u remaining): World %d Agent %d: %63s pos=(%f,%f,%f) rot=%f° compass=%d progress=%f reward=%f done=%d",
+                      &point.step, &remaining, &point.world, &point.agent,
+                      action_str, &point.x, &point.y, &point.z,
+                      &point.rotation, &point.compass, &point.progress, &point.reward, &done) == 13) {
+                point.termination_reason = -1;  // Default value for old format
+                points.push_back(point);
+            }
+            // Try legacy format with termination reason (no action)
+            else if (sscanf(line.c_str(),
                       "Episode step %u (%u remaining): World %d Agent %d: pos=(%f,%f,%f) rot=%f° compass=%d progress=%f reward=%f done=%d term=%d",
                       &point.step, &remaining, &point.world, &point.agent,
                       &point.x, &point.y, &point.z,

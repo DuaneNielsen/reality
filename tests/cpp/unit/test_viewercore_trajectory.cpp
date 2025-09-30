@@ -167,21 +167,24 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
     state = core_record.getFrameState();
     EXPECT_FALSE(state.is_paused) << "Should be unpaused after SPACE";
     
-    // Hold W key for forward movement for 100 frames
+    // Hold W key for forward movement for 1000 frames
     ViewerCore::InputEvent w_press;
     w_press.type = ViewerCore::InputEvent::KeyPress;
     w_press.key = ViewerCore::InputEvent::W;
-    
-    for (int frame = 0; frame < 100; frame++) {
+
+    for (int frame = 0; frame < 1000; frame++) {
         // Send W key press event
         core_record.handleInput(0, w_press);
-        
+
         // Update frame actions for world 0, agent 0
         core_record.updateFrameActions(0, 0);
-        
+
         // Step the simulation
         core_record.stepSimulation();
     }
+
+    // One more step to capture the final state after the 1000th action
+    core_record.stepSimulation();
     
     // 6. Stop Recording
     core_record.stopRecording();
@@ -232,15 +235,18 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
     EXPECT_TRUE(state.has_replay) << "Should have replay loaded";
     
     // 4. Step Through Replay
-    for (int frame = 0; frame < 100; frame++) {
+    for (int frame = 0; frame < 1000; frame++) {
         core_replay.stepSimulation();
-        
+
         // Check if replay finished early
         state = core_replay.getFrameState();
         if (state.should_exit) {
             break;
         }
     }
+
+    // One more step to capture the final state after the 1000th action
+    core_replay.stepSimulation();
     
     // 5. Verify Replay Completion
     state = core_replay.getFrameState();
@@ -263,11 +269,11 @@ TEST_F(ViewerCoreTrajectoryTest, DeterministicReplayWithTrajectory) {
     auto replay_trajectory = TrajectoryComparer::parseTrajectoryFile("trajectory_replay.csv");
     
     // 2. Compare Trajectories
-    // Both should have 101 points (initial state + 100 simulation frames)
-    EXPECT_EQ(record_trajectory.size(), 101) 
-        << "Recording trajectory should have 101 points (initial state + 100 frames)";
-    EXPECT_EQ(replay_trajectory.size(), 101) 
-        << "Replay trajectory should have 101 points (initial state + 100 frames)";
+    // Both should have 1001 points (initial state + 1000 simulation frames)
+    EXPECT_EQ(record_trajectory.size(), 1001)
+        << "Recording trajectory should have 1001 points (initial state + 1000 frames)";
+    EXPECT_EQ(replay_trajectory.size(), 1001)
+        << "Replay trajectory should have 1001 points (initial state + 1000 frames)";
     
     // Verify trajectories match
     bool trajectories_match = TrajectoryComparer::compareTrajectories(

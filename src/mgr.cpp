@@ -721,6 +721,7 @@ Manager::~Manager() {}
 // [BOILERPLATE] Execute one simulation step - standard Madrona pattern
 void Manager::step()
 {
+
     // Mark that we've taken a step since initialization
     // The first step() call happens in the constructor for initialization,
     // so we only set this flag on subsequent calls
@@ -730,7 +731,14 @@ void Manager::step()
     bool was_initialization = impl_->isInitializationStep;
     impl_->isInitializationStep = false;
 
+    // Log trajectory BEFORE stepping to capture state-action pairs
+    // This logs the current state and the action that will be applied
+    if (!was_initialization) {
+        logCurrentTrajectoryState();
+    }
+
     impl_->run();
+
 
     // Record actions AFTER execution if recording is active and not during initialization
     if (impl_->isRecordingActive && !was_initialization) {
@@ -876,10 +884,6 @@ void Manager::step()
     if (impl_->cfg.enableBatchRenderer) {
         impl_->renderMgr->batchRender();
     }
-    
-    // Log trajectory if enabled
-    logCurrentTrajectoryState();
-    
 }
 
 // ============================================================================
@@ -1266,50 +1270,45 @@ void Manager::logCurrentTrajectoryState()
     
     // Log trajectory to file or stdout
     FILE* output = impl_->trajectoryLogFile ? impl_->trajectoryLogFile : stdout;
-    uint32_t remaining_display = (*steps_taken_data >= madEscape::consts::episodeLen) ? 0 : (madEscape::consts::episodeLen - *steps_taken_data);
 
-    // Format action string
+    // Format action string - always log the action that WILL be applied
     const char* action_str;
     char action_buffer[32];
-    if (*steps_taken_data == 0) {
-        action_str = "action=RESET";  // Step 0 is always from reset
-    } else {
-        // Read the action that was actually applied from the action tensor
-        auto action_tensor = actionTensor();
-        const Action* action_data;
 
-        if (impl_->cfg.execMode == ExecMode::CUDA) {
+    // Read the action from the action tensor
+    auto action_tensor = actionTensor();
+    const Action* action_data;
+
+    if (impl_->cfg.execMode == ExecMode::CUDA) {
 #ifdef MADRONA_CUDA_SUPPORT
-            // For CUDA, copy action data to host
-            static Action host_action;
-            cudaMemcpy(&host_action,
-                      ((const Action*)action_tensor.devicePtr()) + impl_->trackWorldIdx,
-                      sizeof(Action),
-                      cudaMemcpyDeviceToHost);
-            action_data = &host_action;
+        // For CUDA, copy action data to host
+        static Action host_action;
+        cudaMemcpy(&host_action,
+                  ((const Action*)action_tensor.devicePtr()) + impl_->trackWorldIdx,
+                  sizeof(Action),
+                  cudaMemcpyDeviceToHost);
+        action_data = &host_action;
 #endif
-        } else {
-            // For CPU, direct access
-            action_data = ((const Action*)action_tensor.devicePtr()) + impl_->trackWorldIdx;
-        }
-
-        snprintf(action_buffer, sizeof(action_buffer), "action=(%d,%d,%d)",
-                 action_data->moveAmount, action_data->moveAngle, action_data->rotate);
-        action_str = action_buffer;
+    } else {
+        // For CPU, direct access
+        action_data = ((const Action*)action_tensor.devicePtr()) + impl_->trackWorldIdx;
     }
 
-    fprintf(output, "Episode step %3u (%3u remaining): World %d Agent %d: %s pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f reward=%.3f done=%d term=%d\n",
+    snprintf(action_buffer, sizeof(action_buffer), "action=(%d,%d,%d)",
+             action_data->moveAmount, action_data->moveAngle, action_data->rotate);
+    action_str = action_buffer;
+
+    fprintf(output, "Step %3u: World %d Agent %d: [pos=(%.2f,%.2f,%.2f) rot=%.1f° compass=%d progress=%.2f] %s reward=%.3f done=%d term=%d\n",
             *steps_taken_data,
-            remaining_display,
             impl_->trackWorldIdx,
             impl_->trackAgentIdx,
-            action_str,
             obs_data->globalX,
             obs_data->globalY,
             obs_data->globalZ,
             obs_data->theta * madEscape::consts::math::degreesInHalfCircle / M_PI,
             compass_index,
             *progress_data,
+            action_str,
             *reward_data,
             *done_data,
             *termination_reason_data);
@@ -1356,14 +1355,7 @@ void Manager::enableTrajectoryLogging(int32_t world_idx, int32_t agent_idx, std:
     impl_->trackWorldIdx = world_idx;
     impl_->trackAgentIdx = agent_idx;
 
-    // If this is a replay manager and we're enabling logging after initialization,
-    // immediately log the current state (step 0). This ensures replay managers log
-    // step 0 even though they enable logging after construction.
-    // For recording managers, don't log immediately as the test will do reset+step.
-    if (impl_->replayData.has_value() &&
-        (impl_->hasSteppedSinceInit || !impl_->isInitializationStep)) {
-        logCurrentTrajectoryState();
-    }
+    // Initial state will be logged on the next step() call
 }
 
 void Manager::disableTrajectoryLogging()

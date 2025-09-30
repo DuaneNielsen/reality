@@ -827,7 +827,7 @@ inline void agentCollisionSystem(Engine &ctx,
 // [REQUIRED_INTERFACE] Track the number of steps taken in the episode and
 // notify training that an episode has completed by
 // setting done = 1 when the episode limit is reached
-inline void stepTrackerSystem(Engine &,
+inline void stepTrackerSystem(Engine &ctx,
                               StepsTaken &steps_taken,
                               Done &done,
                               TerminationReason &termination_reason)

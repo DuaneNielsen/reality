@@ -2,6 +2,23 @@
 
 This guide covers writing and running C++ unit tests for the Madrona Escape Room project using GoogleTest.
 
+## Debug Output and Stdout Capture
+
+By default, GoogleTest captures stdout to keep test output clean. This means debug `printf` statements won't be visible during test runs. To see debug output:
+
+```bash
+# Run tests with stdout capture disabled
+./build/mad_escape_tests --disable-capture
+
+# Or set environment variable
+GTEST_DISABLE_CAPTURE=1 ./build/mad_escape_tests
+
+# Filter to specific test and disable capture
+./build/mad_escape_tests --gtest_filter="TestName" --disable-capture
+```
+
+This is especially useful when debugging ECS export issues or tracking component IDs.
+
 ## Overview
 
 The project uses GoogleTest (gtest) for C++ unit testing, leveraging Madrona's pre-configured GoogleTest build to ensure ABI compatibility with the custom toolchain. Tests are located in `tests/cpp/` and are built separately from the main project to keep the build clean.
