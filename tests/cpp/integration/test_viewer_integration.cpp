@@ -182,7 +182,7 @@ TEST_F(ManagerIntegrationTest, ManagerTrajectoryLogging) {
     
     // Parse and verify trajectory
     auto points = TrajectoryComparer::parseTrajectoryFile("trajectory.csv");
-    EXPECT_EQ(points.size(), 6);  // Initial state + 5 simulation steps
+    EXPECT_EQ(points.size(), 5);  // One trajectory point per step
     for (const auto& point : points) {
         EXPECT_EQ(point.world, 0);
         EXPECT_EQ(point.agent, 0);

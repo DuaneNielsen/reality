@@ -641,6 +641,7 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryPointsMatchRecordedFrames) {
     d_press.type = ViewerCore::InputEvent::KeyPress;
     d_press.key = ViewerCore::InputEvent::D;
     
+    // Record exactly NUM_FRAMES_TO_RECORD frames
     for (int frame = 0; frame < NUM_FRAMES_TO_RECORD; frame++) {
         // Alternate between W and D every 30 frames for variety
         if ((frame / 30) % 2 == 0) {
@@ -648,7 +649,7 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryPointsMatchRecordedFrames) {
         } else {
             core.handleInput(0, d_press);
         }
-        
+
         core.updateFrameActions(0, 0);
         core.stepSimulation();
     }
@@ -677,10 +678,10 @@ TEST_F(ViewerCoreTrajectoryTest, TrajectoryPointsMatchRecordedFrames) {
     std::cout << "DEBUG: Requested frames: " << NUM_FRAMES_TO_RECORD << std::endl;
     std::cout << "DEBUG: Trajectory points in recording: " << trajectory_points.size() << std::endl;
     
-    // The critical assertion: trajectory points should include initial state + recorded frames
-    EXPECT_EQ(trajectory_points.size(), NUM_FRAMES_TO_RECORD + 1) 
-        << "Number of trajectory points (" << trajectory_points.size() 
-        << ") should include initial state + recorded frames (" << (NUM_FRAMES_TO_RECORD + 1) << ")";
+    // The critical assertion: trajectory points should match the number of frames recorded
+    EXPECT_EQ(trajectory_points.size(), NUM_FRAMES_TO_RECORD)
+        << "Number of trajectory points (" << trajectory_points.size()
+        << ") should match recorded frames (" << NUM_FRAMES_TO_RECORD << ")";
     
     // Additional verification: Check that we have the initial state
     if (!trajectory_points.empty()) {
@@ -925,8 +926,8 @@ TEST_F(ViewerCoreTrajectoryTest, DiagnoseFrameCountMismatch) {
     std::cout << "Frames replayed: " << replay_frames << std::endl;
     
     // The assertion we want to pass
-    EXPECT_EQ(record_trajectory.size(), NUM_FRAMES + 1) 
-        << "Recording should have initial state + requested number of trajectory points";
+    EXPECT_EQ(record_trajectory.size(), NUM_FRAMES)
+        << "Recording should have exactly the requested number of trajectory points";
     EXPECT_EQ(replay_frames, NUM_FRAMES) 
         << "Replay should run exactly the same number of frames as recorded";
     

@@ -679,6 +679,9 @@ Determinism can be verified by:
   - progress: float value
 - Compare trajectories for exact match (determinism verification)
 - Support per-world trajectory files for multi-world recordings
+- **Trajectory Point Count:** Number of points equals number of simulation steps
+  - N steps produces N trajectory points (not N+1)
+  - Each point contains state-action pair from that step
 - **Round-trip Testing Support:**
   - Automated record → replay → compare workflow
   - Text-based trajectory file comparison (line-by-line)
@@ -742,8 +745,17 @@ Determinism can be verified by:
 **Specs:**
 - Logs position, rotation, compass, progress, reward, done state each step
 - Creates/overwrites log file or uses stdout
-- Logs initial state immediately (step 0)
-- Format: "Episode step X: World Y Agent Z: pos=(x,y,z) rot=θ° compass=C progress=P reward=R done=D term=T"
+- **Logging Pattern:** One trajectory point logged per simulation step
+  - Step 0: Logs state S₀ with action A₀ (initial state with first action)
+  - Step 1: Logs state S₁ with action A₁ (state after first step)
+  - Step N: Logs state Sₙ with action Aₙ
+  - **Note:** No separate initial state logged before first step
+- **Reward and Terminal State Handling:**
+  - Reward logged is for transitioning TO the current state (result of previous action)
+  - Terminal state (done=1) indicates episode ended after this state was reached
+  - When done=1, the logged action is what would have been taken (but episode resets)
+  - Termination reason (term) indicates why episode ended (timeout, success, etc.)
+- Format: "Step XXX: World Y Agent Z: [pos=(x,y,z) rot=θ° compass=C progress=P] action=(move,angle,rotate) reward=R done=D term=T"
 - **Round-trip verification support:**
   - Produces identical output for record vs replay sessions
   - Enables deterministic trajectory comparison
