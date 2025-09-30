@@ -268,7 +268,46 @@ StateManager::ArchetypeStore::ArchetypeStore(Init &&init)
       tblStorage(init.types
           MADRONA_MW_COND(, init.numWorlds, init.maxNumEntitiesPerWorld)),
       columnLookup(init.lookupInputs.data(), init.lookupInputs.size())
-{}
+{
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+    // Re-register ranges with correct component IDs
+    // Create mapping from column index to component ID
+    std::array<uint32_t, 1024> column_to_component_id;
+    for (const auto& pair : init.lookupInputs) {
+        if (pair.value < column_to_component_id.size()) {
+            column_to_component_id[pair.value] = pair.key;
+        }
+    }
+
+    // Update ranges with correct component IDs
+#ifdef MADRONA_MW_MODE
+    if (tblStorage.maxNumPerWorld == 0) {
+        for (CountT world_idx = 0; world_idx < tblStorage.tbls.size(); world_idx++) {
+            for (CountT col_idx = 0; col_idx < numComponents + componentOffset; col_idx++) {
+                void* column_base = tblStorage.tbls[world_idx].data(col_idx);
+                if (col_idx < column_to_component_id.size()) {
+                    simple_tracker_update_range_component_id(column_base, column_to_component_id[col_idx]);
+                }
+            }
+        }
+    } else {
+        for (CountT col_idx = 0; col_idx < numComponents + componentOffset; col_idx++) {
+            void* column_base = tblStorage.fixed.tbl.data(col_idx);
+            if (col_idx < column_to_component_id.size()) {
+                simple_tracker_update_range_component_id(column_base, column_to_component_id[col_idx]);
+            }
+        }
+    }
+#else
+    for (CountT col_idx = 0; col_idx < numComponents + componentOffset; col_idx++) {
+        void* column_base = tblStorage.tbl.data(col_idx);
+        if (col_idx < column_to_component_id.size()) {
+            simple_tracker_update_range_component_id(column_base, column_to_component_id[col_idx]);
+        }
+    }
+#endif
+#endif
+}
 
 StateManager::QueryState::QueryState()
     : lock(),
@@ -584,47 +623,8 @@ void StateManager::copyOutExportedColumns()
 {
 #ifdef MADRONA_MW_MODE
 
-#ifdef MADRONA_ECS_DEBUG_TRACKING
-    printf("ECS EXPORT: copying %u components\n", (uint32_t)export_jobs_.size());
-#endif
-
     for (ExportJob &export_job : export_jobs_) {
         auto &archetype = *archetype_stores_[export_job.archetypeIdx];
-
-#ifdef MADRONA_ECS_DEBUG_TRACKING
-        // Get component name using ECS debug system
-        const char* component_name = nullptr;
-
-        if (archetype.tblStorage.tbls.size() > 0 && archetype.tblStorage.tbls[0].numRows() > 0) {
-            void* sample_addr = archetype.tblStorage.tbls[0].data(export_job.columnIdx);
-            address_info_t debug_info;
-            if (simple_tracker_lookup(sample_addr, &debug_info)) {
-                component_name = debug_info.component_name;
-            }
-        }
-
-        if (!component_name) {
-            component_name = "Unknown";
-        }
-
-        // Try to get tensor name from export buffer registration
-        const char* tensor_name = simple_tracker_lookup_export_tensor_name(export_job.mem.ptr());
-
-        // Count total rows across all tables
-        CountT total_rows = 0;
-        for (Table &tbl : archetype.tblStorage.tbls) {
-            total_rows += tbl.numRows();
-        }
-
-        if (tensor_name) {
-            printf("  %s -> %s (%p): %u rows, %u bytes/row\n",
-                   component_name, tensor_name, export_job.mem.ptr(),
-                   (uint32_t)total_rows, export_job.numBytesPerRow);
-        } else {
-            printf("  %s: %u rows, %u bytes/row -> %p\n",
-                   component_name, (uint32_t)total_rows, export_job.numBytesPerRow, export_job.mem.ptr());
-        }
-#endif
 
         CountT cumulative_copied_rows = 0;
         for (Table &tbl : archetype.tblStorage.tbls) {

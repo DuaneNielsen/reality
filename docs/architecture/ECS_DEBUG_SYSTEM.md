@@ -22,6 +22,12 @@ The ECS Debug System provides comprehensive debugging capabilities for Madrona E
 - **Component Resolution**: Given any component address, provides full ECS context
 - **Live Integration**: Works with runtime component queries and iteration
 
+### 4. Tensor Name Reverse Lookup
+- **Export Buffer Tracking**: Maps export buffer addresses to tensor names
+- **Magic Enum Integration**: Automatic enum-to-string conversion using magic_enum library
+- **Clean Debug Output**: Shows Component → TensorName (Address) format
+- **Zero Configuration**: Automatic registration during export process
+
 ## Architecture Components
 
 ### Core C Implementation (`ecs_simple_tracker.c/h`)
@@ -41,6 +47,12 @@ typedef struct {
     char formatted_value[256];  // Component __repr__ output
 } address_info_t;
 
+// Export buffer mapping for tensor name reverse lookup
+typedef struct {
+    void* buffer_address;
+    char tensor_name[64];
+} export_buffer_t;
+
 // Formatter function pointer
 typedef const char* (*component_formatter_t)(const void* component_ptr, const void* info);
 ```
@@ -49,8 +61,29 @@ typedef const char* (*component_formatter_t)(const void* component_ptr, const vo
 - `simple_tracker_lookup(void* address, address_info_t* info)` - Reverse address lookup
 - `simple_tracker_register_component_formatter(uint32_t id, component_formatter_t formatter)` - Register formatters
 - `simple_tracker_format_component_value(void* address)` - Format component value
+- `simple_tracker_register_export_buffer(void* buffer_address, const char* tensor_name)` - Register export buffer
+- `simple_tracker_lookup_export_tensor_name(void* buffer_address)` - Lookup tensor name from buffer address
 
-### C++ Integration (`state.inl`)
+### C++ Integration (`state.inl` and `registry.inl`)
+
+**Tensor Name Export Registration:**
+```cpp
+// Automatic tensor name registration using magic_enum
+template <typename ArchetypeT, typename ComponentT, EnumType EnumT>
+void ECSRegistry::exportColumn(EnumT slot)
+{
+    void* buffer_ptr = state_mgr_->exportColumn<ArchetypeT, ComponentT>();
+    export_ptrs_[static_cast<uint32_t>(slot)] = buffer_ptr;
+
+#ifdef MADRONA_ECS_DEBUG_TRACKING
+    // Use magic_enum to automatically get tensor name from enum value
+    auto tensor_name = magic_enum::enum_name(slot);
+    if (!tensor_name.empty()) {
+        simple_tracker_register_export_buffer(buffer_ptr, std::string(tensor_name).c_str());
+    }
+#endif
+}
+```
 
 **Automatic Type Name Extraction:**
 ```cpp
@@ -125,6 +158,36 @@ const char* format_component_default<TestECS::HealthComponent>(const void* ptr, 
 **Output:** `TestECS::GameEntity(0)-TestECS::HealthComponent(2) : HealthComponent{currentHealth=101.0}`
 
 ## Usage Examples
+
+### Tensor Name Debug Output
+The system automatically displays tensor names in export debug output:
+
+```
+ECS EXPORT: copying 11 components
+  madrona::phys::PhysicsSystemState -> Action (0x70d0b8be8000): 4 rows, 12 bytes/row
+  madrona::phys::xpbd::XPBDContactState -> Reward (0x70cfca535000): 4 rows, 4 bytes/row
+  madrona::phys::xpbd::SolverState -> Done (0x70cedbe82000): 4 rows, 4 bytes/row
+  madrona::render::Renderable -> TerminationReason (0x70cded7cf000): 4 rows, 4 bytes/row
+  madrona::phys::ObjectData -> SelfObservation (0x70cd45652000): 4 rows, 20 bytes/row
+  madrona::base::Position -> AgentPosition (0x70ca43ba2000): 4 rows, 12 bytes/row
+  madrona::base::Position -> TargetPosition (0x70c97878a000): 4 rows, 12 bytes/row
+```
+
+**Format:** `ComponentType -> TensorName (BufferAddress): Details`
+
+This provides complete data flow traceability from ECS components to their exported tensor names.
+
+### Application Integration
+```cpp
+// Application code - uses enum values directly
+enum class ExportID : uint32_t {
+    Action, Reward, Done, SelfObservation, // etc...
+};
+
+// Export registration automatically registers tensor names
+registry.exportColumn<Agent, Action>(ExportID::Action);  // magic_enum converts to "Action"
+registry.exportColumn<Agent, Reward>(ExportID::Reward);  // magic_enum converts to "Reward"
+```
 
 ### Basic Component Inspection
 ```cpp
@@ -202,6 +265,12 @@ typedef struct {
 - Automatic initialization during ECS setup
 - Thread-safe operation with simple locking
 
+### Magic Enum Integration
+- **Header-only library**: `external/madrona/include/madrona/magic_enum.hpp`
+- **C++17 requirement**: Uses compile-time template metaprogramming
+- **No RTTI dependency**: Works with RTTI disabled projects
+- **Compile-time reflection**: Zero runtime overhead for enum-to-string conversion
+
 ### Build System
 - Debug-only compilation (removed in release builds)
 - No runtime overhead when disabled
@@ -270,6 +339,12 @@ Located in `tests/cpp/test_simple_table.cpp`:
 - Works with existing ECS queries and iteration
 - Compatible with component address patterns
 - Minimal API surface
+
+### 6. **Tensor Name Traceability**
+- Automatic enum-to-string conversion via magic_enum
+- Zero-configuration export buffer registration
+- Clear data flow visibility from components to tensors
+- Framework-agnostic design using template specialization
 
 ## Future Enhancements
 
