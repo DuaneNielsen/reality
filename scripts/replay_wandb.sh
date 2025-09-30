@@ -9,6 +9,7 @@ DEFAULT_NUM_STEPS=2000
 # Parse command line arguments
 RUN_IDENTIFIER=""
 NUM_STEPS=$DEFAULT_NUM_STEPS
+FORCE_REGENERATE=false
 VIEWER_ARGS=()
 
 # Check if wandb run identifier provided
@@ -21,12 +22,14 @@ if [[ $# -eq 0 ]]; then
     echo ""
     echo "Options:"
     echo "  --num-steps <N>     Number of steps to record during inference (default: $DEFAULT_NUM_STEPS)"
+    echo "  --force             Regenerate recording file even if it already exists"
     echo "  --paused            Start viewer in paused mode"
     echo ""
     echo "Examples:"
     echo "  $0 cosmic-sweep-63"
     echo "  $0 cosmic-sweep-63 --num-steps 5000"
     echo "  $0 cosmic-sweep-63 --paused"
+    echo "  $0 cosmic-sweep-63 --force --num-steps 3000"
     echo "  $0 i0jv5zou --num-steps 1000 --fps 30"
     exit 1
 fi
@@ -40,6 +43,10 @@ while [[ $# -gt 0 ]]; do
         --num-steps)
             NUM_STEPS="$2"
             shift 2
+            ;;
+        --force)
+            FORCE_REGENERATE=true
+            shift
             ;;
         --paused)
             VIEWER_ARGS+=("--pause")
@@ -136,8 +143,12 @@ echo "Found latest checkpoint: $CKPT_NAME"
 
 # Check if corresponding .rec file exists for the latest checkpoint
 EXPECTED_REC_FILE="$CHECKPOINTS_DIR/$CKPT_NAME.rec"
-if [[ ! -f "$EXPECTED_REC_FILE" ]]; then
-    echo "No .rec file found for latest checkpoint: $CKPT_NAME"
+if [[ ! -f "$EXPECTED_REC_FILE" ]] || [[ "$FORCE_REGENERATE" == "true" ]]; then
+    if [[ "$FORCE_REGENERATE" == "true" ]]; then
+        echo "Force regeneration requested - overwriting existing .rec file"
+    else
+        echo "No .rec file found for latest checkpoint: $CKPT_NAME"
+    fi
     echo "Generating recording file through inference..."
     
     # Extract the run hash from the directory path
