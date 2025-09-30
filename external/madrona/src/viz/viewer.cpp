@@ -323,7 +323,8 @@ static void flyCamUI(ViewerCam &cam)
 static void cfgUI(ViewerControl &ctrl,
                   CountT num_agents,
                   CountT num_worlds,
-                  int32_t *tick_rate)
+                  int32_t *tick_rate,
+                  void *manager)
 {
     ctrl.batchRenderOffsetY -=
         ImGui::GetIO().MouseWheel * InternalConfig::secondsPerFrame * 120;
@@ -373,6 +374,28 @@ static void cfgUI(ViewerControl &ctrl,
         }
 
         ctrl.worldIdx = world_idx;
+    }
+
+    // Display checksum status indicator if manager is available
+    if (manager != nullptr) {
+        madEscape::Manager* mgr = static_cast<madEscape::Manager*>(manager);
+
+        ImGui::Text("Checksum:");
+        ImGui::SameLine();
+
+        if (mgr->hasChecksumFailed()) {
+            // Red LED indicator for failed checksum
+            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[FAIL]");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Checksum verification FAILED - replay diverged from recording");
+            }
+        } else {
+            // Green LED indicator for passed checksum
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "[PASS]");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Checksum verification passed");
+            }
+        }
     }
 
     ImGui::Checkbox("Control Current View", &ctrl.linkViewControl);
@@ -601,7 +624,7 @@ void Viewer::Impl::render(float frame_duration)
     // Only render UI if not hidden
     if (!hideMenu) {
         // FIXME: pass actual active agents, not max
-        cfgUI(vizCtrl, maxNumAgents, numWorlds, &simTickRate);
+        cfgUI(vizCtrl, maxNumAgents, numWorlds, &simTickRate, manager);
 
         fpsCounterUI(frame_duration);
     }

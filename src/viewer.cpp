@@ -537,6 +537,7 @@ int main(int argc, char *argv[])
         .cameraPosition = initial_camera_position,
         .cameraRotation = initial_camera_rotation,
         .hideMenu = hide_menu,
+        .manager = &mgr,
     });
 
     // Printers for debugging (kept from original)
