@@ -311,6 +311,10 @@ namespace madEscape {
         // Static (0): No params used
         // Harmonic (1): [0]=omega_x, [1]=omega_y, [2]=center_x, [3]=center_y, [4]=center_z, [5]=mass
         // Future types can define their own parameter layouts
+
+        // Sensor noise configuration
+        float lidar_noise_factor;         // Proportional noise (0.001-0.01 typical, 0.0=disabled)
+        float lidar_base_sigma;           // Base noise floor in world units (0.02 typical, 0.0=disabled)
     };
 
     // [GAME_SPECIFIC]

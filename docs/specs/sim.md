@@ -286,6 +286,16 @@ struct MotionParams {
   - **No hit**: Returns 0.0 when ray doesn't hit anything
   - **GPU parallelism**: 128 threads (4 warps) trace rays simultaneously
   - **Visualization**: Optional display of every 8th ray (16 total) when enabled
+  - **Noise Model** (optional):
+    - **Proportional Gaussian noise**: `noisy_range = true_range * (1.0 + gaussian_sample * noise_factor)`
+    - **gaussian_sample**: Standard normal distribution N(0, 1) using deterministic PRNG
+    - **noise_factor**: Configurable parameter (typical: 0.001 to 0.01 for 0.1% to 1% noise)
+    - **Alternative model**: `noisy_range = true_range + gaussian(0, sigma_base + sigma_proportional * true_range)`
+      - **sigma_base**: Base noise floor (e.g., 0.02 for 2cm constant noise)
+      - **sigma_proportional**: Range-dependent noise (e.g., 0.001 for 0.1% proportional noise)
+    - **Determinism**: Uses simulation PRNG with ray-specific seeding for reproducibility
+    - **PRNG key pattern**: `rand::split_i(step_key, 5000u + ray_id, agent_id)` for per-ray noise
+    - **Normalization**: Noise applied before division by maxRange
 
 #### customMotionSystem
 - **Purpose**: Applies custom equations of motion to target entities

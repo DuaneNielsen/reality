@@ -221,6 +221,21 @@ constexpr float bitsToFloat01(uint32_t rand_bits)
 #endif
 }
 
+constexpr float sampleGaussian(RandKey k)
+{
+    // Box-Muller transform: generate N(0,1) from uniform samples
+    // Split key to get two independent uniform samples
+    RandKey k1 = split_i(k, 0);
+    RandKey k2 = split_i(k, 1);
+
+    float u1 = sampleUniform(k1);
+    float u2 = sampleUniform(k2);
+
+    // Box-Muller: z0 ~ N(0,1)
+    // Note: could also compute z1 = sqrt(-2*log(u1))*sin(2*pi*u2) for second sample
+    return sqrtf(-2.0f * logf(u1)) * cosf(2.0f * math::pi * u2);
+}
+
 }
 
 RNG::RNG()
@@ -259,6 +274,12 @@ bool RNG::sampleBool()
 {
     RandKey sample_k = advance();
     return rand::sampleBool(sample_k);
+}
+
+float RNG::sampleGaussian()
+{
+    RandKey sample_k = advance();
+    return rand::sampleGaussian(sample_k);
 }
 
 RandKey RNG::randKey()

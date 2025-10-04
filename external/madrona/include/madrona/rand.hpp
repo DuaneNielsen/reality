@@ -25,6 +25,7 @@ constexpr inline int32_t sampleI32Biased(RandKey k, int32_t a, int32_t b);
 constexpr inline float sampleUniform(RandKey k);
 constexpr inline bool sampleBool(RandKey k);
 constexpr inline math::Vector2 sample2xUniform(RandKey k);
+constexpr inline float sampleGaussian(RandKey k);  // Box-Muller N(0,1)
 constexpr inline float bitsToFloat01(uint32_t rand_bits);
 
 
@@ -40,6 +41,7 @@ public:
     inline int32_t sampleI32Biased(int32_t a, int32_t b);
     inline float sampleUniform();
     inline bool sampleBool();
+    inline float sampleGaussian();
 
     inline RandKey randKey();
 

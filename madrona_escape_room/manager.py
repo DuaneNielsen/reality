@@ -35,10 +35,10 @@ class SimManager:
     def __init__(
         self,
         exec_mode,
-        gpu_id,
         num_worlds,
         rand_seed,
         auto_reset,
+        gpu_id=0,
         enable_batch_renderer=False,
         compiled_levels=None,  # Pass CompiledLevel objects directly
         batch_render_view_width=64,  # Custom render view width

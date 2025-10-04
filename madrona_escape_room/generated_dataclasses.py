@@ -93,6 +93,8 @@ class CompiledLevel(NativeEndianCDataMixIn):
     target_z: List[float] = field(metadata=meta(ctypes.c_float * 8), default_factory=_make_float_array_8)
     target_motion_type: List[int] = field(metadata=meta(ctypes.c_int32 * 8), default_factory=_make_int_array_8)
     target_params: List[float] = field(metadata=meta(ctypes.c_float * 64), default_factory=_make_float_array_64)
+    lidar_noise_factor: float = field(metadata=meta(ctypes.c_float), default=0)
+    lidar_base_sigma: float = field(metadata=meta(ctypes.c_float), default=0)
 
 @dataclass
 class ReplayMetadata(NativeEndianCDataMixIn):
@@ -125,8 +127,8 @@ class ManagerConfig(NativeEndianCDataMixIn):
 
 
 # Size validation
-assert CompiledLevel.size() == 85592, \
-    f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85592"
+assert CompiledLevel.size() == 85600, \
+    f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85600"
 
 assert ReplayMetadata.size() == 192, \
     f"ReplayMetadata size mismatch: {ReplayMetadata.size()} != 192"

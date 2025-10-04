@@ -595,6 +595,12 @@ inline void lidarSystem(Engine &ctx,
     Quat rot = ctx.get<Rotation>(e);
     auto &bvh = ctx.singleton<broadphase::BVH>();
 
+    // Get noise configuration from level
+    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
+    float noise_factor = level.lidar_noise_factor;
+    float base_sigma = level.lidar_base_sigma;
+    bool has_noise = (noise_factor > 0.0f || base_sigma > 0.0f);
+
     Vector3 agent_fwd = rot.rotateVec(math::fwd);
     Vector3 right = rot.rotateVec(math::right);
     
@@ -626,8 +632,22 @@ inline void lidarSystem(Engine &ctx,
                 .depth = 0.f,
             };
         } else {
+            float depth = hit_t;
+
+            // Apply noise if configured
+            if (has_noise) {
+                float gaussian_sample = ctx.data().rng.sampleGaussian();
+
+                // Combined model: base + proportional noise
+                float sigma_total = base_sigma + noise_factor * depth;
+                depth = depth + gaussian_sample * sigma_total;
+
+                // Clamp to valid range
+                depth = fmaxf(0.0f, fminf(depth, consts::lidarMaxRange));
+            }
+
             lidar.samples[idx] = {
-                .depth = distObs(hit_t),
+                .depth = distObs(depth),
             };
         }
         

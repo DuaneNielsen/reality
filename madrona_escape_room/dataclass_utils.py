@@ -30,4 +30,8 @@ def create_compiled_level() -> CompiledLevel:
     # This matches what C++ does in default_level.cpp
     level.tile_response_type = [2] * 1024
 
+    # Sensor noise defaults to disabled (0.0)
+    level.lidar_noise_factor = 0.0
+    level.lidar_base_sigma = 0.0
+
     return level
