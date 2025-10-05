@@ -47,6 +47,6 @@ parameters:
   seed:
     values: [0, 1, 2 ]
   
-  # Level files for grid search across all 20 generated levels
+  # Level files for grid search across all 159 generated levels with sensor noise
   level-file:
-    value: "levels/full_progression_159_levels_spawn_random.lvl"
+    value: "levels/full_progression_159_levels_spawn_random_sensor_noise.lvl"
