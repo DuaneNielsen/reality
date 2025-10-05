@@ -96,6 +96,10 @@ struct CompiledLevel {
     // Parameter interpretation based on motion_type:
     // Static (0): No params used
     // Harmonic (1): [0]=omega_x, [1]=omega_y, [2]=center_x, [3]=center_y, [4]=center_z, [5]=mass
+
+    // Sensor noise configuration
+    float lidar_noise_factor;               // Proportional noise factor (0.001-0.01 typical, 0.0=disabled)
+    float lidar_base_sigma;                 // Base noise floor in world units (0.02 typical, 0.0=disabled)
 };
 ```
 
@@ -137,6 +141,8 @@ struct CompiledLevel {
             }
         }
     ],
+    "lidar_noise_factor": 0.01,
+    "lidar_base_sigma": 0.02,
     "name": "level_name"
 }
 ```
@@ -422,3 +428,48 @@ The level compiler integrates with the build system through:
 - **Boundary Wall Offset:** Configurable offset (default 0.0) to position walls beyond level boundaries for proper collision detection
 - **Spawn Behavior:** Configurable random vs sequential spawn selection
 - **Randomization:** Per-tile position and rotation randomization for procedural variation
+- **Lidar Noise:** Configurable Gaussian noise for sensor simulation (see Sensor Noise Configuration section)
+
+### Sensor Noise Configuration
+
+#### Overview
+The level compiler supports configurable Gaussian noise for lidar sensors to simulate real-world sensor imperfections. Noise can be configured per-level using two complementary parameters that control proportional and base noise components.
+
+#### Noise Model
+The lidar noise model applies Gaussian noise using the following equation:
+```
+noisy_range = true_range + gaussian(0, sigma_total)
+sigma_total = lidar_base_sigma + lidar_noise_factor * true_range
+```
+
+Where:
+- **gaussian(0, sigma)**: Standard normal distribution N(0, sigma) using deterministic PRNG
+- **sigma_total**: Total noise standard deviation combining base and proportional components
+- **true_range**: Raw lidar depth measurement before noise application
+
+#### Configuration Fields
+
+**lidar_noise_factor** (float, optional, default: 0.0)
+- Proportional noise factor that scales with measured distance
+- Creates range-dependent noise (distant objects have more uncertainty)
+- Typical values: 0.001 to 0.01 (0.1% to 1% proportional noise)
+- Value of 0.0 disables proportional noise component
+- Must be non-negative
+
+**lidar_base_sigma** (float, optional, default: 0.0)
+- Base noise floor in world units (constant noise regardless of distance)
+- Models sensor accuracy limits and quantization effects
+- Typical values: 0.01 to 0.05 (1cm to 5cm constant noise)
+- Value of 0.0 disables base noise component
+- Must be non-negative
+
+#### Determinism
+- Noise generation uses the simulation's deterministic PRNG (Threefry)
+- Same random seed produces identical noisy sensor readings across runs
+- Each lidar ray uses a unique PRNG key derived from step count, ray ID, and agent ID
+- Enables reproducible testing and debugging of noise-aware policies
+
+#### Related Specifications
+- **Simulation Spec**: `docs/specs/sim.md` - lidarSystem section documents noise implementation details
+- **Testing**: `tests/python/test_lidar_noise.py` - Comprehensive noise model validation
+- **Implementation**: `src/sim.cpp` - lidarSystem applies noise using Box-Muller transform

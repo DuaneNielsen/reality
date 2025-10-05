@@ -2,6 +2,9 @@
 Test lidar sensor noise implementation
 
 Tests Gaussian noise addition to lidar readings using deterministic PRNG.
+
+Specification: docs/specs/sim.md - lidarSystem - Noise Model
+Validates proportional and base Gaussian noise implementation per spec.
 """
 
 import numpy as np
@@ -27,6 +30,7 @@ NOISE_TEST_LEVEL = """##########################################################
 ################################################################"""
 
 
+@pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
 @pytest.mark.ascii_level(NOISE_TEST_LEVEL)
 def test_no_noise_is_deterministic(cpu_manager):
     """Default (0.0 noise factors) produces exact same readings across episodes"""
@@ -47,6 +51,7 @@ def test_no_noise_is_deterministic(cpu_manager):
     np.testing.assert_array_equal(lidar_ep1, lidar_ep2)
 
 
+@pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
 def test_with_noise_varies_between_episodes():
     """Non-zero noise creates variation between episodes"""
     from madrona_escape_room import SimManager
@@ -78,6 +83,7 @@ def test_with_noise_varies_between_episodes():
     assert not np.allclose(lidar_ep1, lidar_ep2, rtol=1e-6)
 
 
+@pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
 def test_noise_deterministic_with_same_seed():
     """Same seed produces identical noisy readings"""
     from madrona_escape_room import SimManager
@@ -117,6 +123,7 @@ def test_noise_deterministic_with_same_seed():
     np.testing.assert_array_equal(lidar1, lidar2)
 
 
+@pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
 def test_noise_stays_in_valid_range():
     """Noisy readings are clamped to [0, 1]"""
     from madrona_escape_room import SimManager
@@ -146,6 +153,7 @@ def test_noise_stays_in_valid_range():
         assert np.all(lidar <= 1.0), f"Found lidar reading > 1.0: {lidar.max()}"
 
 
+@pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
 def test_proportional_noise_scales_with_distance():
     """Noise factor creates larger variations for distant objects"""
     from madrona_escape_room import SimManager
@@ -176,6 +184,7 @@ def test_proportional_noise_scales_with_distance():
     assert not np.allclose(lidar[0], lidar[1], rtol=1e-6)
 
 
+@pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
 def test_base_sigma_creates_noise_floor():
     """Base sigma adds constant noise regardless of distance"""
     from madrona_escape_room import SimManager
