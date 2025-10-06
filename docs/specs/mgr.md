@@ -82,6 +82,13 @@ struct Config {
 **Key Points:**
 - Must provide compiled levels for all worlds (no defaults allowed)
 - External rendering allows integration with existing render pipelines
+- **SensorConfig separates sensor parameters from level geometry**:
+  - Lidar beam count (1-256, default: 128)
+  - Lidar FOV in degrees (1.0-360.0, default: 120.0)
+  - Noise parameters (lidar_noise_factor, lidar_base_sigma)
+  - Configured once at Manager creation, applies to all worlds
+  - Enables sensor parameter sweeps without regenerating level files
+  - See SensorConfig section in sim.md for full specification
 
 ### Supporting Structures
 

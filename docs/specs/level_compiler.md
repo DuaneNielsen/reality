@@ -427,9 +427,22 @@ The level compiler integrates with the build system through:
 
 ### Sensor Configuration
 
-Sensor configuration (lidar beam count, FOV, noise parameters, etc.) is now configured separately via the `LidarConfig` parameter when creating a SimManager, not embedded in level files. This allows the same level geometry to be used with different sensor configurations for experimentation and curriculum learning.
+## Sensor Configuration (Separate from Levels)
+
+**Important**: Sensor configuration (lidar beam count, FOV, noise parameters) is **not** part of the CompiledLevel structure. This separation provides key advantages:
+
+- **Training Flexibility**: Same level geometry can be used with different sensor configurations
+- **Parameter Sweeps**: Enables curriculum learning and sensor parameter experiments without regenerating levels
+- **Clean Separation**: Level geometry is independent from observation modalities
+
+**Configuration Method:**
+- Sensor parameters are configured via `LidarConfig` when creating a SimManager
+- Configuration is passed to Manager via `ManagerConfig.sensorConfig`
+- SensorConfig is stored as a singleton component in the ECS
+- Systems access config via `ctx.singleton<SensorConfig>()`
 
 **Related Documentation:**
 - **Sensor Configuration**: `madrona_escape_room/sensor_config.py` - LidarConfig class for sensor parameters
-- **Simulation Spec**: `docs/specs/sim.md` - lidarSystem section documents sensor implementation
+- **Simulation Spec**: `docs/specs/sim.md` - SensorConfig singleton and lidarSystem documentation
+- **Manager Spec**: `docs/specs/mgr.md` - ManagerConfig.sensorConfig field documentation
 - **Testing**: `tests/python/test_configurable_lidar.py` and `test_lidar_noise.py` - Sensor configuration tests

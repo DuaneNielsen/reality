@@ -107,6 +107,31 @@ struct TargetEntity : madrona::Archetype<
 > {};
 ```
 
+#### SensorConfig Singleton
+```cpp
+// Sensor configuration structure - separate from level geometry
+struct SensorConfig {
+    // Lidar sensor configuration
+    int32_t lidar_num_samples;     // Number of lidar beams (1-256, default: 128)
+    float lidar_fov_degrees;       // Lidar field of view in degrees (1.0-360.0, default: 120.0)
+
+    // Sensor noise configuration
+    float lidar_noise_factor;      // Proportional noise (0.001-0.01 typical, 0.0=disabled)
+    float lidar_base_sigma;        // Base noise floor in world units (0.02 typical, 0.0=disabled)
+
+    // Future expansion: RGB camera, depth sensor, etc.
+};
+```
+
+**Purpose:** Configures sensor parameters separately from level geometry, allowing the same level to be used with different sensor configurations.
+
+**Key Characteristics:**
+- **Singleton**: One SensorConfig per world, accessed via `ctx.singleton<SensorConfig>()`
+- **Configured at Manager Creation**: Passed via `ManagerConfig.sensorConfig` during initialization
+- **Independent from Levels**: Sensor settings are not embedded in CompiledLevel files
+- **Training Flexibility**: Enables sensor parameter sweeps without regenerating levels
+- **Python Integration**: Auto-generated Python bindings via pahole codegen system
+
 #### Determinism Invariants
 - **Single PRNG Chain**: All randomness derives from the initial seed through a single deterministic PRNG
 - **No External Entropy**: No time-based seeds, system randomness, or other non-deterministic inputs
@@ -273,6 +298,7 @@ struct MotionParams {
   - **Fallback behavior**: Uses agent rotation if no target found
   - **Angle calculation**: `atan2f(target.y - agent.y, target.x - agent.x)`
   - **Bucket count**: Matches lidar sample count from `SensorConfig.lidar_num_samples` (1-256)
+    - Configured via SensorConfig singleton, accessed with `ctx.singleton<SensorConfig>().lidar_num_samples`
   - **Buffer size**: Fixed 256-bucket array (`consts::limits::maxLidarSamples`)
   - **Active buckets**: Only first `num_buckets` are used, rest zero-filled
   - **Encoding formula**: bucket = (num_buckets/2 - int(theta_radians / 2π * num_buckets)) % num_buckets
@@ -280,15 +306,18 @@ struct MotionParams {
 
 #### lidarSystem
 - **Purpose**: Casts configurable number of rays for depth perception observations
-- **Components Used**: Reads: `Position`, `Rotation`, `SensorConfig`, BVH; Writes: `Lidar`
+- **Components Used**: Reads: `Position`, `Rotation`, `SensorConfig` singleton, BVH; Writes: `Lidar`
 - **Task Graph Dependencies**: After post-reset BVH, parallel with compass
 - **Specifications**:
-  - **Configurable Parameters** (via `SensorConfig` passed to manager creation):
+  - **Configuration Source**: All sensor parameters read from SensorConfig singleton via `ctx.singleton<SensorConfig>()`
+    - Configured at Manager creation via `ManagerConfig.sensorConfig`
+    - Separate from level geometry - same level can be used with different sensor configs
+    - Enables training sweeps over sensor parameters without regenerating levels
+  - **Configurable Parameters**:
     - **lidar_num_samples**: Ray count (1-256, default: 128)
     - **lidar_fov_degrees**: Field of view in degrees (1.0-360.0, default: 120.0)
     - **lidar_noise_factor**: Proportional noise factor (0.0 = no noise, typical: 0.001-0.01)
     - **lidar_base_sigma**: Base noise floor in world units (default: 0.0)
-  - **Configuration Source**: Sensor parameters are configured separately via `LidarConfig` parameter when creating SimManager, not embedded in level files. This allows the same level geometry to be used with different sensor configurations.
   - **Buffer size**: Fixed 256-sample array (`consts::limits::maxLidarSamples`)
   - **Active samples**: Only first `lidar_num_samples` are traced, rest zero-filled
   - **Ray distribution**: Evenly distributed across FOV arc
