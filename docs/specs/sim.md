@@ -266,13 +266,13 @@ struct MotionParams {
 
 #### compassSystem
 - **Purpose**: Computes one-hot encoding pointing toward target entity
-- **Components Used**: Reads: `Entity`, `Position`, `TargetTag`, `CompiledLevel`; Writes: `CompassObservation`
+- **Components Used**: Reads: `Entity`, `Position`, `TargetTag`, `SensorConfig`; Writes: `CompassObservation`
 - **Task Graph Dependencies**: After collectObservations, parallel with lidar
 - **Specifications**:
   - **Target tracking**: Points toward primary target (TargetTag.id == 0)
   - **Fallback behavior**: Uses agent rotation if no target found
   - **Angle calculation**: `atan2f(target.y - agent.y, target.x - agent.x)`
-  - **Bucket count**: Matches lidar sample count from `CompiledLevel.lidar_num_samples` (1-256)
+  - **Bucket count**: Matches lidar sample count from `SensorConfig.lidar_num_samples` (1-256)
   - **Buffer size**: Fixed 256-bucket array (`consts::limits::maxLidarSamples`)
   - **Active buckets**: Only first `num_buckets` are used, rest zero-filled
   - **Encoding formula**: bucket = (num_buckets/2 - int(theta_radians / 2π * num_buckets)) % num_buckets
@@ -280,12 +280,15 @@ struct MotionParams {
 
 #### lidarSystem
 - **Purpose**: Casts configurable number of rays for depth perception observations
-- **Components Used**: Reads: `Position`, `Rotation`, `CompiledLevel`, BVH; Writes: `Lidar`
+- **Components Used**: Reads: `Position`, `Rotation`, `SensorConfig`, BVH; Writes: `Lidar`
 - **Task Graph Dependencies**: After post-reset BVH, parallel with compass
 - **Specifications**:
-  - **Configurable Parameters** (per-level via JSON):
+  - **Configurable Parameters** (via `SensorConfig` passed to manager creation):
     - **lidar_num_samples**: Ray count (1-256, default: 128)
     - **lidar_fov_degrees**: Field of view in degrees (1.0-360.0, default: 120.0)
+    - **lidar_noise_factor**: Proportional noise factor (0.0 = no noise, typical: 0.001-0.01)
+    - **lidar_base_sigma**: Base noise floor in world units (default: 0.0)
+  - **Configuration Source**: Sensor parameters are configured separately via `LidarConfig` parameter when creating SimManager, not embedded in level files. This allows the same level geometry to be used with different sensor configurations.
   - **Buffer size**: Fixed 256-sample array (`consts::limits::maxLidarSamples`)
   - **Active samples**: Only first `lidar_num_samples` are traced, rest zero-filled
   - **Ray distribution**: Evenly distributed across FOV arc
@@ -297,9 +300,9 @@ struct MotionParams {
   - **Noise Model** (optional):
     - **Proportional Gaussian noise**: `noisy_range = true_range * (1.0 + gaussian_sample * noise_factor)`
     - **gaussian_sample**: Standard normal distribution N(0, 1) using deterministic PRNG
-    - **noise_factor**: Configurable parameter (typical: 0.001 to 0.01 for 0.1% to 1% noise)
+    - **noise_factor**: From SensorConfig (typical: 0.001 to 0.01 for 0.1% to 1% noise)
     - **Alternative model**: `noisy_range = true_range + gaussian(0, sigma_base + sigma_proportional * true_range)`
-      - **sigma_base**: Base noise floor (e.g., 0.02 for 2cm constant noise)
+      - **sigma_base**: Base noise floor from SensorConfig (e.g., 0.02 for 2cm constant noise)
       - **sigma_proportional**: Range-dependent noise (e.g., 0.001 for 0.1% proportional noise)
     - **Determinism**: Uses simulation PRNG with ray-specific seeding for reproducibility
     - **PRNG key pattern**: `rand::split_i(step_key, 5000u + ray_id, agent_id)` for per-ray noise

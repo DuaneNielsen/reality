@@ -73,6 +73,9 @@ struct Config {
     uint32_t randSeed;                      // Random seed
     bool autoReset;                         // Auto-reset episodes
     float customVerticalFov;                // Custom camera FOV
+
+    // Sensor configuration
+    SensorConfig sensorConfig;              // Lidar beam count, FOV, noise parameters
 };
 ```
 

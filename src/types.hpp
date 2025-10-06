@@ -315,13 +315,21 @@ namespace madEscape {
         // Harmonic (1): [0]=omega_x, [1]=omega_y, [2]=center_x, [3]=center_y, [4]=center_z, [5]=mass
         // Future types can define their own parameter layouts
 
-        // Sensor noise configuration
-        float lidar_noise_factor = 0.0f;         // Proportional noise (0.001-0.01 typical, 0.0=disabled)
-        float lidar_base_sigma = 0.0f;           // Base noise floor in world units (0.02 typical, 0.0=disabled)
+    };
 
+    // [GAME_SPECIFIC] Sensor configuration structure
+    // Defines parameters for all agent sensors (lidar, compass, etc.)
+    // This struct is exported to Python via pahole codegen
+    struct SensorConfig {
         // Lidar sensor configuration
-        int32_t lidar_num_samples = 128;         // Number of lidar samples (1-256, default: 128)
-        float lidar_fov_degrees = 120.0f;        // Lidar field of view in degrees (1.0-360.0, default: 120.0)
+        int32_t lidar_num_samples = 128;           // Number of lidar beams (1-256, default: 128)
+        float lidar_fov_degrees = 120.0f;          // Lidar field of view in degrees (1.0-360.0, default: 120.0)
+
+        // Sensor noise configuration
+        float lidar_noise_factor = 0.0f;           // Proportional noise (0.001-0.01 typical, 0.0=disabled)
+        float lidar_base_sigma = 0.0f;             // Base noise floor in world units (0.02 typical, 0.0=disabled)
+
+        // Future expansion: RGB camera, depth sensor, etc.
     };
 
     // [GAME_SPECIFIC]

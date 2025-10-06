@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Optional
 
 from .generated_constants import RenderMode
+from .generated_dataclasses import SensorConfig as CSensorConfig
 
 
 class SensorType(Enum):
@@ -303,3 +304,122 @@ RGB_DEFAULT = SensorConfig.rgb_default()
 DEPTH_DEFAULT = SensorConfig.depth_default()
 LIDAR_128 = SensorConfig.lidar_horizontal_128()
 LIDAR_64 = SensorConfig.lidar_horizontal_64()
+
+
+@dataclass
+class LidarConfig:
+    """
+    Lidar sensor configuration parameters.
+
+    This configures the lidar beam count, field of view, and noise characteristics.
+    Separate from visual sensor configuration (RGB/depth cameras).
+
+    Attributes:
+        lidar_num_samples: Number of lidar beams (1-256, default: 128)
+        lidar_fov_degrees: Lidar field of view in degrees (1.0-360.0, default: 120.0)
+        lidar_noise_factor: Proportional noise (0.001-0.01 typical, 0.0=disabled)
+        lidar_base_sigma: Base noise floor in world units (0.02 typical, 0.0=disabled)
+    """
+
+    lidar_num_samples: int = 128
+    lidar_fov_degrees: float = 120.0
+    lidar_noise_factor: float = 0.0
+    lidar_base_sigma: float = 0.0
+
+    def __post_init__(self):
+        """Validate configuration on initialization."""
+        self.validate()
+
+    def to_c_struct(self) -> CSensorConfig:
+        """
+        Convert to C SensorConfig struct for passing to SimManager.
+
+        Returns:
+            CSensorConfig instance with fields populated from this config
+        """
+        c_config = CSensorConfig()
+        c_config.lidar_num_samples = self.lidar_num_samples
+        c_config.lidar_fov_degrees = self.lidar_fov_degrees
+        c_config.lidar_noise_factor = self.lidar_noise_factor
+        c_config.lidar_base_sigma = self.lidar_base_sigma
+        return c_config
+
+    def validate(self) -> None:
+        """
+        Validate the lidar configuration.
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        if self.lidar_num_samples < 1 or self.lidar_num_samples > 256:
+            raise ValueError(
+                f"Invalid lidar_num_samples: {self.lidar_num_samples} " f"(must be 1-256)"
+            )
+
+        if self.lidar_fov_degrees <= 0.0 or self.lidar_fov_degrees > 360.0:
+            raise ValueError(
+                f"Invalid lidar_fov_degrees: {self.lidar_fov_degrees} " f"(must be 1.0-360.0)"
+            )
+
+        if self.lidar_noise_factor < 0.0:
+            raise ValueError(
+                f"Invalid lidar_noise_factor: {self.lidar_noise_factor} " f"(must be >= 0.0)"
+            )
+
+        if self.lidar_base_sigma < 0.0:
+            raise ValueError(
+                f"Invalid lidar_base_sigma: {self.lidar_base_sigma} " f"(must be >= 0.0)"
+            )
+
+    @classmethod
+    def default(cls) -> "LidarConfig":
+        """Default lidar configuration: 128 beams, 120° FOV, no noise."""
+        return cls(
+            lidar_num_samples=128,
+            lidar_fov_degrees=120.0,
+            lidar_noise_factor=0.0,
+            lidar_base_sigma=0.0,
+        )
+
+    @classmethod
+    def narrow_fov(cls) -> "LidarConfig":
+        """Narrow FOV lidar: 128 beams, 90° FOV, no noise."""
+        return cls(
+            lidar_num_samples=128,
+            lidar_fov_degrees=90.0,
+            lidar_noise_factor=0.0,
+            lidar_base_sigma=0.0,
+        )
+
+    @classmethod
+    def wide_fov(cls) -> "LidarConfig":
+        """Wide FOV lidar: 256 beams, 360° FOV, no noise."""
+        return cls(
+            lidar_num_samples=256,
+            lidar_fov_degrees=360.0,
+            lidar_noise_factor=0.0,
+            lidar_base_sigma=0.0,
+        )
+
+    @classmethod
+    def with_noise(cls, noise_factor: float = 0.005, base_sigma: float = 0.02) -> "LidarConfig":
+        """
+        Default lidar with realistic noise.
+
+        Args:
+            noise_factor: Proportional noise (default: 0.005 = 0.5%)
+            base_sigma: Base noise floor in world units (default: 0.02)
+        """
+        return cls(
+            lidar_num_samples=128,
+            lidar_fov_degrees=120.0,
+            lidar_noise_factor=noise_factor,
+            lidar_base_sigma=base_sigma,
+        )
+
+
+# Additional convenience exports
+LIDAR_CONFIG_DEFAULT = LidarConfig.default()
+LIDAR_CONFIG_WIDE = LidarConfig.wide_fov()
+LIDAR_CONFIG_NARROW = LidarConfig.narrow_fov()
+LIDAR_CONFIG_NOISY = LidarConfig.with_noise()

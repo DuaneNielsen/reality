@@ -2,7 +2,7 @@
 Tests for configurable lidar beam count and FOV.
 
 This test suite verifies that lidar sensor configuration can be customized
-per-level through the JSON level compiler, including:
+through the lidar_config parameter in SimManager, including:
 - Variable beam count (num_samples)
 - Variable field of view (fov_degrees)
 - Backward compatibility with default values
@@ -11,7 +11,7 @@ per-level through the JSON level compiler, including:
 import numpy as np
 import pytest
 
-from madrona_escape_room.level_compiler import compile_level
+from madrona_escape_room.sensor_config import LidarConfig
 
 
 @pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
@@ -44,20 +44,10 @@ def test_default_lidar_config(cpu_manager):
 
 
 @pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
-@pytest.mark.json_level(
-    {
-        "ascii": ["########", "#S....T#", "########"],
-        "tileset": {
-            "#": {"asset": "wall"},
-            "S": {"asset": "spawn"},
-            "T": {"asset": "target"},
-            ".": {"asset": "empty"},
-        },
-        "lidar_num_samples": 64,
-        "lidar_fov_degrees": 90.0,
-        "name": "test_64_samples_90_fov",
-    }
-)
+@pytest.mark.ascii_level("""########
+#S.....#
+########""")
+@pytest.mark.lidar_config(lidar_num_samples=64, lidar_fov_degrees=90.0)
 def test_custom_64_samples_90_fov(cpu_manager):
     """Test 64 lidar samples with 90° FOV."""
     mgr = cpu_manager
@@ -93,20 +83,10 @@ def test_custom_64_samples_90_fov(cpu_manager):
 
 
 @pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
-@pytest.mark.json_level(
-    {
-        "ascii": ["##########", "#S......T#", "##########"],
-        "tileset": {
-            "#": {"asset": "wall"},
-            "S": {"asset": "spawn"},
-            "T": {"asset": "target"},
-            ".": {"asset": "empty"},
-        },
-        "lidar_num_samples": 180,
-        "lidar_fov_degrees": 180.0,
-        "name": "test_180_samples_180_fov",
-    }
-)
+@pytest.mark.ascii_level("""##########
+#S.......#
+##########""")
+@pytest.mark.lidar_config(lidar_num_samples=180, lidar_fov_degrees=180.0)
 def test_custom_180_samples_180_fov(cpu_manager):
     """Test 180 lidar samples with 180° FOV."""
     mgr = cpu_manager
@@ -135,15 +115,10 @@ def test_custom_180_samples_180_fov(cpu_manager):
 
 
 @pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
-@pytest.mark.json_level(
-    {
-        "ascii": ["####", "#S.#", "####"],
-        "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
-        "lidar_num_samples": 1,
-        "lidar_fov_degrees": 1.0,
-        "name": "test_min_config",
-    }
-)
+@pytest.mark.ascii_level("""####
+#S.#
+####""")
+@pytest.mark.lidar_config(lidar_num_samples=1, lidar_fov_degrees=1.0)
 def test_min_lidar_config(cpu_manager):
     """Test minimum valid configuration: 1 sample, 1° FOV."""
     mgr = cpu_manager
@@ -161,20 +136,10 @@ def test_min_lidar_config(cpu_manager):
 
 
 @pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
-@pytest.mark.json_level(
-    {
-        "ascii": ["##########", "#S......T#", "##########"],
-        "tileset": {
-            "#": {"asset": "wall"},
-            "S": {"asset": "spawn"},
-            "T": {"asset": "target"},
-            ".": {"asset": "empty"},
-        },
-        "lidar_num_samples": 256,
-        "lidar_fov_degrees": 360.0,
-        "name": "test_max_config",
-    }
-)
+@pytest.mark.ascii_level("""##########
+#S.......#
+##########""")
+@pytest.mark.lidar_config(lidar_num_samples=256, lidar_fov_degrees=360.0)
 def test_max_lidar_config(cpu_manager):
     """Test maximum configuration: 256 samples, 360° FOV."""
     mgr = cpu_manager
@@ -198,33 +163,11 @@ def test_invalid_lidar_num_samples():
     """Test that invalid num_samples values are rejected."""
     # Test 0 samples (too low)
     with pytest.raises(ValueError, match="lidar_num_samples.*1-256"):
-        compile_level(
-            {
-                "ascii": ["###", "#S#", "###"],
-                "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
-                "lidar_num_samples": 0,
-            }
-        )
+        LidarConfig(lidar_num_samples=0)
 
     # Test 257 samples (too high)
     with pytest.raises(ValueError, match="lidar_num_samples.*1-256"):
-        compile_level(
-            {
-                "ascii": ["###", "#S#", "###"],
-                "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
-                "lidar_num_samples": 257,
-            }
-        )
-
-    # Test non-integer
-    with pytest.raises(ValueError, match="lidar_num_samples.*integer"):
-        compile_level(
-            {
-                "ascii": ["###", "#S#", "###"],
-                "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
-                "lidar_num_samples": 128.5,
-            }
-        )
+        LidarConfig(lidar_num_samples=257)
 
 
 @pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
@@ -232,88 +175,19 @@ def test_invalid_lidar_fov_degrees():
     """Test that invalid fov_degrees values are rejected."""
     # Test 0° (too low)
     with pytest.raises(ValueError, match="lidar_fov_degrees.*1.0-360.0"):
-        compile_level(
-            {
-                "ascii": ["###", "#S#", "###"],
-                "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
-                "lidar_fov_degrees": 0.0,
-            }
-        )
+        LidarConfig(lidar_fov_degrees=0.0)
 
     # Test 361° (too high)
     with pytest.raises(ValueError, match="lidar_fov_degrees.*1.0-360.0"):
-        compile_level(
-            {
-                "ascii": ["###", "#S#", "###"],
-                "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}},
-                "lidar_fov_degrees": 361.0,
-            }
-        )
+        LidarConfig(lidar_fov_degrees=361.0)
 
 
 @pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
-def test_multi_level_shared_config():
-    """Test that multi-level format shares lidar config across levels."""
-    level_json = {
-        "levels": [{"ascii": ["####", "#S.#", "####"]}, {"ascii": ["######", "#S...#", "######"]}],
-        "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
-        "lidar_num_samples": 96,
-        "lidar_fov_degrees": 135.0,
-    }
+def test_lidar_config_validation():
+    """Test that LidarConfig validates parameters correctly."""
+    # Valid config should pass
+    _ = LidarConfig(lidar_num_samples=128, lidar_fov_degrees=120.0)
+    # No exception should be raised
 
-    compiled_levels = compile_level(level_json)
-
-    # Both levels should have the same config
-    assert len(compiled_levels) == 2
-    assert compiled_levels[0].lidar_num_samples == 96
-    assert compiled_levels[0].lidar_fov_degrees == 135.0
-    assert compiled_levels[1].lidar_num_samples == 96
-    assert compiled_levels[1].lidar_fov_degrees == 135.0
-
-
-@pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
-def test_multi_level_per_level_override():
-    """Test that per-level lidar config overrides shared config."""
-    level_json = {
-        "levels": [
-            {"ascii": ["####", "#S.#", "####"], "lidar_num_samples": 64, "lidar_fov_degrees": 90.0},
-            {
-                "ascii": ["######", "#S...#", "######"],
-                # Uses shared config
-            },
-        ],
-        "tileset": {"#": {"asset": "wall"}, "S": {"asset": "spawn"}, ".": {"asset": "empty"}},
-        "lidar_num_samples": 128,
-        "lidar_fov_degrees": 120.0,
-    }
-
-    compiled_levels = compile_level(level_json)
-
-    # First level uses override
-    assert compiled_levels[0].lidar_num_samples == 64
-    assert compiled_levels[0].lidar_fov_degrees == 90.0
-
-    # Second level uses shared config
-    assert compiled_levels[1].lidar_num_samples == 128
-    assert compiled_levels[1].lidar_fov_degrees == 120.0
-
-
-@pytest.mark.spec("docs/specs/sim.md", "lidarSystem")
-def test_backward_compatibility_no_config():
-    """Test that levels without lidar config use default values."""
-    level_json = {
-        "ascii": ["########", "#S....T#", "########"],
-        "tileset": {
-            "#": {"asset": "wall"},
-            "S": {"asset": "spawn"},
-            "T": {"asset": "target"},
-            ".": {"asset": "empty"},
-        },
-        # No lidar_num_samples or lidar_fov_degrees specified
-    }
-
-    compiled_levels = compile_level(level_json)
-
-    # Should default to 128 samples, 120° FOV
-    assert compiled_levels[0].lidar_num_samples == 128
-    assert compiled_levels[0].lidar_fov_degrees == 120.0
+    # Note: Validation happens automatically in __post_init__, so invalid configs
+    # will raise during construction

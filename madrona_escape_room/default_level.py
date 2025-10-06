@@ -42,12 +42,6 @@ def create_base_level_template():
     for i in range(64):  # MAX_TARGETS * 8 = 64 total params
         level.target_params[i] = 0.0
 
-    # Set lidar configuration (matches C++ defaults in types.hpp)
-    level.lidar_num_samples = 128
-    level.lidar_fov_degrees = 120.0
-    level.lidar_noise_factor = 0.0
-    level.lidar_base_sigma = 0.0
-
     return level
 
 

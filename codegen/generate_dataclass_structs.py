@@ -59,9 +59,12 @@ from typing import Dict, List, Optional, Tuple
 # These represent the core data structures used by the Madrona Escape Room simulation
 DEFAULT_STRUCTS_TO_EXTRACT = [
     # API Boundary Structs - These cross the Python-C boundary directly
+    # IMPORTANT: Order matters! Structs must be listed AFTER their dependencies
     "CompiledLevel",  # Level data passed to C API functions
     "ReplayMetadata",  # Recording file format struct
-    "ManagerConfig",  # Configuration struct passed to C API
+    # Sensor config (lidar, compass, etc.) - MUST come before ManagerConfig
+    "SensorConfig",
+    "ManagerConfig",  # Configuration struct passed to C API (depends on SensorConfig)
     # Note: ECS components (Action, SelfObservation, Done, Reward, Progress, StepsTaken)
     # are accessed through tensor exports via DLPack, not direct struct manipulation.
     # They should not be included here as they never cross the API boundary directly.
@@ -147,6 +150,12 @@ def map_c_to_python_type(c_type: str, size: int, is_array: bool = False) -> str:
             if is_array:
                 return "List[Tuple[float, float, float, float]]"
             return "Tuple[float, float, float, float]"
+        else:
+            # Other structs are represented as nested dataclass instances
+            # The struct name from pahole should match the Python class name
+            if is_array:
+                return f"List[{struct_name}]"
+            return struct_name
 
     type_map = {
         "int32_t": "int",
@@ -188,6 +197,10 @@ def map_c_to_ctypes(c_type: str, size: int) -> str:
         if struct_name == "Quat":
             # Quaternion is 4 floats (w, x, y, z)
             return "ctypes.c_float * 4"
+        else:
+            # Other structs - use byte array workaround for cdataclass compatibility
+            # cdataclass doesn't support nested struct types in metadata, so we use c_byte array
+            return f"ctypes.c_byte * {size}"
 
     type_map = {
         "int32_t": "ctypes.c_int32",
@@ -281,17 +294,30 @@ def generate_dataclass_struct(
                 )
         else:
             # Single values
-            default_val = (
-                "0"
-                if python_type in ["int", "float"]
-                else "False"
-                if python_type == "bool"
-                else "b''"
-            )
-            field_lines.append(
-                f"    {field.name}: {python_type} = field("
-                f"metadata=meta({ctype}), default={default_val})"
-            )
+            # Check if this is a nested struct (ctype doesn't start with "ctypes.")
+            if not ctype.startswith("ctypes."):
+                # Nested struct - use factory function that creates an instance
+                factory_name = f"_make_{python_type.lower()}"
+                factories_needed.add(
+                    (factory_name, 0, python_type)
+                )  # 0 size indicates struct factory
+                field_lines.append(
+                    f"    {field.name}: {python_type} = field("
+                    f"metadata=meta({ctype}), default_factory={factory_name})"
+                )
+            else:
+                # Simple type
+                default_val = (
+                    "0"
+                    if python_type in ["int", "float"]
+                    else "False"
+                    if python_type == "bool"
+                    else "b''"
+                )
+                field_lines.append(
+                    f"    {field.name}: {python_type} = field("
+                    f"metadata=meta({ctype}), default={default_val})"
+                )
 
         current_offset = field.offset + field.size
 
@@ -375,13 +401,23 @@ def generate_python_bindings(
         if size > 0:
             struct_sizes[struct_name] = size
 
-    # Generate factory functions for arrays (must come before dataclasses)
-    if all_factories:
-        output_lines.append("")
-        output_lines.append("# Factory functions for pre-sized arrays")
+    # Generate ALL factory functions (must come before dataclasses)
+    # We'll use forward declarations for struct factories
+    array_factories = [
+        (name, size, type_name) for name, size, type_name in all_factories if size != 0
+    ]
+    struct_factories = [
+        (name, size, type_name) for name, size, type_name in all_factories if size == 0
+    ]
 
+    if array_factories or struct_factories:
+        output_lines.append("")
+        output_lines.append("# Factory functions for pre-sized arrays and struct instances")
+
+    # First, output array factories
+    if array_factories:
         # Sort factories by name for consistent output
-        for factory_name, size, type_name in sorted(all_factories):
+        for factory_name, size, type_name in sorted(array_factories):
             if type_name == "quat":
                 # Quaternion array - each quaternion is (w, x, y, z) with identity = (1, 0, 0, 0)
                 output_lines.append(f"def {factory_name}():")
@@ -408,6 +444,14 @@ def generate_python_bindings(
                 output_lines.append(f'    """Factory for {size}-element {type_name} array"""')
                 output_lines.append(f"    return [{default_val}] * {size}")
                 output_lines.append("")
+
+    # Now output struct instance factories (using late binding to avoid forward reference issues)
+    if struct_factories:
+        for factory_name, size, type_name in sorted(struct_factories):
+            output_lines.append(f"def {factory_name}():")
+            output_lines.append(f'    """Factory for {type_name} instance (late-bound)"""')
+            output_lines.append(f"    return globals()['{type_name}']()")
+            output_lines.append("")
 
     # Now output the dataclass definitions
     output_lines.append("")

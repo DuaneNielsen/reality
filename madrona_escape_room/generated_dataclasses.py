@@ -11,7 +11,7 @@ from typing import List, Tuple
 from cdataclass import NativeEndianCDataMixIn, BigEndianCDataMixIn, meta
 
 
-# Factory functions for pre-sized arrays
+# Factory functions for pre-sized arrays and struct instances
 def _make_bool_array_1024():
     """Factory for 1024-element bool array"""
     return [False] * 1024
@@ -93,10 +93,6 @@ class CompiledLevel(NativeEndianCDataMixIn):
     target_z: List[float] = field(metadata=meta(ctypes.c_float * 8), default_factory=_make_float_array_8)
     target_motion_type: List[int] = field(metadata=meta(ctypes.c_int32 * 8), default_factory=_make_int_array_8)
     target_params: List[float] = field(metadata=meta(ctypes.c_float * 64), default_factory=_make_float_array_64)
-    lidar_noise_factor: float = field(metadata=meta(ctypes.c_float), default=0)
-    lidar_base_sigma: float = field(metadata=meta(ctypes.c_float), default=0)
-    lidar_num_samples: int = field(metadata=meta(ctypes.c_int32), default=0)
-    lidar_fov_degrees: float = field(metadata=meta(ctypes.c_float), default=0)
 
 @dataclass
 class ReplayMetadata(NativeEndianCDataMixIn):
@@ -114,6 +110,13 @@ class ReplayMetadata(NativeEndianCDataMixIn):
     reserved: List[int] = field(metadata=meta(ctypes.c_uint32 * 6), default_factory=_make_int_array_6)
 
 @dataclass
+class SensorConfig(NativeEndianCDataMixIn):
+    lidar_num_samples: int = field(metadata=meta(ctypes.c_int32), default=0)
+    lidar_fov_degrees: float = field(metadata=meta(ctypes.c_float), default=0)
+    lidar_noise_factor: float = field(metadata=meta(ctypes.c_float), default=0)
+    lidar_base_sigma: float = field(metadata=meta(ctypes.c_float), default=0)
+
+@dataclass
 class ManagerConfig(NativeEndianCDataMixIn):
     exec_mode: int = field(metadata=meta(ctypes.c_int), default=0)
     gpu_id: int = field(metadata=meta(ctypes.c_int), default=0)
@@ -129,11 +132,14 @@ class ManagerConfig(NativeEndianCDataMixIn):
 
 
 # Size validation
-assert CompiledLevel.size() == 85608, \
-    f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85608"
+assert CompiledLevel.size() == 85592, \
+    f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85592"
 
 assert ReplayMetadata.size() == 192, \
     f"ReplayMetadata size mismatch: {ReplayMetadata.size()} != 192"
+
+assert SensorConfig.size() == 16, \
+    f"SensorConfig size mismatch: {SensorConfig.size()} != 16"
 
 assert ManagerConfig.size() == 36, \
     f"ManagerConfig size mismatch: {ManagerConfig.size()} != 36"

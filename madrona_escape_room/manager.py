@@ -45,9 +45,11 @@ class SimManager:
         batch_render_view_height=64,  # Custom render view height
         custom_vertical_fov=0.0,  # Custom vertical FOV in degrees (0 = use default)
         render_mode=None,  # Render mode: RenderMode.RGBD (default) or RenderMode.Depth
+        lidar_config=None,  # LidarConfig instance for lidar sensor configuration
     ):
         # Import ExecMode and RenderMode for type checking
         from .generated_constants import ExecMode, RenderMode
+        from .generated_dataclasses import SensorConfig as CSensorConfig
 
         # Create config
         config = ManagerConfig()
@@ -66,6 +68,20 @@ class SimManager:
             config.render_mode = RenderMode.RGBD
         else:
             config.render_mode = render_mode.value if hasattr(render_mode, "value") else render_mode
+
+        # Prepare sensor config (lidar parameters) - passed separately to C API
+        if lidar_config is not None:
+            # Validate before converting
+            lidar_config.validate()
+            # Convert to C struct (will be converted to ctypes later)
+            sensor_config = lidar_config.to_c_struct()
+        else:
+            # Use default sensor config (128 beams, 120° FOV, no noise)
+            sensor_config = CSensorConfig()
+            sensor_config.lidar_num_samples = 128
+            sensor_config.lidar_fov_degrees = 120.0
+            sensor_config.lidar_noise_factor = 0.0
+            sensor_config.lidar_base_sigma = 0.0
 
         # If no level provided, use default level
         if compiled_levels is None:
@@ -87,10 +103,13 @@ class SimManager:
         # Use the wrapper function to handle level array properly
         from .ctypes_bindings import create_manager_with_levels
 
-        result, self._c_config, self._levels_array = create_manager_with_levels(
-            byref(self._handle),
-            config,
-            compiled_levels,  # Pass config directly, not byref
+        result, self._c_config, self._c_sensor_config, self._levels_array = (
+            create_manager_with_levels(
+                byref(self._handle),
+                config,
+                sensor_config,  # Pass sensor_config separately
+                compiled_levels,  # Pass levels
+            )
         )
         # Store the c_config and levels_array to keep them alive for the lifetime of the manager
         # This prevents segfaults from the C code accessing freed memory
@@ -414,6 +433,7 @@ def create_sim_manager(
     exec_mode,
     sensor_config=None,
     level_data=None,
+    lidar_config=None,
     gpu_id=0,
     num_worlds=4,
     rand_seed=42,
@@ -428,8 +448,9 @@ def create_sim_manager(
 
     Args:
         exec_mode: ExecMode.CPU or ExecMode.CUDA
-        sensor_config: Optional SensorConfig object for sensor settings
+        sensor_config: Optional SensorConfig object for sensor settings (visual sensors)
         level_data: Optional level data (ASCII string, JSON string, or CompiledLevel object)
+        lidar_config: Optional LidarConfig object for lidar sensor configuration
         gpu_id: GPU device ID (ignored for CPU mode)
         num_worlds: Number of simulation worlds
         rand_seed: Random seed for simulation
@@ -515,6 +536,7 @@ def create_sim_manager(
         batch_render_view_height=batch_render_height,
         custom_vertical_fov=custom_vertical_fov,
         render_mode=render_mode,
+        lidar_config=lidar_config,
     )
 
 

@@ -197,6 +197,7 @@ def setup_lidar_training_environment(
     rand_seed: int = 42,
     compiled_level=None,
     compiled_levels=None,
+    lidar_config=None,
 ) -> SimInterface:
     """
     Setup training environment with native lidar sensor system.
@@ -208,6 +209,7 @@ def setup_lidar_training_environment(
         rand_seed: Random seed for reproducible training
         compiled_level: Optional single CompiledLevel to use (deprecated, use compiled_levels)
         compiled_levels: Optional list of CompiledLevel to use for multi-level/curriculum training
+        lidar_config: Optional LidarConfig instance for sensor configuration
 
     Returns:
         SimInterface with lidar, compass, and progress observations
@@ -217,11 +219,14 @@ def setup_lidar_training_environment(
         from madrona_escape_room_learn.sim_interface_adapter import (
             setup_lidar_training_environment,
         )
+        from madrona_escape_room.sensor_config import LidarConfig
 
+        lidar_config = LidarConfig(lidar_num_samples=64, lidar_fov_degrees=180.0)
         sim = setup_lidar_training_environment(
             num_worlds=4096,
             exec_mode=madrona.ExecMode.CUDA,
-            gpu_id=0
+            gpu_id=0,
+            lidar_config=lidar_config
         )
     """
     # Handle both old and new parameter styles for backward compatibility
@@ -240,6 +245,7 @@ def setup_lidar_training_environment(
         auto_reset=True,
         enable_batch_renderer=False,  # No visual rendering
         compiled_levels=levels_to_use,
+        lidar_config=lidar_config,
     )
 
     return create_lidar_sim_interface(manager)

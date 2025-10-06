@@ -107,7 +107,7 @@ TEST_F(OptionParsingAndFileErrorTest, MissingLevelFile) {
     MER_CompiledLevel level = DefaultLevelProvider::GetDefaultLevelC();
     
     // Manager creation should succeed with valid level data
-    MER_Result result = mer_create_manager(&handle, &config, &level, 1);
+    MER_Result result = mer_create_manager(&handle, &config, nullptr, &level, 1);
     EXPECT_EQ(result, MER_SUCCESS);
     
     // Clean up

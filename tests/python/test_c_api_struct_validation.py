@@ -66,8 +66,8 @@ class TestCAPIStructValidation:
 
         # Create manager using the module's helper
         handle = ctypes.c_void_p()
-        result, c_config, levels_array = create_manager_with_levels(
-            ctypes.byref(handle), config, compiled
+        result, c_config, c_sensor_config, levels_array = create_manager_with_levels(
+            ctypes.byref(handle), config, None, compiled
         )
 
         if result != 0:

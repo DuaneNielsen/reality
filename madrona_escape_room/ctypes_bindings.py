@@ -129,18 +129,18 @@ class MER_Tensor(Structure):
 
 
 # Helper function to create manager with proper level array handling
-def create_manager_with_levels(handle_ptr, config, compiled_levels):
+def create_manager_with_levels(handle_ptr, config, sensor_config, compiled_levels):
     """
     Wrapper to properly handle compiled levels list when creating manager.
 
     Args:
         handle_ptr: Pointer to MER_ManagerHandle
         config: ManagerConfig dataclass (not a pointer)
+        sensor_config: SensorConfig dataclass (not a pointer) or None
         compiled_levels: None, single CompiledLevel (dataclass), or list of CompiledLevel
 
     Returns:
-        Tuple of (result_code, c_config, levels_array) where c_config and
-        levels_array must be kept alive
+        Tuple of (result_code, c_config, c_sensor_config, levels_array) where all must be kept alive
     """
     # Convert config dataclass to ctypes
     c_config = config.to_ctype()
@@ -148,9 +148,22 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
 
     config_ptr = pointer(c_config)
 
+    # Convert sensor_config dataclass to ctypes (if provided)
+    if sensor_config is not None:
+        c_sensor_config = sensor_config.to_ctype()
+        sensor_config_ptr = pointer(c_sensor_config)
+    else:
+        c_sensor_config = None
+        sensor_config_ptr = None
+
     if compiled_levels is None:
         # No levels - use default
-        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0), c_config, None
+        return (
+            lib.mer_create_manager(handle_ptr, config_ptr, sensor_config_ptr, None, 0),
+            c_config,
+            c_sensor_config,
+            None,
+        )
 
     # Convert single level to list
     if not isinstance(compiled_levels, list):
@@ -158,7 +171,12 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
 
     if not compiled_levels:
         # Empty list - use default
-        return lib.mer_create_manager(handle_ptr, config_ptr, None, 0), c_config, None
+        return (
+            lib.mer_create_manager(handle_ptr, config_ptr, sensor_config_ptr, None, 0),
+            c_config,
+            c_sensor_config,
+            None,
+        )
 
     # Convert dataclasses to ctypes
     ctypes_levels = [level.to_ctype() for level in compiled_levels]
@@ -186,10 +204,12 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
 
     levels_ptr = cast(levels_array, c_void_p)
 
-    result = lib.mer_create_manager(handle_ptr, config_ptr, levels_ptr, num_levels)
+    result = lib.mer_create_manager(
+        handle_ptr, config_ptr, sensor_config_ptr, levels_ptr, num_levels
+    )
 
-    # Return result, config, and array (all must be kept alive!)
-    return result, c_config, levels_array
+    # Return result, config, sensor_config, and array (all must be kept alive!)
+    return result, c_config, c_sensor_config, levels_array
 
 
 # Function signatures
@@ -197,6 +217,7 @@ def create_manager_with_levels(handle_ptr, config, compiled_levels):
 lib.mer_create_manager.argtypes = [
     POINTER(MER_ManagerHandle),
     c_void_p,  # Direct ManagerConfig pointer (now auto-generated)
+    c_void_p,  # Direct SensorConfig pointer (NULL for default)
     c_void_p,  # Direct CompiledLevel pointer from Python (NULL for default)
     c_uint32,  # Length of compiled_levels array
 ]

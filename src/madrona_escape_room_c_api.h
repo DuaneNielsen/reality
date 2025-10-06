@@ -51,6 +51,7 @@ typedef struct {
 MER_EXPORT MER_Result mer_create_manager(
     MER_ManagerHandle* out_handle,
     const void* config,            // Direct ManagerConfig pointer from Python
+    const void* sensor_config,     // Direct SensorConfig pointer from Python (NULL for default)
     const void* compiled_levels,   // Direct CompiledLevel pointer from Python (NULL for default)
     uint32_t num_compiled_levels   // Length of compiled_levels array
 );

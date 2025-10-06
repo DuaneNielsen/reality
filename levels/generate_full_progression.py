@@ -239,10 +239,6 @@ def generate_full_progression(
     output_dir="levels",
     random_seed=42,
     spawn_random=True,
-    lidar_noise_factor=0.0,
-    lidar_base_sigma=0.0,
-    lidar_num_samples=128,
-    lidar_fov_degrees=120.0,
 ):
     """
     Generate a single multi-level JSON file containing all three progressions.
@@ -251,33 +247,16 @@ def generate_full_progression(
         output_dir: Output directory for the multi-level file
         random_seed: Base random seed for reproducibility
         spawn_random: Whether to use random spawn positions
-        lidar_noise_factor: Proportional noise factor (0.001-0.01 typical, 0.0=disabled)
-        lidar_base_sigma: Base noise floor in world units (0.02 typical, 0.0=disabled)
-        lidar_num_samples: Number of lidar beams (1-256, default: 128)
-        lidar_fov_degrees: Lidar field of view in degrees (1.0-360.0, default: 120.0)
 
     Returns:
         Path to generated multi-level file
     """
     print(f"Generating full progression multi-level JSON file in {output_dir}/")
 
-    # Build filename with all configuration parameters
+    # Simple filename - configuration will be passed as arguments instead
     level_name = "full_progression_159_levels"
     if spawn_random:
         level_name += "_spawn_random"
-
-    # Add lidar configuration to filename if non-default
-    if lidar_num_samples != 128 or lidar_fov_degrees != 120.0:
-        level_name += f"_lidar_{lidar_num_samples}beam_{int(lidar_fov_degrees)}fov"
-
-    # Add noise configuration to filename if enabled
-    if lidar_noise_factor > 0.0 or lidar_base_sigma > 0.0:
-        noise_parts = []
-        if lidar_noise_factor > 0.0:
-            noise_parts.append(f"prop{lidar_noise_factor:.4f}".rstrip("0").rstrip("."))
-        if lidar_base_sigma > 0.0:
-            noise_parts.append(f"base{lidar_base_sigma:.4f}".rstrip("0").rstrip("."))
-        level_name += f"_noise_{'_'.join(noise_parts)}"
 
     levels_data = []
 
@@ -413,10 +392,6 @@ def generate_full_progression(
                 },
             }
         ],
-        "lidar_noise_factor": lidar_noise_factor,
-        "lidar_base_sigma": lidar_base_sigma,
-        "lidar_num_samples": lidar_num_samples,
-        "lidar_fov_degrees": lidar_fov_degrees,
         "name": level_name,
     }
 
@@ -448,30 +423,6 @@ def main():
         default=True,
         help="Use random spawn positions (default: True)",
     )
-    parser.add_argument(
-        "--lidar-noise-factor",
-        type=float,
-        default=0.0,
-        help="Proportional lidar noise factor (0.001-0.01 typical, 0.0=disabled, default: 0.0)",
-    )
-    parser.add_argument(
-        "--lidar-base-sigma",
-        type=float,
-        default=0.0,
-        help="Base lidar noise floor in world units (0.02 typical, 0.0=disabled, default: 0.0)",
-    )
-    parser.add_argument(
-        "--lidar-num-samples",
-        type=int,
-        default=128,
-        help="Number of lidar beams (1-256, default: 128)",
-    )
-    parser.add_argument(
-        "--lidar-fov-degrees",
-        type=float,
-        default=120.0,
-        help="Lidar field of view in degrees (1.0-360.0, default: 120.0)",
-    )
 
     args = parser.parse_args()
 
@@ -479,10 +430,6 @@ def main():
         args.output_dir,
         args.seed,
         args.spawn_random,
-        args.lidar_noise_factor,
-        args.lidar_base_sigma,
-        args.lidar_num_samples,
-        args.lidar_fov_degrees,
     )
 
 

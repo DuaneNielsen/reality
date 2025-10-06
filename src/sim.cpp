@@ -68,9 +68,12 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     
     // [GAME_SPECIFIC] Level management singleton
     registry.registerSingleton<LevelState>();
-    
+
     // [GAME_SPECIFIC] Phase 2: Test-driven level system singleton
     registry.registerSingleton<CompiledLevel>();
+
+    // [GAME_SPECIFIC] Sensor configuration singleton
+    registry.registerSingleton<SensorConfig>();
 
 
     // [GAME_SPECIFIC] Escape room archetypes
@@ -358,9 +361,9 @@ inline void compassSystem(Engine& ctx,
         theta_radians = atan2f(dy, dx);
     }
 
-    // Get compass configuration from level (matches lidar sample count for consistency)
-    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-    int32_t num_buckets = level.lidar_num_samples;
+    // Get compass configuration from sensor config (matches lidar sample count for consistency)
+    const SensorConfig& sensor_config = ctx.singleton<SensorConfig>();
+    int32_t num_buckets = sensor_config.lidar_num_samples;
 
     // Apply compass equation: (num_buckets/2 - int(theta_in_radians / (2*pi) * num_buckets)) % num_buckets
     // This maps [-pi, pi] to compass buckets 0..(num_buckets-1)
@@ -599,12 +602,12 @@ inline void lidarSystem(Engine &ctx,
     Quat rot = ctx.get<Rotation>(e);
     auto &bvh = ctx.singleton<broadphase::BVH>();
 
-    // Get lidar configuration from level
-    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-    int32_t num_samples = level.lidar_num_samples;
-    float fov_degrees = level.lidar_fov_degrees;
-    float noise_factor = level.lidar_noise_factor;
-    float base_sigma = level.lidar_base_sigma;
+    // Get lidar configuration from sensor config
+    const SensorConfig& sensor_config = ctx.singleton<SensorConfig>();
+    int32_t num_samples = sensor_config.lidar_num_samples;
+    float fov_degrees = sensor_config.lidar_fov_degrees;
+    float noise_factor = sensor_config.lidar_noise_factor;
+    float base_sigma = sensor_config.lidar_base_sigma;
     bool has_noise = (noise_factor > 0.0f || base_sigma > 0.0f);
 
     Vector3 agent_fwd = rot.rotateVec(math::fwd);
@@ -1113,10 +1116,14 @@ Sim::Sim(Engine &ctx,
 {
     // Initialize CompiledLevel singleton for BVH sizing
     CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
-    
+
     // Use per-world compiled level (highest priority), fallback to shared level
     compiled_level = world_init.compiledLevel;
-    
+
+    // Initialize SensorConfig singleton
+    SensorConfig &sensor_config = ctx.singleton<SensorConfig>();
+    sensor_config = world_init.sensorConfig;
+
     // Initialize LidarVisControl singleton (default disabled for performance)
     LidarVisControl &lidar_vis_control = ctx.singleton<LidarVisControl>();
     lidar_vis_control.enabled = 0;  // Default to disabled
