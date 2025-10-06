@@ -8,33 +8,33 @@ from .cfg import SimInterface
 
 
 class LidarIndex:
-    """Lidar tensor indices for 128-beam forward arc"""
+    """Lidar tensor indices for 256-sample buffer (default 128-beam forward arc)"""
 
     # For tensor shape [worlds, agents, samples] - single distance value per beam
-    SAMPLES_DIM = 2  # Samples dimension index (128 beams)
+    SAMPLES_DIM = 2  # Samples dimension index (256 max buffer)
 
-    # Beam indices for 128-beam lidar in 360-degree circle
+    # Beam indices for default 128-beam lidar configuration
     LEFTMOST = 0  # First lidar beam
-    CENTER = 64  # Middle lidar beam
-    RIGHTMOST = 127  # Last lidar beam
+    CENTER = 64  # Middle lidar beam (for 128-beam config)
+    RIGHTMOST = 127  # Last lidar beam (for 128-beam config)
 
     @staticmethod
     def beam_count():
-        """Total number of lidar beams"""
-        return 128
+        """Total buffer size for lidar beams (max samples)"""
+        return 256
 
 
 class CompassIndex:
-    """Compass tensor bucket indices (128-bucket one-hot encoding)"""
+    """Compass tensor bucket indices (256-bucket buffer, default 128 active)"""
 
-    FIRST = 0  # First compass bucket (0/128)
-    CENTER = 64  # Middle compass bucket (64/128)
-    LAST = 127  # Last compass bucket (127/128)
+    FIRST = 0  # First compass bucket
+    CENTER = 64  # Middle compass bucket (for 128-bucket config)
+    LAST = 127  # Last compass bucket (for 128-bucket config)
 
     @staticmethod
     def bucket_count():
-        """Total number of compass buckets"""
-        return 128
+        """Total buffer size for compass buckets (max buckets)"""
+        return 256
 
 
 class SelfObsIndex:

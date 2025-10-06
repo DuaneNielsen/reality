@@ -134,7 +134,7 @@ class TestRaycastLidar:
             lidar_array = lidar_tensor.to_numpy()
 
         # Validate tensor shape: [worlds, agents, samples]
-        expected_shape = (4, 1, 128)  # 4 worlds, 1 agent, 128 samples (distance only)
+        expected_shape = (4, 1, 256)  # 4 worlds, 1 agent, 256-sample buffer (distance only)
         assert (
             lidar_array.shape == expected_shape
         ), f"Lidar tensor shape mismatch. Expected {expected_shape}, got {lidar_array.shape}"

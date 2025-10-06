@@ -106,12 +106,13 @@ namespace madEscape {
     inline constexpr size_t SelfObservationFloatCount = sizeof(SelfObservation) / sizeof(float);
 
     // [GAME_SPECIFIC]
-    // Compass observation - one-hot encoded agent facing direction in world frame
-    // 128 buckets covering 360 degrees (2.8125 degrees per bucket)
+    // Compass observation - one-hot encoded direction to target in agent's local frame
+    // Bucket count matches lidar_num_samples from CompiledLevel for consistency
+    // Default: 128 buckets covering 360 degrees (2.8125 degrees per bucket)
     struct CompassObservation {
-        float compass[128];  // One-hot encoded compass direction
+        float compass[consts::limits::maxLidarSamples];  // One-hot encoded compass direction (actual count from level config)
     };
-    inline constexpr size_t CompassObservationFloatCount = 128;
+    inline constexpr size_t CompassObservationMaxFloatCount = consts::limits::maxLidarSamples;
 
     // [GAME_SPECIFIC]
     // The state of the world is passed to each agent in terms of egocentric
@@ -139,9 +140,11 @@ namespace madEscape {
     };
 
     // [GAME_SPECIFIC]
-    // Linear depth values and entity type in a circle around the agent
+    // Linear depth values in an arc in front of the agent
+    // Sample count and FOV are configurable per-level via CompiledLevel
+    // Default: 128 samples in 120-degree arc
     struct Lidar {
-        LidarSample samples[consts::numLidarSamples];
+        LidarSample samples[consts::limits::maxLidarSamples];  // Actual count from level config
     };
 
     //[GAME_SPECIFIC]
@@ -313,8 +316,12 @@ namespace madEscape {
         // Future types can define their own parameter layouts
 
         // Sensor noise configuration
-        float lidar_noise_factor;         // Proportional noise (0.001-0.01 typical, 0.0=disabled)
-        float lidar_base_sigma;           // Base noise floor in world units (0.02 typical, 0.0=disabled)
+        float lidar_noise_factor = 0.0f;         // Proportional noise (0.001-0.01 typical, 0.0=disabled)
+        float lidar_base_sigma = 0.0f;           // Base noise floor in world units (0.02 typical, 0.0=disabled)
+
+        // Lidar sensor configuration
+        int32_t lidar_num_samples = 128;         // Number of lidar samples (1-256, default: 128)
+        float lidar_fov_degrees = 120.0f;        // Lidar field of view in degrees (1.0-360.0, default: 120.0)
     };
 
     // [GAME_SPECIFIC]

@@ -8,6 +8,7 @@
 #include <cstring>
 #include "../../../src/consts.hpp"
 #include "../../../src/mgr.hpp"
+#include "../../../src/types.hpp"
 
 // For capturing stdout/stderr output in tests
 using testing::internal::CaptureStdout;
@@ -537,15 +538,14 @@ TEST_F(ManagerIntegrationTest, ChecksumVerificationDetectsDivergence) {
         }
 
         // Calculate where action data starts (after metadata and level data)
-        // ReplayMetadata is 192 bytes
-        size_t metadata_size = 192;
+        size_t metadata_size = sizeof(madEscape::ReplayMetadata);
 
         // Read num_worlds from metadata to calculate level data size
         uint32_t num_worlds;
         memcpy(&num_worlds, original_data.data() + 136, sizeof(uint32_t)); // offset 136 = num_worlds
 
-        // CompiledLevel is 85592 bytes per world
-        size_t level_data_size = 85592 * num_worlds;
+        // CompiledLevel size varies with struct changes - use sizeof
+        size_t level_data_size = sizeof(madEscape::CompiledLevel) * num_worlds;
         size_t actions_offset = metadata_size + level_data_size;
 
         // Each action is 3 int32_t values (12 bytes per agent)

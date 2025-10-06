@@ -43,7 +43,9 @@ Option 1 - Single level with array of strings (recommended):
         }
     ],
     "lidar_noise_factor": 0.0,  # Optional, proportional noise factor (default 0.0=disabled)
-    "lidar_base_sigma": 0.0      # Optional, base noise in world units (default 0.0=disabled)
+    "lidar_base_sigma": 0.0,     # Optional, base noise in world units (default 0.0=disabled)
+    "lidar_num_samples": 128,    # Optional, number of lidar samples (default 128, range: 1-256)
+    "lidar_fov_degrees": 120.0   # Optional, lidar FOV in degrees (default 120.0, range: 1.0-360.0)
 }
 
 Option 2 - Multi-level format with shared tileset:
@@ -539,6 +541,30 @@ def _validate_multi_level_json(data: Dict) -> None:
                 f"Invalid lidar_base_sigma: {lidar_base_sigma} (must be non-negative number)"
             )
 
+    # Validate shared lidar configuration fields (optional)
+    if "lidar_num_samples" in data:
+        lidar_num_samples = data["lidar_num_samples"]
+        if (
+            not isinstance(lidar_num_samples, int)
+            or lidar_num_samples < 1
+            or lidar_num_samples > 256
+        ):
+            raise ValueError(
+                f"Invalid lidar_num_samples: {lidar_num_samples} (must be integer in range 1-256)"
+            )
+
+    if "lidar_fov_degrees" in data:
+        lidar_fov_degrees = data["lidar_fov_degrees"]
+        if (
+            not isinstance(lidar_fov_degrees, (int, float))
+            or lidar_fov_degrees < 1.0
+            or lidar_fov_degrees > 360.0
+        ):
+            raise ValueError(
+                f"Invalid lidar_fov_degrees: {lidar_fov_degrees} "
+                "(must be number in range 1.0-360.0)"
+            )
+
 
 def _validate_json_level(data: Dict) -> None:
     """
@@ -639,6 +665,30 @@ def _validate_json_level(data: Dict) -> None:
         if not isinstance(lidar_base_sigma, (int, float)) or lidar_base_sigma < 0:
             raise ValueError(
                 f"Invalid lidar_base_sigma: {lidar_base_sigma} (must be non-negative number)"
+            )
+
+    # Validate lidar configuration fields (optional)
+    if "lidar_num_samples" in data:
+        lidar_num_samples = data["lidar_num_samples"]
+        if (
+            not isinstance(lidar_num_samples, int)
+            or lidar_num_samples < 1
+            or lidar_num_samples > 256
+        ):
+            raise ValueError(
+                f"Invalid lidar_num_samples: {lidar_num_samples} (must be integer in range 1-256)"
+            )
+
+    if "lidar_fov_degrees" in data:
+        lidar_fov_degrees = data["lidar_fov_degrees"]
+        if (
+            not isinstance(lidar_fov_degrees, (int, float))
+            or lidar_fov_degrees < 1.0
+            or lidar_fov_degrees > 360.0
+        ):
+            raise ValueError(
+                f"Invalid lidar_fov_degrees: {lidar_fov_degrees} "
+                "(must be number in range 1.0-360.0)"
             )
 
 
@@ -1047,6 +1097,8 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
     targets = data.get("targets", [])  # Default to empty list
     lidar_noise_factor = data.get("lidar_noise_factor", 0.0)  # Default to 0.0 (disabled)
     lidar_base_sigma = data.get("lidar_base_sigma", 0.0)  # Default to 0.0 (disabled)
+    lidar_num_samples = data.get("lidar_num_samples", 128)  # Default to 128 samples
+    lidar_fov_degrees = data.get("lidar_fov_degrees", 120.0)  # Default to 120.0 degrees
 
     # Process tileset to get mappings
     char_to_tile, char_to_props = _process_tileset(tileset)
@@ -1189,9 +1241,11 @@ def _compile_single_level(data: Dict) -> CompiledLevel:
     # Process targets configuration
     _process_targets(level, targets)
 
-    # Set lidar noise configuration
+    # Set lidar configuration
     level.lidar_noise_factor = float(lidar_noise_factor)
     level.lidar_base_sigma = float(lidar_base_sigma)
+    level.lidar_num_samples = int(lidar_num_samples)
+    level.lidar_fov_degrees = float(lidar_fov_degrees)
 
     # Add automatic boundary walls and corners if enabled
     if auto_boundary_walls:
@@ -1265,6 +1319,8 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
     shared_boundary_wall_offset = data.get("boundary_wall_offset", 0.0)
     shared_lidar_noise_factor = data.get("lidar_noise_factor", 0.0)
     shared_lidar_base_sigma = data.get("lidar_base_sigma", 0.0)
+    shared_lidar_num_samples = data.get("lidar_num_samples", 128)
+    shared_lidar_fov_degrees = data.get("lidar_fov_degrees", 120.0)
     level_set_name = data.get("name", "multi_level_set")
 
     compiled_levels = []
@@ -1294,6 +1350,8 @@ def compile_multi_level(json_data: Union[str, Dict]) -> List[CompiledLevel]:
             ),
             "lidar_noise_factor": level_data.get("lidar_noise_factor", shared_lidar_noise_factor),
             "lidar_base_sigma": level_data.get("lidar_base_sigma", shared_lidar_base_sigma),
+            "lidar_num_samples": level_data.get("lidar_num_samples", shared_lidar_num_samples),
+            "lidar_fov_degrees": level_data.get("lidar_fov_degrees", shared_lidar_fov_degrees),
         }
 
         # Use per-level name if provided, otherwise generate from set name

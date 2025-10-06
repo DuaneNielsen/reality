@@ -26,6 +26,8 @@ Primary implementation files:
 - `tests/python/test_reward_termination_system.py` - Reward calculation and termination tests
 - `tests/python/test_movement_system.py` - Movement system tests
 - `tests/python/test_compass_tensor.py` - Compass observation system tests
+- `tests/python/test_configurable_lidar.py` - Configurable lidar beam count and FOV tests
+- `tests/python/test_lidar_noise.py` - Lidar noise model validation
 
 ## Architecture
 
@@ -64,8 +66,8 @@ Overview of which components belong to which entity types:
 | CollisionDeath | Collision termination tracker | ✓ | | | | |
 | TerminationReason | Termination code | ✓ | | | | |
 | SelfObservation | Agent position/progress obs | ✓ | | | | |
-| CompassObservation | 128-bucket direction encoding | ✓ | | | | |
-| Lidar | 128-sample depth array | ✓ | | | | |
+| CompassObservation | 256-bucket direction encoding (variable active) | ✓ | | | | |
+| Lidar | 256-sample depth array (variable active) | ✓ | | | | |
 | Progress | Forward progress tracking | ✓ | | | | |
 | StepsTaken | Episode step counter | ✓ | | | | |
 | EntityType | Entity classification | ✓ | ✓ | | | |
@@ -264,28 +266,34 @@ struct MotionParams {
 
 #### compassSystem
 - **Purpose**: Computes one-hot encoding pointing toward target entity
-- **Components Used**: Reads: `Entity`, `Position`, `TargetTag`; Writes: `CompassObservation`
+- **Components Used**: Reads: `Entity`, `Position`, `TargetTag`, `CompiledLevel`; Writes: `CompassObservation`
 - **Task Graph Dependencies**: After collectObservations, parallel with lidar
 - **Specifications**:
   - **Target tracking**: Points toward primary target (TargetTag.id == 0)
   - **Fallback behavior**: Uses agent rotation if no target found
   - **Angle calculation**: `atan2f(target.y - agent.y, target.x - agent.x)`
-  - **128 buckets**: Full 360° coverage with 2.8125° per bucket
-  - **Encoding formula**: bucket = (64 - int(theta_radians / 2π * 128)) % 128
-  - **One-hot**: Single 1.0 value, rest 0.0
+  - **Bucket count**: Matches lidar sample count from `CompiledLevel.lidar_num_samples` (1-256)
+  - **Buffer size**: Fixed 256-bucket array (`consts::limits::maxLidarSamples`)
+  - **Active buckets**: Only first `num_buckets` are used, rest zero-filled
+  - **Encoding formula**: bucket = (num_buckets/2 - int(theta_radians / 2π * num_buckets)) % num_buckets
+  - **One-hot**: Single 1.0 value at computed bucket, all others 0.0
 
 #### lidarSystem
-- **Purpose**: Casts 128 rays for depth perception observations
-- **Components Used**: Reads: `Position`, `Rotation`, BVH; Writes: `Lidar`
+- **Purpose**: Casts configurable number of rays for depth perception observations
+- **Components Used**: Reads: `Position`, `Rotation`, `CompiledLevel`, BVH; Writes: `Lidar`
 - **Task Graph Dependencies**: After post-reset BVH, parallel with compass
 - **Specifications**:
-  - **Field of view**: 120° arc (-60° to +60° from forward)
-  - **Ray count**: 128 evenly distributed samples
+  - **Configurable Parameters** (per-level via JSON):
+    - **lidar_num_samples**: Ray count (1-256, default: 128)
+    - **lidar_fov_degrees**: Field of view in degrees (1.0-360.0, default: 120.0)
+  - **Buffer size**: Fixed 256-sample array (`consts::limits::maxLidarSamples`)
+  - **Active samples**: Only first `lidar_num_samples` are traced, rest zero-filled
+  - **Ray distribution**: Evenly distributed across FOV arc
   - **Max range**: 200 units (consts::lidarMaxRange)
   - **Depth normalization**: Returns depth/maxRange, clamped to [0,1]
   - **No hit**: Returns 0.0 when ray doesn't hit anything
-  - **GPU parallelism**: 128 threads (4 warps) trace rays simultaneously
-  - **Visualization**: Optional display of every 8th ray (16 total) when enabled
+  - **GPU parallelism**: Variable thread count matches num_samples (CPU loops over active samples)
+  - **Visualization**: Optional display of every 8th ray when enabled
   - **Noise Model** (optional):
     - **Proportional Gaussian noise**: `noisy_range = true_range * (1.0 + gaussian_sample * noise_factor)`
     - **gaussian_sample**: Standard normal distribution N(0, 1) using deterministic PRNG

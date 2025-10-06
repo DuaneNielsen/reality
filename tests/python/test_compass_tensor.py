@@ -18,9 +18,9 @@ def test_compass_tensor_basic(cpu_manager):
     num_worlds = compass_np.shape[0]
     print(f"Number of worlds: {num_worlds}")
 
-    # Should be shape (num_worlds, num_agents=1, compass_size=128)
+    # Should be shape (num_worlds, num_agents=1, compass_size=256)
     assert compass_np.shape[1] == 1, f"Wrong number of agents: {compass_np.shape[1]}"
-    assert compass_np.shape[2] == 128, f"Wrong compass size: {compass_np.shape[2]}"
+    assert compass_np.shape[2] == 256, f"Wrong compass size: {compass_np.shape[2]}"
 
     # Check that it's a one-hot encoding (exactly one 1.0, rest are 0.0) for each world
     for world_idx in range(num_worlds):
@@ -32,9 +32,9 @@ def test_compass_tensor_basic(cpu_manager):
         print(f"World {world_idx} - Number of 0.0 values: {num_zeros}")
         print(f"World {world_idx} - Sum of all values: {np.sum(world_agent_0)}")
 
-        # Should have exactly one 1.0 and 127 zeros
+        # Should have exactly one 1.0 and rest zeros (256-bucket buffer, default uses 128 active)
         assert num_ones == 1, f"World {world_idx}: Expected exactly 1 one, got {num_ones}"
-        assert num_zeros == 127, f"World {world_idx}: Expected exactly 127 zeros, got {num_zeros}"
+        assert num_zeros == 255, f"World {world_idx}: Expected exactly 255 zeros, got {num_zeros}"
         assert (
             abs(np.sum(world_agent_0) - 1.0) < 1e-6
         ), f"World {world_idx}: Sum should be 1.0, got {np.sum(world_agent_0):.6f}"

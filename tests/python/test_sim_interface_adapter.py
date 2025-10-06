@@ -256,7 +256,7 @@ def test_compass_tensor_properties(cpu_manager):
         for agent_idx in range(1):
             compass_slice = compass_np[world_idx, agent_idx, :]
 
-            # Should have exactly one 1.0 and rest should be 0.0
+            # Should have exactly one 1.0 and rest should be 0.0 (256-bucket buffer)
             ones_count = np.sum(compass_slice == 1.0)
             zeros_count = np.sum(compass_slice == 0.0)
 
@@ -264,8 +264,8 @@ def test_compass_tensor_properties(cpu_manager):
                 ones_count == 1
             ), f"World {world_idx}, Agent {agent_idx}: Expected exactly 1 one, got {ones_count}"
             assert (
-                zeros_count == 127
-            ), f"World {world_idx}, Agent {agent_idx}: Expected 127 zeros, got {zeros_count}"
+                zeros_count == 255
+            ), f"World {world_idx}, Agent {agent_idx}: Expected 255 zeros, got {zeros_count}"
             assert (
                 np.sum(compass_slice) == 1.0
             ), f"World {world_idx}, Agent {agent_idx}: Sum should be 1.0"

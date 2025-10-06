@@ -178,7 +178,7 @@ def test_proportional_noise_scales_with_distance():
 
     # World 0 and World 1 should have different noise (different RNG state)
     # But the pattern should be similar (same geometry)
-    assert lidar.shape == (2, 1, 128)
+    assert lidar.shape == (2, 1, 256)  # 256-sample buffer
 
     # Verify readings are not identical across worlds
     assert not np.allclose(lidar[0], lidar[1], rtol=1e-6)

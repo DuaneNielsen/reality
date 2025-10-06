@@ -965,23 +965,27 @@ Tensor Manager::selfObservationTensor() const
 //[GAME SPECIFIC]
 Tensor Manager::compassTensor() const
 {
+    // Note: Tensor size uses maxLidarSamples since shape must be constant across all worlds
+    // Actual active buckets determined by level's lidar_num_samples (unused buckets remain 0.0)
     return impl_->exportTensor(ExportID::CompassObservation,
                                TensorElementType::Float32,
                                {
                                    impl_->cfg.numWorlds,
                                    madEscape::consts::numAgents,
-                                   CompassObservationFloatCount,
+                                   consts::limits::maxLidarSamples,
                                });
 }
 
 //[GAME_SPECIFIC]
 Tensor Manager::lidarTensor() const
 {
+    // Note: Tensor size uses maxLidarSamples since shape must be constant across all worlds
+    // Actual active samples determined by level's lidar_num_samples (unused samples remain 0.0)
     return impl_->exportTensor(ExportID::Lidar, TensorElementType::Float32,
                                {
                                    impl_->cfg.numWorlds,
                                    consts::numAgents,
-                                   consts::numLidarSamples,
+                                   consts::limits::maxLidarSamples,
                                });
 }
 
