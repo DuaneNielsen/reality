@@ -25,14 +25,18 @@ def setup_obs(obs_list):
         N, A = compass_tensor.shape[0:2]
         batch_size = N * A
 
+        # Get actual feature sizes from tensor shapes
+        compass_features = compass_tensor.shape[2]  # Dynamically get compass size (e.g., 256)
+        lidar_features = lidar_tensor.shape[2]  # Dynamically get lidar size (e.g., 256)
+
         # Reshape tensors to batch format
         obs_tensors = [
-            compass_tensor.view(batch_size, *compass_tensor.shape[2:]),  # [batch, 128]
-            lidar_tensor.view(batch_size, *lidar_tensor.shape[2:]),  # [batch, 128]
+            compass_tensor.view(batch_size, compass_features),
+            lidar_tensor.view(batch_size, lidar_features),
         ]
 
-        # Calculate total features: 128 (compass) + 128 (lidar)
-        num_obs_features = 128 + 128  # = 256
+        # Calculate total features from actual tensor shapes
+        num_obs_features = compass_features + lidar_features
 
         return obs_tensors, num_obs_features
 
