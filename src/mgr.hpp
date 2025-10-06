@@ -235,6 +235,7 @@ public:
         madrona::render::GPUDevice *extRenderDev = nullptr;
         bool enableTrajectoryTracking = false; // Print agent trajectories to stdout
         std::vector<std::optional<CompiledLevel>> perWorldCompiledLevels;  // Per-world compiled levels
+        SensorConfig sensorConfig; // Sensor configuration (lidar, compass, etc.)
     };
 
     Manager(const Config &cfg);

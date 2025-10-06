@@ -94,7 +94,13 @@ class TestFactoryFunction:
             depth = depth_tensor.to_torch().cpu().numpy()
         else:
             depth = depth_tensor.to_numpy()
-        assert depth.shape == (2, 1, 1, 128, 1)  # 2 worlds, 1 agent, 1x128x1 lidar
+        assert depth.shape == (
+            2,
+            1,
+            1,
+            128,
+            1,
+        )  # 2 worlds, 1 agent, 1x128x1 lidar (sensor config width)
 
     def test_parameter_forwarding(self):
         """Test that parameters are correctly forwarded"""

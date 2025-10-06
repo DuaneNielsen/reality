@@ -14,6 +14,7 @@ namespace {
     volatile CompiledLevel dummy_compiled_level = {};
     volatile ReplayMetadata dummy_replay_metadata = {};
     volatile ManagerConfig dummy_manager_config = {};
+    volatile SensorConfig dummy_sensor_config = {};
 }
 
 // Export functions to ensure symbols are kept
@@ -21,4 +22,5 @@ extern "C" {
     void* _export_CompiledLevel() { return (void*)&dummy_compiled_level; }
     void* _export_ReplayMetadata() { return (void*)&dummy_replay_metadata; }
     void* _export_ManagerConfig() { return (void*)&dummy_manager_config; }
+    void* _export_SensorConfig() { return (void*)&dummy_sensor_config; }
 }

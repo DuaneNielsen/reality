@@ -568,8 +568,8 @@ Manager::Impl * Manager::Impl::init(
         }
 
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
-        
-        // Populate per-world compiled levels
+
+        // Populate per-world compiled levels and sensor config
         for (uint32_t i = 0; i < mgr_cfg.numWorlds; i++) {
             if (i < mgr_cfg.perWorldCompiledLevels.size() && mgr_cfg.perWorldCompiledLevels[i].has_value()) {
                 world_inits[i].compiledLevel = mgr_cfg.perWorldCompiledLevels[i].value();
@@ -577,6 +577,7 @@ Manager::Impl * Manager::Impl::init(
                 // Use sim_cfg.compiledLevel as fallback (first valid level from array)
                 world_inits[i].compiledLevel = sim_cfg.compiledLevel;
             }
+            world_inits[i].sensorConfig = mgr_cfg.sensorConfig;
         }
 
         // [BOILERPLATE] Create GPU executor with configuration
@@ -644,8 +645,8 @@ Manager::Impl * Manager::Impl::init(
 
         // [BOILERPLATE] Allocate per-world initialization data
         HeapArray<Sim::WorldInit> world_inits(mgr_cfg.numWorlds);
-        
-        // Populate per-world compiled levels
+
+        // Populate per-world compiled levels and sensor config
         for (uint32_t i = 0; i < mgr_cfg.numWorlds; i++) {
             if (i < mgr_cfg.perWorldCompiledLevels.size() && mgr_cfg.perWorldCompiledLevels[i].has_value()) {
                 world_inits[i].compiledLevel = mgr_cfg.perWorldCompiledLevels[i].value();
@@ -653,6 +654,7 @@ Manager::Impl * Manager::Impl::init(
                 // Use sim_cfg.compiledLevel as fallback (first valid level from array)
                 world_inits[i].compiledLevel = sim_cfg.compiledLevel;
             }
+            world_inits[i].sensorConfig = mgr_cfg.sensorConfig;
         }
 
         // [BOILERPLATE] Create CPU executor with configuration
@@ -965,23 +967,27 @@ Tensor Manager::selfObservationTensor() const
 //[GAME SPECIFIC]
 Tensor Manager::compassTensor() const
 {
+    // Note: Tensor size uses maxLidarSamples since shape must be constant across all worlds
+    // Actual active buckets determined by level's lidar_num_samples (unused buckets remain 0.0)
     return impl_->exportTensor(ExportID::CompassObservation,
                                TensorElementType::Float32,
                                {
                                    impl_->cfg.numWorlds,
                                    madEscape::consts::numAgents,
-                                   CompassObservationFloatCount,
+                                   consts::limits::maxLidarSamples,
                                });
 }
 
 //[GAME_SPECIFIC]
 Tensor Manager::lidarTensor() const
 {
+    // Note: Tensor size uses maxLidarSamples since shape must be constant across all worlds
+    // Actual active samples determined by level's lidar_num_samples (unused samples remain 0.0)
     return impl_->exportTensor(ExportID::Lidar, TensorElementType::Float32,
                                {
                                    impl_->cfg.numWorlds,
                                    consts::numAgents,
-                                   consts::numLidarSamples,
+                                   consts::limits::maxLidarSamples,
                                });
 }
 

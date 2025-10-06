@@ -61,6 +61,7 @@ struct Sim : public madrona::WorldBase {
     // Per-world initialization data
     struct WorldInit {
         CompiledLevel compiledLevel;  // Per-world level data
+        SensorConfig sensorConfig;    // Sensor configuration
     };
 
     // Sim::registerTypes is called during initialization

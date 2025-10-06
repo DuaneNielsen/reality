@@ -37,6 +37,25 @@ This is a Madrona Escape Room - a high-performance 3D multi-agent reinforcement 
 - C++ (core simulation using Entity Component System pattern)
 - Python (PyTorch-based PPO training)
 
+## Sensor Configuration
+
+**Important Architecture Decision**: Sensor configuration (lidar beam count, FOV, noise parameters) is **separate from level geometry**.
+
+**Why This Matters:**
+- Same level files can be used with different sensor configurations
+- Enables sensor parameter sweeps without regenerating levels
+- Training scripts can experiment with observation spaces independently
+
+**How It Works:**
+- Python: Configure via `LidarConfig` parameter when creating `SimManager`
+- C++: `SensorConfig` struct passed through `ManagerConfig.sensorConfig`
+- ECS: Stored as singleton component, accessed via `ctx.singleton<SensorConfig>()`
+
+**Key Files:**
+- `madrona_escape_room/sensor_config.py` - Python LidarConfig class
+- `src/types.hpp` - C++ SensorConfig struct definition
+- `docs/specs/sim.md` - Full SensorConfig documentation
+
 # Headless Mode Quick Reference
 
 Headless mode runs simulation without graphics for benchmarking, testing, or server deployment.

@@ -38,7 +38,14 @@ class EvaluationRunner:
     """Handles periodic evaluation during training using inference infrastructure"""
 
     def __init__(
-        self, training_config, eval_worlds, eval_steps, exec_mode, gpu_id, compiled_levels=None
+        self,
+        training_config,
+        eval_worlds,
+        eval_steps,
+        exec_mode,
+        gpu_id,
+        compiled_levels=None,
+        lidar_config=None,
     ):
         """Initialize evaluation runner - always runs on CPU to avoid device conflicts"""
         self.training_config = training_config
@@ -48,6 +55,7 @@ class EvaluationRunner:
         self.exec_mode = madrona_escape_room.ExecMode.CPU
         self.gpu_id = gpu_id  # Not used since we force CPU
         self.compiled_levels = compiled_levels
+        self.lidar_config = lidar_config
 
         # Create evaluation config template - always CPU
         self.eval_config_template = InferenceConfig(
@@ -65,6 +73,8 @@ class EvaluationRunner:
             fp16=False,  # Disable FP16 for CPU evaluation
             # Level settings
             compiled_levels=compiled_levels,
+            # Sensor settings
+            lidar_config=lidar_config,
             # Tracking settings - enable for full statistics on CPU
             track_episodes=True,
             ema_alpha=0.1,  # Higher alpha for faster convergence in short eval runs
@@ -90,6 +100,7 @@ class EvaluationRunner:
                 model_kwargs=self.eval_config_template.model_kwargs,
                 fp16=self.eval_config_template.fp16,
                 compiled_levels=self.eval_config_template.compiled_levels,
+                lidar_config=self.eval_config_template.lidar_config,
                 track_episodes=self.eval_config_template.track_episodes,
                 ema_alpha=self.eval_config_template.ema_alpha,
                 verbose=self.eval_config_template.verbose,
@@ -616,6 +627,32 @@ arg_parser.add_argument(
     help="Record evaluation runs for debugging (creates .rec files)",
 )
 
+# Sensor configuration arguments
+arg_parser.add_argument(
+    "--lidar-num-samples",
+    type=int,
+    default=128,
+    help="Number of lidar beams (1-256, default: 128)",
+)
+arg_parser.add_argument(
+    "--lidar-fov-degrees",
+    type=float,
+    default=120.0,
+    help="Lidar field of view in degrees (1.0-360.0, default: 120.0)",
+)
+arg_parser.add_argument(
+    "--lidar-noise-factor",
+    type=float,
+    default=0.0,
+    help="Lidar proportional noise factor (0.001-0.01 typical, 0.0=disabled)",
+)
+arg_parser.add_argument(
+    "--lidar-base-sigma",
+    type=float,
+    default=0.0,
+    help="Lidar base noise floor in world units (0.02 typical, 0.0=disabled)",
+)
+
 args = arg_parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -638,7 +675,20 @@ if args.level_file:
         print(f"Loaded multi-level file: {len(compiled_levels)} levels from {args.level_file}")
         print(f"Using curriculum name: {level_name}")
 
-# Setup training environment with 128-beam lidar sensor (distance values only)
+# Create sensor config from arguments
+from madrona_escape_room.sensor_config import LidarConfig
+
+lidar_config = LidarConfig(
+    lidar_num_samples=args.lidar_num_samples,
+    lidar_fov_degrees=args.lidar_fov_degrees,
+    lidar_noise_factor=args.lidar_noise_factor,
+    lidar_base_sigma=args.lidar_base_sigma,
+)
+
+# Validate sensor config
+lidar_config.validate()
+
+# Setup training environment with configured lidar sensor
 exec_mode = ExecMode.CUDA if args.gpu_sim else ExecMode.CPU
 
 sim_interface = setup_lidar_training_environment(
@@ -647,6 +697,7 @@ sim_interface = setup_lidar_training_environment(
     gpu_id=args.gpu_id,
     rand_seed=args.seed,
     compiled_levels=compiled_levels,
+    lidar_config=lidar_config,
 )
 
 ckpt_dir = Path(args.ckpt_dir) if args.ckpt_dir else None
@@ -671,7 +722,11 @@ training_config = {
     "exec_mode": "CUDA" if args.gpu_sim else "CPU",
     "level_name": level_name,  # Dynamic level name
     "level_file": args.level_file if args.level_file else None,
-    "sensor_type": "lidar_128_beam",
+    "sensor_type": "lidar_configurable",
+    "lidar_num_samples": args.lidar_num_samples,
+    "lidar_fov_degrees": args.lidar_fov_degrees,
+    "lidar_noise_factor": args.lidar_noise_factor,
+    "lidar_base_sigma": args.lidar_base_sigma,
     "random_seed": args.seed,
     "recording_enabled": bool(args.record),
     "recording_filepath": args.record
@@ -698,6 +753,7 @@ if not args.disable_eval:
         exec_mode=exec_mode,
         gpu_id=args.gpu_id,
         compiled_levels=compiled_levels,
+        lidar_config=lidar_config,
     )
     print(
         f"✓ Evaluation enabled (CPU-only): {eval_worlds} worlds, "

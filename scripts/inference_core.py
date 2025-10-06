@@ -30,6 +30,8 @@ class InferenceConfig:
         fp16: bool = False,
         # Optional level settings
         level_file: Optional[str] = None,
+        # Optional sensor settings
+        lidar_config=None,
         # Optional output settings
         recording_path: Optional[str] = None,
         action_dump_path: Optional[str] = None,
@@ -60,6 +62,9 @@ class InferenceConfig:
 
         # Level settings
         self.level_file = level_file
+
+        # Sensor settings
+        self.lidar_config = lidar_config
 
         # Output settings
         self.recording_path = recording_path
@@ -102,6 +107,7 @@ class InferenceRunner:
             gpu_id=self.config.gpu_id,
             rand_seed=self.config.sim_seed,
             compiled_levels=self.config.compiled_levels,
+            lidar_config=self.config.lidar_config,
         )
         return self.sim_interface
 

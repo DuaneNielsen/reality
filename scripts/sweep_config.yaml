@@ -21,7 +21,7 @@ parameters:
   num-worlds:
     value: 4096
   num-updates:
-    value: 30000
+    value: 5000
   steps-per-update:
     value: 40
   num-bptt-chunks:
@@ -45,8 +45,23 @@ parameters:
   
   # Random seed for reproducibility
   seed:
-    values: [0, 1, 2 ]
-  
-  # Level files for grid search across all 159 generated levels with sensor noise
+    values: [0, 1, 2]
+
+  # Level file (single file with lidar config passed as arguments)
   level-file:
-    value: "levels/full_progression_159_levels_spawn_random_sensor_noise.lvl"
+    value: "levels/full_progression_159_levels_spawn_random.lvl"
+
+  # Lidar configuration: Grid search across beam counts and FOV
+  # Grid: 4 beam counts × 3 FOV values × 3 seeds = 36 runs
+  lidar-num-samples:
+    values: [32, 64, 128, 256]
+
+  lidar-fov-degrees:
+    values: [120.0, 180.0, 360.0]
+
+  # Sensor noise parameters (adds realistic sensor uncertainty)
+  lidar-noise-factor:
+    value: 0.005  # 0.5% proportional noise
+
+  lidar-base-sigma:
+    value: 0.02   # 2cm base noise floor

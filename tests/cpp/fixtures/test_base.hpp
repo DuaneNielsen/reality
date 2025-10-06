@@ -33,9 +33,10 @@ protected:
     }
     
     // Helper to create manager with custom config
-    ::testing::AssertionResult CreateManager(const madEscape::CompiledLevel* levels = nullptr, 
-                                            int32_t num_levels = 0) {
-        MER_Result result = mer_create_manager(&handle, &config, levels, num_levels);
+    ::testing::AssertionResult CreateManager(const madEscape::CompiledLevel* levels = nullptr,
+                                            int32_t num_levels = 0,
+                                            const madEscape::SensorConfig* sensor_cfg = nullptr) {
+        MER_Result result = mer_create_manager(&handle, &config, sensor_cfg, levels, num_levels);
         if (result != static_cast<MER_Result>(madEscape::Result::Success)) {
             return ::testing::AssertionFailure() 
                 << "Failed to create manager: " << mer_result_to_string(result);

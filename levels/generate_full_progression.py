@@ -239,8 +239,6 @@ def generate_full_progression(
     output_dir="levels",
     random_seed=42,
     spawn_random=True,
-    lidar_noise_factor=0.0,
-    lidar_base_sigma=0.0,
 ):
     """
     Generate a single multi-level JSON file containing all three progressions.
@@ -249,14 +247,13 @@ def generate_full_progression(
         output_dir: Output directory for the multi-level file
         random_seed: Base random seed for reproducibility
         spawn_random: Whether to use random spawn positions
-        lidar_noise_factor: Proportional noise factor (0.001-0.01 typical, 0.0=disabled)
-        lidar_base_sigma: Base noise floor in world units (0.02 typical, 0.0=disabled)
 
     Returns:
         Path to generated multi-level file
     """
     print(f"Generating full progression multi-level JSON file in {output_dir}/")
 
+    # Simple filename - configuration will be passed as arguments instead
     level_name = "full_progression_159_levels"
     if spawn_random:
         level_name += "_spawn_random"
@@ -395,8 +392,6 @@ def generate_full_progression(
                 },
             }
         ],
-        "lidar_noise_factor": lidar_noise_factor,
-        "lidar_base_sigma": lidar_base_sigma,
         "name": level_name,
     }
 
@@ -428,18 +423,6 @@ def main():
         default=True,
         help="Use random spawn positions (default: True)",
     )
-    parser.add_argument(
-        "--lidar-noise-factor",
-        type=float,
-        default=0.0,
-        help="Proportional lidar noise factor (0.001-0.01 typical, 0.0=disabled, default: 0.0)",
-    )
-    parser.add_argument(
-        "--lidar-base-sigma",
-        type=float,
-        default=0.0,
-        help="Base lidar noise floor in world units (0.02 typical, 0.0=disabled, default: 0.0)",
-    )
 
     args = parser.parse_args()
 
@@ -447,8 +430,6 @@ def main():
         args.output_dir,
         args.seed,
         args.spawn_random,
-        args.lidar_noise_factor,
-        args.lidar_base_sigma,
     )
 
 

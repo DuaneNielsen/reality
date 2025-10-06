@@ -68,9 +68,12 @@ void Sim::registerTypes(ECSRegistry &registry, const Config &cfg)
     
     // [GAME_SPECIFIC] Level management singleton
     registry.registerSingleton<LevelState>();
-    
+
     // [GAME_SPECIFIC] Phase 2: Test-driven level system singleton
     registry.registerSingleton<CompiledLevel>();
+
+    // [GAME_SPECIFIC] Sensor configuration singleton
+    registry.registerSingleton<SensorConfig>();
 
 
     // [GAME_SPECIFIC] Escape room archetypes
@@ -358,22 +361,26 @@ inline void compassSystem(Engine& ctx,
         theta_radians = atan2f(dy, dx);
     }
 
-    // Apply compass equation: (64 - int(theta_in_radians / (2*pi))) % 128
-    // This maps [-pi, pi] to compass buckets 0-127
+    // Get compass configuration from sensor config (matches lidar sample count for consistency)
+    const SensorConfig& sensor_config = ctx.singleton<SensorConfig>();
+    int32_t num_buckets = sensor_config.lidar_num_samples;
+
+    // Apply compass equation: (num_buckets/2 - int(theta_in_radians / (2*pi) * num_buckets)) % num_buckets
+    // This maps [-pi, pi] to compass buckets 0..(num_buckets-1)
     constexpr float two_pi = 2.0f * math::pi;
 
     // Normalize theta to [0, 2*pi) range first
     while (theta_radians < 0) theta_radians += two_pi;
     while (theta_radians >= two_pi) theta_radians -= two_pi;
 
-    // Apply the compass formula
-    int compass_bucket = (64 - (int)(theta_radians / two_pi * 128)) % 128;
+    // Apply the compass formula (generalized for variable bucket count)
+    int compass_bucket = (num_buckets / 2 - (int)(theta_radians / two_pi * num_buckets)) % num_buckets;
 
-    // Ensure bucket is in valid range [0, 127]
-    if (compass_bucket < 0) compass_bucket += 128;
+    // Ensure bucket is in valid range [0, num_buckets-1]
+    if (compass_bucket < 0) compass_bucket += num_buckets;
 
-    // Zero out all compass values
-    for (int i = 0; i < 128; i++) {
+    // Zero out all compass values (both active and unused buckets)
+    for (int i = 0; i < consts::limits::maxLidarSamples; i++) {
         compass_obs.compass[i] = 0.0f;
     }
 
@@ -583,7 +590,7 @@ inline void customMotionSystem(Engine& ctx,
     }
 }
 
-// [GAME_SPECIFIC] Launches consts::numLidarSamples per agent.
+// [GAME_SPECIFIC] Launches variable number of lidar rays per agent (configurable via CompiledLevel).
 // This system is specially optimized in the GPU version:
 // a warp of threads is dispatched for each invocation of the system
 // and each thread in the warp traces one lidar ray for the agent.
@@ -595,24 +602,26 @@ inline void lidarSystem(Engine &ctx,
     Quat rot = ctx.get<Rotation>(e);
     auto &bvh = ctx.singleton<broadphase::BVH>();
 
-    // Get noise configuration from level
-    const CompiledLevel& level = ctx.singleton<CompiledLevel>();
-    float noise_factor = level.lidar_noise_factor;
-    float base_sigma = level.lidar_base_sigma;
+    // Get lidar configuration from sensor config
+    const SensorConfig& sensor_config = ctx.singleton<SensorConfig>();
+    int32_t num_samples = sensor_config.lidar_num_samples;
+    float fov_degrees = sensor_config.lidar_fov_degrees;
+    float noise_factor = sensor_config.lidar_noise_factor;
+    float base_sigma = sensor_config.lidar_base_sigma;
     bool has_noise = (noise_factor > 0.0f || base_sigma > 0.0f);
 
     Vector3 agent_fwd = rot.rotateVec(math::fwd);
     Vector3 right = rot.rotateVec(math::right);
-    
+
     // Get agent index for ray entity lookup (assuming single agent per world for now)
     int32_t agent_idx = 0;
     const LidarVisControl &lidar_vis_control = ctx.singleton<LidarVisControl>();
     bool visualize = (lidar_vis_control.enabled != 0) && ctx.data().enableRender;
 
     auto traceRay = [&](int32_t idx) {
-        // 120-degree arc in front of agent (-60 to +60 degrees)
-        float angle_range = 2.f * math::pi / 3.f; // 120 degrees in radians
-        float theta = -angle_range / 2.f + (angle_range * float(idx) / float(consts::numLidarSamples - 1));
+        // Configurable FOV arc in front of agent (e.g., 120° = -60° to +60°)
+        float angle_range = fov_degrees * (math::pi / 180.0f);  // Convert to radians
+        float theta = -angle_range / 2.f + (angle_range * float(idx) / float(num_samples - 1));
         
         // Rotate relative to agent's forward direction
         float cos_theta = cosf(theta);
@@ -703,16 +712,24 @@ inline void lidarSystem(Engine &ctx,
 
     // MADRONA_GPU_MODE guards GPU specific logic
 #ifdef MADRONA_GPU_MODE
-    // Can use standard cuda variables like threadIdx for 
-    // block level programming (128 threads = 4 warps)
-    int32_t idx = threadIdx.x % 128;
+    // Can use standard cuda variables like threadIdx for
+    // block level programming (uses thread block size from task registration)
+    int32_t idx = threadIdx.x % consts::limits::maxLidarSamples;
 
-    if (idx < consts::numLidarSamples) {
+    if (idx < num_samples) {
         traceRay(idx);
+    } else {
+        // Zero out unused samples (beyond num_samples)
+        lidar.samples[idx] = { .depth = 0.f };
     }
 #else
-    for (CountT i = 0; i < consts::numLidarSamples; i++) {
+    // Process active samples
+    for (CountT i = 0; i < num_samples; i++) {
         traceRay(i);
+    }
+    // Zero out unused samples (beyond num_samples)
+    for (CountT i = num_samples; i < consts::limits::maxLidarSamples; i++) {
+        lidar.samples[i] = { .depth = 0.f };
     }
 #endif
 }
@@ -1059,10 +1076,10 @@ void Sim::setupTasks(TaskGraphManager &taskgraph_mgr, const Config &cfg)
     // [GAME_SPECIFIC] The lidar system
 #ifdef MADRONA_GPU_MODE
     // [BOILERPLATE] Note the use of CustomParallelForNode to create a taskgraph node
-    // that launches 128 threads (4 warps) for each invocation (1).
-    // This allows all 128 lidar rays to be traced in parallel.
+    // that launches maxLidarSamples threads for each invocation (1).
+    // This allows all lidar rays to be traced in parallel (actual count configured per-level).
     auto lidar = builder.addToGraph<CustomParallelForNode<Engine,
-        lidarSystem, 128, 1,
+        lidarSystem, consts::limits::maxLidarSamples, 1,
 #else
     auto lidar = builder.addToGraph<ParallelForNode<Engine,
         lidarSystem,
@@ -1099,10 +1116,14 @@ Sim::Sim(Engine &ctx,
 {
     // Initialize CompiledLevel singleton for BVH sizing
     CompiledLevel &compiled_level = ctx.singleton<CompiledLevel>();
-    
+
     // Use per-world compiled level (highest priority), fallback to shared level
     compiled_level = world_init.compiledLevel;
-    
+
+    // Initialize SensorConfig singleton
+    SensorConfig &sensor_config = ctx.singleton<SensorConfig>();
+    sensor_config = world_init.sensorConfig;
+
     // Initialize LidarVisControl singleton (default disabled for performance)
     LidarVisControl &lidar_vis_control = ctx.singleton<LidarVisControl>();
     lidar_vis_control.enabled = 0;  // Default to disabled

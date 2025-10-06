@@ -95,6 +95,7 @@ extern "C" {
 MER_Result mer_create_manager(
     MER_ManagerHandle* out_handle,
     const void* config,
+    const void* sensor_config,
     const void* compiled_levels,
     uint32_t num_compiled_levels
 ) {
@@ -106,14 +107,18 @@ MER_Result mer_create_manager(
     if (!out_handle || !config) {
         return MER_ERROR_NULL_POINTER;
     }
-    
+
     *out_handle = nullptr;
-    
+
     // Direct cast config from void* - Python passes the exact C++ struct via ctypes
     const ManagerConfig* mgr_cfg = reinterpret_cast<const ManagerConfig*>(config);
-    
-    // Direct cast from void* - Python passes the exact C++ struct via ctypes
+
+    // Direct cast sensor_config from void* - Python passes the exact C++ struct via ctypes
     using namespace madEscape;
+    const SensorConfig* sensor_cfg = sensor_config ?
+        reinterpret_cast<const SensorConfig*>(sensor_config) : nullptr;
+
+    // Direct cast from void* - Python passes the exact C++ struct via ctypes
     const CompiledLevel* cpp_levels = reinterpret_cast<const CompiledLevel*>(compiled_levels);
     
     // Convert array of compiled levels to C++ vector (if provided)
@@ -144,13 +149,14 @@ MER_Result mer_create_manager(
         .randSeed = mgr_cfg->rand_seed,
         .autoReset = mgr_cfg->auto_reset,
         .enableBatchRenderer = mgr_cfg->enable_batch_renderer,
-        .batchRenderViewWidth = mgr_cfg->batch_render_view_width ? 
+        .batchRenderViewWidth = mgr_cfg->batch_render_view_width ?
             mgr_cfg->batch_render_view_width : consts::display::defaultBatchRenderSize,
-        .batchRenderViewHeight = mgr_cfg->batch_render_view_height ? 
+        .batchRenderViewHeight = mgr_cfg->batch_render_view_height ?
             mgr_cfg->batch_render_view_height : consts::display::defaultBatchRenderSize,
         .customVerticalFov = mgr_cfg->custom_vertical_fov,
         .renderMode = mgr_cfg->render_mode,
         .perWorldCompiledLevels = std::move(cpp_per_world_levels),  // Per-world compiled levels
+        .sensorConfig = sensor_cfg ? *sensor_cfg : SensorConfig{},  // Use provided config or defaults
     };
     
     // Allocate Manager - using placement new to avoid exceptions

@@ -66,6 +66,11 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "sensor.rgbd_default: Use default 64x64 RGBD sensor")
     config.addinivalue_line("markers", "json_level: mark test to use custom JSON level definition")
     config.addinivalue_line(
+        "markers",
+        "lidar_config: configure lidar sensor "
+        "(lidar_num_samples, lidar_fov_degrees, lidar_noise_factor, lidar_base_sigma)",
+    )
+    config.addinivalue_line(
         "markers", "slow: mark test as slow running (e.g., GPU compilation tests)"
     )
 
@@ -114,13 +119,14 @@ def _create_sim_manager(
         render_mode: RenderMode enum value (None = use default RGBD)
     """
     from madrona_escape_room import create_sim_manager
-    from madrona_escape_room.sensor_config import SensorConfig
+    from madrona_escape_room.sensor_config import LidarConfig, SensorConfig
 
     # Check for level markers
     ascii_marker = request.node.get_closest_marker("ascii_level")
     json_marker = request.node.get_closest_marker("json_level")
     depth_marker = request.node.get_closest_marker("depth_sensor")
     auto_reset_marker = request.node.get_closest_marker("auto_reset")
+    lidar_config_marker = request.node.get_closest_marker("lidar_config")
 
     # Determine level data from markers
     level_data = None
@@ -197,11 +203,25 @@ def _create_sim_manager(
         auto_reset = True
         logger.info("Auto-reset enabled via @pytest.mark.auto_reset marker")
 
+    # Check for lidar_config marker
+    lidar_config = None
+    if lidar_config_marker:
+        # Extract kwargs from marker
+        kwargs = lidar_config_marker.kwargs
+        lidar_config = LidarConfig(
+            lidar_num_samples=kwargs.get("lidar_num_samples", 128),
+            lidar_fov_degrees=kwargs.get("lidar_fov_degrees", 120.0),
+            lidar_noise_factor=kwargs.get("lidar_noise_factor", 0.0),
+            lidar_base_sigma=kwargs.get("lidar_base_sigma", 0.0),
+        )
+        logger.info(f"Using lidar config from marker: {lidar_config}")
+
     # Use the factory function
     return create_sim_manager(
         exec_mode=exec_mode,
         sensor_config=sensor_config,
         level_data=level_data,
+        lidar_config=lidar_config,
         gpu_id=0,
         num_worlds=4,
         rand_seed=42,

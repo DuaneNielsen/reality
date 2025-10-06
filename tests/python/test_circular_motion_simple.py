@@ -58,9 +58,13 @@ def test_circular_motion_basic(cpu_manager):
     # Verify compass works
     compass = cpu_manager.compass_tensor().to_numpy()
     assert compass is not None
-    assert compass.shape == (4, 1, 128)  # 4 worlds, 1 agent, 128 buckets
+    assert compass.shape == (
+        4,
+        1,
+        256,
+    )  # 4 worlds, 1 agent, 256-bucket buffer (default uses 128 active)
 
-    # Compass should be normalized
+    # Compass should be normalized (only active buckets, first 128 by default)
     assert np.isclose(np.sum(compass[0, 0]), 1.0)
 
 

@@ -8,33 +8,33 @@ from .cfg import SimInterface
 
 
 class LidarIndex:
-    """Lidar tensor indices for 128-beam forward arc"""
+    """Lidar tensor indices for 256-sample buffer (default 128-beam forward arc)"""
 
     # For tensor shape [worlds, agents, samples] - single distance value per beam
-    SAMPLES_DIM = 2  # Samples dimension index (128 beams)
+    SAMPLES_DIM = 2  # Samples dimension index (256 max buffer)
 
-    # Beam indices for 128-beam lidar in 360-degree circle
+    # Beam indices for default 128-beam lidar configuration
     LEFTMOST = 0  # First lidar beam
-    CENTER = 64  # Middle lidar beam
-    RIGHTMOST = 127  # Last lidar beam
+    CENTER = 64  # Middle lidar beam (for 128-beam config)
+    RIGHTMOST = 127  # Last lidar beam (for 128-beam config)
 
     @staticmethod
     def beam_count():
-        """Total number of lidar beams"""
-        return 128
+        """Total buffer size for lidar beams (max samples)"""
+        return 256
 
 
 class CompassIndex:
-    """Compass tensor bucket indices (128-bucket one-hot encoding)"""
+    """Compass tensor bucket indices (256-bucket buffer, default 128 active)"""
 
-    FIRST = 0  # First compass bucket (0/128)
-    CENTER = 64  # Middle compass bucket (64/128)
-    LAST = 127  # Last compass bucket (127/128)
+    FIRST = 0  # First compass bucket
+    CENTER = 64  # Middle compass bucket (for 128-bucket config)
+    LAST = 127  # Last compass bucket (for 128-bucket config)
 
     @staticmethod
     def bucket_count():
-        """Total number of compass buckets"""
-        return 128
+        """Total buffer size for compass buckets (max buckets)"""
+        return 256
 
 
 class SelfObsIndex:
@@ -197,6 +197,7 @@ def setup_lidar_training_environment(
     rand_seed: int = 42,
     compiled_level=None,
     compiled_levels=None,
+    lidar_config=None,
 ) -> SimInterface:
     """
     Setup training environment with native lidar sensor system.
@@ -208,6 +209,7 @@ def setup_lidar_training_environment(
         rand_seed: Random seed for reproducible training
         compiled_level: Optional single CompiledLevel to use (deprecated, use compiled_levels)
         compiled_levels: Optional list of CompiledLevel to use for multi-level/curriculum training
+        lidar_config: Optional LidarConfig instance for sensor configuration
 
     Returns:
         SimInterface with lidar, compass, and progress observations
@@ -217,11 +219,14 @@ def setup_lidar_training_environment(
         from madrona_escape_room_learn.sim_interface_adapter import (
             setup_lidar_training_environment,
         )
+        from madrona_escape_room.sensor_config import LidarConfig
 
+        lidar_config = LidarConfig(lidar_num_samples=64, lidar_fov_degrees=180.0)
         sim = setup_lidar_training_environment(
             num_worlds=4096,
             exec_mode=madrona.ExecMode.CUDA,
-            gpu_id=0
+            gpu_id=0,
+            lidar_config=lidar_config
         )
     """
     # Handle both old and new parameter styles for backward compatibility
@@ -240,6 +245,7 @@ def setup_lidar_training_environment(
         auto_reset=True,
         enable_batch_renderer=False,  # No visual rendering
         compiled_levels=levels_to_use,
+        lidar_config=lidar_config,
     )
 
     return create_lidar_sim_interface(manager)

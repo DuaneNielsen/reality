@@ -266,11 +266,12 @@ namespace limits {
     inline constexpr int32_t maxTiles = 1024;           // Maximum tiles in a level (32x32 grid)
     inline constexpr int32_t maxSpawns = 8;             // Maximum spawn points in a level
     inline constexpr int32_t maxTargets = 8;            // Maximum target entities in a level
-    
+    inline constexpr int32_t maxLidarSamples = 256;     // Maximum lidar samples (configurable per-level)
+
     // String buffer sizes
     inline constexpr int32_t maxNameLength = 64;        // sim_name, level_name buffer size
     inline constexpr int32_t maxLevelNameLength = 64;   // Maximum level name string length
-    
+
     // Validation bounds for level data
     inline constexpr int32_t maxWorlds = 10000;         // Upper limit for num_worlds
     inline constexpr int32_t maxAgentsPerWorld = 100;   // Upper limit for agents per world
