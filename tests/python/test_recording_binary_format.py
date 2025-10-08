@@ -78,7 +78,7 @@ def test_replay_metadata_complete_structure(cpu_manager):
 
             # Validate all 14 fields (vs existing test's 9 fields)
             assert magic == 0x4D455352, f"Expected magic 0x4D455352, got 0x{magic:08x}"
-            assert version == 4, f"Expected version 4 (with checksums), got {version}"
+            assert version == 5, f"Expected version 5 (with sensor config), got {version}"
             assert (
                 sim_name == "madrona_escape_room"
             ), f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
@@ -245,13 +245,15 @@ def test_action_data_verification_step_by_step(cpu_manager):
         # Validate recording metadata
         metadata = mgr.read_replay_metadata(recording_path)
         assert metadata is not None, "Failed to read replay metadata"
-        assert metadata.version == 4, f"Expected v4 format with checksums, got v{metadata.version}"
+        assert (
+            metadata.version == 5
+        ), f"Expected v5 format with sensor config, got v{metadata.version}"
         assert metadata.num_steps == len(
             test_actions
         ), f"Expected {len(test_actions)} steps, got {metadata.num_steps}"
 
         print("=== Action Data Verification using Replay API ===")
-        print(f"Recording format: v{metadata.version} with checksums")
+        print(f"Recording format: v{metadata.version} with sensor config")
         print(f"Recorded steps: {metadata.num_steps}")
         print(f"Worlds: {metadata.num_worlds}, Agents per world: {metadata.num_agents_per_world}")
 
@@ -331,7 +333,7 @@ def test_format_specification_compliance(cpu_manager):
             version = struct.unpack("<I", file_data[4:8])[0]
 
             assert magic == 0x4D455352, f"Invalid magic number: 0x{magic:08x}"
-            assert version == 4, f"Expected version 4 (with checksums), got {version}"
+            assert version == 5, f"Expected version 5 (with sensor config), got {version}"
 
             # Validate struct alignment - check for null padding in strings
             sim_name_section = file_data[8:72]  # 64 bytes

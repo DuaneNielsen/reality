@@ -262,8 +262,8 @@ def test_multi_level_metadata_storage():
 
 
 @pytest.mark.spec("docs/specs/mgr.md", "loadReplay")
-def test_v3_format_validation():
-    """Test that only v3 format files are accepted."""
+def test_v5_format_validation():
+    """Test that v5 format files are created with sensor config."""
 
     level1, _, _ = create_test_levels()
 
@@ -271,7 +271,7 @@ def test_v3_format_validation():
         recording_path = f.name
 
     try:
-        # Create a v3 format recording
+        # Create a v5 format recording
         mgr = SimManager(
             exec_mode=ExecMode.CPU,
             gpu_id=-1,
@@ -289,12 +289,14 @@ def test_v3_format_validation():
 
         # Verify the file can be read
         metadata = mgr.read_replay_metadata(recording_path)
-        assert metadata is not None, "Failed to read v3 replay metadata"
+        assert metadata is not None, "Failed to read v5 replay metadata"
 
-        assert metadata.version == 4, f"Expected version 4 (with checksums), got {metadata.version}"
+        assert (
+            metadata.version == 5
+        ), f"Expected version 5 (with sensor config), got {metadata.version}"
         assert metadata.magic != 0, f"Expected valid magic number, got {metadata.magic}"
 
-        print(f"✓ v3 format file created and validated (version {metadata.version})")
+        print(f"✓ v5 format file created and validated (version {metadata.version})")
 
     finally:
         if os.path.exists(recording_path):
@@ -305,5 +307,5 @@ if __name__ == "__main__":
     print("Running multi-level recording/replay tests...")
     test_multi_level_recording_roundtrip()
     test_multi_level_metadata_storage()
-    test_v3_format_validation()
+    test_v5_format_validation()
     print("All tests passed!")

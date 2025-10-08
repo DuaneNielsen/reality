@@ -562,7 +562,7 @@ MER_Result mer_read_replay_metadata(
     // Direct cast to ReplayMetadata* - Python passes the exact C++ struct via ctypes
     ReplayMetadata* replay_meta = reinterpret_cast<ReplayMetadata*>(out_metadata);
     
-    // Copy ALL metadata fields including v3 additions
+    // Copy ALL metadata fields including v3, v4, and v5 additions
     replay_meta->magic = metadata.magic;
     replay_meta->version = metadata.version;
     replay_meta->num_worlds = metadata.num_worlds;
@@ -571,7 +571,9 @@ MER_Result mer_read_replay_metadata(
     replay_meta->actions_per_step = metadata.actions_per_step;
     replay_meta->timestamp = metadata.timestamp;
     replay_meta->seed = metadata.seed;
-    
+    replay_meta->auto_reset = metadata.auto_reset;  // v4 addition
+    replay_meta->sensor_config = metadata.sensor_config;  // v5 addition
+
     std::memcpy(replay_meta->reserved, metadata.reserved, sizeof(replay_meta->reserved));
     
     // Copy string fields safely

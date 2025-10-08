@@ -178,7 +178,7 @@ def test_recording_error_handling(cpu_manager):
 
 @pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_recording_file_format(cpu_manager):
-    """Test comprehensive recording file format validation - Version 3 complete validation"""
+    """Test comprehensive recording file format validation - Version 5 complete validation"""
     mgr = cpu_manager
 
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
@@ -201,7 +201,7 @@ def test_recording_file_format(cpu_manager):
 
         mgr.stop_recording()
 
-        # Read and verify complete file structure with Version 3 format
+        # Read and verify complete file structure with Version 5 format
         with open(recording_path, "rb") as f:
             file_data = f.read()
 
@@ -210,19 +210,21 @@ def test_recording_file_format(cpu_manager):
             # File should have some content
             assert len(file_data) > 0
 
-            # Version 3 ReplayMetadata structure (192 bytes total):
+            # Version 5 ReplayMetadata structure (256 bytes total):
             # - magic number (4 bytes)
             # - version (4 bytes)
             # - sim_name (64 bytes)
-            # - level_name (64 bytes) - NEW in version 2, kept in version 3
+            # - level_name (64 bytes)
             # - num_worlds (4 bytes)
             # - num_agents_per_world (4 bytes)
             # - num_steps (4 bytes)
             # - actions_per_step (4 bytes)
             # - timestamp (8 bytes)
             # - seed (4 bytes)
-            # - reserved (28 bytes) - 7 * 4 bytes
-            metadata_size = 192  # Correct size for version 3
+            # - auto_reset (4 bytes)
+            # - sensor_config (64 bytes) - NEW in version 5
+            # - reserved (24 bytes)
+            metadata_size = 256  # Correct size for version 5
 
             if len(file_data) >= metadata_size:
                 # Read all 14 fields (vs previous 9 fields) from the loaded data
@@ -292,14 +294,14 @@ def test_recording_file_format(cpu_manager):
                 # Verify all 14 fields (comprehensive validation)
                 assert magic == 0x4D455352, f"Expected magic 0x4D455352, got 0x{magic:08x}"
                 assert (
-                    version == 4
-                ), f"Expected version 4 (current format with checksums), got {version}"
+                    version == 5
+                ), f"Expected version 5 (current format with sensor config), got {version}"
                 assert (
                     sim_name == "madrona_escape_room"
                 ), f"Expected sim_name 'madrona_escape_room', got '{sim_name}'"
                 assert (
                     level_name
-                ), f"Level name should not be empty in version 3, got '{level_name}'"
+                ), f"Level name should not be empty in version 5, got '{level_name}'"
                 assert (
                     num_worlds_meta == num_worlds
                 ), f"Expected {num_worlds} worlds, got {num_worlds_meta}"
@@ -340,10 +342,10 @@ def test_recording_file_format(cpu_manager):
                 ), f"Insufficient action data: {len(action_data)} < {expected_action_bytes}"
 
                 print("✓ Enhanced action data validation completed")
-                print("✓ Current format (version 3) comprehensive validation PASSED")
+                print("✓ Current format (version 5) comprehensive validation PASSED")
             else:
                 raise AssertionError(
-                    f"File too small ({len(file_data)} bytes) for version 3 metadata "
+                    f"File too small ({len(file_data)} bytes) for version 5 metadata "
                     f"({metadata_size} bytes)"
                 )
 
@@ -412,7 +414,7 @@ def test_recording_state_persistence(cpu_manager):
 
 @pytest.mark.spec("docs/specs/mgr.md", "startRecording")
 def test_current_format_specification_compliance(cpu_manager):
-    """Test current format (version 3) specification compliance and struct layout"""
+    """Test current format (version 5) specification compliance and struct layout"""
     mgr = cpu_manager
 
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
@@ -425,7 +427,7 @@ def test_current_format_specification_compliance(cpu_manager):
 
         # Test format specification compliance
         with open(recording_path, "rb") as f:
-            print("=== Current Format (Version 3) Specification Compliance ===")
+            print("=== Current Format (Version 5) Specification Compliance ===")
 
             # Read and validate exact struct layout
             magic_bytes = f.read(4)
@@ -437,13 +439,13 @@ def test_current_format_specification_compliance(cpu_manager):
             version = struct.unpack("<I", version_bytes)[0]
 
             print(f"Magic number: 0x{magic:08x} (expected: 0x4D455352)")
-            print(f"Version: {version} (expected: 3)")
+            print(f"Version: {version} (expected: 5)")
             print(f"Sim name section: {len(sim_name_bytes)} bytes")
             print(f"Level name section: {len(level_name_bytes)} bytes")
 
             # Validate magic number and version (critical format identifiers)
             assert magic == 0x4D455352, f"Invalid magic number: 0x{magic:08x}"
-            assert version == 4, f"Expected current version 4 (with checksums), got {version}"
+            assert version == 5, f"Expected current version 5 (with sensor config), got {version}"
 
             # Validate string field layout
             assert (
@@ -501,7 +503,7 @@ def test_format_error_conditions(cpu_manager):
         invalid_magic_path = f.name
         # Write file with invalid magic but valid structure
         f.write(struct.pack("<I", 0xDEADBEEF))  # Invalid magic
-        f.write(struct.pack("<I", 4))  # Valid version
+        f.write(struct.pack("<I", 5))  # Valid version
         f.write(b"madrona_escape_room\x00" + b"\x00" * 44)  # sim_name (64 bytes)
         f.write(b"test_level\x00" + b"\x00" * 53)  # level_name (64 bytes)
         f.write(b"\x00" * 40)  # Remaining fields
@@ -514,7 +516,7 @@ def test_format_error_conditions(cpu_manager):
             # Should detect invalid magic
             assert magic == 0xDEADBEEF, "Should read invalid magic"
             assert magic != 0x4D455352, "Magic should not match expected value"
-            assert version == 4, "Version should still be valid (v4 with checksums)"
+            assert version == 5, "Version should still be valid (v5 with sensor config)"
 
         print("✓ Invalid magic number detection validated")
 
@@ -549,7 +551,7 @@ def test_format_error_conditions(cpu_manager):
         incomplete_path = f.name
         # Write only partial header
         f.write(struct.pack("<I", 0x4D455352))  # Valid magic
-        f.write(struct.pack("<I", 4))  # Valid version
+        f.write(struct.pack("<I", 5))  # Valid version
         f.write(b"madrona")  # Incomplete sim_name
 
     try:
@@ -562,7 +564,7 @@ def test_format_error_conditions(cpu_manager):
             remaining = f.read()
 
             assert magic == 0x4D455352, "Magic should be valid"
-            assert version == 4, "Version should be valid (v4 with checksums)"
+            assert version == 5, "Version should be valid (v5 with sensor config)"
             assert len(remaining) < 128, "Should have incomplete data"
 
         print("✓ Incomplete header detection validated")
@@ -592,10 +594,10 @@ def test_field_alignment_and_padding(cpu_manager):
             print("=== Field Alignment and Padding Validation ===")
 
             # Read complete metadata and verify field boundaries
-            complete_metadata = f.read(192)
+            complete_metadata = f.read(256)
             assert (
-                len(complete_metadata) == 192
-            ), f"Expected 192 bytes, got {len(complete_metadata)}"
+                len(complete_metadata) == 256
+            ), f"Expected 256 bytes, got {len(complete_metadata)}"
 
             # Parse each field at correct offset
             offset = 0
@@ -643,9 +645,17 @@ def test_field_alignment_and_padding(cpu_manager):
             _seed = struct.unpack("<I", complete_metadata[offset : offset + 4])[0]
             offset += 4
 
-            # reserved (28 bytes)
-            _reserved = complete_metadata[offset : offset + 28]
-            offset += 28
+            # auto_reset (4 bytes)
+            _auto_reset = struct.unpack("<I", complete_metadata[offset : offset + 4])[0]
+            offset += 4
+
+            # sensor_config (64 bytes) - NEW in v5
+            _sensor_config = complete_metadata[offset : offset + 64]
+            offset += 64
+
+            # reserved (24 bytes) - reduced from 28 in v4
+            _reserved = complete_metadata[offset : offset + 24]
+            offset += 24
 
             print("Field offsets verified:")
             print(f"  Magic at 0: 0x{magic:08x}")
@@ -659,11 +669,11 @@ def test_field_alignment_and_padding(cpu_manager):
             # Validate field values
             assert magic == 0x4D455352, "Magic field misaligned or corrupted"
             assert (
-                version == 4
-            ), "Version field misaligned or corrupted (expected v4 with checksums)"
+                version == 5
+            ), "Version field misaligned or corrupted (expected v5 with sensor config)"
             assert sim_name == "madrona_escape_room", "sim_name field misaligned or corrupted"
             assert level_name, "level_name field misaligned or corrupted"
-            assert offset == 192, f"Field alignment error: should be at offset 192, got {offset}"
+            assert offset == 256, f"Field alignment error: should be at offset 256, got {offset}"
 
             # Check string field padding
             for i in range(len(sim_name), 64):

@@ -778,7 +778,7 @@ void Manager::step()
     // Handles both recording (write checksums) and replay (verify checksums)
 
     // For recording: write checksums to file
-    if (impl_->isRecordingActive && impl_->recordingMetadata.version == 4 &&
+    if (impl_->isRecordingActive && impl_->recordingMetadata.version >= 4 &&
         impl_->checksumStepCounter >= CHECKSUM_INTERVAL) {
 
         // Calculate checksums for all worlds
@@ -869,10 +869,10 @@ void Manager::step()
                     std::cout << std::endl;
                 }
             } else {
-                // No expected checksums found - this should not happen for v4 format at checkpoint intervals
-                if (metadata.version == 4) {
+                // No expected checksums found - this should not happen for v4+ format at checkpoint intervals
+                if (metadata.version >= 4) {
                     std::cout << "WARNING: No stored checksums found at step " << impl_->currentReplayStep
-                              << " in v4 format file\n";
+                              << " in v" << metadata.version << " format file\n";
                 } else {
                     std::cout << "INFO: Checksum verification skipped at step " << impl_->currentReplayStep
                               << " (v3 format has no stored checksums)\n";
@@ -1487,8 +1487,8 @@ Result Manager::startRecording(const std::string& filepath)
         impl_->recordingFile.write(reinterpret_cast<const char*>(&level), sizeof(CompiledLevel));
     }
 
-    // For v4 format with checksums, write initial state checksum before any actions
-    if (impl_->recordingMetadata.version == 4) {
+    // For v4+ format with checksums, write initial state checksum before any actions
+    if (impl_->recordingMetadata.version >= 4) {
         // Calculate initial state checksums for all worlds
         std::vector<uint32_t> initialChecksums = impl_->calculateAllWorldChecksums();
 

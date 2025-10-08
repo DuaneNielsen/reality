@@ -81,27 +81,36 @@ def test_replay_custom_32_beam_180_fov():
 
         mgr.stop_recording()
 
-        # Get original lidar shape
+        # Get original lidar shape (tensor is always maxLidarSamples=256, config controls usage)
         original_lidar = mgr.lidar_tensor().to_numpy()
         original_shape = original_lidar.shape
 
-        # Verify original has 32 beams
+        # Verify tensor has max size (256) but config specifies 32 beam usage
         assert (
-            original_lidar.shape[2] == 32
-        ), f"Original should have 32 beams, got {original_lidar.shape[2]}"
+            original_lidar.shape[2] == 256
+        ), f"Lidar tensor should always be max size (256), got {original_lidar.shape[2]}"
+
+        # Read metadata to verify sensor config was stored correctly
+        metadata = SimManager.read_replay_metadata(recording_path)
+        assert (
+            metadata.sensor_config.lidar_num_samples == 32
+        ), f"Expected 32 beams in config, got {metadata.sensor_config.lidar_num_samples}"
+        assert (
+            metadata.sensor_config.lidar_fov_degrees == 180.0
+        ), f"Expected 180° FOV in config, got {metadata.sensor_config.lidar_fov_degrees}"
 
         # Load replay
         replay_mgr = SimManager.from_replay(recording_path, exec_mode=ExecMode.CPU)
 
-        # Verify lidar tensor shape matches original (32 beams, not default 128)
+        # Verify lidar tensor shape matches original (both use maxLidarSamples)
         replay_lidar = replay_mgr.lidar_tensor().to_numpy()
         assert (
             replay_lidar.shape == original_shape
         ), f"Replay lidar shape {replay_lidar.shape} doesn't match original {original_shape}"
 
         assert (
-            replay_lidar.shape[2] == 32
-        ), f"Expected 32 lidar beams from replay, got {replay_lidar.shape[2]}"
+            replay_lidar.shape[2] == 256
+        ), f"Lidar tensor should be max size (256), got {replay_lidar.shape[2]}"
 
     finally:
         import os
@@ -192,27 +201,39 @@ def test_replay_with_noise():
 
         mgr.stop_recording()
 
-        # Get original lidar shape
+        # Get original lidar shape (tensor is always maxLidarSamples=256, config controls usage)
         original_lidar = mgr.lidar_tensor().to_numpy()
         original_shape = original_lidar.shape
 
-        # Verify original has 64 beams
+        # Verify tensor has max size (256) but config specifies 64 beam usage
         assert (
-            original_lidar.shape[2] == 64
-        ), f"Original should have 64 beams, got {original_lidar.shape[2]}"
+            original_lidar.shape[2] == 256
+        ), f"Lidar tensor should always be max size (256), got {original_lidar.shape[2]}"
+
+        # Read metadata to verify sensor config was stored correctly
+        metadata = SimManager.read_replay_metadata(recording_path)
+        assert (
+            metadata.sensor_config.lidar_num_samples == 64
+        ), f"Expected 64 beams in config, got {metadata.sensor_config.lidar_num_samples}"
+        assert metadata.sensor_config.lidar_fov_degrees == pytest.approx(
+            120.0
+        ), f"Expected 120° FOV in config, got {metadata.sensor_config.lidar_fov_degrees}"
+        assert metadata.sensor_config.lidar_noise_factor == pytest.approx(
+            0.005
+        ), f"Expected 0.005 noise factor, got {metadata.sensor_config.lidar_noise_factor}"
 
         # Load replay
         replay_mgr = SimManager.from_replay(recording_path, exec_mode=ExecMode.CPU)
 
-        # Verify lidar tensor shape matches original (64 beams, not default 128)
+        # Verify lidar tensor shape matches original (both use maxLidarSamples)
         replay_lidar = replay_mgr.lidar_tensor().to_numpy()
         assert (
             replay_lidar.shape == original_shape
         ), f"Replay lidar shape {replay_lidar.shape} doesn't match original {original_shape}"
 
         assert (
-            replay_lidar.shape[2] == 64
-        ), f"Expected 64 lidar beams from replay, got {replay_lidar.shape[2]}"
+            replay_lidar.shape[2] == 256
+        ), f"Lidar tensor should be max size (256), got {replay_lidar.shape[2]}"
 
     finally:
         import os
@@ -259,14 +280,14 @@ def test_replay_metadata_sensor_config():
         assert (
             sensor_config.lidar_num_samples == 48
         ), f"Expected 48 beams in metadata, got {sensor_config.lidar_num_samples}"
-        assert (
-            sensor_config.lidar_fov_degrees == 90.0
+        assert sensor_config.lidar_fov_degrees == pytest.approx(
+            90.0
         ), f"Expected 90.0° FOV in metadata, got {sensor_config.lidar_fov_degrees}"
-        assert (
-            sensor_config.lidar_noise_factor == 0.01
+        assert sensor_config.lidar_noise_factor == pytest.approx(
+            0.01
         ), f"Expected 0.01 noise factor in metadata, got {sensor_config.lidar_noise_factor}"
-        assert (
-            sensor_config.lidar_base_sigma == 0.05
+        assert sensor_config.lidar_base_sigma == pytest.approx(
+            0.05
         ), f"Expected 0.05 base sigma in metadata, got {sensor_config.lidar_base_sigma}"
 
     finally:

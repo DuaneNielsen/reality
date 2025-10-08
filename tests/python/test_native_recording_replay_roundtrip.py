@@ -428,10 +428,10 @@ def test_file_structure_integrity_validation(cpu_manager):
             version = struct.unpack("<I", f.read(4))[0]
 
             assert magic == 0x4D455352, f"Invalid magic: 0x{magic:08x}"
-            assert version == 4, f"Invalid version: {version} (expected v4 with checksums)"
+            assert version == 5, f"Invalid version: {version} (expected v5 with sensor config)"
 
             # Skip to end of metadata
-            f.seek(136)  # ReplayMetadata size
+            f.seek(212)  # ReplayMetadata size (v5 with SensorConfig)
             metadata_end = f.tell()
 
             print(f"Metadata ends at: {metadata_end}")

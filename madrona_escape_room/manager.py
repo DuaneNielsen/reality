@@ -322,6 +322,30 @@ class SimManager:
         # Convert back to dataclass to get updated values
         metadata = ReplayMetadata.from_buffer(bytearray(c_metadata))
 
+        # Convert raw sensor_config bytes to SensorConfig object
+        import struct
+
+        from .generated_dataclasses import SensorConfig
+
+        # sensor_config is raw bytes (list or bytes) from cdataclass - convert to SensorConfig
+        if isinstance(metadata.sensor_config, list):
+            # Convert list of ints to bytes (handling values > 255 by taking & 0xFF)
+            sensor_bytes = bytes(b & 0xFF for b in metadata.sensor_config)
+        else:
+            sensor_bytes = metadata.sensor_config
+
+        # Unpack as: int32, float, float, float (little-endian)
+        lidar_num_samples, lidar_fov_degrees, lidar_noise_factor, lidar_base_sigma = struct.unpack(
+            "<ifff", sensor_bytes
+        )
+
+        metadata.sensor_config = SensorConfig(
+            lidar_num_samples=lidar_num_samples,
+            lidar_fov_degrees=lidar_fov_degrees,
+            lidar_noise_factor=lidar_noise_factor,
+            lidar_base_sigma=lidar_base_sigma,
+        )
+
         # Return the dataclass directly instead of converting to dict
         return metadata
 
