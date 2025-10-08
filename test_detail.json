@@ -3,28 +3,28 @@
   "failures": 0,
   "disabled": 0,
   "errors": 0,
-  "timestamp": "2025-09-29T21:14:15Z",
-  "time": "0.513s",
+  "timestamp": "2025-10-07T22:44:51Z",
+  "time": "0.035s",
   "name": "AllTests",
   "testsuites": [
     {
-      "name": "ViewerCoreTrajectoryTest",
+      "name": "FileInspectorTest",
       "tests": 1,
       "failures": 0,
       "disabled": 0,
       "errors": 0,
-      "timestamp": "2025-09-29T21:14:15Z",
-      "time": "0.513s",
+      "timestamp": "2025-10-07T22:44:51Z",
+      "time": "0.035s",
       "testsuite": [
         {
-          "name": "DiagnoseFrameCountMismatch",
-          "file": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/unit\/test_viewercore_trajectory.cpp",
-          "line": 766,
+          "name": "InspectorHandlesRecordingFile",
+          "file": "\/home\/duane\/madrona_escape_room\/tests\/cpp\/unit\/test_file_inspector.cpp",
+          "line": 206,
           "status": "RUN",
           "result": "COMPLETED",
-          "timestamp": "2025-09-29T21:14:15Z",
-          "time": "0.513s",
-          "classname": "ViewerCoreTrajectoryTest"
+          "timestamp": "2025-10-07T22:44:51Z",
+          "time": "0.035s",
+          "classname": "FileInspectorTest"
         }
       ]
     }

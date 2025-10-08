@@ -667,8 +667,8 @@ inline void lidarSystem(Engine &ctx,
             if (!visualize) {
                 // Hide all rays when visualization is disabled
                 ctx.get<Scale>(ray_entity) = Diag3x3{0, 0, 0};
-            } else if (hit_entity != Entity::none() && (idx % 8 == 0)) {
-                // Show every 8th ray (16 rays total) when visualization is enabled
+            } else if (hit_entity != Entity::none() && (idx % (num_samples / 32) == 0)) {
+                // Show evenly distributed rays (32 rays total) when visualization is enabled
                 // Position ray to start at origin and extend to hit point
                 // Since cylinder extends ±0.5 * scale.z from center, position at midpoint
                 Vector3 ray_midpoint = ray_origin + (ray_dir * hit_t * 0.5f);
