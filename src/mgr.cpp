@@ -1468,6 +1468,7 @@ Result Manager::startRecording(const std::string& filepath)
     impl_->recordingMetadata.num_agents_per_world = 1;
     impl_->recordingMetadata.seed = impl_->cfg.randSeed;
     impl_->recordingMetadata.auto_reset = impl_->cfg.autoReset ? 1 : 0;  // Store auto-reset setting
+    impl_->recordingMetadata.sensor_config = impl_->cfg.sensorConfig;     // Store sensor configuration
     impl_->recordingMetadata.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
     
     // Use first level name for legacy level_name field
@@ -1718,6 +1719,7 @@ std::unique_ptr<Manager> Manager::fromReplay(
     cfg.numWorlds = metadata->num_worlds;
     cfg.randSeed = metadata->seed;
     cfg.autoReset = (metadata->auto_reset != 0);  // Load auto-reset setting from replay metadata
+    cfg.sensorConfig = metadata->sensor_config;   // Load sensor configuration from replay metadata
     cfg.enableBatchRenderer = enableBatchRenderer;
     cfg.extRenderAPI = extRenderAPI;
     cfg.extRenderDev = extRenderDev;

@@ -61,9 +61,9 @@ DEFAULT_STRUCTS_TO_EXTRACT = [
     # API Boundary Structs - These cross the Python-C boundary directly
     # IMPORTANT: Order matters! Structs must be listed AFTER their dependencies
     "CompiledLevel",  # Level data passed to C API functions
-    "ReplayMetadata",  # Recording file format struct
-    # Sensor config (lidar, compass, etc.) - MUST come before ManagerConfig
+    # Sensor config (lidar, compass, etc.) - MUST come before ReplayMetadata and ManagerConfig
     "SensorConfig",
+    "ReplayMetadata",  # Recording file format struct (depends on SensorConfig)
     "ManagerConfig",  # Configuration struct passed to C API (depends on SensorConfig)
     # Note: ECS components (Action, SelfObservation, Done, Reward, Progress, StepsTaken)
     # are accessed through tensor exports via DLPack, not direct struct manipulation.

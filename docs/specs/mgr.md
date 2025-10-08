@@ -512,14 +512,15 @@ Determinism can be verified by:
 - File format: [Metadata][Levels][Mixed ACTION/CHECKSUM Records]
 - **Determinism Note**: Recording captures seed + actions + position checksums for verification
 - **Checksum Verification**: Automatically calculates and stores checksums every 200 steps for determinism validation
-- **Version 4 Format Features**:
+- **Version 5 Format Features**:
   - Mixed record types (ACTION and CHECKSUM records)
   - Position-based checksums using FNV-1a hash algorithm
   - Deterministic replay verification support
-  - Backward compatible metadata structure
-- **Version 4 Metadata structure** (192 bytes total):
+  - **Sensor configuration preservation** - Records lidar beam count, FOV, noise parameters
+  - Replays use exact sensor config from recording (no more default 128 beams/120° FOV)
+- **Version 5 Metadata structure** (208 bytes total):
   - `magic`: uint32_t (4 bytes) - Magic number for validation
-  - `version`: uint32_t (4 bytes) - Format version (currently 4)
+  - `version`: uint32_t (4 bytes) - Format version (currently 5)
   - `sim_name`: char[64] - Simulation name (null-terminated ASCII)
   - `level_name`: char[64] - Level name (null-terminated ASCII)
   - `num_worlds`: uint32_t (4 bytes) - Number of parallel worlds
@@ -528,7 +529,10 @@ Determinism can be verified by:
   - `actions_per_step`: uint32_t (4 bytes) - Actions per step
   - `timestamp`: uint64_t (8 bytes) - Recording timestamp
   - `seed`: uint32_t (4 bytes) - Random seed used
-  - `reserved`: uint32_t[7] (28 bytes) - Reserved for future use
+  - `auto_reset`: uint32_t (4 bytes) - Auto-reset enabled flag
+  - `sensor_config`: SensorConfig (16 bytes) - Sensor configuration (lidar beams, FOV, noise)
+  - `reserved`: uint32_t[6] (24 bytes) - Reserved for future use
+- **Breaking Change**: Version 3 and 4 replay files are no longer supported - all recordings must be regenerated
 - Embedded level: Full MER_CompiledLevel structure
 - Actions: num_steps × num_worlds × 3 int32_t values
 - Works on both CPU and GPU execution modes
@@ -719,7 +723,7 @@ Determinism can be verified by:
 - Calculate and verify expected file size
 - **File Integrity Validation:**
   - Magic number verification
-  - Version validation (currently version 3)
+  - Version validation (currently version 5 - versions 3 and 4 no longer supported)
   - Boundary checking for metadata/level/action sections
   - Action data corruption detection
   - Partial file handling and truncation detection

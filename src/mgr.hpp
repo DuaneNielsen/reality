@@ -18,7 +18,7 @@ namespace madEscape {
 
     // Replay metadata constants and structure (host-only with STL usage)
     static constexpr uint32_t REPLAY_MAGIC = 0x4D455352; // "MESR" in hex
-    static constexpr uint32_t REPLAY_VERSION = 4;
+    static constexpr uint32_t REPLAY_VERSION = 5;
     static constexpr uint32_t MAX_SIM_NAME_LENGTH = 64;
     static constexpr uint32_t CHECKSUM_INTERVAL = 200;
 
@@ -48,6 +48,7 @@ namespace madEscape {
         uint64_t timestamp;                     // Unix timestamp when recording started
         uint32_t seed;                          // Random seed used for simulation
         uint32_t auto_reset;                    // Auto-reset setting used during recording
+        SensorConfig sensor_config;             // Sensor configuration used during recording
         uint32_t reserved[consts::fileFormat::replayMagicLength - 1];  // Reserved for future use (reduced by 1)
         
         static ReplayMetadata createDefault() {
@@ -65,16 +66,20 @@ namespace madEscape {
             meta.timestamp = 0;
             meta.seed = consts::fileFormat::defaultSeed;
             meta.auto_reset = 0;  // Default to false (0)
+            meta.sensor_config.lidar_num_samples = 128;
+            meta.sensor_config.lidar_fov_degrees = 120.0f;
+            meta.sensor_config.lidar_noise_factor = 0.0f;
+            meta.sensor_config.lidar_base_sigma = 0.0f;
             std::memset(meta.reserved, 0, sizeof(meta.reserved));
             return meta;
         }
         
         bool isValid() const {
-            return magic == REPLAY_MAGIC && (version == 3 || version == 4);
+            return magic == REPLAY_MAGIC && version == 5;
         }
 
         bool hasChecksums() const {
-            return version == 4;
+            return version >= 4;
         }
     };
 

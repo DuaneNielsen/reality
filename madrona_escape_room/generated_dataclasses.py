@@ -95,6 +95,13 @@ class CompiledLevel(NativeEndianCDataMixIn):
     target_params: List[float] = field(metadata=meta(ctypes.c_float * 64), default_factory=_make_float_array_64)
 
 @dataclass
+class SensorConfig(NativeEndianCDataMixIn):
+    lidar_num_samples: int = field(metadata=meta(ctypes.c_int32), default=0)
+    lidar_fov_degrees: float = field(metadata=meta(ctypes.c_float), default=0)
+    lidar_noise_factor: float = field(metadata=meta(ctypes.c_float), default=0)
+    lidar_base_sigma: float = field(metadata=meta(ctypes.c_float), default=0)
+
+@dataclass
 class ReplayMetadata(NativeEndianCDataMixIn):
     magic: int = field(metadata=meta(ctypes.c_uint32), default=0)
     version: int = field(metadata=meta(ctypes.c_uint32), default=0)
@@ -107,14 +114,8 @@ class ReplayMetadata(NativeEndianCDataMixIn):
     timestamp: int = field(metadata=meta(ctypes.c_uint64), default=0)
     seed: int = field(metadata=meta(ctypes.c_uint32), default=0)
     auto_reset: int = field(metadata=meta(ctypes.c_uint32), default=0)
+    sensor_config: SensorConfig = field(metadata=meta(ctypes.c_byte * 16), default=b'')
     reserved: List[int] = field(metadata=meta(ctypes.c_uint32 * 6), default_factory=_make_int_array_6)
-
-@dataclass
-class SensorConfig(NativeEndianCDataMixIn):
-    lidar_num_samples: int = field(metadata=meta(ctypes.c_int32), default=0)
-    lidar_fov_degrees: float = field(metadata=meta(ctypes.c_float), default=0)
-    lidar_noise_factor: float = field(metadata=meta(ctypes.c_float), default=0)
-    lidar_base_sigma: float = field(metadata=meta(ctypes.c_float), default=0)
 
 @dataclass
 class ManagerConfig(NativeEndianCDataMixIn):
@@ -135,11 +136,11 @@ class ManagerConfig(NativeEndianCDataMixIn):
 assert CompiledLevel.size() == 85592, \
     f"CompiledLevel size mismatch: {CompiledLevel.size()} != 85592"
 
-assert ReplayMetadata.size() == 192, \
-    f"ReplayMetadata size mismatch: {ReplayMetadata.size()} != 192"
-
 assert SensorConfig.size() == 16, \
     f"SensorConfig size mismatch: {SensorConfig.size()} != 16"
+
+assert ReplayMetadata.size() == 208, \
+    f"ReplayMetadata size mismatch: {ReplayMetadata.size()} != 208"
 
 assert ManagerConfig.size() == 36, \
     f"ManagerConfig size mismatch: {ManagerConfig.size()} != 36"
