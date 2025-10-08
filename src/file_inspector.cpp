@@ -126,41 +126,21 @@ bool validateReplayFileJson(const FileInfo& info) {
         errors << "Invalid magic number: 0x" << std::hex << metadata.magic << std::dec;
     }
     
-    // Validate version - v3 and v4 supported
-    if (metadata.version != 3 && metadata.version != 4) {
+    // Validate version - v5 only
+    if (metadata.version != 5) {
         valid = false;
         if (errors.tellp() > 0) errors << "; ";
-        errors << "Unsupported version: " << metadata.version << " (only v3 and v4 supported)";
+        errors << "Unsupported version: " << metadata.version << " (only v5 supported)";
     }
     
-    // Check file structure
+    // Check file structure - v5 format has variable-size records (actions + checksums)
+    // We can only check that the file contains at least the metadata + level data
     size_t expected_min_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
 
-    if (metadata.version == 3) {
-        // v3 format: Fixed structure with pure action data
-        if (metadata.num_steps > 0) {
-            expected_min_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
-        }
-
-        if (info.file_size < expected_min_size) {
-            valid = false;
-            if (errors.tellp() > 0) errors << "; ";
-            errors << "File too small: " << info.file_size << " bytes (expected " << expected_min_size << " for v3)";
-        }
-    } else if (metadata.version == 4) {
-        // v4 format: Mixed records (actions + checksums), so we can only check minimum size
-        if (metadata.num_steps > 0) {
-            // Minimum: action data alone (without checksum records)
-            expected_min_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
-            // Add RecordType enum for each action record
-            expected_min_size += metadata.num_steps * sizeof(uint32_t);
-        }
-
-        if (info.file_size < expected_min_size) {
-            valid = false;
-            if (errors.tellp() > 0) errors << "; ";
-            errors << "File too small: " << info.file_size << " bytes (minimum expected " << expected_min_size << " for v4)";
-        }
+    if (info.file_size < expected_min_size) {
+        valid = false;
+        if (errors.tellp() > 0) errors << "; ";
+        errors << "File too small: " << info.file_size << " bytes (minimum expected " << expected_min_size << " for metadata + levels)";
     }
     
     // Validate metadata ranges
@@ -197,7 +177,21 @@ bool validateReplayFileJson(const FileInfo& info) {
     std::cout << "    \"num_agents_per_world\": " << metadata.num_agents_per_world << ",\n";
     std::cout << "    \"num_steps\": " << metadata.num_steps << ",\n";
     std::cout << "    \"actions_per_step\": " << metadata.actions_per_step << ",\n";
-    std::cout << "    \"seed\": " << metadata.seed << "\n";
+    std::cout << "    \"seed\": " << metadata.seed;
+
+    // Add sensor config for v5+ files
+    if (metadata.version >= 5) {
+        std::cout << ",\n";
+        std::cout << "    \"sensor_config\": {\n";
+        std::cout << "      \"lidar_num_samples\": " << metadata.sensor_config.lidar_num_samples << ",\n";
+        std::cout << "      \"lidar_fov_degrees\": " << metadata.sensor_config.lidar_fov_degrees << ",\n";
+        std::cout << "      \"lidar_noise_factor\": " << metadata.sensor_config.lidar_noise_factor << ",\n";
+        std::cout << "      \"lidar_base_sigma\": " << metadata.sensor_config.lidar_base_sigma << "\n";
+        std::cout << "    }\n";
+    } else {
+        std::cout << "\n";
+    }
+
     std::cout << "  },\n";
     
     // Try to load all embedded levels (v3 format)
@@ -250,54 +244,29 @@ bool validateReplayFile(const FileInfo& info) {
         return false;
     }
     
-    // Validate version - v3 and v4 supported
-    if (metadata.version == 3 || metadata.version == 4) {
-        std::cout << "✓ Valid version (" << metadata.version;
-        if (metadata.version == 4) {
-            std::cout << " with checksums";
-        }
-        std::cout << ")\n";
+    // Validate version - v5 only
+    if (metadata.version == 5) {
+        std::cout << "✓ Valid version (v5 with sensor config)\n";
     } else {
-        std::cout << "✗ Unsupported version: " << metadata.version << " (only v3 and v4 supported)\n";
+        std::cout << "✗ Unsupported version: " << metadata.version << " (only v5 supported)\n";
         return false;
     }
     
-    // Check file structure - calculate expected size based on format version
+    // Check file structure - v5 format: [ReplayMetadata][CompiledLevel1...N][Mixed Records: Actions + Checksums]
     size_t expected_min_size = sizeof(madEscape::ReplayMetadata) + (metadata.num_worlds * sizeof(CompiledLevel));
 
-    if (metadata.version == 3) {
-        // v3 format: [ReplayMetadata][CompiledLevel1...N][Actions...]
-        if (metadata.num_steps > 0) {
-            expected_min_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
-        }
+    if (info.file_size >= expected_min_size) {
+        std::cout << "✓ File structure intact (v5 format with checksums and sensor config)\n";
 
-        if (info.file_size >= expected_min_size) {
-            std::cout << "✓ File structure intact (v3 format)\n";
-        } else {
-            std::cout << "✗ File too small: " << info.file_size << " bytes < " << expected_min_size << " expected for v3\n";
-            return false;
+        // Try to estimate checksum count for v5 format
+        size_t checksum_interval = 200; // From CHECKSUM_INTERVAL constant
+        size_t expected_checksum_points = metadata.num_steps / checksum_interval;
+        if (expected_checksum_points > 0) {
+            std::cout << "  Estimated checksum verification points: " << expected_checksum_points << "\n";
         }
-    } else if (metadata.version == 4) {
-        // v4 format: [ReplayMetadata][CompiledLevel1...N][Mixed Records: Actions + Checksums]
-        if (metadata.num_steps > 0) {
-            // Minimum size estimate (actions with record type headers, without checksum records)
-            expected_min_size += metadata.num_steps * metadata.num_worlds * metadata.num_agents_per_world * metadata.actions_per_step * sizeof(int32_t);
-            expected_min_size += metadata.num_steps * sizeof(uint32_t); // RecordType for each action
-        }
-
-        if (info.file_size >= expected_min_size) {
-            std::cout << "✓ File structure intact (v4 format with checksums)\n";
-
-            // Try to estimate checksum count for v4 format
-            size_t checksum_interval = 200; // From CHECKSUM_INTERVAL constant
-            size_t expected_checksum_points = metadata.num_steps / checksum_interval;
-            if (expected_checksum_points > 0) {
-                std::cout << "  Estimated checksum verification points: " << expected_checksum_points << "\n";
-            }
-        } else {
-            std::cout << "✗ File too small: " << info.file_size << " bytes < " << expected_min_size << " minimum expected for v4\n";
-            return false;
-        }
+    } else {
+        std::cout << "✗ File too small: " << info.file_size << " bytes < " << expected_min_size << " (metadata + levels)\n";
+        return false;
     }
     
     // Validate metadata ranges
@@ -321,15 +290,24 @@ bool validateReplayFile(const FileInfo& info) {
     
     std::cout << "\nRecording Metadata:\n";
     std::cout << "  Simulation: " << metadata.sim_name << "\n";
-    
+
     // v3 format displays multi-level information
     std::cout << "  Primary level: " << metadata.level_name << " (legacy field)\n";
     std::cout << "  World levels: " << metadata.num_worlds << "\n";
-    
+
     std::cout << "  Created: " << formatTimestamp(metadata.timestamp) << "\n";
     std::cout << "  Worlds: " << metadata.num_worlds << ", Agents per world: " << metadata.num_agents_per_world << "\n";
     std::cout << "  Steps recorded: " << metadata.num_steps << ", Actions per step: " << metadata.actions_per_step << "\n";
     std::cout << "  Random seed: " << metadata.seed << "\n";
+
+    // Display sensor config for v5+ files
+    if (metadata.version >= 5) {
+        std::cout << "\nSensor Configuration:\n";
+        std::cout << "  Lidar Beams: " << metadata.sensor_config.lidar_num_samples << "\n";
+        std::cout << "  Lidar FOV: " << metadata.sensor_config.lidar_fov_degrees << "°\n";
+        std::cout << "  Noise Factor: " << metadata.sensor_config.lidar_noise_factor << "\n";
+        std::cout << "  Base Sigma: " << metadata.sensor_config.lidar_base_sigma << "\n";
+    }
     
     // Try to load all embedded levels (v3 format)
     auto levels_opt = madrona::escape_room::ReplayLoader::loadAllEmbeddedLevels(info.filepath);

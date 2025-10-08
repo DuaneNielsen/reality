@@ -148,6 +148,7 @@ def main():
                             num_worlds = len(compiled_levels)
 
         # Build overrides with resolved values
+        # Note: lidar_config will be extracted from wandb in create_inference_config_from_wandb
         overrides = {
             "model_kwargs": model_kwargs,
             "level_file": level_file,
@@ -215,6 +216,17 @@ def main():
     # Create and run inference
     runner = InferenceRunner(config)
     print(f"Model kwargs: {config.model_kwargs}")
+
+    # Print sensor configuration
+    if config.lidar_config:
+        print(
+            f"Lidar config: {config.lidar_config.lidar_num_samples} beams, "
+            f"{config.lidar_config.lidar_fov_degrees}° FOV, "
+            f"noise_factor={config.lidar_config.lidar_noise_factor}, "
+            f"base_sigma={config.lidar_config.lidar_base_sigma}"
+        )
+    else:
+        print("Using default lidar config (128 beams, 120° FOV, no noise)")
 
     # Run inference
     episode_tracker, _ = runner.run_steps(callback=detailed_wandb_callback)

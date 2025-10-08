@@ -77,6 +77,24 @@ def create_inference_config_from_wandb(
     sim_seed = overrides.get("sim_seed", 0) if overrides else 0
     fp16 = overrides.get("fp16", False) if overrides else False
 
+    # Extract sensor config from wandb if available
+    lidar_config = None
+    if hasattr(run, "config"):
+        # Check if sensor config was saved during training
+        if "lidar_num_samples" in run.config:
+            from madrona_escape_room.sensor_config import LidarConfig
+
+            lidar_config = LidarConfig(
+                lidar_num_samples=run.config.get("lidar_num_samples", 128),
+                lidar_fov_degrees=run.config.get("lidar_fov_degrees", 120.0),
+                lidar_noise_factor=run.config.get("lidar_noise_factor", 0.0),
+                lidar_base_sigma=run.config.get("lidar_base_sigma", 0.0),
+            )
+
+    # Allow override from overrides dict
+    if overrides and "lidar_config" in overrides:
+        lidar_config = overrides["lidar_config"]
+
     # Convert exec_mode string to enum
     import madrona_escape_room
 
@@ -110,6 +128,7 @@ def create_inference_config_from_wandb(
         sim_seed=sim_seed,
         fp16=fp16,
         level_file=level_file,
+        lidar_config=lidar_config,
     )
 
     return config

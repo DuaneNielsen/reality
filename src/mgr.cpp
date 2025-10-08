@@ -1549,8 +1549,8 @@ void Manager::recordActions(const std::vector<int32_t>& frame_actions)
         return;
     }
 
-    // For v4 format, write action record header
-    if (impl_->recordingMetadata.version == 4) {
+    // For v4 and v5 format, write action record header
+    if (impl_->recordingMetadata.version >= 4) {
         RecordType actionType = RecordType::ACTION;
         impl_->recordingFile.write(reinterpret_cast<const char*>(&actionType), sizeof(actionType));
     }
@@ -1745,14 +1745,14 @@ std::unique_ptr<Manager> Manager::fromReplay(
     madEscape::ReplayMetadata metadata_inline;
     replay_file.read(reinterpret_cast<char*>(&metadata_inline), sizeof(metadata_inline));
 
-    // Validate metadata - v3 and v4 formats supported
+    // Validate metadata - v5 only
     if (!metadata_inline.isValid()) {
         if (metadata_inline.magic != REPLAY_MAGIC) {
             std::cerr << "Error: Invalid replay file format. Expected magic: 0x"
                       << std::hex << REPLAY_MAGIC << ", got: 0x"
                       << metadata_inline.magic << std::dec << "\n";
         } else {
-            std::cerr << "Error: Only replay format v3 and v4 are supported. This file is v"
+            std::cerr << "Error: Only replay format v5 is supported. This file is v"
                       << metadata_inline.version << "\n";
             std::cerr << "Please re-record your replay with the current version.\n";
         }
@@ -1786,63 +1786,56 @@ std::unique_ptr<Manager> Manager::fromReplay(
     std::vector<std::vector<uint32_t>> checksums;
     std::vector<uint32_t> checksum_steps;
 
-    if (metadata_inline.version == 3) {
-        // v3 format: Pure action data
-        int64_t actions_size = metadata_inline.num_steps * metadata_inline.num_worlds * metadata_inline.actions_per_step * sizeof(int32_t);
-        actions = HeapArray<int32_t>(actions_size / sizeof(int32_t));
-        replay_file.read((char *)actions.data(), actions_size);
-    } else if (metadata_inline.version == 4) {
-        // v4 format: Mixed ACTION and CHECKSUM records
-        actions = HeapArray<int32_t>(metadata_inline.num_steps * metadata_inline.num_worlds * metadata_inline.actions_per_step);
-        uint32_t action_idx = 0;
-        uint32_t current_step = 0;
-        bool first_record = true;
+    // v5 format: Mixed ACTION and CHECKSUM records
+    actions = HeapArray<int32_t>(metadata_inline.num_steps * metadata_inline.num_worlds * metadata_inline.actions_per_step);
+    uint32_t action_idx = 0;
+    uint32_t current_step = 0;
+    bool first_record = true;
 
-        while (current_step < metadata_inline.num_steps && !replay_file.eof()) {
-            // Read record type
-            RecordType record_type;
-            replay_file.read(reinterpret_cast<char*>(&record_type), sizeof(record_type));
+    while (current_step < metadata_inline.num_steps && !replay_file.eof()) {
+        // Read record type
+        RecordType record_type;
+        replay_file.read(reinterpret_cast<char*>(&record_type), sizeof(record_type));
 
-            if (replay_file.fail()) break;
+        if (replay_file.fail()) break;
 
-            if (record_type == RecordType::ACTION) {
-                // Read action data for all worlds in this step
-                uint32_t step_action_count = metadata_inline.num_worlds * metadata_inline.actions_per_step;
-                replay_file.read(reinterpret_cast<char*>(&actions[action_idx]),
-                               step_action_count * sizeof(int32_t));
-                action_idx += step_action_count;
-                current_step++;
+        if (record_type == RecordType::ACTION) {
+            // Read action data for all worlds in this step
+            uint32_t step_action_count = metadata_inline.num_worlds * metadata_inline.actions_per_step;
+            replay_file.read(reinterpret_cast<char*>(&actions[action_idx]),
+                           step_action_count * sizeof(int32_t));
+            action_idx += step_action_count;
+            current_step++;
+            first_record = false;
+        } else if (record_type == RecordType::CHECKSUM) {
+            // Read num_worlds field (type was already read)
+            uint32_t num_worlds;
+            replay_file.read(reinterpret_cast<char*>(&num_worlds), sizeof(num_worlds));
+
+            // Read checksum values for all worlds
+            std::vector<uint32_t> step_checksums(num_worlds);
+            replay_file.read(reinterpret_cast<char*>(step_checksums.data()),
+                           step_checksums.size() * sizeof(uint32_t));
+
+            // Store checksums and step number
+            checksums.push_back(std::move(step_checksums));
+
+            // For the initial checksum (first record), store at step 0
+            // For subsequent checksums, store at the current step after actions
+            if (first_record) {
+                checksum_steps.push_back(0);
                 first_record = false;
-            } else if (record_type == RecordType::CHECKSUM) {
-                // Read num_worlds field (type was already read)
-                uint32_t num_worlds;
-                replay_file.read(reinterpret_cast<char*>(&num_worlds), sizeof(num_worlds));
-
-                // Read checksum values for all worlds
-                std::vector<uint32_t> step_checksums(num_worlds);
-                replay_file.read(reinterpret_cast<char*>(step_checksums.data()),
-                               step_checksums.size() * sizeof(uint32_t));
-
-                // Store checksums and step number
-                checksums.push_back(std::move(step_checksums));
-
-                // For the initial checksum (first record), store at step 0
-                // For subsequent checksums, store at the current step after actions
-                if (first_record) {
-                    checksum_steps.push_back(0);
-                    first_record = false;
-                } else {
-                    checksum_steps.push_back(current_step);
-                }
             } else {
-                std::cerr << "Error: Unknown record type " << static_cast<uint32_t>(record_type)
-                         << " at step " << current_step << "\n";
-                return nullptr;
+                checksum_steps.push_back(current_step);
             }
+        } else {
+            std::cerr << "Error: Unknown record type " << static_cast<uint32_t>(record_type)
+                     << " at step " << current_step << "\n";
+            return nullptr;
         }
-
-        std::cout << "INFO: Loaded " << checksums.size() << " checksum verification points\n";
     }
+
+    std::cout << "INFO: Loaded " << checksums.size() << " checksum verification points\n";
 
     mgr->impl_->replayData = ReplayData{metadata_inline, std::move(actions), std::move(checksums), std::move(checksum_steps)};
     mgr->impl_->currentReplayStep = 0;
